@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "node scripts/next-dev.mjs",
     "dev:clean": "node scripts/dev-clean.mjs",
-    "build": "node scripts/next-build.mjs",
+    "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",

@@ -172,18 +172,18 @@ type HeaderMapEntry = {
 };
 
 const PARAMETER_ALIASES: ParameterAlias[] = [
-  parameter("nitrogen", ["N", "Nitrogen", "NitrÃ³geno", "Azote"], ["soil", "foliar"], ["%", "mg/kg", "ppm"]),
+  parameter("nitrogen", ["N", "Nitrogen", "Nitrógeno", "Azote"], ["soil", "foliar"], ["%", "mg/kg", "ppm"]),
   parameter("total_nitrogen", ["N total", "total nitrogen"], ["soil", "foliar"], ["%"]),
   parameter("nitrate", ["NO3", "N-NO3", "nitrate"], ["soil", "foliar"], ["mg/kg", "ppm"]),
   parameter("ammonium", ["NH4", "N-NH4", "ammonium"], ["soil", "foliar"], ["mg/kg", "ppm"]),
-  parameter("phosphorus", ["P", "Phosphorus", "FÃ³sforo", "Fosforo", "Phosphore"], ["soil", "foliar"], ["mg/kg", "ppm", "%"]),
+  parameter("phosphorus", ["P", "Phosphorus", "Fósforo", "Fosforo", "Phosphore"], ["soil", "foliar"], ["mg/kg", "ppm", "%"]),
   parameter("phosphorus_olsen", ["P Olsen"], ["soil"], ["mg/kg", "ppm"]),
   parameter("phosphorus_bray", ["P Bray"], ["soil"], ["mg/kg", "ppm"]),
   parameter("phosphorus_mehlich", ["P Mehlich"], ["soil"], ["mg/kg", "ppm"]),
   parameter("buffer_ph", ["buffer pH", "buffer index"], ["soil"]),
   parameter("potassium", ["K", "Potassium", "Potasio"], ["soil", "foliar"], ["cmol(+)/kg", "cmolc/kg", "meq/100g", "mg/kg", "ppm", "%"]),
   parameter("calcium", ["Ca", "Calcium", "Calcio"], ["soil", "foliar"], ["cmol(+)/kg", "cmolc/kg", "meq/100g", "mg/kg", "ppm", "%"]),
-  parameter("magnesium", ["Mg", "Magnesium", "Magnesio", "MagnÃ©sium"], ["soil", "foliar"], ["cmol(+)/kg", "cmolc/kg", "meq/100g", "mg/kg", "ppm", "%"]),
+  parameter("magnesium", ["Mg", "Magnesium", "Magnesio", "Magnésium"], ["soil", "foliar"], ["cmol(+)/kg", "cmolc/kg", "meq/100g", "mg/kg", "ppm", "%"]),
   parameter("sulfur", ["S", "Sulfur", "Azufre", "Soufre"], ["soil", "foliar"], ["mg/kg", "ppm", "%"]),
   parameter("iron", ["Fe", "Iron", "Hierro", "Fer", "Hierro DTPA"], ["soil", "foliar"], ["mg/kg", "ppm"]),
   parameter("zinc", ["Zn", "Zinc"], ["soil", "foliar"], ["mg/kg", "ppm"]),
@@ -194,21 +194,21 @@ const PARAMETER_ALIASES: ParameterAlias[] = [
   parameter("chloride", ["Cl", "Chloride", "Cloruro"], ["soil", "foliar"], ["mg/kg", "ppm"]),
   parameter("sodium", ["Na", "Sodium", "Sodio"], ["soil", "foliar"], ["cmol(+)/kg", "mg/kg", "ppm"]),
   parameter("aluminum", ["Al", "Aluminum", "Aluminio", "Aluminium"], ["soil"], ["mg/kg", "ppm", "cmol(+)/kg", "meq/100g"]),
-  parameter("soluble_salts", ["soluble salts", "sales solubles"], ["soil"], ["dS/m", "mS/cm", "ÂµS/cm"]),
+  parameter("soluble_salts", ["soluble salts", "sales solubles"], ["soil"], ["dS/m", "mS/cm", "µS/cm"]),
   parameter("lime_requirement", ["lime requirement", "lime", "cal requirement", "encalado"], ["soil"]),
   parameter("ca_mg_ratio", ["Ca:Mg ratio", "K:Mg ratio"], ["soil"]),
   parameter("silicon", ["Si", "Silicon", "Silicio"], ["soil", "foliar"], ["mg/kg", "ppm"]),
   parameter("ph", ["pH", "pH H2O", "pH KCl"], ["soil"], undefined, [0, 14]),
-  parameter("organic_matter", ["MO", "M.O.", "OM", "Organic Matter", "Materia OrgÃ¡nica", "MatiÃ¨re organique"], ["soil"], ["%"]),
+  parameter("organic_matter", ["MO", "M.O.", "OM", "Organic Matter", "Materia Orgánica", "Matière organique"], ["soil"], ["%"]),
   parameter("cec", ["CEC", "C.E.C.", "CIC", "CICE", "cation exchange capacity"], ["soil"], ["cmol(+)/kg", "cmolc/kg", "meq/100g"]),
-  parameter("electrical_conductivity", ["CE", "EC", "electrical conductivity", "conductividad elÃ©ctrica", "Cond. ElÃ©ctrica", "conductividad electrica"], ["soil"], ["dS/m", "mS/cm", "ÂµS/cm"]),
+  parameter("electrical_conductivity", ["CE", "EC", "electrical conductivity", "conductividad eléctrica", "Cond. Eléctrica", "conductividad electrica"], ["soil"], ["dS/m", "mS/cm", "µS/cm"]),
   parameter("texture", ["texture", "textura"], ["soil"]),
   parameter("sand", ["sand", "arena", "sable"], ["soil"], ["%"]),
   parameter("silt", ["silt", "limo", "limon"], ["soil"], ["%"]),
   parameter("clay", ["clay", "arcilla", "argile"], ["soil"], ["%"]),
   parameter("bulk_density", ["bulk density", "densidad aparente", "Da", "BD"], ["soil"]),
   parameter("exchangeable_acidity", ["exchangeable acidity", "acidez intercambiable", "acidez", "Acd. Interc.", "H+Al"], ["soil"], ["cmol(+)/kg", "cmolc/kg", "meq/100g"]),
-  parameter("base_saturation", ["base saturation", "saturaciÃ³n de bases"], ["soil"], ["%"]),
+  parameter("base_saturation", ["base saturation", "saturación de bases"], ["soil"], ["%"]),
   parameter("foliar_nitrogen", ["foliar N", "leaf N", "tissue N"], ["foliar"], ["%"]),
   parameter("dry_matter", ["dry matter", "materia seca"], ["foliar"], ["%"]),
   parameter("leaf_tissue", ["leaf tissue", "tejido foliar", "hoja"], ["foliar"]),
@@ -336,7 +336,7 @@ const UNIT_ALIASES: Array<{ aliases: string[]; normalizedUnit: string }> = [
   { aliases: ["meq/100g", "meq 100g-1"], normalizedUnit: "meq/100g" },
   { aliases: ["ds/m", "dS/m"], normalizedUnit: "dS/m" },
   { aliases: ["ms/cm", "mS/cm"], normalizedUnit: "mS/cm" },
-  { aliases: ["Âµs/cm", "us/cm", "uS/cm"], normalizedUnit: "ÂµS/cm" },
+  { aliases: ["µs/cm", "us/cm", "uS/cm"], normalizedUnit: "µS/cm" },
 ];
 
 function parameter(
@@ -677,7 +677,7 @@ export function parseNumericValue(rawText: string): ParsedValue {
     };
   }
 
-  const range = cleanRaw.match(/^([+-]?\d[\d.,]*)\s*(?:-|â€“|â€”|to|a)\s*([+-]?\d[\d.,]*)$/i);
+  const range = cleanRaw.match(/^([+-]?\d[\d.,]*)\s*(?:-|–|—|to|a)\s*([+-]?\d[\d.,]*)$/i);
   if (range) {
     return {
       raw,
@@ -850,7 +850,7 @@ export function extractMetadata(
     return (
       (token.rowIndex ?? 999) <= 2 &&
       !isNoiseToken(token) &&
-      /^[A-ZÃÃ‰ÃÃ“ÃšÃ‘0-9 .&-]{6,}$/.test(text) &&
+      /^[A-ZÁÉÍÓÚÑ0-9 .&-]{6,}$/.test(text) &&
       /lab|agro|soil|anal/i.test(text)
     );
   });
@@ -1497,7 +1497,7 @@ function splitResultLine(line: string) {
 }
 
 function splitCompactResultCell(text: string) {
-  const numericMatch = text.match(/^(.*?)\s*((?:<|>)?\s*[+-]?\d[\d.,]*(?:\s*(?:-|â€“|â€”|to|a)\s*[+-]?\d[\d.,]*)?|ND|N\.D\.|trace|trazas|not detected)\s*(.*)$/i);
+  const numericMatch = text.match(/^(.*?)\s*((?:<|>)?\s*[+-]?\d[\d.,]*(?:\s*(?:-|–|—|to|a)\s*[+-]?\d[\d.,]*)?|ND|N\.D\.|trace|trazas|not detected)\s*(.*)$/i);
 
   if (!numericMatch) return [text.trim()];
 
@@ -1870,7 +1870,7 @@ function normalizeParameterCandidateText(rawText: string) {
     " "
   );
   const withoutTrailingUnit = withoutUnitParentheses.replace(
-    /\b(?:%|ppm|mg\/kg|mg\s*kg-?1|g\/kg|g\s*kg-?1|cmol\(\+\)\/kg|cmolc\/kg|cmol\/kg|meq\/100g|ds\/m|ms\/cm|Âµs\/cm|us\/cm)\b/gi,
+    /\b(?:%|ppm|mg\/kg|mg\s*kg-?1|g\/kg|g\s*kg-?1|cmol\(\+\)\/kg|cmolc\/kg|cmol\/kg|meq\/100g|ds\/m|ms\/cm|µs\/cm|us\/cm)\b/gi,
     " "
   );
 

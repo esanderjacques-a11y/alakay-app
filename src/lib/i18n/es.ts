@@ -2,7 +2,7 @@
   appName: "Alakay",
   account: "Cuenta",
   tagline:
-    "Herramienta de interpretaciÃ³n de anÃ¡lisis de suelo y foliar para pequeÃ±os productores.",
+    "Herramienta de interpretación de análisis de suelo y foliar para pequeños productores.",
   shortTagline: "Interpretacion de suelo y foliar",
   agronomicInterpretation: "Interpretacion agronmica",
 
@@ -25,27 +25,27 @@
   themeToggleDesc: "Cambie entre la interfaz clara y oscura.",
   dataTools: "Herramientas de datos",
   dataToolsDesc:
-    "Herramientas opcionales para parÃ¡metros y rangos personalizados.",
+    "Herramientas opcionales para parámetros y rangos personalizados.",
   recycleBin: "Papelera",
   recycleBinDesc:
     "Revise elementos personalizados eliminados y restaurelos cuando sea necesario.",
   on: "Activado",
   off: "Desactivado",
 
-  homeSubtitle: "Elija cmo iniciar o continuar un anÃ¡lisis.",
-  insertNew: "Nuevo anÃ¡lisis",
+  homeSubtitle: "Elija cómo iniciar o continuar un análisis.",
+  insertNew: "Nuevo análisis",
   insertNewDesc:
-    "Iniciar un nuevo anÃ¡lisis de suelo o foliar manualmente.",
+    "Iniciar un nuevo análisis de suelo o foliar manualmente.",
   importData: "Importar datos",
   importDataDesc:
     "Importar valores desde Excel, CSV, PDF o fotos.",
   takePhoto: "Tomar foto",
   takePhotoDesc:
-    "Abra la camara, tome una foto del reporte e importe los valores.",
+    "Abra la cámara, tome una foto del reporte e importe los valores.",
   openHistoryDesc:
-    "Abrir historial, reportes guardados y anÃ¡lisis en progreso.",
-  loginToViewHistory: "Inicie sesiÃ³n para ver reportes guardados.",
-  loginOrGuestShort: "Inicie sesiÃ³n o contine como invitado.",
+    "Abrir historial, reportes guardados y análisis en progreso.",
+  loginToViewHistory: "Inicie sesión para ver reportes guardados.",
+  loginOrGuestShort: "Inicie sesión o continúe como invitado.",
 
   excel: "Excel",
   excelDesc: "Importar valores .xlsx o .xls.",
@@ -66,26 +66,26 @@
   soil: "Suelo",
   foliar: "Foliar",
 
-  startNewAnalysis: "Iniciar un nuevo anÃ¡lisis",
+  startNewAnalysis: "Iniciar un nuevo análisis",
   startNewAnalysisDesc:
-    "Seleccione el cultivo, el tipo de anÃ¡lisis, ingrese los valores del laboratorio y obtenga una interpretaciÃ³n.",
-  startAnalysis: "Iniciar anÃ¡lisis",
+    "Seleccione el cultivo, el tipo de análisis, ingrese los valores del laboratorio y obtenga una interpretación.",
+  startAnalysis: "Iniciar análisis",
 
-  setupTitle: "Configuracion del anÃ¡lisis",
-  setupDesc: "Elija el cultivo y el tipo de anÃ¡lisis de laboratorio.",
+  setupTitle: "Configuracion del análisis",
+  setupDesc: "Elija el cultivo y el tipo de análisis de laboratorio.",
   continueToValues: "Continuar a valores del laboratorio",
   continueShort: "Continuar",
   backToSetup: "Volver a configuracion",
 
   reportDetails: "Detalles del reporte",
-  reportDetailsDesc: "Informacin opcional para organizar este anÃ¡lisis.",
+  reportDetailsDesc: "Informacin opcional para organizar este análisis.",
   additionalInfoRecommended: "Informacin adicional (recomendado)",
   addReportDetailsRecommended: "Agregar detalles del reporte (recomendado)",
   hideReportDetails: "Ocultar detalles del reporte",
-  analysisName: "Nombre del anÃ¡lisis",
+  analysisName: "Nombre del análisis",
   labName: "Nombre del laboratorio",
   farmName: "Nombre de la finca",
-  lotName: "Nombre / nÃºmero de lote",
+  lotName: "Nombre / número de lote",
   country: "Pas",
   region: "Regin",
   allRegions: "Teodas las regiones",
@@ -107,34 +107,34 @@
 
   enterValues: "Ingresar valores del laboratorio",
   enterValuesHelp:
-    "Complete solo los parÃ¡metros que aparecen en su anÃ¡lisis. Use la unidad indicada al lado de cada parÃ¡metro.",
-  interpretAnalysis: "Interpretar anÃ¡lisis",
+    "Complete solo los parámetros que aparecen en su análisis. Use la unidad indicada al lado de cada parámetro.",
+  interpretAnalysis: "Interpretar análisis",
   interpreting: "Interpretando...",
   valuePlaceholder: "Ingresar valor",
   selectCropFirst:
-    "Seleccione un cultivo para cargar los parÃ¡metros y unidades disponibles.",
+    "Seleccione un cultivo para cargar los parámetros y unidades disponibles.",
   parameters: "Parametros",
   entered: "Ingresados",
   interpreted: "Interpretados",
 
   searchPlaceholder:
-    "Buscar parÃ¡metro, alias, sÃ­mbolo o categorÃ­a",
+    "Buscar parámetro, alias, símbolo o categoría",
   all: "Todos",
   allParametersHint:
-    'Todos los parÃ¡metros son visibles. Desmarque "Todos" para filtrar por categorÃ­a.',
+    'Todos los parámetros son visibles. Desmarque "Todos" para filtrar por categoría.',
   sortByType: "Ordenar por tipo",
   sortByName: "Ordenar por nombre",
   clearAllValues: "Limpiar valores",
   importCsvExcel: "Importar CSV/Excel",
-  addCustomParameter: "Agregar parÃ¡metro personalizado",
+  addCustomParameter: "Agregar parámetro personalizado",
   manageCustomData: "Gestionar datos personalizados",
-  manageCustomParameters: "Gestionar parÃ¡metros personalizados",
+  manageCustomParameters: "Gestionar parámetros personalizados",
   manageCustomParametersDesc:
-    "Editar, eliminar o restaurar parÃ¡metros que creÃ³.",
+    "Editar, eliminar o restaurar parámetros que creó.",
   manageCustomRanges: "Gestionar rangos personalizados",
   manageCustomRangesDesc:
-    "Crear o editar rangos de interpretaciÃ³n personalizados.",
-  addNewParameter: "Agregar parÃ¡metro",
+    "Crear o editar rangos de interpretación personalizados.",
+  addNewParameter: "Agregar parámetro",
   customBadge: "Personalizado",
   changeUnit: "Cambiar unidad",
   loadingSavedValues: "Cargando valores guardados en el formulario...",
@@ -148,32 +148,32 @@
   noCropsFound: "No se encontraron cultivos. Intente recargar.",
   cropLoadingError: "Error al cargar cultivos",
 
-  analysisSummary: "Resumen del anÃ¡lisis",
-  needsAttention: "Necesita atencin",
-  needsAttentionDesc: "Estos valores pueden requerir correccin o revisin.",
+  analysisSummary: "Resumen del análisis",
+  needsAttention: "Necesita atención",
+  needsAttentionDesc: "Estos valores pueden requerir corrección o revisión.",
   warning: "Advertencia / Monitorear",
   warningDesc:
-    "Estos valores no son necesariamente creeticos, pero deben vigilarse.",
+    "Estos valores no son necesariamente críticos, pero deben vigilarse.",
   normal: "Normal / Aceptable",
-  normalDesc: "Estos valores estn dentro del rango aceptable.",
+  normalDesc: "Estos valores están dentro del rango aceptable.",
   positive: "Positivo",
   positiveDesc: "Estos valores son favorables.",
-  neutral: "Neutral / Descreeiptivo",
+  neutral: "Neutral / Descriptivo",
   neutralDesc:
-    "Estos valores descreeiben la muestra, pero no son directamente buenos o malos.",
+    "Estos valores describen la muestra, pero no son directamente buenos o malos.",
   other: "Otro",
   otherDesc:
-    "Estos valores tienen una clasificacin que an no est definida en la app.",
+    "Estos valores tienen una clasificación que aún no está definida en la app.",
 
-  noRangeFound: "No se encontr rango",
+  noRangeFound: "No se encontró rango",
   noRangeFoundDesc:
-    "Estos valores fueron ingresados, pero Alakay no encontrÃ³ un rango de interpretaciÃ³n.",
+    "Estos valores fueron ingresados, pero Alakay no encontró un rango de interpretación.",
   source: "Fuente",
   confidence: "Confianza",
   proxyRange: "Rango proxy",
   notSpecified: "No especificado",
   rangeLabel: "Rango",
-  resultGraphs: "GrÃ¡ficos de resultados",
+  resultGraphs: "Gráficos de resultados",
   resultGraphsDesc: "Vista horizontal de cada valor frente a su rango de referencia.",
   referenceBand: "Banda de referencia",
   measuredValue: "Valor medido",
@@ -182,32 +182,32 @@
   selectCropMessage: "Seleccione un cultivo primero.",
   enterOneValueMessage: "Ingrese al menos un valor del laboratorio.",
   noCropsLoaded:
-    "No se cargaron cultivos. Revise el acceso a la base de datos o la importacin CSV.",
-  noParametersCategory: "No hay parÃ¡metros en esta categorÃ­a.",
+    "No se cargaron cultivos. Revise el acceso a la base de datos o la importación CSV.",
+  noParametersCategory: "No hay parámetros en esta categoría.",
   generalCropWarning:
-    "Seleccion una referencia general. Los resultados son aproximados y deben usarse solo si el cultivo especfico no est disponible.",
+    "Seleccionó una referencia general. Los resultados son aproximados y deben usarse solo si el cultivo específico no está disponible.",
   generalReferenceMode:
     "Modo de referencia general: estos rangos son aproximados.",
   generalReferenceModeTitle: "Modo de referencia general",
 
-  noResultsYet: "TodavÃ­a no hay resultados",
+  noResultsYet: "Todavía no hay resultados",
   noResultsYetDesc:
-    "Ingrese valores del laboratorio e interprete el anÃ¡lisis primero.",
+    "Ingrese valores del laboratorio e interprete el análisis primero.",
   goToValues: "Ir a valores del laboratorio",
 
-  saveAnalysis: "Guardar anÃ¡lisis",
+  saveAnalysis: "Guardar análisis",
   analysisSavedState: "Guardado",
-  analysisAlreadySaved: "Este anÃ¡lisis ya est guardado.",
+  analysisAlreadySaved: "Este análisis ya está guardado.",
   saving: "Guardando...",
-  loginToSave: "Inicie sesiÃ³n para guardar su anÃ¡lisis.",
+  loginToSave: "Inicie sesión para guardar su análisis.",
   interpretBeforeSaving: "Interprete los valores antes de guardar.",
-  analysisSaved: "Analisis guardado correctamente.",
+  analysisSaved: "Análisis guardado correctamente.",
   exportingPdf: "Exportando...",
   exportPdf: "Exportar PDF",
   pdfExportFailed: "Error al exportar PDF.",
-  reportSubtitle: "Reporte de interpretaciÃ³n de suelo y foliar",
+  reportSubtitle: "Reporte de interpretación de suelo y foliar",
   generatedOn: "Generado el",
-  agronomicSummary: "Resumen agronmico del anÃ¡lisis",
+  agronomicSummary: "Resumen agronmico del análisis",
   interpretedValuesCount: "{count} valores interpretados",
   soilTexture: "Textura del suelo",
   textureClass: "Clase de textura",
@@ -235,9 +235,9 @@
   databaseSource: "Base de datos",
   officialRangeSource: "Rango oficial",
   adviceBulkDensityVeryHigh:
-    "La densidad aparente es alta. Puede indicar compactacin, menor crecimiento de raices, poca aireacin y menor infiltracin de agua. Mejore la materia organica, reduzca el trnsito pesado, use cultivos de cobertura y evale laboreo profundo solo si se confirma compactacin.",
+    "La densidad aparente es alta. Puede indicar compactación, menor crecimiento de raíces, poca aireación y menor infiltración de agua. Mejore la materia orgánica, reduzca el tránsito pesado, use cultivos de cobertura y evalúe laboreo profundo solo si se confirma compactación.",
   adviceBulkDensityHigh:
-    "La densidad aparente es moderadamente alta. Vigile el riesgo de compactacin, especialmente en suelos arcillosos o de manejo intensivo.",
+    "La densidad aparente es moderadamente alta. Vigile el riesgo de compactación, especialmente en suelos arcillosos o de manejo intensivo.",
   adviceBulkDensityOk:
     "La densidad aparente est dentro de un rango aceptable para muchos suelos agricolas.",
   advicePhLow:
@@ -247,25 +247,25 @@
   advicePhOk:
     "El pH del suelo est dentro del rango esperado para este cultivo o referencia.",
   adviceEcVeryHigh:
-    "La conductividad elÃ©ctrica es alta. Sugiere riesgo de salinidad. Revise calidad del agua de riego, drenaje, sodio y acumulacin de sales antes de corregir.",
+    "La conductividad eléctrica es alta. Sugiere riesgo de salinidad. Revise calidad del agua de riego, drenaje, sodio y acumulacin de sales antes de corregir.",
   adviceEcHigh:
-    "La conductividad elÃ©ctrica est eeleveada. Vigile el riesgo de salinidad y revise riego, drenaje y niveles de sodio.",
+    "La conductividad eléctrica est eeleveada. Vigile el riesgo de salinidad y revise riego, drenaje y niveles de sodio.",
   adviceEcOk:
-    "La conductividad elÃ©ctrica no indica un riesgo importante de salinidad segÃºn la referencia actual.",
+    "La conductividad eléctrica no indica un riesgo importante de salinidad según la referencia actual.",
   adviceSodiumHigh:
-    "El sodio es alto. Puede afectar la estructura del suelo, la infiltracin y el desarrollo de raices. Revise CE, SAR/ESP si est disponible, calcio, drenaje y posible necesidad de yeso.",
-  adviceSodiumOk: "El sodio est dentro del rango esperado segÃºn la referencia actual.",
+    "El sodio es alto. Puede afectar la estructura del suelo, la infiltración y el desarrollo de raíces. Revise CE, SAR/ESP si está disponible, calcio, drenaje y posible necesidad de yeso.",
+  adviceSodiumOk: "El sodio está dentro del rango esperado según la referencia actual.",
   adviceAluminumHigh:
-    "El aluminio es alto. Puede daar raices en suelos cidos y reducir la absorcin de nutrientes. Revise el pH y opciones de correccin de acidez como encalado.",
+    "El aluminio es alto. Puede dañar raíces en suelos ácidos y reducir la absorción de nutrientes. Revise el pH y opciones de corrección de acidez como encalado.",
   adviceAluminumOk:
-    "El aluminio est dentro del rango esperado segÃºn la referencia actual.",
+    "El aluminio está dentro del rango esperado según la referencia actual.",
   adviceLow:
-    "Este valor estÃ¡ por debajo del rango de referencia. Revise la demanda del cultivo, las condiciones del suelo y opciones de correccin antes de aplicar insumos.",
+    "Este valor está por debajo del rango de referencia. Revise la demanda del cultivo, las condiciones del suelo y opciones de corrección antes de aplicar insumos.",
   adviceHigh:
-    "Este valor estÃ¡ por encima del rango de referencia. Revise si indica exceso, riesgo de toxicidad, desequilibrio o alta disponibilidad segÃºn el parÃ¡metro.",
+    "Este valor está por encima del rango de referencia. Revise si indica exceso, riesgo de toxicidad, desequilibrio o alta disponibilidad según el parámetro.",
   adviceVeryHigh:
-    "Este valor es muy alto y requiere una revisin ms cuidadosa antes de tomar decisiones de manejo.",
-  adviceNormal: "Este valor estÃ¡ dentro del rango de referencia actual.",
+    "Este valor es muy alto y requiere una revisión más cuidadosa antes de tomar decisiones de manejo.",
+  adviceNormal: "Este valor está dentro del rango de referencia actual.",
 
   customCropRange: "Rango personalizado del cultivo",
   generalCustomRange: "Rango personalizado general",
@@ -273,43 +273,43 @@
   userRangeGeneral: "Rango personalizado - general",
   couldNotInterpretRange: "No se pudo interpretar el rango personalizado.",
   editingAnalysis:
-    "Editando anÃ¡lisis {id}. Guardar crear la versin {version}.",
-  versionSaved: "Versin {version} guardada correctamente.",
+    "Editando análisis {id}. Guardar creará la versión {version}.",
+  versionSaved: "Versión {version} guardada correctamente.",
 
   categoryOther: "Otro",
   categoryCustom: "Personalizado",
-  categoryChemical: "QuÃ­mico",
+  categoryChemical: "Químico",
   categoryMacronutrient: "Macronutriente",
   categoryMicronutrient: "Micronutriente",
-  categoryNitrogenForm: "Forma de nitrgeno",
-  categoryPhysicalProperties: "Propiedades fsicas",
-  categoryPhysicalProperty: "Propiedad fsica",
+  categoryNitrogenForm: "Forma de nitrógeno",
+  categoryPhysicalProperties: "Propiedades físicas",
+  categoryPhysicalProperty: "Propiedad física",
   categorySoilProperty: "Propiedad del suelo",
   categoryTexture: "Textura",
-  categoryToxicElement: "Elemento toxico",
+  categoryToxicElement: "Elemento tóxico",
   categoryAcidity: "Acidez",
   categorySalinity: "Salinidad",
-  categoryBaseSaturation: "Saturacin de bases",
+  categoryBaseSaturation: "Saturación de bases",
   categoryRatios: "Relaciones",
-  categoryBiological: "Biolgico",
+  categoryBiological: "Biológico",
   countryOther: "Otro",
   languageLabel: "Idioma",
   authWelcome: "Bienvenido a Alakay",
-  authWelcomeDesc: "Interpretar anÃ¡lisis de laboratorio nunca fue tan fcil!",
+  authWelcomeDesc: "¡Interpretar análisis de laboratorio nunca fue tan fácil!",
 
   guestMode: "Modo invitado",
   guestModeDesc:
-    "Puede probar la app sin cuenta. Para guardar reportes debe iniciar sesiÃ³n.",
-  loginOrCreate: "Iniciar sesiÃ³n o crear cuenta",
+    "Puede probar la app sin cuenta. Para guardar reportes debe iniciar sesión.",
+  loginOrCreate: "Iniciar sesión o crear cuenta",
   continueWithoutAccount: "Continuar sin cuenta",
-  logOut: "Cerrar sesiÃ³n",
+  logOut: "Cerrar sesión",
   accountMenu: {
     guest: "Invitado",
     usingAccount: "Usando cuenta",
     useAccount: "Usar mi cuenta",
     switchAccount: "Agregar / cambiar cuenta",
     continueGuest: "Continuar como invitado",
-    login: "Iniciar sesiÃ³n",
+    login: "Iniciar sesión",
   },
 
   recycleBinScreen: {
@@ -317,7 +317,7 @@
     parameters: "Parametros",
     ranges: "Rangos",
     empty: "No hay elementos eliminados.",
-    login: "Inicie sesiÃ³n para ver elementos eliminados.",
+    login: "Inicie sesión para ver elementos eliminados.",
     restore: "Restaurar",
     loading: "Cargando elementos eliminados...",
     allDeleted: "Todos los elementos eliminados",
@@ -325,21 +325,21 @@
   },
 
   customParameterModal: {
-    title: "Agregar parÃ¡metro personalizado",
-    desc: "Cree un parÃ¡metro que solo aparece en sus propios anÃ¡lisis.",
-    name: "Nombre del parÃ¡metro",
+    title: "Agregar parámetro personalizado",
+    desc: "Cree un parámetro que solo aparece en sus propios análisis.",
+    name: "Nombre del parámetro",
     symbol: "Simbolo",
     category: "Categoria",
     unit: "Unidad por defecto",
     min: "Valor mnimo",
     max: "Valor mximo",
-    note: "Nota de interpretaciÃ³n",
-    save: "Guardar parÃ¡metro",
+    note: "Nota de interpretación",
+    save: "Guardar parámetro",
     saving: "Guardando...",
     cancel: "Cancelar",
-    required: "El nombre del parÃ¡metro y la unidad son obligatorios.",
-    invalidRange: "Min/max deben ser nÃºmeros vÃ¡lidos.",
-    login: "Debe iniciar sesiÃ³n para guardar parÃ¡metros personalizados.",
+    required: "El nombre del parámetro y la unidad son obligatorios.",
+    invalidRange: "Min/max deben ser números válidos.",
+    login: "Debe iniciar sesión para guardar parámetros personalizados.",
     success: "Parametro personalizado guardado.",
     rangeInfo:
       "Opcional: agregue un rango mnimo/mximo. Este rango se usar antes del rango oficial de la base de datos.",
@@ -350,7 +350,7 @@
     selectUnit: "Seleccionar unidad",
     chemical: "Qumico",
     physical: "Fsico",
-    biological: "Biolgico",
+    biological: "Biológico",
   },
 
   step1Title: "1. Configuracion",
@@ -358,29 +358,29 @@
   step2Title: "2. Ingresar valores",
   step2Text: "Complete solo los valores de su reporte de laboratorio.",
   step3Title: "3. Resultados",
-  step3Text: "Revise la interpretaciÃ³n y guarde si iniciÃ³ sesiÃ³n.",
+  step3Text: "Revise la interpretación y guarde si inició sesión.",
 
   viewSavedReports: "Ver reportes guardados.",
-  loginToViewReports: "Inicie sesiÃ³n para guardar y ver reportes.",
-  loginOrGuest: "Inicie sesiÃ³n o contine como invitado.",
+  loginToViewReports: "Inicie sesión para guardar y ver reportes.",
+  loginOrGuest: "Inicie sesión o continúe como invitado.",
 
   resultsPageDesc:
-    "Contine un anÃ¡lisis en progreso o abra su historial de reportes.",
+    "Continúe un análisis en progreso o abra su historial de reportes.",
   inProgress: "En progreso",
   savedReports: "Reportes guardados",
   continueValues: "Continuar ingresando valores",
   viewCurrentResults: "Ver resultados actuales",
-  noProgressYet: "No hay anÃ¡lisis en progreso todava.",
-  startFromHome: "Inicie un nuevo anÃ¡lisis desde Inicio.",
+  noProgressYet: "No hay análisis en progreso todavía.",
+  startFromHome: "Inicie un nuevo análisis desde Inicio.",
   reportHistory: "Historial de reportes",
-  loginForHistory: "Inicie sesiÃ³n para ver su historial de reportes guardados.",
-  inProgressAnalysis: "Analisis en progreso",
+  loginForHistory: "Inicie sesión para ver su historial de reportes guardados.",
+  inProgressAnalysis: "Análisis en progreso",
   inProgressSectionDesc:
-    "Esta seccin rastrea el anÃ¡lisis abierto actualmente en la app.",
+    "Esta sección rastrea el análisis abierto actualmente en la app.",
   inProgressTabDesc:
     "Continuar valores actuales o abrir resultados interpretados.",
   historyTabDesc:
-    "Ver reportes guardados, versiones y anÃ¡lisis anteriores.",
+    "Ver reportes guardados, versiones y análisis anteriores.",
   labValues: "Valores del laboratorio",
   valuesEnteredCount: "{count} valor(es) ingresado(s).",
   interpretedResultsShort: "{count} resultado(s) interpretado(s).",
@@ -388,7 +388,7 @@
   openResults: "Abrir resultados",
   currentResults: "Resultados actuales",
   noInProgressDetail:
-    "No hay anÃ¡lisis en progreso. Inicie uno nuevo o importe valores primero.",
+    "No hay análisis en progreso. Inicie uno nuevo o importe valores primero.",
 };
 
 export default es;

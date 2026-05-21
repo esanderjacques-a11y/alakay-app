@@ -61,18 +61,20 @@ body {
 html[data-theme="dark"] {
   --background: #10221d;
   --foreground: #eefcf5;
-  --alakay-green: #5eead4;
-  --alakay-green-dark: #bbf7d0;
+  --alakay-green: var(--accent-400, #5eead4);
+  --alakay-green-dark: var(--accent-200, #bbf7d0);
   --glass-shadow: 0 18px 52px rgba(2, 6, 23, 0.24);
   color-scheme: dark;
 }
 
 html[data-theme="dark"] body {
-  background:
-    radial-gradient(circle at 18% 10%, rgba(94, 234, 212, 0.18), transparent 28%),
-    radial-gradient(circle at 82% 18%, rgba(187, 247, 208, 0.14), transparent 30%),
-    linear-gradient(145deg, #132c26 0%, #14372e 48%, #172f31 100%);
-  color: #eefcf5;
+  background: var(
+    --body-gradient,
+    radial-gradient(circle at 18% 10%, rgb(var(--accent-400-rgb, 94 234 212) / 0.18), transparent 28%),
+    radial-gradient(circle at 82% 18%, rgb(var(--accent-200-rgb, 187 247 208) / 0.14), transparent 30%),
+    linear-gradient(145deg, #132c26 0%, #14372e 48%, #172f31 100%)
+  );
+  color: var(--foreground);
 }
 
 
@@ -174,8 +176,8 @@ textarea {
   html[data-theme="dark"] .auth-card {
     background:
       linear-gradient(180deg, rgba(25, 55, 48, 0.82), rgba(17, 44, 38, 0.76)),
-      radial-gradient(circle at 50% 0%, rgba(94, 234, 212, 0.16), transparent 48%);
-    border-color: rgba(187, 247, 208, 0.26);
+      radial-gradient(circle at 50% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.16), transparent 48%);
+    border-color: rgb(var(--accent-200-rgb, 187 247 208) / 0.26);
     box-shadow:
       0 18px 52px rgba(2, 6, 23, 0.24),
       inset 0 1px 0 rgba(255, 255, 255, 0.12);
@@ -184,7 +186,7 @@ textarea {
   html[data-theme="dark"] .home-primary-action{
     background:
       linear-gradient(135deg, rgba(24, 62, 52, 0.98), rgba(14, 40, 34, 0.96));
-    border-color: rgba(94, 234, 212, 0.36);
+    border-color: rgb(var(--accent-400-rgb, 94 234 212) / 0.36);
     box-shadow:
       0 16px 36px rgba(2, 6, 23, 0.34),
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -208,7 +210,7 @@ textarea {
   html[data-theme="dark"] .home-primary-action:focus-visible{
     background:
       linear-gradient(135deg, rgba(32, 78, 66, 0.98), rgba(18, 52, 44, 0.96));
-    border-color: rgba(110, 231, 183, 0.52);
+    border-color: rgb(var(--accent-300-rgb, 110 231 183) / 0.52);
     box-shadow:
       0 20px 40px rgba(2, 6, 23, 0.38),
       inset 0 1px 0 rgba(255, 255, 255, 0.14);
@@ -219,8 +221,8 @@ textarea {
   html[data-theme="dark"] .mobile-menu-panel {
     background:
       linear-gradient(180deg, rgba(27, 62, 53, 0.8), rgba(18, 48, 42, 0.66)),
-      radial-gradient(circle at 18% 0%, rgba(94, 234, 212, 0.22), transparent 38%);
-    border-color: rgba(187, 247, 208, 0.24);
+      radial-gradient(circle at 18% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.22), transparent 38%);
+    border-color: rgb(var(--accent-200-rgb, 187 247 208) / 0.24);
     box-shadow: 0 18px 52px rgba(2, 6, 23, 0.24);
   }
 
@@ -286,7 +288,7 @@ textarea {
   html[data-theme="dark"] .text-emerald-800,
   html[data-theme="dark"] .text-emerald-700,
   html[data-theme="dark"] .home-secondary-action > svg {
-    color: #6ee7b7;
+    color: var(--accent-300, #6ee7b7);
   }
 
   html[data-theme="dark"] .border-slate-200,
@@ -303,8 +305,8 @@ textarea {
   html[data-theme="dark"] .border-white\/70,
   html[data-theme="dark"] .ring-green-100,
   html[data-theme="dark"] .ring-slate-200 {
-    border-color: rgba(187, 247, 208, 0.24);
-    --tw-ring-color: rgba(187, 247, 208, 0.24);
+    border-color: rgb(var(--accent-200-rgb, 187 247 208) / 0.24);
+    --tw-ring-color: rgb(var(--accent-200-rgb, 187 247 208) / 0.24);
   }
 
   html[data-theme="dark"] .bg-red-50,
@@ -342,19 +344,19 @@ textarea {
   html[data-theme="dark"] .bg-emerald-100\/76,
   html[data-theme="dark"] .bg-teal-100,
   html[data-theme="dark"] .bg-teal-100\/76 {
-    background-color: rgba(6, 95, 70, 0.46);
+    background-color: rgb(var(--accent-800-rgb, 6 95 70) / 0.46);
   }
 
   html[data-theme="dark"] .text-emerald-950,
   html[data-theme="dark"] .text-teal-950 {
-    color: #bbf7d0;
+    color: var(--accent-200, #bbf7d0);
   }
 
   html[data-theme="dark"] input,
   html[data-theme="dark"] textarea,
   html[data-theme="dark"] select {
     background-color: rgba(10, 35, 31, 0.92);
-    border-color: rgba(125, 211, 183, 0.46);
+    border-color: rgb(var(--accent-300-rgb, 125 211 183) / 0.46);
     color: #ecfdf5;
   }
 
@@ -370,7 +372,7 @@ textarea {
 
   html[data-theme="dark"] button:not(:disabled):hover,
   html[data-theme="dark"] [role="button"]:not(:disabled):hover {
-    border-color: rgba(94, 234, 212, 0.5);
+    border-color: rgb(var(--accent-400-rgb, 94 234 212) / 0.5);
   }
 
   html[data-theme="dark"] .hover\:bg-white:hover,
@@ -423,19 +425,19 @@ textarea {
   html[data-theme="dark"] .ring-green-900\/10,
   html[data-theme="dark"] .ring-white\/50,
   html[data-theme="dark"] .ring-white\/70 {
-    --tw-ring-color: rgba(94, 234, 212, 0.34);
+    --tw-ring-color: rgb(var(--accent-400-rgb, 94 234 212) / 0.34);
   }
 
   html[data-theme="dark"] .app-header {
     background: transparent;
-    border-color: rgba(125, 211, 183, 0.28);
+    border-color: rgb(var(--accent-300-rgb, 125 211 183) / 0.28);
   }
 
   html[data-theme="dark"] .app-header button[class*="bg-white"],
   html[data-theme="dark"] .mobile-menu-panel button[class*="bg-white"],
   html[data-theme="dark"] .app-dock button[class*="bg-white"] {
     background-color: rgba(20, 64, 55, 0.82);
-    border-color: rgba(125, 211, 183, 0.34);
+    border-color: rgb(var(--accent-300-rgb, 125 211 183) / 0.34);
     box-shadow:
       0 12px 28px rgba(2, 6, 23, 0.22),
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -472,7 +474,7 @@ textarea {
     z-index: -1;
     background:
       url("/app-icon.png") center 44% / min(38rem, 78vw) no-repeat,
-      radial-gradient(ellipse at 50% 62%, rgba(21, 128, 61, 0.18), transparent 44%);
+      radial-gradient(ellipse at 50% 62%, rgb(var(--accent-700-rgb, 21 128 61) / 0.18), transparent 44%);
     filter: blur(28px);
     opacity: 0.38;
     transform: scale(1.05);
@@ -485,8 +487,8 @@ textarea {
     z-index: -1;
     height: 38vh;
     background:
-      repeating-linear-gradient(96deg, rgba(20, 83, 45, 0.12) 0 2px, transparent 2px 34px),
-      linear-gradient(180deg, rgba(187, 247, 208, 0), rgba(187, 247, 208, 0.5));
+      repeating-linear-gradient(96deg, rgb(var(--accent-900-rgb, 20 83 45) / 0.12) 0 2px, transparent 2px 34px),
+      linear-gradient(180deg, rgb(var(--accent-200-rgb, 187 247 208) / 0), rgb(var(--accent-200-rgb, 187 247 208) / 0.5));
     filter: blur(1px);
     transform: perspective(420px) rotateX(54deg);
     transform-origin: bottom;
@@ -1166,23 +1168,23 @@ textarea {
   }
 
   .result-graph-legend-range::before {
-    background: linear-gradient(90deg, rgba(22, 163, 74, 0.34), rgba(20, 184, 166, 0.44));
+    background: linear-gradient(90deg, rgb(var(--accent-600-rgb, 22 163 74) / 0.34), rgb(var(--accent-500-rgb, 20 184 166) / 0.44));
   }
 
   .result-graph-legend-value::before {
-    background: linear-gradient(90deg, #059669, #34d399);
+    background: linear-gradient(90deg, var(--accent-700, #059669), var(--accent-400, #34d399));
   }
 
   html[data-theme="dark"] .result-graphs-panel {
     background:
       linear-gradient(180deg, rgba(23, 55, 48, 0.84), rgba(15, 41, 35, 0.76)),
-      radial-gradient(circle at 50% 0%, rgba(94, 234, 212, 0.12), transparent 52%);
-    border-color: rgba(125, 211, 252, 0.22);
+      radial-gradient(circle at 50% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.12), transparent 52%);
+    border-color: rgb(var(--accent-300-rgb, 125 211 252) / 0.22);
     color: #eefcf5;
   }
 
   html[data-theme="dark"] .result-graphs-panel .text-emerald-800 {
-    color: #8ff5c7;
+    color: var(--accent-300, #8ff5c7);
   }
 
   html[data-theme="dark"] .result-graphs-panel .text-slate-600 {
@@ -1190,7 +1192,7 @@ textarea {
   }
 
   html[data-theme="dark"] .result-graph-row {
-    border-color: rgba(125, 211, 252, 0.2);
+    border-color: rgb(var(--accent-300-rgb, 125 211 252) / 0.2);
     background:
       linear-gradient(180deg, rgba(15, 46, 40, 0.88), rgba(10, 34, 30, 0.78));
     box-shadow:
@@ -1209,7 +1211,7 @@ textarea {
   }
 
   html[data-theme="dark"] .result-graph-track {
-    border-color: rgba(187, 247, 208, 0.16);
+    border-color: rgb(var(--accent-200-rgb, 187 247 208) / 0.16);
     background:
       linear-gradient(90deg, rgba(240, 253, 244, 0.16), rgba(240, 253, 244, 0.06)),
       repeating-linear-gradient(90deg, rgba(240, 253, 244, 0.14) 0 1px, transparent 1px 20%);
@@ -1220,7 +1222,7 @@ textarea {
   }
 
   html[data-theme="dark"] .result-graph-range {
-    background: linear-gradient(90deg, rgba(134, 239, 172, 0.34), rgba(45, 212, 191, 0.4));
+    background: linear-gradient(90deg, rgb(var(--accent-300-rgb, 134 239 172) / 0.34), rgb(var(--accent-400-rgb, 45 212 191) / 0.4));
   }
 
   html[data-theme="dark"] .result-graph-legend {
@@ -1247,8 +1249,8 @@ textarea {
   html[data-theme="dark"] .active\:bg-slate-50:active {
     background:
       linear-gradient(135deg, rgba(45, 105, 90, 0.94), rgba(24, 68, 58, 0.9)),
-      radial-gradient(circle at 50% 0%, rgba(94, 234, 212, 0.18), transparent 52%);
-    border-color: rgba(94, 234, 212, 0.58);
+      radial-gradient(circle at 50% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.18), transparent 52%);
+    border-color: rgb(var(--accent-400-rgb, 94 234 212) / 0.58);
     color: #f0fdf4;
     box-shadow:
       0 16px 34px rgba(2, 6, 23, 0.28),

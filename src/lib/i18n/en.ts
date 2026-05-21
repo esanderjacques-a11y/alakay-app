@@ -129,7 +129,7 @@
 
   loadingApp: "Loading...",
   connectionError:
-    "Connection timed out. Check Wiâ€‘Fi or mobile data and try again.",
+    "Connection timed out. Check Wi‑Fi or mobile data and try again.",
   loadingCrops: "Loading crops...",
   reloadCrops: "Reload crops",
   noCropsFound: "No crops found. Try reloading crops.",

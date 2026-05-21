@@ -8,6 +8,8 @@ export type AccentScale = Record<
   string
 >;
 
+type AccentHslScale = Record<keyof AccentScale, Hsl>;
+
 const ACCENT_SEEDS: Record<AccentColor, Hsl> = {
   green: { h: 142, s: 64, l: 36 },
   teal: { h: 173, s: 80, l: 32 },
@@ -51,21 +53,44 @@ function hslToRgbParts({ h, s, l }: Hsl) {
 }
 
 export function buildAccentScale(accent: AccentColor): AccentScale {
+  const scale = buildAccentHslScale(accent);
+
+  return {
+    50: hsl(scale[50]),
+    100: hsl(scale[100]),
+    200: hsl(scale[200]),
+    300: hsl(scale[300]),
+    400: hsl(scale[400]),
+    500: hsl(scale[500]),
+    600: hsl(scale[600]),
+    700: hsl(scale[700]),
+    800: hsl(scale[800]),
+    900: hsl(scale[900]),
+    950: hsl(scale[950]),
+  };
+}
+
+function buildAccentHslScale(accent: AccentColor): AccentHslScale {
   const seed = ACCENT_SEEDS[accent];
 
   return {
-    50: hsl({ h: seed.h, s: clamp(seed.s * 0.32, 18, 100), l: 97 }),
-    100: hsl({ h: seed.h, s: clamp(seed.s * 0.42, 22, 100), l: 94 }),
-    200: hsl({ h: seed.h, s: clamp(seed.s * 0.52, 26, 100), l: 86 }),
-    300: hsl({ h: seed.h, s: clamp(seed.s * 0.68, 30, 100), l: 72 }),
-    400: hsl({ h: seed.h, s: seed.s, l: clamp(seed.l + 14, 8, 92) }),
-    500: hsl({ h: seed.h, s: seed.s, l: clamp(seed.l + 8, 8, 90) }),
-    600: hsl({ h: seed.h, s: seed.s, l: clamp(seed.l + 4, 6, 88) }),
-    700: hsl(seed),
-    800: hsl({ h: seed.h, s: seed.s, l: clamp(seed.l - 8, 4, 80) }),
-    900: hsl({ h: seed.h, s: clamp(seed.s * 0.96, 0, 100), l: clamp(seed.l - 16, 4, 72) }),
-    950: hsl({ h: seed.h, s: clamp(seed.s * 0.92, 0, 100), l: clamp(seed.l - 22, 4, 68) }),
+    50: { h: seed.h, s: clamp(seed.s * 0.32, 18, 100), l: 97 },
+    100: { h: seed.h, s: clamp(seed.s * 0.42, 22, 100), l: 94 },
+    200: { h: seed.h, s: clamp(seed.s * 0.52, 26, 100), l: 86 },
+    300: { h: seed.h, s: clamp(seed.s * 0.68, 30, 100), l: 72 },
+    400: { h: seed.h, s: seed.s, l: clamp(seed.l + 14, 8, 92) },
+    500: { h: seed.h, s: seed.s, l: clamp(seed.l + 8, 8, 90) },
+    600: { h: seed.h, s: seed.s, l: clamp(seed.l + 4, 6, 88) },
+    700: seed,
+    800: { h: seed.h, s: seed.s, l: clamp(seed.l - 8, 4, 80) },
+    900: { h: seed.h, s: clamp(seed.s * 0.96, 0, 100), l: clamp(seed.l - 16, 4, 72) },
+    950: { h: seed.h, s: clamp(seed.s * 0.92, 0, 100), l: clamp(seed.l - 22, 4, 68) },
   };
+}
+
+function rgbParts(value: Hsl) {
+  const { r, g, b } = hslToRgbParts(value);
+  return `${r} ${g} ${b}`;
 }
 
 function withAlpha(hslColor: string, alpha: number) {
@@ -73,6 +98,7 @@ function withAlpha(hslColor: string, alpha: number) {
 }
 
 export function buildAccentCssVariables(accent: AccentColor, theme: AppTheme) {
+  const hslScale = buildAccentHslScale(accent);
   const scale = buildAccentScale(accent);
   const seed = ACCENT_SEEDS[accent];
   const glow = hslToRgbParts(seed);
@@ -107,6 +133,17 @@ export function buildAccentCssVariables(accent: AccentColor, theme: AppTheme) {
     "--accent-800": scale[800],
     "--accent-900": scale[900],
     "--accent-950": scale[950],
+    "--accent-50-rgb": rgbParts(hslScale[50]),
+    "--accent-100-rgb": rgbParts(hslScale[100]),
+    "--accent-200-rgb": rgbParts(hslScale[200]),
+    "--accent-300-rgb": rgbParts(hslScale[300]),
+    "--accent-400-rgb": rgbParts(hslScale[400]),
+    "--accent-500-rgb": rgbParts(hslScale[500]),
+    "--accent-600-rgb": rgbParts(hslScale[600]),
+    "--accent-700-rgb": rgbParts(hslScale[700]),
+    "--accent-800-rgb": rgbParts(hslScale[800]),
+    "--accent-900-rgb": rgbParts(hslScale[900]),
+    "--accent-950-rgb": rgbParts(hslScale[950]),
     "--alakay-green": primary,
     "--alakay-green-dark": primaryDark,
     "--background": surface,

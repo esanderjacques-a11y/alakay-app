@@ -1,0 +1,54 @@
+"use client";
+
+import { translateCategory } from "@/lib/categoryLabels";
+import type { Language } from "@/lib/translations";
+import { translations } from "@/lib/translations";
+
+type Props = {
+  categories: string[];
+  selectedCategory: string;
+  onChange: (category: string) => void;
+  language: Language;
+  allLabel: string;
+};
+
+export default function ParameterCategoryFilter({
+  categories,
+  selectedCategory,
+  onChange,
+  language,
+  allLabel,
+}: Props) {
+  const items = ["All", ...categories];
+
+  function labelFor(category: string) {
+    if (category === "All") return allLabel;
+    return translateCategory(category, language, translations);
+  }
+
+  return (
+    <div className="flex gap-1.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
+      {items.map((category) => {
+        const active = selectedCategory === category;
+        return (
+          <button
+            key={category}
+            type="button"
+            onClick={() => onChange(category)}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+              category === "All"
+                ? "sticky left-0 z-10 shadow-sm"
+                : ""
+            } ${
+              active
+                ? "bg-green-600 text-white shadow-sm"
+                : "bg-white text-slate-600 ring-1 ring-green-100 hover:bg-green-50"
+            }`}
+          >
+            {labelFor(category)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

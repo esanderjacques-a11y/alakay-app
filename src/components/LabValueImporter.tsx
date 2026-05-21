@@ -487,7 +487,7 @@ async function renderPdfPagesForAi(buffer: ArrayBuffer, maxPages = 3) {
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, canvas.width, canvas.height);
 
-    await page.render({ canvas, canvasContext: context, viewport }).promise;
+   await page.render({ canvasContext: context, viewport }).promise;;
 
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, "image/png", 0.95)

@@ -88,7 +88,7 @@ type SavedAnalysis = {
   }>;
 };
 
-type HistorySortKey = "date" | "name" | "type" | "location";
+type HistorySortKey = "date" | "name" | "crop" | "type" | "location";
 type SortDirection = "asc" | "desc";
 
 type AnalysisValue = {
@@ -183,6 +183,7 @@ function getLabName(analysis: SavedAnalysis) {
 
 function getHistorySortValue(analysis: SavedAnalysis, key: HistorySortKey) {
   if (key === "name") return getAnalysisTitle(analysis).toLowerCase();
+  if (key === "crop") return getCropName(analysis).toLowerCase();
   if (key === "type") return getSampleTypeCode(analysis);
   if (key === "location") {
     return [analysis.province_state, analysis.country, getFarmName(analysis), getLotName(analysis)]
@@ -670,9 +671,6 @@ export default function AnalysisHistory({
   const activeCount = rootGroups.filter(
     (group) => !group.latest.is_deleted
   ).length;
-  const deletedCount = rootGroups.filter(
-    (group) => group.latest.is_deleted
-  ).length;
   const versionedCount = rootGroups.filter(
     (group) => !group.latest.is_deleted && group.versions.length > 1
   ).length;
@@ -691,10 +689,10 @@ export default function AnalysisHistory({
 
   return (
     <section className="grid gap-3">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xl font-extrabold text-green-900">{l.title}</h2>
-          <p className="mt-0.5 max-w-2xl text-sm text-slate-600">{l.desc}</p>
+          <h2 className="text-base font-extrabold text-green-900 sm:text-lg">{l.title}</h2>
+          <p className="mt-0.5 max-w-2xl text-xs text-slate-600">{l.desc}</p>
         </div>
 
         <div className="flex justify-start md:justify-end">
@@ -709,7 +707,7 @@ export default function AnalysisHistory({
         </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2">
         <HistoryFilterButton
           label={l.activeReports}
           value={activeCount}
@@ -721,13 +719,6 @@ export default function AnalysisHistory({
           value={versionedCount}
           active={historyFilter === "versions"}
           onClick={() => setHistoryFilter("versions")}
-        />
-        <HistoryFilterButton
-          label={l.deletedReports}
-          value={deletedCount}
-          active={historyFilter === "deleted"}
-          onClick={() => setHistoryFilter("deleted")}
-          quiet
         />
       </div>
 
@@ -743,6 +734,7 @@ export default function AnalysisHistory({
         >
           <option value="date">{l.date}</option>
           <option value="name">{l.name}</option>
+          <option value="crop">{l.crop}</option>
           <option value="type">{l.sampleType}</option>
           <option value="location">{l.location}</option>
         </select>
@@ -799,7 +791,7 @@ export default function AnalysisHistory({
                   );
                 }
               }}
-              className={`cursor-pointer rounded-2xl border px-3 py-2.5 shadow-sm transition hover:bg-white/90 ${
+          className={`cursor-pointer rounded-2xl border px-3 py-2.5 shadow-sm transition hover:bg-white/90 ${
                 analysis.is_deleted
                   ? "border-red-200 bg-red-50/80"
                   : isExpanded
@@ -807,7 +799,7 @@ export default function AnalysisHistory({
                     : "border-slate-200 bg-white/80"
               }`}
             >
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="truncate text-left text-sm font-extrabold text-green-900">
@@ -824,36 +816,32 @@ export default function AnalysisHistory({
                       </span>
                     )}
 
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-bold ${
-                        analysis.is_deleted
-                          ? "bg-red-100 text-red-700"
-                          : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {analysis.is_deleted ? l.deleted : l.active}
-                    </span>
+                    {analysis.is_deleted ? (
+                      <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-bold text-red-700">
+                        {l.deleted}
+                      </span>
+                    ) : null}
                   </div>
 
-                  <div className="mt-1 grid gap-x-4 gap-y-0.5 text-xs text-slate-600 sm:grid-cols-2 md:grid-cols-4">
-                    <p>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-600">
+                    <p className="min-w-0">
                       <strong>{l.crop}:</strong> {getCropName(analysis)}
                     </p>
-                    <p>
+                    <p className="min-w-0">
                       <strong>{l.sampleType}:</strong>{" "}
                       {getSampleTypeCode(analysis) === "soil"
                         ? l.soil
                         : l.foliar}
                     </p>
-                    <p>
+                    <p className="min-w-0">
                       <strong>{l.date}:</strong>{" "}
                       {formatDate(
                         analysis.report_date ||
                           analysis.sampling_date ||
-                          analysis.created_at
+                        analysis.created_at
                       )}
                     </p>
-                    <p>
+                    <p className="min-w-0">
                       <strong>{l.location}:</strong>{" "}
                       {[analysis.province_state, analysis.country]
                         .filter(Boolean)
@@ -974,13 +962,11 @@ function HistoryFilterButton({
   label,
   value,
   active,
-  quiet,
   onClick,
 }: {
   label: string;
   value: number;
   active: boolean;
-  quiet?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -990,9 +976,7 @@ function HistoryFilterButton({
       onClick={onClick}
       className={`rounded-2xl border px-3 py-2 text-left transition active:scale-[0.98] ${
         active
-          ? quiet
-            ? "border-red-200 bg-red-50/75 text-red-800"
-            : "border-green-200 bg-green-50/80 text-green-900"
+          ? "border-green-200 bg-green-50/80 text-green-900"
           : "border-white/60 bg-white/45 text-slate-600 hover:bg-white/70"
       }`}
     >

@@ -221,25 +221,25 @@ export default function AppHeader({
             onClick={closeMobileMenu}
           />
 
-          <section
-            className={`mobile-menu-panel absolute right-0 top-0 flex h-full w-[min(22rem,86vw)] flex-col border-l border-white/70 bg-white/90 p-4 shadow-2xl ${
+            <section
+              className={`mobile-menu-panel absolute right-0 top-0 flex h-full w-[min(20rem,84vw)] flex-col border-l border-white/70 p-3 shadow-2xl ${
               mobileMenuPresence.leaving
                 ? "animate-[slide-panel-out_0.22s_cubic-bezier(0.55,0,0.78,0.36)_both]"
                 : "animate-[slide-panel-in_0.38s_cubic-bezier(0.22,1,0.36,1)_both]"
             }`}
           >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
                 <img
                   src="/app-icon.png"
                   alt={t.appName}
-                  className="app-logo-frame h-11 w-11 shrink-0 object-contain"
+                  className="app-logo-frame h-9 w-9 shrink-0 object-contain"
                 />
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-extrabold text-green-950">
+                  <p className="truncate text-base font-extrabold text-green-950">
                     {t.appName.toUpperCase()}
                   </p>
-                  <p className="truncate text-xs font-semibold text-slate-500">
+                  <p className="truncate text-[11px] font-semibold text-slate-500">
                     {accountLabel}
                   </p>
                 </div>
@@ -248,14 +248,14 @@ export default function AppHeader({
                 type="button"
                 onClick={closeMobileMenu}
                 aria-label={t.close}
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl border border-slate-200 bg-white/72 text-slate-600"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="mt-5 overflow-y-auto pb-5">
-              <div className="border-b border-emerald-900/10 pb-3">
+            <div className="mt-3 overflow-y-auto pb-4">
+              <div className="border-b border-emerald-900/10 pb-2">
                 <MobileMenuRow
                   icon={<User size={18} />}
                   title={guestMode ? t.guestMode : t.account}
@@ -306,15 +306,15 @@ export default function AppHeader({
                 ) : null}
               </div>
 
-              <div className="pt-4">
-                <p className="px-1 pb-2 text-xs font-extrabold uppercase tracking-[0.12em] text-emerald-800">
+              <div className="pt-3">
+                <p className="px-1 pb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-800">
                   {t.appSettings}
                 </p>
 
                 <MobileMenuRow
                   icon={<Settings size={18} />}
                   title={t.appSettings}
-                  desc={t.appSettingsDesc}
+                  desc={t.appearance}
                   onClick={() => {
                     closeMobileMenu();
                     onOpenSettings();
@@ -374,7 +374,7 @@ export default function AppHeader({
                 <MobileMenuRow
                   icon={<RotateCcw size={18} />}
                   title={t.recycleBin}
-                  desc={t.recycleBinDesc}
+                  desc={t.recycleBinScreen.allDeleted}
                   onClick={() => {
                     closeMobileMenu();
                     onOpenRecycleBin();
@@ -409,7 +409,7 @@ function MobileMenuRow({
   const content = (
     <>
       <span
-        className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
+        className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl ${
           danger ? "text-red-700" : "text-emerald-800"
         }`}
       >
@@ -417,14 +417,14 @@ function MobileMenuRow({
       </span>
       <span className="min-w-0 flex-1">
         <span
-          className={`block truncate font-extrabold ${
+          className={`block truncate text-sm font-semibold ${
             danger ? "text-red-700" : "text-green-950"
           }`}
         >
           {title}
         </span>
         {desc ? (
-          <span className="mt-0.5 block truncate text-xs font-medium text-slate-500">
+          <span className="mt-0.5 block truncate text-[11px] font-medium text-slate-500">
             {desc}
           </span>
         ) : null}
@@ -436,14 +436,14 @@ function MobileMenuRow({
   );
 
   if (!onClick) {
-    return <div className="flex items-center gap-3 py-3">{content}</div>;
+    return <div className="flex items-center gap-2.5 py-2">{content}</div>;
   }
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="touch-target flex w-full items-center gap-3 border-t border-emerald-900/10 py-3 text-left transition active:scale-[0.98]"
+      className="touch-target flex w-full items-center gap-2.5 border-t border-emerald-900/10 py-2.5 text-left transition active:scale-[0.98]"
     >
       {content}
     </button>

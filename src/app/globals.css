@@ -126,8 +126,9 @@ textarea {
 
   .mobile-menu-panel {
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(240, 253, 244, 0.76)),
-      radial-gradient(circle at 0% 0%, rgba(187, 247, 208, 0.58), transparent 46%);
+      linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(240, 253, 244, 0.58)),
+      radial-gradient(circle at 0% 0%, rgb(var(--accent-200-rgb, 187 247 208) / 0.48), transparent 44%),
+      radial-gradient(circle at 100% 18%, rgb(var(--accent-100-rgb, 220 252 231) / 0.48), transparent 38%);
     backdrop-filter: blur(30px) saturate(1.14);
     -webkit-backdrop-filter: blur(30px) saturate(1.14);
     animation: slide-panel-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -224,6 +225,13 @@ textarea {
       radial-gradient(circle at 18% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.22), transparent 38%);
     border-color: rgb(var(--accent-200-rgb, 187 247 208) / 0.24);
     box-shadow: 0 18px 52px rgba(2, 6, 23, 0.24);
+  }
+
+  html[data-theme="dark"] .mobile-menu-panel {
+    background:
+      linear-gradient(180deg, rgba(18, 48, 42, 0.82), rgba(13, 36, 32, 0.78)),
+      radial-gradient(circle at 0% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.18), transparent 42%),
+      radial-gradient(circle at 100% 16%, rgb(var(--accent-300-rgb, 125 211 183) / 0.12), transparent 36%);
   }
 
   html[data-theme="dark"] .home-secondary-action,

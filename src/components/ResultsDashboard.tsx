@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import {
-  ArrowRight,
-  ClipboardList,
-  FileText,
-  History,
-  PlayCircle,
-} from "lucide-react";
+import { ArrowRight, ClipboardList, FileText, History, PlayCircle } from "lucide-react";
 
 import AnalysisHistory, {
   EditableAnalysisPayload,
@@ -51,32 +45,16 @@ export default function ResultsDashboard({
   return (
     <section className="mt-4 grid gap-3 animate-fade-in">
       <GlassPanel className="p-3 sm:p-4">
-        <article className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <article className="flex flex-col gap-2">
           <span>
             <h1 className="text-base font-extrabold uppercase tracking-wide text-green-900">
               {t.results}
             </h1>
             <p className="mt-0.5 max-w-xl text-xs text-slate-600">{t.resultsPageDesc}</p>
           </span>
-
-          <span className="grid grid-cols-2 gap-1.5 text-center md:min-w-44">
-            <span className="rounded-xl bg-green-100/75 px-2.5 py-1.5">
-              <p className="text-base font-bold text-green-900">
-                {enteredValuesCount}
-              </p>
-              <p className="text-xs text-green-800">{t.entered}</p>
-            </span>
-
-            <span className="rounded-xl bg-white/60 px-2.5 py-1.5">
-              <p className="text-base font-bold text-slate-900">
-                {interpretedResultsCount}
-              </p>
-              <p className="text-xs text-slate-600">{t.interpreted}</p>
-            </span>
-          </span>
         </article>
 
-        <span className="mt-3 grid gap-2 md:grid-cols-2">
+        <span className="mt-3 grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setActiveTab("progress")}
@@ -86,13 +64,13 @@ export default function ResultsDashboard({
                 : "border-white/60 bg-white/40 hover:bg-white/70"
             }`}
           >
-            <span className="flex items-start gap-3">
-              <span className="rounded-xl bg-green-100 p-2 text-green-800">
-                <PlayCircle size={19} />
-              </span>
-              <span>
-                <p className="text-sm font-bold text-green-900">{t.inProgress}</p>
-                <p className="mt-0.5 line-clamp-1 text-xs text-slate-600">{t.inProgressTabDesc}</p>
+            <span className="flex items-center gap-2">
+              <PlayCircle size={17} className="shrink-0 text-green-800" />
+              <span className="min-w-0">
+                <p className="truncate text-sm font-bold text-green-900">{t.inProgress}</p>
+                <p className="text-[11px] font-semibold text-slate-500">
+                  {enteredValuesCount} {t.entered} · {interpretedResultsCount} {t.interpreted}
+                </p>
               </span>
             </span>
           </button>
@@ -106,13 +84,13 @@ export default function ResultsDashboard({
                 : "border-white/60 bg-white/40 hover:bg-white/70"
             }`}
           >
-            <span className="flex items-start gap-3">
-              <span className="rounded-xl bg-green-100 p-2 text-green-800">
-                <History size={19} />
-              </span>
-              <span>
-                <p className="text-sm font-bold text-green-900">{t.history}</p>
-                <p className="mt-0.5 line-clamp-1 text-xs text-slate-600">{t.historyTabDesc}</p>
+            <span className="flex items-center gap-2">
+              <History size={17} className="shrink-0 text-green-800" />
+              <span className="min-w-0">
+                <p className="truncate text-sm font-bold text-green-900">{t.history}</p>
+                <p className="truncate text-[11px] font-semibold text-slate-500">
+                  {t.savedReports}
+                </p>
               </span>
             </span>
           </button>

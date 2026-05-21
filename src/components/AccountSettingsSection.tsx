@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { ArrowLeft, ImagePlus, ShieldCheck, UserRound } from "lucide-react";
 
 import { accountSettingsText } from "@/lib/i18n/componentText";
+import { normalizeAuthEmail } from "@/lib/email";
 import { supabase } from "@/lib/supabase";
 import type { Language } from "@/lib/translations";
 
@@ -73,7 +74,7 @@ export default function AccountSettingsSection({ language, session }: Props) {
 
     try {
       const authUpdates: { email?: string; password?: string } = {};
-      const trimmedEmail = email.trim();
+      const trimmedEmail = normalizeAuthEmail(email);
 
       if (trimmedEmail && trimmedEmail !== session.user.email) {
         authUpdates.email = trimmedEmail;
@@ -236,7 +237,10 @@ export default function AccountSettingsSection({ language, session }: Props) {
       <label className="grid gap-1 text-sm font-semibold text-slate-700">
         {text.email}
         <input
-          type="email"
+          type="text"
+          inputMode="email"
+          autoCapitalize="none"
+          autoComplete="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           className="min-h-11 rounded-2xl border border-green-100 bg-white/82 px-3 text-slate-900 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-700/10"

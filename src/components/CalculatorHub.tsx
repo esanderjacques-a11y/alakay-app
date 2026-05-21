@@ -91,7 +91,7 @@ export default function CalculatorHub({
   const t = calculatorHubText[language] || calculatorHubText.en;
   const [active, setActive] = useState<CalculatorKey>("all");
   const lab = useMemo(() => buildLabValueIndex(parameters, values, results), [parameters, values, results]);
-  const suggestions = getSuggestions(lab, results);
+  const suggestions = getSuggestions(lab, results, t);
 
   return (
     <section className="mt-6 animate-slide-up">
@@ -194,8 +194,12 @@ function PriorityCalculators({
           onClick={() => setActive(item.key)}
           className="rounded-2xl border border-white/65 bg-white/72 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:bg-white/90"
         >
-          <p className="font-extrabold text-green-950">{item.title}</p>
-          <p className="mt-1 text-sm text-slate-600">{item.desc}</p>
+          <p className="font-extrabold text-green-950">
+            {translateCalculatorText(item.title, t)}
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            {translateCalculatorText(item.desc, t)}
+          </p>
         </button>
       ))}
     </div>
@@ -529,17 +533,19 @@ function OutputGrid({ t, outputs }: { t: Record<string, string>; outputs: Array<
 }
 
 function OutputCard({ t, output }: { t: Record<string, string>; output: CalculationOutput | null }) {
+  const translatedOutput = output ? translateCalculationOutput(output, t) : null;
+
   return (
     <article className="rounded-2xl border border-white/70 bg-white/72 p-4 shadow-sm">
-      {output ? (
+      {translatedOutput ? (
         <>
-          <p className="text-sm font-bold text-slate-500">{output.label}</p>
+          <p className="text-sm font-bold text-slate-500">{translatedOutput.label}</p>
           <p className="mt-2 text-3xl font-extrabold text-green-950">
-            {output.value} <span className="text-base">{output.unit}</span>
+            {translatedOutput.value} <span className="text-base">{translatedOutput.unit}</span>
           </p>
-          <p className="mt-3 text-xs font-semibold text-slate-500">{t.formula}: {output.formula}</p>
+          <p className="mt-3 text-xs font-semibold text-slate-500">{t.formula}: {translatedOutput.formula}</p>
           <ul className="mt-3 grid gap-1 text-sm text-slate-600">
-            {output.notes.map((note) => <li key={note}>{note}</li>)}
+            {translatedOutput.notes.map((note) => <li key={note}>{note}</li>)}
           </ul>
         </>
       ) : (
@@ -547,6 +553,100 @@ function OutputCard({ t, output }: { t: Record<string, string>; output: Calculat
       )}
     </article>
   );
+}
+
+function translateCalculationOutput(
+  output: CalculationOutput,
+  t: Record<string, string>
+): CalculationOutput {
+  return {
+    ...output,
+    unit: translateCalculatorText(output.unit, t),
+    label: translateCalculatorText(output.label, t),
+    formula: translateCalculatorText(output.formula, t),
+    notes: output.notes.map((note) => translateCalculatorText(note, t)),
+  };
+}
+
+function translateCalculatorText(value: string, t: Record<string, string>) {
+  if (/kg product\/ha before local calibration/.test(value)) {
+    return value.replace("kg product/ha before local calibration.", t.noteKgProductHa);
+  }
+
+  if (/t\/ha estimated/.test(value)) {
+    return value.replace("t/ha estimated.", t.noteTonsHaEstimated);
+  }
+
+  const dictionary: Record<string, string | undefined> = {
+    "kg product": t.unitKgProduct,
+    "t product": t.unitTProduct,
+    "Fertilizer requirement": t.fertilizerRequirementTitle,
+    "Calculate product quantity by nutrient grade, efficiency, and area.":
+      t.fertilizerRequirementDesc,
+    "Calculate product quantity by nutrient grade, efficiency, and area":
+      t.fertilizerRequirementDesc,
+    "Calculate the amount of product based on nutrient grade, efficiency, and area.":
+      t.fertilizerRequirementDesc,
+    "Gypsum requirement": t.gypsumRequirementTitle,
+    "Lime requirement": t.limeRequirementTitle,
+    "Lime or amendment": t.amendmentRequirementTitle,
+    "Estimate lime or gypsum need using pH, acidity, RNDT, depth, and density.":
+      t.amendmentRequirementDesc,
+    "Estimate lime or gypsum need using pH, acidity, RNDT, depth, and density":
+      t.amendmentRequirementDesc,
+    "Salinity and SAR": t.salinityRequirementTitle,
+    "Calculate SAR/RAS, porosity, and leaching requirement.":
+      t.salinityRequirementDesc,
+    "Calculate SAR/RAS, porosity, and leaching requirement":
+      t.salinityRequirementDesc,
+    "Nutrient graphs": t.nutrientGraphsTitle,
+    "Visualize macro and micronutrient values from the current analysis.":
+      t.nutrientGraphsDesc,
+    "Visualize macro and micronutrient values from the current analysis":
+      t.nutrientGraphsDesc,
+    Porosity: t.porosityTitle,
+    "Leaching requirement": t.leachingRequirementTitle,
+    "(target - current) / nutrient fraction / efficiency * area":
+      t.fertilizerFormula,
+    "target_ph adjusted by depth, bulk density, RNDT, and area":
+      t.targetPhFormula,
+    "exchangeable_acidity adjusted by depth, bulk density, RNDT, and area":
+      t.acidityFormula,
+    "buffer_index adjusted by depth, bulk density, RNDT, and area":
+      t.bufferFormula,
+    "((value - optimum) / optimum) * 100": t.dopFormula,
+    "(1 - bulk density / particle density) * 100": t.porosityFormula,
+    "ECw / (5 * ECe target - ECw) * 100": t.leachingFormula,
+    "Useful for judging organic matter decomposition speed and nitrogen immobilization risk.":
+      t.noteCnRatio,
+    "Use ratios as balance indicators, not as a replacement for crop-specific sufficiency ranges.":
+      t.noteNutrientRatio,
+    "Input is treated as oxide grade, such as P2O5 or K2O.":
+      t.noteOxideGrade,
+    "Input is treated as elemental nutrient grade.":
+      t.noteElementGrade,
+    "Simple target pH estimate. Confirm with local buffer/acidity method when possible.":
+      t.noteTargetPh,
+    "Exchangeable acidity estimate. Best when the lab reports acidity or Al+H.":
+      t.noteExchangeableAcidity,
+    "Buffer-index estimate. Use the lab's local calibration if it provides one.":
+      t.noteBufferIndex,
+    "Gypsum supplies calcium and sulfur and is more relevant for sodicity/salinity structure problems than pH increase.":
+      t.noteGypsum,
+    "Dolomitic lime also supplies magnesium.": t.noteDolomiticLime,
+    "Calcitic lime mainly supplies calcium carbonate equivalent.":
+      t.noteCalciticLime,
+    "Negative DOP indicates deficiency relative to optimum.": t.noteNegativeDop,
+    "Positive DOP indicates excess relative to optimum.": t.notePositiveDop,
+    "Typical mineral soil particle density default is 2.65 g/cm3.":
+      t.noteParticleDensity,
+    "Use mmolc/L or consistent water extract units for Na, Ca, and Mg.":
+      t.noteSarUnits,
+    "Requires drainage. Do not apply leaching water where drainage is poor.":
+      t.noteDrainage,
+  };
+
+  return dictionary[value] || value;
 }
 
 function NumberField({
@@ -712,37 +812,41 @@ function addKnownValue(
   }
 }
 
-function getSuggestions(lab: Map<string, CalculatorValue>, results: ResultLite[]) {
+function getSuggestions(
+  lab: Map<string, CalculatorValue>,
+  results: ResultLite[],
+  t: Record<string, string>
+) {
   const suggestions: Array<{ key: CalculatorKey; title: string; desc: string }> = [];
   const hasCriticalPh = results.some((result) => /ph/i.test(result.parameter_name) && ["warning", "negative"].includes(result.final_group_code || ""));
   const hasSalinity = results.some((result) => /conduct|ec|salin|sodium|sodio/i.test(result.parameter_name) && ["warning", "negative"].includes(result.final_group_code || ""));
 
   suggestions.push({
     key: "fertilizer",
-    title: "Fertilizer requirement",
-    desc: "Calculate product quantity by nutrient grade, efficiency, and area.",
+    title: t.fertilizerRequirementTitle,
+    desc: t.fertilizerRequirementDesc,
   });
 
   if (hasCriticalPh || lab.has("ph")) {
     suggestions.push({
       key: "amendment",
-      title: "Lime or amendment",
-      desc: "Estimate lime or gypsum need using pH, acidity, RNDT, depth, and density.",
+      title: t.amendmentRequirementTitle,
+      desc: t.amendmentRequirementDesc,
     });
   }
 
   if (hasSalinity || lab.has("sodium")) {
     suggestions.push({
       key: "salinity",
-      title: "Salinity and SAR",
-      desc: "Calculate SAR/RAS, porosity, and leaching requirement.",
+      title: t.salinityRequirementTitle,
+      desc: t.salinityRequirementDesc,
     });
   }
 
   suggestions.push({
     key: "graphs",
-    title: "Nutrient graphs",
-    desc: "Visualize macro and micronutrient values from the current analysis.",
+    title: t.nutrientGraphsTitle,
+    desc: t.nutrientGraphsDesc,
   });
 
   return suggestions;

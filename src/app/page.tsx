@@ -53,7 +53,7 @@ import {
   resolveThemePreference,
   type AppTheme,
 } from "@/lib/uiPreferences";
-import { getSettings } from "@/lib/appSettings";
+import { getSettings, updateSetting } from "@/lib/appSettings";
 import { translateCategory } from "@/lib/categoryLabels";
 import { countries, countryRegions, type CountryRegion } from "@/lib/countries";
 import { supabase } from "@/lib/supabase";
@@ -546,6 +546,7 @@ export default function HomePage() {
   function changeLanguage(nextLanguage: Language) {
     setLanguage(nextLanguage);
     persistLanguage(nextLanguage);
+    updateSetting("general", "language", nextLanguage);
   }
 
   useEffect(() => {
@@ -1660,9 +1661,11 @@ export default function HomePage() {
     onOpenRecycleBin: () => setCurrentStep("recycle"),
     theme,
     onToggleTheme: () =>
-      setTheme((currentTheme) =>
-        currentTheme === "light" ? "dark" : "light"
-      ),
+      setTheme((currentTheme) => {
+        const nextTheme = currentTheme === "light" ? "dark" : "light";
+        updateSetting("general", "theme", nextTheme);
+        return nextTheme;
+      }),
   };
 
   if (!hasAccess) {
@@ -1893,8 +1896,6 @@ export default function HomePage() {
             onThemePreferenceChange={(preference) =>
               setTheme(resolveThemePreference(preference))
             }
-            onAccentChange={(accent) => applyAccentColor(accent, theme)}
-            onBrightnessChange={applyBrightness}
           />
         ) : currentStep === "recycle" ? (
           <RecycleBinScreen

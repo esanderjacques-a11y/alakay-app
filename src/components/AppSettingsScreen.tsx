@@ -30,6 +30,11 @@ import {
   saveSettings,
   WarningSensitivity,
 } from "@/lib/appSettings";
+import {
+  applyAccentColor,
+  applyBrightness,
+  resolveThemePreference,
+} from "@/lib/uiPreferences";
 import AccountSettingsSection from "@/components/AccountSettingsSection";
 import type { Language } from "@/lib/translations";
 
@@ -39,8 +44,8 @@ type Props = {
   onBack: () => void;
   onLanguageChange: (language: Language) => void;
   onThemePreferenceChange: (theme: AppThemePreference) => void;
-  onAccentChange: (accent: AccentColor) => void;
-  onBrightnessChange: (brightness: number) => void;
+  onAccentChange?: (accent: AccentColor) => void;
+  onBrightnessChange?: (brightness: number) => void;
 };
 
 function cloneSettings(settings: AppSettings): AppSettings {
@@ -774,10 +779,13 @@ export default function AppSettingsScreen({
   }, []);
 
   function previewSettings(nextSettings: AppSettings) {
+    const resolvedTheme = resolveThemePreference(nextSettings.general.theme);
     onLanguageChange(nextSettings.general.language);
     onThemePreferenceChange(nextSettings.general.theme);
-    onAccentChange(nextSettings.general.accentColor);
-    onBrightnessChange(nextSettings.general.brightness);
+    applyAccentColor(nextSettings.general.accentColor, resolvedTheme);
+    applyBrightness(nextSettings.general.brightness);
+    onAccentChange?.(nextSettings.general.accentColor);
+    onBrightnessChange?.(nextSettings.general.brightness);
   }
 
   function showSavedFlash() {

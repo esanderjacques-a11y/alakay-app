@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { countries } from "@/lib/countries";
+import { normalizeAuthEmail } from "@/lib/email";
 import { Language, Translation } from "@/lib/translations";
 import { authPanelText } from "@/lib/i18n/componentText";
 
@@ -160,11 +161,12 @@ export default function AuthPanel({
   );
 
   function validateSignup() {
+    const authEmail = normalizeAuthEmail(email);
     if (!firstName.trim()) return text.firstNameRequired;
     if (!lastName.trim()) return text.lastNameRequired;
     if (!profession.trim()) return text.professionRequired;
     if (!finalCountry.trim()) return text.countryRequired;
-    if (!email.trim()) return text.emailRequired;
+    if (!authEmail) return text.emailRequired;
     if (!password) return text.passwordRequired;
     if (!repeatPassword) return text.repeatPasswordRequired;
 
@@ -187,7 +189,9 @@ export default function AuthPanel({
     setMessage("");
 
     if (mode === "login") {
-      if (!email.trim() || !password) {
+      const authEmail = normalizeAuthEmail(email);
+
+      if (!authEmail || !password) {
         setMessage(text.enterEmailPassword);
         return;
       }
@@ -195,7 +199,7 @@ export default function AuthPanel({
       setLoading(true);
 
       const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: authEmail,
         password,
       });
 
@@ -220,9 +224,10 @@ export default function AuthPanel({
     }
 
     setLoading(true);
+    const authEmail = normalizeAuthEmail(email);
 
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: authEmail,
       password,
       options: {
         data: {
@@ -487,7 +492,10 @@ export default function AuthPanel({
         <input
           className="rounded-2xl border border-green-700/35 bg-white/72 p-3 text-slate-900 shadow-sm outline-none placeholder:text-slate-500 focus:border-green-700 focus:bg-white focus:ring-4 focus:ring-green-700/10"
           suppressHydrationWarning
-          type="email"
+          type="text"
+          inputMode="email"
+          autoCapitalize="none"
+          autoComplete="email"
           placeholder={text.email}
           value={email}
           onChange={(e) => setEmail(e.target.value)}

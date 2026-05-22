@@ -1299,13 +1299,11 @@ function SettingsToolbar({
     setMounted(true);
   }, []);
 
-  if (!mounted) return null;
+  if (!mounted || !isDirty) return null;
 
   return createPortal(
     <div
-      className={`fixed right-3 top-[calc(env(safe-area-inset-top,0px)+0.8rem)] z-[16000] rounded-3xl border border-white/70 bg-white/86 px-2 py-2 shadow-xl shadow-green-900/10 backdrop-blur-xl transition sm:right-4 ${
-        isDirty ? "opacity-100" : "opacity-95"
-      }`}
+      className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] left-1/2 z-[16000] w-[min(calc(100vw-1.5rem),25rem)] -translate-x-1/2 rounded-3xl border border-white/70 bg-white/88 px-2.5 py-2 shadow-2xl shadow-green-950/15 backdrop-blur-xl transition animate-float-in sm:bottom-5 sm:left-auto sm:right-5 sm:w-auto sm:translate-x-0"
     >
       <div className="flex items-center justify-end gap-1.5">
         <div className="flex gap-2">
@@ -1332,12 +1330,7 @@ function SettingsToolbar({
         <button
           type="button"
           onClick={onSave}
-          disabled={!isDirty}
-          className={`inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-2xl px-3 text-xs font-extrabold transition sm:px-4 sm:text-sm ${
-            isDirty
-              ? "bg-green-700 text-white shadow-lg shadow-green-900/20 hover:bg-green-800"
-              : "border border-slate-200 bg-white/80 text-slate-400"
-          }`}
+          className="inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-green-700 px-3 text-xs font-extrabold text-white shadow-lg shadow-green-900/20 transition hover:bg-green-800 sm:flex-none sm:px-4 sm:text-sm"
         >
           <Save size={16} />
           {text.save}

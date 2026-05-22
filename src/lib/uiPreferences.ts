@@ -72,7 +72,7 @@ export function applyTheme(theme: AppTheme) {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.theme = theme;
   persistTheme(theme);
-  applyBrightness(readStoredBrightness());
+  applyVisualTone();
 }
 
 export function applyAccentColor(accent: AccentColor, theme: AppTheme = readStoredTheme()) {
@@ -99,6 +99,16 @@ export function readStoredBrightness() {
   return Math.min(115, Math.max(85, Number(brightness) || 100));
 }
 
+export function readStoredSaturation() {
+  const saturation = getSettings().general.saturation;
+  return Math.min(130, Math.max(70, Number(saturation) || 100));
+}
+
+export function readStoredContrast() {
+  const contrast = getSettings().general.contrast;
+  return Math.min(125, Math.max(85, Number(contrast) || 100));
+}
+
 export function applyBrightness(brightness: number) {
   if (typeof document === "undefined") return;
   const nextBrightness = Math.min(115, Math.max(85, Number(brightness) || 100));
@@ -107,4 +117,30 @@ export function applyBrightness(brightness: number) {
     String(nextBrightness / 100)
   );
   document.documentElement.dataset.brightness = String(nextBrightness);
+}
+
+export function applySaturation(saturation: number) {
+  if (typeof document === "undefined") return;
+  const nextSaturation = Math.min(130, Math.max(70, Number(saturation) || 100));
+  document.documentElement.style.setProperty(
+    "--app-saturation",
+    String(nextSaturation / 100)
+  );
+  document.documentElement.dataset.saturation = String(nextSaturation);
+}
+
+export function applyContrast(contrast: number) {
+  if (typeof document === "undefined") return;
+  const nextContrast = Math.min(125, Math.max(85, Number(contrast) || 100));
+  document.documentElement.style.setProperty(
+    "--app-contrast",
+    String(nextContrast / 100)
+  );
+  document.documentElement.dataset.contrast = String(nextContrast);
+}
+
+export function applyVisualTone() {
+  applyBrightness(readStoredBrightness());
+  applySaturation(readStoredSaturation());
+  applyContrast(readStoredContrast());
 }

@@ -237,13 +237,14 @@ function RatioCalculator({ t, lab }: { t: Record<string, string>; lab: Map<strin
 }
 
 function FertilizerCalculator({ t, lab }: { t: Record<string, string>; lab: Map<string, CalculatorValue> }) {
+  const [element, setElement] = useState("nitrogen");
   const [target, setTarget] = useState(80);
   const [grade, setGrade] = useState(20);
   const [area, setArea] = useState(1);
   const [areaUnit, setAreaUnit] = useState<AreaUnit>("ha");
   const [efficiency, setEfficiency] = useState(85);
   const [mode, setMode] = useState<FertilizerMode>("element");
-  const current = lab.get("nitrogen")?.value || 0;
+  const current = lab.get(element)?.value || 0;
   const output = calculateFertilizerRequirement({
     current,
     target,
@@ -255,11 +256,24 @@ function FertilizerCalculator({ t, lab }: { t: Record<string, string>; lab: Map<
   });
 
   return (
-    <CalculatorPanel
+        <CalculatorPanel
       t={t}
       output={output}
       fields={
         <>
+          <SelectField
+            label={t.nutrientElement}
+            value={element}
+            onChange={setElement}
+            options={[
+              ["nitrogen", "N"],
+              ["phosphorus", "P"],
+              ["potassium", "K"],
+              ["calcium", "Ca"],
+              ["magnesium", "Mg"],
+              ["sulfur", "S"],
+            ]}
+          />
           <NumberField label={t.current} value={current} readOnly />
           <NumberField label={t.target} value={target} onChange={setTarget} />
           <NumberField label={t.nutrientGrade} value={grade} onChange={setGrade} />
@@ -273,7 +287,7 @@ function FertilizerCalculator({ t, lab }: { t: Record<string, string>; lab: Map<
 }
 
 function AmendmentCalculator({ t, lab }: { t: Record<string, string>; lab: Map<string, CalculatorValue> }) {
-  const [method, setMethod] = useState<LimeMethod>("target_ph");
+  const [method, setMethod] = useState<LimeMethod>("earth_practical");
   const [targetPh, setTargetPh] = useState(6.2);
   const [acidity, setAcidity] = useState(lab.get("exchangeable_acidity")?.value || 0);
   const [rndt, setRndt] = useState(90);
@@ -300,7 +314,7 @@ function AmendmentCalculator({ t, lab }: { t: Record<string, string>; lab: Map<s
       output={output}
       fields={
         <>
-          <SelectField label={t.limeMethod} value={method} onChange={(value) => setMethod(value as LimeMethod)} options={[["target_ph", t.targetPh], ["exchangeable_acidity", t.acidity], ["buffer_index", t.buffer]]} />
+          <SelectField label={t.limeMethod} value={method} onChange={(value) => setMethod(value as LimeMethod)} options={[["earth_practical", t.earthPractical], ["target_ph", t.targetPh], ["exchangeable_acidity", t.acidity], ["buffer_index", t.buffer]]} />
           <NumberField label="pH" value={lab.get("ph")?.value || 0} readOnly />
           <NumberField label={t.target} value={targetPh} onChange={setTargetPh} />
           <NumberField label={t.acidity} value={acidity} onChange={setAcidity} />
@@ -716,6 +730,8 @@ function translateCalculatorText(value: string, t: Record<string, string>) {
       t.targetPhFormula,
     "exchangeable_acidity adjusted by depth, bulk density, RNDT, and area":
       t.acidityFormula,
+    "earth_practical adjusted by depth, bulk density, RNDT, and area":
+      t.acidityFormula,
     "buffer_index adjusted by depth, bulk density, RNDT, and area":
       t.bufferFormula,
     "((value - optimum) / optimum) * 100": t.dopFormula,
@@ -732,6 +748,8 @@ function translateCalculatorText(value: string, t: Record<string, string>) {
     "Simple target pH estimate. Confirm with local buffer/acidity method when possible.":
       t.noteTargetPh,
     "Exchangeable acidity estimate. Best when the lab reports acidity or Al+H.":
+      t.noteExchangeableAcidity,
+    "EARTH field-practice style estimate using exchangeable acidity, depth, density, RNDT, and measured area.":
       t.noteExchangeableAcidity,
     "Buffer-index estimate. Use the lab's local calibration if it provides one.":
       t.noteBufferIndex,

@@ -35,6 +35,8 @@ export type AppSettings = {
     language: Language;
     theme: AppThemePreference;
     brightness: number;
+    saturation: number;
+    contrast: number;
     appFontSizeDelta: number;
     accentColor: AccentColor;
     defaultSampleType: DefaultSampleType;
@@ -57,6 +59,7 @@ export type AppSettings = {
     includeLogo: boolean;
     includeSummary: boolean;
     includeCharts: boolean;
+    includeHorizontalResultGraph: boolean;
     includeOriginalLabValues: boolean;
     includeCalculationValues: boolean;
     includeDopInReport: boolean;
@@ -76,6 +79,8 @@ export const defaultAppSettings: AppSettings = {
     language: "en",
     theme: "system",
     brightness: 100,
+    saturation: 100,
+    contrast: 100,
     appFontSizeDelta: 0,
     accentColor: "green",
     defaultSampleType: "soil",
@@ -98,6 +103,7 @@ export const defaultAppSettings: AppSettings = {
     includeLogo: true,
     includeSummary: true,
     includeCharts: true,
+    includeHorizontalResultGraph: false,
     includeOriginalLabValues: true,
     includeCalculationValues: true,
     includeDopInReport: true,
@@ -190,6 +196,14 @@ function mergeSettings(settings: Partial<AppSettings>): AppSettings {
   merged.general.brightness = Math.min(
     115,
     Math.max(85, Number(merged.general.brightness) || 100)
+  );
+  merged.general.saturation = Math.min(
+    130,
+    Math.max(70, Number(merged.general.saturation) || 100)
+  );
+  merged.general.contrast = Math.min(
+    125,
+    Math.max(85, Number(merged.general.contrast) || 100)
   );
   merged.general.appFontSizeDelta = Math.min(
     3,

@@ -33,6 +33,8 @@ import {
 import {
   applyAccentColor,
   applyBrightness,
+  applyContrast,
+  applySaturation,
   resolveThemePreference,
 } from "@/lib/uiPreferences";
 import AccountSettingsSection from "@/components/AccountSettingsSection";
@@ -82,6 +84,8 @@ type SettingsText = {
     language: string;
     theme: string;
     brightness: string;
+    saturation: string;
+    contrast: string;
     appFontSize: string;
     accentColor: string;
     defaultSampleType: string;
@@ -98,6 +102,7 @@ type SettingsText = {
     includeLogo: string;
     includeSummary: string;
     includeCharts: string;
+    includeHorizontalResultGraph: string;
     includeOriginalLabValues: string;
     includeCalculationValues: string;
     includeDopInReport: string;
@@ -175,6 +180,8 @@ const settingsText: Record<Language, SettingsText> = {
       language: "Language",
       theme: "Theme",
       brightness: "App brightness",
+      saturation: "Saturation",
+      contrast: "Contrast",
       appFontSize: "App size",
       accentColor: "App accent color",
       defaultSampleType: "Default sample type",
@@ -191,6 +198,7 @@ const settingsText: Record<Language, SettingsText> = {
       includeLogo: "Include logo",
       includeSummary: "Include summary",
       includeCharts: "Include graphs and charts",
+      includeHorizontalResultGraph: "Show horizontal result graph",
       includeOriginalLabValues: "Include original lab values",
       includeCalculationValues: "Include calculation values in reports",
       includeDopInReport: "Include DOP values in reports",
@@ -266,6 +274,8 @@ const settingsText: Record<Language, SettingsText> = {
       language: "Idioma",
       theme: "Tema",
       brightness: "Brillo de la app",
+      saturation: "Saturación",
+      contrast: "Contraste",
       appFontSize: "Tamaño de la app",
       accentColor: "Color principal de la app",
       defaultSampleType: "Tipo de muestra predeterminado",
@@ -282,6 +292,7 @@ const settingsText: Record<Language, SettingsText> = {
       includeLogo: "Incluir logo",
       includeSummary: "Incluir resumen",
       includeCharts: "Incluir gráficos",
+      includeHorizontalResultGraph: "Mostrar gráfico horizontal de resultados",
       includeOriginalLabValues: "Incluir valores originales",
       includeCalculationValues: "Incluir valores de cálculos en reportes",
       includeDopInReport: "Incluir valores DOP en reportes",
@@ -357,6 +368,8 @@ const settingsText: Record<Language, SettingsText> = {
       language: "Langue",
       theme: "Thème",
       brightness: "Luminosité de l’app",
+      saturation: "Saturation",
+      contrast: "Contraste",
       appFontSize: "Taille de l’app",
       accentColor: "Couleur principale de l’app",
       defaultSampleType: "Type d’échantillon par défaut",
@@ -373,6 +386,7 @@ const settingsText: Record<Language, SettingsText> = {
       includeLogo: "Inclure le logo",
       includeSummary: "Inclure le résumé",
       includeCharts: "Inclure les graphiques",
+      includeHorizontalResultGraph: "Afficher le graphique horizontal des résultats",
       includeOriginalLabValues: "Inclure les valeurs originales",
       includeCalculationValues: "Inclure les valeurs de calcul dans les rapports",
       includeDopInReport: "Inclure les valeurs DOP dans les rapports",
@@ -448,6 +462,8 @@ const settingsText: Record<Language, SettingsText> = {
       language: "Lang",
       theme: "Tèm",
       brightness: "Klere app la",
+      saturation: "Satirasyon",
+      contrast: "Kontras",
       appFontSize: "Gwosè app la",
       accentColor: "Koulè prensipal app la",
       defaultSampleType: "Kalite echantiyon pa defo",
@@ -464,6 +480,7 @@ const settingsText: Record<Language, SettingsText> = {
       includeLogo: "Mete logo",
       includeSummary: "Mete rezime",
       includeCharts: "Mete grafik",
+      includeHorizontalResultGraph: "Montre grafik orizontal rezilta yo",
       includeOriginalLabValues: "Mete valè laboratwa orijinal yo",
       includeCalculationValues: "Mete valè kalkil yo nan rapò yo",
       includeDopInReport: "Mete valè DOP yo nan rapò yo",
@@ -539,6 +556,8 @@ const settingsText: Record<Language, SettingsText> = {
       language: "Idioma",
       theme: "Tema",
       brightness: "Brilho do app",
+      saturation: "Saturação",
+      contrast: "Contraste",
       appFontSize: "Tamanho do app",
       accentColor: "Cor principal do app",
       defaultSampleType: "Tipo de amostra padrão",
@@ -555,6 +574,7 @@ const settingsText: Record<Language, SettingsText> = {
       includeLogo: "Incluir logo",
       includeSummary: "Incluir resumo",
       includeCharts: "Incluir gráficos",
+      includeHorizontalResultGraph: "Mostrar gráfico horizontal de resultados",
       includeOriginalLabValues: "Incluir valores originais",
       includeCalculationValues: "Incluir valores de cálculos nos relatórios",
       includeDopInReport: "Incluir valores DOP nos relatórios",
@@ -630,6 +650,8 @@ const settingsText: Record<Language, SettingsText> = {
       language: "Lugha",
       theme: "Mandhari",
       brightness: "Mwangaza wa app",
+      saturation: "Usawazishaji wa rangi",
+      contrast: "Kontrasti",
       appFontSize: "Ukubwa wa app",
       accentColor: "Rangi kuu ya app",
       defaultSampleType: "Aina chaguo-msingi ya sampuli",
@@ -646,6 +668,7 @@ const settingsText: Record<Language, SettingsText> = {
       includeLogo: "Jumuisha nembo",
       includeSummary: "Jumuisha muhtasari",
       includeCharts: "Jumuisha grafu",
+      includeHorizontalResultGraph: "Onyesha grafu ya mlalo ya matokeo",
       includeOriginalLabValues: "Jumuisha thamani asili za maabara",
       includeCalculationValues: "Jumuisha thamani za hesabu kwenye ripoti",
       includeDopInReport: "Jumuisha thamani za DOP kwenye ripoti",
@@ -809,6 +832,8 @@ export default function AppSettingsScreen({
     onThemePreferenceChange(nextSettings.general.theme);
     applyAccentColor(nextSettings.general.accentColor, resolvedTheme);
     applyBrightness(nextSettings.general.brightness);
+    applySaturation(nextSettings.general.saturation);
+    applyContrast(nextSettings.general.contrast);
     onAccentChange?.(nextSettings.general.accentColor);
     onBrightnessChange?.(nextSettings.general.brightness);
     document.documentElement.style.setProperty(
@@ -967,6 +992,20 @@ export default function AppSettingsScreen({
               onChange={(value) => changeSetting("general", "brightness", value)}
             />
             <RangeField
+              label={text.labels.saturation}
+              value={draftSettings.general.saturation}
+              min={70}
+              max={130}
+              onChange={(value) => changeSetting("general", "saturation", value)}
+            />
+            <RangeField
+              label={text.labels.contrast}
+              value={draftSettings.general.contrast}
+              min={85}
+              max={125}
+              onChange={(value) => changeSetting("general", "contrast", value)}
+            />
+            <RangeField
               label={text.labels.appFontSize}
               value={draftSettings.general.appFontSizeDelta}
               min={-2}
@@ -1098,6 +1137,13 @@ export default function AppSettingsScreen({
               checked={draftSettings.reports.includeCharts}
               onChange={(value) =>
                 changeSetting("reports", "includeCharts", value)
+              }
+            />
+            <SwitchField
+              label={text.labels.includeHorizontalResultGraph}
+              checked={draftSettings.reports.includeHorizontalResultGraph}
+              onChange={(value) =>
+                changeSetting("reports", "includeHorizontalResultGraph", value)
               }
             />
             <SwitchField

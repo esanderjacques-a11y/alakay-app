@@ -49,6 +49,17 @@ type ImportedRow = {
   source?: string;
 };
 
+type ImportMetadata = {
+  labName?: string;
+  clientName?: string;
+  farmName?: string;
+  lotName?: string;
+  cropName?: string;
+  reportDate?: string;
+  sampleId?: string;
+  analysisType?: string;
+};
+
 type ImportPreviewRow = {
   id: string;
   rowNumber: number;
@@ -68,6 +79,7 @@ type AiImportPayload = {
   text: string;
   tokens?: DocToken[];
   rows?: ImportedRow[];
+  metadata?: ImportMetadata;
   engine?: "ai";
   warning?: string;
 };
@@ -80,9 +92,12 @@ type Props = {
   existingValues?: Record<string, string>;
   onImportValues: (
     importedValues: Record<string, string>,
-    importedUnits: Record<string, number>
+    importedUnits: Record<string, number>,
+    metadata?: ImportMetadata
   ) => void;
 };
+
+const IMPORT_MEMORY_KEY = "alakay_import_memory";
 
 function normalizeText(value: string) {
   return value
@@ -251,9 +266,7 @@ function findUnitId(parameter: ParameterForImport, rawUnit: string | undefined) 
   const match = parameter.available_units.find((unit) => {
     return (
       normalizeText(unit.unit_symbol) === normalizedRawUnit ||
-      normalizeText(unit.display_symbol) === normalizedRawUnit ||
-      normalizedRawUnit.includes(normalizeText(unit.unit_symbol)) ||
-      normalizedRawUnit.includes(normalizeText(unit.display_symbol))
+      normalizeText(unit.display_symbol) === normalizedRawUnit
     );
   });
 
@@ -264,6 +277,28 @@ function getParameterLabel(parameter: ParameterForImport) {
   return `${parameter.display_name}${
     parameter.symbol ? ` (${parameter.symbol})` : ""
   }${parameter.is_custom ? " - Custom" : ""}`;
+}
+
+function readImportMemory(): AiImportPayload | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(IMPORT_MEMORY_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AiImportPayload;
+    if (!parsed.text && !parsed.rows?.length) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveImportMemory(payload: AiImportPayload) {
+  if (typeof window === "undefined") return;
+  const memory = {
+    ...payload,
+    savedAt: new Date().toISOString(),
+  };
+  window.localStorage.setItem(IMPORT_MEMORY_KEY, JSON.stringify(memory));
 }
 
 function escapeRegExp(value: string) {
@@ -557,6 +592,7 @@ async function recognizeImage(blob: Blob) {
     text: payload.text || "",
     tokens: payload.tokens || [],
     rows: payload.rows || [],
+    metadata: payload.metadata,
     engine: payload.engine,
     warning: payload.warning,
   } satisfies AiImportPayload;
@@ -581,6 +617,8 @@ export default function LabValueImporter({
   const [loadingLabel, setLoadingLabel] = useState("");
   const [documentText, setDocumentText] = useState("");
   const [showTextReview, setShowTextReview] = useState(false);
+  const [importMetadata, setImportMetadata] = useState<ImportMetadata | undefined>();
+  const [hasImportMemory, setHasImportMemory] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [cameraReady, setCameraReady] = useState(false);
 
@@ -605,6 +643,7 @@ export default function LabValueImporter({
 
   useEffect(() => {
     if (!open) return;
+    setHasImportMemory(Boolean(readImportMemory()));
     if (mode === "scan") {
       void startCamera();
     }
@@ -661,6 +700,7 @@ export default function LabValueImporter({
     setMessage("");
     setDocumentText("");
     setShowTextReview(false);
+    setImportMetadata(undefined);
     setCameraError("");
 
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -784,6 +824,9 @@ export default function LabValueImporter({
     const text = payload.text || "";
     setDocumentText(text);
     setShowTextReview(true);
+    setImportMetadata(payload.metadata);
+    saveImportMemory(payload);
+    setHasImportMemory(true);
 
     const rows = payload.rows?.length
       ? payload.rows
@@ -802,6 +845,16 @@ export default function LabValueImporter({
 
     buildPreview(rows);
     setMessage(`${sourceLabel} analyzed with AI import.`);
+  }
+
+  function loadLastImport() {
+    const memory = readImportMemory();
+    if (!memory) {
+      setMessage("No saved import was found on this device.");
+      return;
+    }
+
+    buildAiDocumentPreview(memory, "Saved import");
   }
 
   function extractRowsWithIntelligence(input: string | string[][] | DocToken[]) {
@@ -1109,6 +1162,28 @@ export default function LabValueImporter({
 
   function importMatchedRows() {
     if (selectedRows.length === 0) return;
+    let rowsToImport = selectedRows;
+    const sampleNames = Array.from(
+      new Set(
+        selectedRows
+          .map((row) => row.sampleName?.trim())
+          .filter((sample): sample is string => Boolean(sample))
+      )
+    );
+
+    if (sampleNames.length > 1) {
+      const choice = window.prompt(
+        `Several lots/samples were detected: ${sampleNames.join(", ")}.\nType the exact lot/sample name to import now. You can reuse the saved import to bring another lot later.`
+      );
+      if (!choice) return;
+      rowsToImport = selectedRows.filter(
+        (row) => row.sampleName?.trim().toLowerCase() === choice.trim().toLowerCase()
+      );
+      if (rowsToImport.length === 0) {
+        setMessage("No rows matched that lot/sample name.");
+        return;
+      }
+    }
 
     if (overwriteCount > 0) {
       const confirmed = window.confirm(
@@ -1121,13 +1196,13 @@ export default function LabValueImporter({
     const importedValues: Record<string, string> = {};
     const importedUnits: Record<string, number> = {};
 
-    for (const row of selectedRows) {
+    for (const row of rowsToImport) {
       if (!row.matchedParameterKey || !row.selectedUnitId) continue;
       importedValues[row.matchedParameterKey] = row.value;
       importedUnits[row.matchedParameterKey] = row.selectedUnitId;
     }
 
-    onImportValues(importedValues, importedUnits);
+    onImportValues(importedValues, importedUnits, importMetadata);
     closeModal();
   }
 
@@ -1271,6 +1346,17 @@ export default function LabValueImporter({
                     Template
                   </button>
                 </div>
+
+                {hasImportMemory ? (
+                  <button
+                    type="button"
+                    onClick={loadLastImport}
+                    className="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-50/75 px-4 text-sm font-bold text-green-900 hover:bg-green-50"
+                  >
+                    <RefreshCcw size={16} />
+                    Use last analyzed import
+                  </button>
+                ) : null}
 
                 <div className="mt-3 grid gap-2 text-sm text-slate-600">
                   <FormatPill icon={<FileSpreadsheet size={16} />} label="Excel and CSV" />
@@ -1507,6 +1593,7 @@ export default function LabValueImporter({
                         </td>
                         <td className="border-b border-slate-100 p-3">
                           {matchedParameter ? (
+                            <div className="grid gap-1">
                             <select
                               className="w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-green-600"
                               value={row.selectedUnitId || ""}
@@ -1523,6 +1610,12 @@ export default function LabValueImporter({
                                 </option>
                               ))}
                             </select>
+                              {row.unit ? (
+                                <p className="text-xs font-semibold text-slate-500">
+                                  Detected: {row.unit}. Values are not converted.
+                                </p>
+                              ) : null}
+                            </div>
                           ) : (
                             <span className="text-slate-400">-</span>
                           )}

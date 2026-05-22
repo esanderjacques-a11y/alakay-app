@@ -1,6 +1,6 @@
 export type AreaUnit = "ha" | "carreau" | "acre" | "m2";
 export type FertilizerMode = "element" | "oxide";
-export type LimeMethod = "target_ph" | "exchangeable_acidity" | "buffer_index";
+export type LimeMethod = "earth_practical" | "target_ph" | "exchangeable_acidity" | "buffer_index";
 export type AmendmentMaterial = "calcitic_lime" | "dolomitic_lime" | "gypsum";
 
 export type CalculatorValue = {
@@ -109,6 +109,11 @@ export function calculateSoilAmendment(input: {
   const densityFactor = (input.bulkDensity || 1.25) / 1.25;
   let tonsPerHa = 0;
   let methodNote = "";
+
+  if (input.method === "earth_practical") {
+    tonsPerHa = finitePositive(input.exchangeableAcidity) * 1.5 * depthFactor * densityFactor / rndt;
+    methodNote = "EARTH field-practice style estimate using exchangeable acidity, depth, density, RNDT, and measured area.";
+  }
 
   if (input.method === "target_ph") {
     const gap = Math.max(0, (input.targetPh || 6.2) - (input.currentPh || 0));

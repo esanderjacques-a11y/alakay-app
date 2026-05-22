@@ -147,6 +147,7 @@ async function readWithAi(bytes: Buffer, mimeType: string): Promise<AiImportPayl
                 "Do not import dates, phone numbers, page numbers, addresses, invoice/payment numbers, legal text, chart axes, recommendation kg/ha values, rating letters, status words, or reference ranges as results.",
                 "Treat Low/Medium/High, Bajo/Medio/Alto, Target, Guide, Optimum, Range, Rango, Reference, and bar/scale numbers as reference information, not result values.",
                 "Preserve different methods separately, for example P Olsen, P Bray, P Mehlich, pH H2O, pH KCl, nitrate-N, ammonium-N.",
+                "If carbon, organic carbon, sodium, or sodio appears as a real result, include it as a row even if it may need manual review in the app.",
                 "Use confidence from 0 to 1. Use lower confidence when OCR or layout is uncertain.",
               ].join(" "),
             },

@@ -319,36 +319,36 @@ export async function exportAnalysisPdf(options: {
   function drawResultCard(result: PdfResult, tone: string) {
     const rgb = GROUP_COLORS[tone] || GROUP_COLORS.other;
     const fill = GROUP_FILLS[tone] || GROUP_FILLS.other;
-    ensureSpace(34);
+    ensureSpace(42);
 
     pdf.setFillColor(fill[0], fill[1], fill[2]);
-    pdf.roundedRect(margin, y, contentWidth, 28, 2, 2, "F");
+    pdf.roundedRect(margin, y, contentWidth, 34, 2, 2, "F");
     pdf.setFillColor(rgb[0], rgb[1], rgb[2]);
-    pdf.roundedRect(margin, y, 3, 28, 1, 1, "F");
+    pdf.roundedRect(margin, y, 3, 34, 1, 1, "F");
 
     const name =
       result.display_parameter_name || result.parameter_name;
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(11);
-    pdf.text(name, margin + 6, y + 7);
+    pdf.setFontSize(12);
+    pdf.text(name, margin + 6, y + 8);
 
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(9);
+    pdf.setFontSize(9.5);
     pdf.text(
       `${result.value} ${result.unit_symbol} · ${t.rangeLabel}: ${result.min ?? "—"} – ${result.max ?? "—"}`,
       margin + 6,
-      y + 13
+      y + 15
     );
     pdf.text(
       `${result.level_code.toUpperCase()} · ${t.confidence}: ${result.confidence}`,
       margin + 6,
-      y + 18
+      y + 21
     );
 
     const adviceLines = pdf.splitTextToSize(result.advice, contentWidth - 12);
-    pdf.text(adviceLines.slice(0, 2), margin + 6, y + 23);
+    pdf.text(adviceLines.slice(0, 2), margin + 6, y + 27);
 
-    y += 32;
+    y += 39;
   }
 
   await drawHeaderBand();

@@ -44,11 +44,10 @@ import { RequestTimeoutError } from "@/lib/fetchWithTimeout";
 import { formatMessage, Language, translations } from "@/lib/translations";
 import {
   applyAccentColor,
-  applyBrightness,
   applyTheme,
+  applyVisualTone,
   persistLanguage,
   readStoredAccent,
-  readStoredBrightness,
   readStoredLanguage,
   readStoredTheme,
   resolveThemePreference,
@@ -182,12 +181,28 @@ type UserCustomRange = {
 
 type ParameterFilterGroup = "All" | "Chemical" | "Physical";
 type ValueEntryView = "cards" | "table";
+type ImportedLabMetadata = {
+  labName?: string;
+  clientName?: string;
+  farmName?: string;
+  lotName?: string;
+  cropName?: string;
+  reportDate?: string;
+  sampleId?: string;
+  analysisType?: string;
+};
 
 function normalizeParameterText(value: string | null | undefined) {
   return String(value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+}
+
+function normalizeForMatching(value: string | null | undefined) {
+  return normalizeParameterText(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function getParameterFilterGroup(
@@ -272,6 +287,9 @@ function translateLevelCode(
     very_low: t.levelVeryLow,
     normal: t.levelNormal,
     acceptable: t.levelAcceptable,
+    acidic: t.levelAcidic,
+    neutral_ph: t.levelNeutralPh,
+    alkaline: t.levelAlkaline,
   };
 
   return labels[key] || code;
@@ -555,7 +573,7 @@ export default function HomePage() {
   useEffect(() => {
     applyTheme(theme);
     applyAccentColor(readStoredAccent(), theme);
-    applyBrightness(readStoredBrightness());
+    applyVisualTone();
     document.documentElement.style.setProperty(
       "--app-root-font-size",
       `${16 + getSettings().general.appFontSizeDelta}px`
@@ -984,8 +1002,11 @@ export default function HomePage() {
 
   function importLabValues(
     importedValues: Record<string, string>,
-    importedUnits: Record<string, number>
+    importedUnits: Record<string, number>,
+    metadata?: ImportedLabMetadata
   ) {
+    applyImportedMetadata(metadata);
+
     setValues((previous) => ({
       ...previous,
       ...importedValues,
@@ -1016,6 +1037,37 @@ export default function HomePage() {
         count: Object.keys(importedValues).length,
       })
     );
+    setCurrentStep(cropId || metadata?.cropName ? "values" : "setup");
+  }
+
+  function applyImportedMetadata(metadata?: ImportedLabMetadata) {
+    if (!metadata) return;
+
+    const detectedType = String(metadata.analysisType || "").toLowerCase();
+    if (detectedType.includes("foliar") || detectedType.includes("leaf")) {
+      setSampleType("foliar");
+    } else if (detectedType.includes("soil") || detectedType.includes("suelo")) {
+      setSampleType("soil");
+    }
+
+    if (metadata.labName?.trim()) setLabName(metadata.labName.trim());
+    if (metadata.farmName?.trim()) setFarmName(metadata.farmName.trim());
+    if (metadata.lotName?.trim()) setLotName(metadata.lotName.trim());
+    if (metadata.reportDate?.trim()) setReportDate(metadata.reportDate.trim());
+    if (metadata.cropName?.trim()) {
+      const normalizedCrop = normalizeForMatching(metadata.cropName);
+      const matchedCrop = crops.find((crop) =>
+        [crop.crop_name, crop.display_name].some((name) =>
+          normalizeForMatching(name).includes(normalizedCrop) ||
+          normalizedCrop.includes(normalizeForMatching(name))
+        )
+      );
+      if (matchedCrop) setCropId(matchedCrop.crop_id);
+    }
+
+    if (metadata.labName || metadata.farmName || metadata.lotName || metadata.reportDate) {
+      setShowReportDetails(true);
+    }
   }
 
   function resetAnalysis() {
@@ -1940,6 +1992,7 @@ export default function HomePage() {
                   ].filter(Boolean),
                 }}
                 isGeneralCrop={isGeneralCrop}
+                showHorizontalGraphs={appSettings.reports.includeHorizontalResultGraph}
                 backToValues={() => setCurrentStep("values")}
               />
             )}
@@ -3586,6 +3639,7 @@ function ResultsSection({
   isSaved,
   reportMeta,
   isGeneralCrop,
+  showHorizontalGraphs,
   backToValues,
 }: {
   results: InterpretationResult[];
@@ -3610,6 +3664,7 @@ function ResultsSection({
     details?: string[];
   };
   isGeneralCrop: boolean;
+  showHorizontalGraphs: boolean;
   backToValues: () => void;
 }) {
   const [activeGroup, setActiveGroup] = useState<
@@ -3836,7 +3891,9 @@ function ResultsSection({
           </div>
         )}
 
-        <ResultsHorizontalGraphs results={visibleResults} t={t} />
+        {showHorizontalGraphs ? (
+          <ResultsHorizontalGraphs results={visibleResults} t={t} />
+        ) : null}
 
         <div className="mt-4 grid gap-3">
           <ResultGroup

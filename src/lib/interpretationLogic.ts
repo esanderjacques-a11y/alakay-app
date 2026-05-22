@@ -63,6 +63,12 @@ export function getLevelCode(input: LogicInput) {
     return "acceptable";
   }
 
+  if (isPH(name)) {
+    if (value < 6.5) return "acidic";
+    if (value > 7.5) return "alkaline";
+    return "neutral_ph";
+  }
+
   if (isSodium(name)) {
     if (max !== null && value > max) return "high";
     return "acceptable";
@@ -88,7 +94,7 @@ export function getFinalGroupCode(input: LogicInput) {
   }
 
   if (isPH(name)) {
-    if (level === "low" || level === "high") return "warning";
+    if (level === "acidic" || level === "alkaline" || level === "low" || level === "high") return "warning";
     return "normal";
   }
 
@@ -132,15 +138,15 @@ export function getSimpleAdvice(input: LogicInput) {
   }
 
   if (isPH(name)) {
-    if (level === "low") {
-      return "Soil pH is low. This can reduce nutrient availability and increase aluminum toxicity risk. Consider confirming acidity with exchangeable acidity or aluminum data before applying lime.";
+    if (level === "acidic" || level === "low") {
+      return "Soil pH is acidic. This can reduce nutrient availability and increase aluminum toxicity risk. Consider confirming acidity with exchangeable acidity or aluminum data before applying lime.";
     }
 
-    if (level === "high") {
-      return "Soil pH is high. Some nutrients such as phosphorus, iron, zinc, manganese, and copper may become less available. Avoid unnecessary liming and review crop-specific tolerance.";
+    if (level === "alkaline" || level === "high") {
+      return "Soil pH is alkaline. Some nutrients such as phosphorus, iron, zinc, manganese, and copper may become less available. Avoid unnecessary liming and review crop-specific tolerance.";
     }
 
-    return "Soil pH is within the expected range for this crop or reference range.";
+    return "Soil pH is near neutral in the current context.";
   }
 
   if (isElectricalConductivity(name)) {

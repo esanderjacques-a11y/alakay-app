@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Database,
@@ -1292,9 +1293,17 @@ function SettingsToolbar({
   onRedo: () => void;
   onSave: () => void;
 }) {
-  return (
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <div
-      className={`fixed right-3 top-[4.75rem] z-[16000] rounded-3xl border border-white/70 bg-white/86 px-2 py-2 shadow-xl shadow-green-900/10 backdrop-blur-xl transition sm:right-4 sm:top-[5rem] ${
+      className={`fixed right-3 top-[calc(env(safe-area-inset-top,0px)+0.8rem)] z-[16000] rounded-3xl border border-white/70 bg-white/86 px-2 py-2 shadow-xl shadow-green-900/10 backdrop-blur-xl transition sm:right-4 ${
         isDirty ? "opacity-100" : "opacity-95"
       }`}
     >
@@ -1334,7 +1343,8 @@ function SettingsToolbar({
           {text.save}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

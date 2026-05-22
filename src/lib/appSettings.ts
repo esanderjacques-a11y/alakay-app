@@ -35,6 +35,7 @@ export type AppSettings = {
     language: Language;
     theme: AppThemePreference;
     brightness: number;
+    appFontSizeDelta: number;
     accentColor: AccentColor;
     defaultSampleType: DefaultSampleType;
     defaultCrop: DefaultCrop;
@@ -65,6 +66,8 @@ export type AppSettings = {
     autoSaveAnalyses: boolean;
     keepImportHistory: boolean;
     permanentDeleteDays: number;
+    showParameterDetails: boolean;
+    showParameterSymbolsOnly: boolean;
   };
 };
 
@@ -73,6 +76,7 @@ export const defaultAppSettings: AppSettings = {
     language: "en",
     theme: "system",
     brightness: 100,
+    appFontSizeDelta: 0,
     accentColor: "green",
     defaultSampleType: "soil",
     defaultCrop: "banana",
@@ -103,6 +107,8 @@ export const defaultAppSettings: AppSettings = {
     autoSaveAnalyses: true,
     keepImportHistory: true,
     permanentDeleteDays: 30,
+    showParameterDetails: false,
+    showParameterSymbolsOnly: false,
   },
 };
 
@@ -184,6 +190,10 @@ function mergeSettings(settings: Partial<AppSettings>): AppSettings {
   merged.general.brightness = Math.min(
     115,
     Math.max(85, Number(merged.general.brightness) || 100)
+  );
+  merged.general.appFontSizeDelta = Math.min(
+    3,
+    Math.max(-2, Number(merged.general.appFontSizeDelta) || 0)
   );
 
   return merged;

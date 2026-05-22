@@ -63,5 +63,8 @@ export const countryRegions = Object.entries(countryCodesByRegion).map(
 
 export const countries = [
   ...countryRegions.flatMap((group) => group.countries),
-  "Other",
-].filter((country, index, list) => list.indexOf(country) === index);
+]
+  .filter((country, index, list) => list.indexOf(country) === index)
+  .sort((a, b) => a.localeCompare(b));
+
+countries.push("Other");

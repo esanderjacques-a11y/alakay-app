@@ -76,6 +76,7 @@ export default function AppHeader({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuPresence = useAnimatedPresence(mobileMenuOpen, 220);
   const [mobileLanguageOpen, setMobileLanguageOpen] = useState(false);
+  const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
 
   const accountLabel = guestMode ? t.guestMode : displayName || t.account;
@@ -83,6 +84,7 @@ export default function AppHeader({
   function closeMobileMenu() {
     setMobileMenuOpen(false);
     setMobileLanguageOpen(false);
+    setMobileAccountOpen(false);
   }
 
   useEffect(() => {
@@ -254,67 +256,80 @@ export default function AppHeader({
               </button>
             </div>
 
-            <div className="mt-3 overflow-y-auto pb-4">
-              <div className="border-b border-emerald-900/10 pb-2">
+            <div className="mt-2 overflow-y-auto pb-4">
+              <div className="border-b border-emerald-900/10 pb-1">
                 <MobileMenuRow
                   icon={<User size={18} />}
-                  title={guestMode ? t.guestMode : t.account}
-                  desc={session?.user?.email || accountLabel}
+                  title={accountLabel}
+                  rightIcon={
+                    <ChevronDown
+                      size={16}
+                      className={`transition ${mobileAccountOpen ? "rotate-180" : ""}`}
+                    />
+                  }
+                  onClick={() => setMobileAccountOpen((open) => !open)}
                 />
 
-                {session?.user && guestMode ? (
-                  <MobileMenuRow
-                    icon={<UserRoundCog size={17} />}
-                    title={t.account}
-                    onClick={() => {
-                      closeMobileMenu();
-                      onUseAccount();
-                    }}
-                  />
-                ) : null}
+                {mobileAccountOpen ? (
+                  <div className="animate-slide-up pl-8">
+                    {session?.user && guestMode ? (
+                      <MobileMenuRow
+                        icon={<UserRoundCog size={16} />}
+                        title={t.account}
+                        compact
+                        onClick={() => {
+                          closeMobileMenu();
+                          onUseAccount();
+                        }}
+                      />
+                    ) : null}
 
-                {!guestMode ? (
-                  <MobileMenuRow
-                    icon={<UserRoundCheck size={17} />}
-                    title={t.continueWithoutAccount}
-                    onClick={() => {
-                      closeMobileMenu();
-                      onContinueAsGuest();
-                    }}
-                  />
-                ) : null}
+                    {!guestMode ? (
+                      <MobileMenuRow
+                        icon={<UserRoundCheck size={16} />}
+                        title={t.continueWithoutAccount}
+                        compact
+                        onClick={() => {
+                          closeMobileMenu();
+                          onContinueAsGuest();
+                        }}
+                      />
+                    ) : null}
 
-                <MobileMenuRow
-                  icon={session?.user ? <UserPlus size={17} /> : <LogIn size={17} />}
-                  title={t.loginOrCreate}
-                  onClick={() => {
-                    closeMobileMenu();
-                    onSwitchAccount();
-                  }}
-                />
+                    <MobileMenuRow
+                      icon={session?.user ? <UserPlus size={16} /> : <LogIn size={16} />}
+                      title={t.loginOrCreate}
+                      compact
+                      onClick={() => {
+                        closeMobileMenu();
+                        onSwitchAccount();
+                      }}
+                    />
 
-                {session?.user ? (
-                  <MobileMenuRow
-                    icon={<LogOut size={17} />}
-                    title={t.logOut}
-                    danger
-                    onClick={() => {
-                      closeMobileMenu();
-                      onLogout();
-                    }}
-                  />
+                    {session?.user ? (
+                      <MobileMenuRow
+                        icon={<LogOut size={16} />}
+                        title={t.logOut}
+                        danger
+                        compact
+                        onClick={() => {
+                          closeMobileMenu();
+                          onLogout();
+                        }}
+                      />
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
 
-              <div className="pt-3">
-                <p className="px-1 pb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-800">
+              <div className="pt-2">
+                <p className="px-1 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-800">
                   {t.appSettings}
                 </p>
 
                 <MobileMenuRow
                   icon={<Settings size={18} />}
                   title={t.appSettings}
-                  desc={t.appearance}
                   onClick={() => {
                     closeMobileMenu();
                     onOpenSettings();
@@ -324,7 +339,6 @@ export default function AppHeader({
                 <MobileMenuRow
                   icon={<LanguageFlag language={language} size="md" />}
                   title={t.selectLanguage}
-                  desc={languageOptions.find((item) => item.code === language)?.fullLabel || t.languageLabel}
                   rightIcon={
                     <ChevronDown
                       size={16}
@@ -367,14 +381,12 @@ export default function AppHeader({
                 <MobileMenuRow
                   icon={theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
                   title={t.selectTheme}
-                  desc={theme === "dark" ? t.darkTheme : t.lightTheme}
                   onClick={onToggleTheme}
                 />
 
                 <MobileMenuRow
                   icon={<RotateCcw size={18} />}
                   title={t.recycleBin}
-                  desc={t.recycleBinScreen.allDeleted}
                   onClick={() => {
                     closeMobileMenu();
                     onOpenRecycleBin();
@@ -397,6 +409,7 @@ function MobileMenuRow({
   desc,
   rightIcon,
   danger = false,
+  compact = false,
   onClick,
 }: {
   icon: ReactNode;
@@ -404,6 +417,7 @@ function MobileMenuRow({
   desc?: string;
   rightIcon?: ReactNode;
   danger?: boolean;
+  compact?: boolean;
   onClick?: () => void;
 }) {
   const content = (
@@ -436,14 +450,20 @@ function MobileMenuRow({
   );
 
   if (!onClick) {
-    return <div className="flex items-center gap-2.5 py-2">{content}</div>;
+    return (
+      <div className={`flex items-center gap-2.5 ${compact ? "py-1.5" : "py-2"}`}>
+        {content}
+      </div>
+    );
   }
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="touch-target flex w-full items-center gap-2.5 border-t border-emerald-900/10 py-2.5 text-left transition active:scale-[0.98]"
+      className={`touch-target flex w-full items-center gap-2.5 border-t border-emerald-900/10 text-left transition active:scale-[0.98] ${
+        compact ? "py-1.5" : "py-2"
+      }`}
     >
       {content}
     </button>

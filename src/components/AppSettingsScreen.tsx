@@ -46,6 +46,8 @@ type Props = {
   onThemePreferenceChange: (theme: AppThemePreference) => void;
   onAccentChange?: (accent: AccentColor) => void;
   onBrightnessChange?: (brightness: number) => void;
+  onFontSizeChange?: (delta: number) => void;
+  onSettingsChange?: (settings: AppSettings) => void;
 };
 
 function cloneSettings(settings: AppSettings): AppSettings {
@@ -80,6 +82,7 @@ type SettingsText = {
     language: string;
     theme: string;
     brightness: string;
+    appFontSize: string;
     accentColor: string;
     defaultSampleType: string;
     defaultCrop: string;
@@ -102,6 +105,8 @@ type SettingsText = {
     autoSaveAnalyses: string;
     keepImportHistory: string;
     permanentDeleteTime: string;
+    showParameterDetails: string;
+    showParameterSymbolsOnly: string;
   };
   options: {
     english: string;
@@ -170,6 +175,7 @@ const settingsText: Record<Language, SettingsText> = {
       language: "Language",
       theme: "Theme",
       brightness: "App brightness",
+      appFontSize: "App size",
       accentColor: "App accent color",
       defaultSampleType: "Default sample type",
       defaultCrop: "Default crop",
@@ -192,6 +198,8 @@ const settingsText: Record<Language, SettingsText> = {
       autoSaveAnalyses: "Auto-save analyses",
       keepImportHistory: "Keep import history",
       permanentDeleteTime: "Permanent delete time (max 30 days)",
+      showParameterDetails: "Show parameter details in value entry",
+      showParameterSymbolsOnly: "Show symbols only in value entry",
     },
     options: {
       english: "English",
@@ -258,6 +266,7 @@ const settingsText: Record<Language, SettingsText> = {
       language: "Idioma",
       theme: "Tema",
       brightness: "Brillo de la app",
+      appFontSize: "Tamaño de la app",
       accentColor: "Color principal de la app",
       defaultSampleType: "Tipo de muestra predeterminado",
       defaultCrop: "Cultivo predeterminado",
@@ -280,6 +289,8 @@ const settingsText: Record<Language, SettingsText> = {
       autoSaveAnalyses: "Guardar análisis automáticamente",
       keepImportHistory: "Conservar historial de importación",
       permanentDeleteTime: "Eliminación permanente (máx. 30 días)",
+      showParameterDetails: "Mostrar detalles del parámetro al ingresar valores",
+      showParameterSymbolsOnly: "Mostrar solo símbolos al ingresar valores",
     },
     options: {
       english: "Inglés",
@@ -346,6 +357,7 @@ const settingsText: Record<Language, SettingsText> = {
       language: "Langue",
       theme: "Thème",
       brightness: "Luminosité de l’app",
+      appFontSize: "Taille de l’app",
       accentColor: "Couleur principale de l’app",
       defaultSampleType: "Type d’échantillon par défaut",
       defaultCrop: "Culture par défaut",
@@ -368,6 +380,8 @@ const settingsText: Record<Language, SettingsText> = {
       autoSaveAnalyses: "Enregistrer les analyses automatiquement",
       keepImportHistory: "Conserver l’historique d’import",
       permanentDeleteTime: "Suppression définitive (max. 30 jours)",
+      showParameterDetails: "Afficher les détails des paramètres dans la saisie",
+      showParameterSymbolsOnly: "Afficher seulement les symboles dans la saisie",
     },
     options: {
       english: "Anglais",
@@ -434,6 +448,7 @@ const settingsText: Record<Language, SettingsText> = {
       language: "Lang",
       theme: "Tèm",
       brightness: "Klere app la",
+      appFontSize: "Gwosè app la",
       accentColor: "Koulè prensipal app la",
       defaultSampleType: "Kalite echantiyon pa defo",
       defaultCrop: "Kilti pa defo",
@@ -456,6 +471,8 @@ const settingsText: Record<Language, SettingsText> = {
       autoSaveAnalyses: "Sove analiz yo otomatikman",
       keepImportHistory: "Kenbe istwa enpòtasyon",
       permanentDeleteTime: "Efasman pou tout tan (maks. 30 jou)",
+      showParameterDetails: "Montre detay paramèt yo lè w ap antre valè",
+      showParameterSymbolsOnly: "Montre senbòl sèlman lè w ap antre valè",
     },
     options: {
       english: "Anglè",
@@ -522,6 +539,7 @@ const settingsText: Record<Language, SettingsText> = {
       language: "Idioma",
       theme: "Tema",
       brightness: "Brilho do app",
+      appFontSize: "Tamanho do app",
       accentColor: "Cor principal do app",
       defaultSampleType: "Tipo de amostra padrão",
       defaultCrop: "Cultura padrão",
@@ -544,6 +562,8 @@ const settingsText: Record<Language, SettingsText> = {
       autoSaveAnalyses: "Salvar análises automaticamente",
       keepImportHistory: "Manter histórico de importação",
       permanentDeleteTime: "Exclusão permanente (máx. 30 dias)",
+      showParameterDetails: "Mostrar detalhes dos parâmetros ao inserir valores",
+      showParameterSymbolsOnly: "Mostrar apenas símbolos ao inserir valores",
     },
     options: {
       english: "Inglês",
@@ -610,6 +630,7 @@ const settingsText: Record<Language, SettingsText> = {
       language: "Lugha",
       theme: "Mandhari",
       brightness: "Mwangaza wa app",
+      appFontSize: "Ukubwa wa app",
       accentColor: "Rangi kuu ya app",
       defaultSampleType: "Aina chaguo-msingi ya sampuli",
       defaultCrop: "Zao chaguo-msingi",
@@ -632,6 +653,8 @@ const settingsText: Record<Language, SettingsText> = {
       autoSaveAnalyses: "Hifadhi uchambuzi kiotomatiki",
       keepImportHistory: "Hifadhi historia ya kuingiza",
       permanentDeleteTime: "Kufuta kabisa (kiwango cha juu siku 30)",
+      showParameterDetails: "Onyesha maelezo ya vigezo wakati wa kuingiza thamani",
+      showParameterSymbolsOnly: "Onyesha alama pekee wakati wa kuingiza thamani",
     },
     options: {
       english: "Kiingereza",
@@ -754,6 +777,8 @@ export default function AppSettingsScreen({
   onThemePreferenceChange,
   onAccentChange,
   onBrightnessChange,
+  onFontSizeChange,
+  onSettingsChange,
 }: Props) {
   const text = settingsText[language] || settingsText.en;
   const initialSettings = useMemo(() => cloneSettings(getSettings()), []);
@@ -786,6 +811,12 @@ export default function AppSettingsScreen({
     applyBrightness(nextSettings.general.brightness);
     onAccentChange?.(nextSettings.general.accentColor);
     onBrightnessChange?.(nextSettings.general.brightness);
+    document.documentElement.style.setProperty(
+      "--app-root-font-size",
+      `${16 + nextSettings.general.appFontSizeDelta}px`
+    );
+    onFontSizeChange?.(nextSettings.general.appFontSizeDelta);
+    onSettingsChange?.(nextSettings);
   }
 
   function showSavedFlash() {
@@ -868,7 +899,7 @@ export default function AppSettingsScreen({
 
   return (
     <section className="mt-4 animate-slide-up">
-      <div className="values-screen-panel rounded-3xl p-4 shadow-sm sm:p-5">
+      <div className="values-screen-panel rounded-3xl p-4 pb-24 shadow-sm sm:p-5 sm:pb-24">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <button
@@ -924,6 +955,16 @@ export default function AppSettingsScreen({
               min={85}
               max={115}
               onChange={(value) => changeSetting("general", "brightness", value)}
+            />
+            <RangeField
+              label={text.labels.appFontSize}
+              value={draftSettings.general.appFontSizeDelta}
+              min={-2}
+              max={3}
+              suffix="px"
+              onChange={(value) =>
+                changeSetting("general", "appFontSizeDelta", value)
+              }
             />
             <div className="grid gap-2 md:col-span-2">
               <SelectField
@@ -1090,6 +1131,20 @@ export default function AppSettingsScreen({
               checked={draftSettings.data.keepImportHistory}
               onChange={(value) => changeSetting("data", "keepImportHistory", value)}
             />
+            <SwitchField
+              label={text.labels.showParameterDetails}
+              checked={draftSettings.data.showParameterDetails}
+              onChange={(value) =>
+                changeSetting("data", "showParameterDetails", value)
+              }
+            />
+            <SwitchField
+              label={text.labels.showParameterSymbolsOnly}
+              checked={draftSettings.data.showParameterSymbolsOnly}
+              onChange={(value) =>
+                changeSetting("data", "showParameterSymbolsOnly", value)
+              }
+            />
             <RangeField
               label={text.labels.permanentDeleteTime}
               value={draftSettings.data.permanentDeleteDays}
@@ -1192,31 +1247,29 @@ function SettingsToolbar({
 }) {
   return (
     <div
-      className={`sticky bottom-0 z-20 -mx-1 mt-2 border-t border-white/70 bg-white/82 px-1 py-3 backdrop-blur-xl transition ${
+      className={`fixed inset-x-3 bottom-3 z-[13000] mx-auto max-w-6xl rounded-3xl border border-white/70 bg-white/82 px-2 py-2 shadow-xl shadow-green-900/10 backdrop-blur-xl transition sm:inset-x-4 ${
         isDirty ? "opacity-100" : "opacity-95"
       }`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onUndo}
             disabled={!canUndo}
             title={text.undo}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white/90 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Undo2 size={16} />
-            <span className="hidden sm:inline">{text.undo}</span>
           </button>
           <button
             type="button"
             onClick={onRedo}
             disabled={!canRedo}
             title={text.redo}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white/90 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Redo2 size={16} />
-            <span className="hidden sm:inline">{text.redo}</span>
           </button>
         </div>
 
@@ -1224,7 +1277,7 @@ function SettingsToolbar({
           type="button"
           onClick={onSave}
           disabled={!isDirty}
-          className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-extrabold transition ${
+          className={`inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-extrabold transition sm:flex-none ${
             isDirty
               ? "bg-green-700 text-white shadow-lg shadow-green-900/20 hover:bg-green-800"
               : "border border-slate-200 bg-white/80 text-slate-400"

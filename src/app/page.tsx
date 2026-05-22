@@ -53,7 +53,7 @@ import {
   resolveThemePreference,
   type AppTheme,
 } from "@/lib/uiPreferences";
-import { getSettings, updateSetting } from "@/lib/appSettings";
+import { getSettings, updateSetting, type AppSettings } from "@/lib/appSettings";
 import { translateCategory } from "@/lib/categoryLabels";
 import { countries, countryRegions, type CountryRegion } from "@/lib/countries";
 import { supabase } from "@/lib/supabase";
@@ -209,6 +209,14 @@ function getParameterFilterGroup(
   }
 
   return "Chemical";
+}
+
+function getUnitOptionKey(unit: {
+  unit_id: number;
+  unit_symbol: string;
+  display_symbol: string;
+}) {
+  return `${unit.unit_id}::${unit.display_symbol || unit.unit_symbol}`;
 }
 
 function getParameterSortRank(parameter: Parameter) {
@@ -430,6 +438,7 @@ export default function HomePage() {
   const handlingPopStateRef = useRef(false);
 
   const [session, setSession] = useState<Session | null>(null);
+  const [sessionRestoring, setSessionRestoring] = useState(true);
   const [showAuthScreen, setShowAuthScreen] = useState(false);
   const [guestMode, setGuestMode] = useState(false);
 
@@ -445,6 +454,10 @@ export default function HomePage() {
   const [sampleType, setSampleType] = useState<"soil" | "foliar">("soil");
   const [values, setValues] = useState<Record<string, string>>({});
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
+  const [selectedUnitDisplayKeys, setSelectedUnitDisplayKeys] = useState<
+    Record<string, string>
+  >({});
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => getSettings());
 
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showAllParameters, setShowAllParameters] = useState(true);
@@ -541,6 +554,10 @@ export default function HomePage() {
     applyTheme(theme);
     applyAccentColor(readStoredAccent(), theme);
     applyBrightness(readStoredBrightness());
+    document.documentElement.style.setProperty(
+      "--app-root-font-size",
+      `${16 + getSettings().general.appFontSizeDelta}px`
+    );
   }, [theme]);
 
   function changeLanguage(nextLanguage: Language) {
@@ -611,6 +628,7 @@ export default function HomePage() {
 
     const incomingValues: Record<string, string> = {};
     const incomingUnits: Record<string, number> = {};
+    const incomingUnitDisplayKeys: Record<string, string> = {};
 
     for (const [key, value] of Object.entries(pendingEditableAnalysis.values)) {
       const normalizedKey =
@@ -626,6 +644,13 @@ export default function HomePage() {
         key.startsWith("p-") || key.startsWith("c-") ? key : `p-${key}`;
 
       incomingUnits[normalizedKey] = value;
+      const parameter = parameters.find((item) => item.parameter_key === normalizedKey);
+      const unitOption =
+        parameter?.available_units.find((unit) => unit.unit_id === value) ||
+        parameter?.available_units[0];
+      if (unitOption) {
+        incomingUnitDisplayKeys[normalizedKey] = getUnitOptionKey(unitOption);
+      }
     }
 
     queueMicrotask(() => {
@@ -634,6 +659,10 @@ export default function HomePage() {
       setSelectedUnits((previous) => ({
         ...previous,
         ...incomingUnits,
+      }));
+      setSelectedUnitDisplayKeys((previous) => ({
+        ...previous,
+        ...incomingUnitDisplayKeys,
       }));
 
       setPendingEditableAnalysis(null);
@@ -665,6 +694,8 @@ export default function HomePage() {
       console.error("loadSession:", error);
       setSession(null);
       setMessage(formatRequestError(error));
+    } finally {
+      setSessionRestoring(false);
     }
   }
 
@@ -871,13 +902,23 @@ export default function HomePage() {
     setParametersSampleType(column);
 
     const defaultSelectedUnits: Record<string, number> = {};
+    const defaultSelectedUnitDisplayKeys: Record<string, string> = {};
 
     for (const parameter of formattedParameters) {
       defaultSelectedUnits[parameter.parameter_key] = parameter.unit_id;
+      const defaultUnit = parameter.available_units[0];
+      if (defaultUnit) {
+        defaultSelectedUnitDisplayKeys[parameter.parameter_key] =
+          getUnitOptionKey(defaultUnit);
+      }
     }
 
     setSelectedUnits((previous) => ({
       ...defaultSelectedUnits,
+      ...previous,
+    }));
+    setSelectedUnitDisplayKeys((previous) => ({
+      ...defaultSelectedUnitDisplayKeys,
       ...previous,
     }));
   }
@@ -894,11 +935,17 @@ export default function HomePage() {
     setSavedAnalysisSignature(null);
   }
 
-  function updateUnit(parameterKey: string, unitId: number) {
+  function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setSelectedUnits((previous) => ({
       ...previous,
       [parameterKey]: unitId,
     }));
+    if (displayKey) {
+      setSelectedUnitDisplayKeys((previous) => ({
+        ...previous,
+        [parameterKey]: displayKey,
+      }));
+    }
     setResults([]);
     setMissingResults([]);
     setSavedAnalysisSignature(null);
@@ -918,6 +965,7 @@ export default function HomePage() {
     setSampleType(nextSampleType);
     setValues({});
     setSelectedUnits({});
+    setSelectedUnitDisplayKeys({});
     setResults([]);
     setMissingResults([]);
     setSelectedCategory("All");
@@ -945,6 +993,17 @@ export default function HomePage() {
       ...previous,
       ...importedUnits,
     }));
+    setSelectedUnitDisplayKeys((previous) => {
+      const next = { ...previous };
+      for (const [key, unitId] of Object.entries(importedUnits)) {
+        const parameter = parameters.find((item) => item.parameter_key === key);
+        const unitOption =
+          parameter?.available_units.find((unit) => unit.unit_id === unitId) ||
+          parameter?.available_units[0];
+        if (unitOption) next[key] = getUnitOptionKey(unitOption);
+      }
+      return next;
+    });
 
     setResults([]);
     setMissingResults([]);
@@ -962,6 +1021,7 @@ export default function HomePage() {
     setSampleType("soil");
     setValues({});
     setSelectedUnits({});
+    setSelectedUnitDisplayKeys({});
     setSelectedCategory("All");
     setShowAllParameters(true);
     setParameterSearch("");
@@ -1138,7 +1198,13 @@ export default function HomePage() {
         }
 
         const selectedUnitId = selectedUnits[parameter.parameter_key] || parameter.unit_id;
+        const selectedUnitDisplayKey = selectedUnitDisplayKeys[parameter.parameter_key];
         const selectedUnit =
+          parameter.available_units.find(
+            (unit) =>
+              getUnitOptionKey(unit) === selectedUnitDisplayKey &&
+              unit.unit_id === selectedUnitId
+          ) ||
           parameter.available_units.find((unit) => unit.unit_id === selectedUnitId) ||
           parameter.available_units[0];
 
@@ -1668,6 +1734,14 @@ export default function HomePage() {
       }),
   };
 
+  if (sessionRestoring) {
+    return (
+      <main className="app-main-gradient flex min-h-screen items-center justify-center px-4 text-slate-900">
+        <div className="app-boot-spinner" aria-label={t.loadingSavedValues} />
+      </main>
+    );
+  }
+
   if (!hasAccess) {
     return (
       <main className="auth-page relative flex min-h-screen items-center justify-center px-4 py-8 text-slate-900">
@@ -1798,6 +1872,9 @@ export default function HomePage() {
             filteredParameters={filteredParameters}
             values={values}
             selectedUnits={selectedUnits}
+            selectedUnitDisplayKeys={selectedUnitDisplayKeys}
+            showParameterDetails={appSettings.data.showParameterDetails}
+            showParameterSymbolsOnly={appSettings.data.showParameterSymbolsOnly}
             updateValue={updateValue}
             updateUnit={updateUnit}
             clearAllValues={clearAllValues}
@@ -1896,6 +1973,13 @@ export default function HomePage() {
             onThemePreferenceChange={(preference) =>
               setTheme(resolveThemePreference(preference))
             }
+            onFontSizeChange={(delta) =>
+              document.documentElement.style.setProperty(
+                "--app-root-font-size",
+                `${16 + delta}px`
+              )
+            }
+            onSettingsChange={setAppSettings}
           />
         ) : currentStep === "recycle" ? (
           <RecycleBinScreen
@@ -2231,6 +2315,9 @@ function ValuesScreen({
   filteredParameters,
   values,
   selectedUnits,
+  selectedUnitDisplayKeys,
+  showParameterDetails,
+  showParameterSymbolsOnly,
   updateValue,
   updateUnit,
   clearAllValues,
@@ -2263,8 +2350,11 @@ function ValuesScreen({
   filteredParameters: Parameter[];
   values: Record<string, string>;
   selectedUnits: Record<string, number>;
+  selectedUnitDisplayKeys: Record<string, string>;
+  showParameterDetails: boolean;
+  showParameterSymbolsOnly: boolean;
   updateValue: (parameterKey: string, newValue: string) => void;
-  updateUnit: (parameterKey: string, unitId: number) => void;
+  updateUnit: (parameterKey: string, unitId: number, displayKey?: string) => void;
   clearAllValues: () => void;
   message: string;
   pendingEditableAnalysis: EditableAnalysisPayload | null;
@@ -2706,6 +2796,17 @@ function ValuesScreen({
               parameter.available_units.find(
                 (unit) => unit.unit_id === selectedUnitId
               ) || parameter.available_units[0];
+            const selectedUnitDisplayKey =
+              selectedUnitDisplayKeys[parameter.parameter_key] ||
+              (selectedUnit ? getUnitOptionKey(selectedUnit) : "");
+            const displayParameterLabel =
+              showParameterSymbolsOnly && parameter.symbol
+                ? parameter.symbol
+                : `${parameter.display_name}${
+                    parameter.symbol && !showParameterSymbolsOnly
+                      ? ` (${parameter.symbol})`
+                      : ""
+                  }`;
 
             const aliasTitle = [
               `${t.aliasLabel}: ${parameter.display_name}`,
@@ -2735,10 +2836,10 @@ function ValuesScreen({
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <div>
                     <label className="text-sm font-bold text-slate-900">
-                      {parameter.display_name}
-                      {parameter.symbol ? ` (${parameter.symbol})` : ""}
+                      {displayParameterLabel}
                     </label>
 
+                    {showParameterDetails ? (
                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                       {parameter.category && (
                         <p className="text-xs text-slate-500">
@@ -2752,6 +2853,7 @@ function ValuesScreen({
                         </span>
                       )}
                     </div>
+                    ) : null}
                   </div>
                 </div>
 
@@ -2769,18 +2871,23 @@ function ValuesScreen({
 
                   {parameter.available_units.length > 1 ? (
                     <select
-                      value={selectedUnitId}
-                      onChange={(event) =>
+                      value={selectedUnitDisplayKey}
+                      onChange={(event) => {
+                        const unit = parameter.available_units.find(
+                          (option) => getUnitOptionKey(option) === event.target.value
+                        );
+                        if (!unit) return;
                         updateUnit(
                           parameter.parameter_key,
-                          Number(event.target.value)
-                        )
-                      }
+                          unit.unit_id,
+                          getUnitOptionKey(unit)
+                        );
+                      }}
                       className="absolute right-2 top-1/2 max-w-24 -translate-y-1/2 rounded-xl border border-green-700/10 bg-white/82 px-2 py-1 text-xs font-bold text-green-800 outline-none focus:border-green-700"
                       title={t.changeUnit}
                     >
                       {parameter.available_units.map((unit) => (
-                        <option key={unit.unit_id} value={unit.unit_id}>
+                        <option key={getUnitOptionKey(unit)} value={getUnitOptionKey(unit)}>
                           {unit.display_symbol || unit.unit_symbol}
                         </option>
                       ))}
@@ -2960,6 +3067,7 @@ function ReportDetailsPanel({
         <AppSelect
           value={country}
           placeholder={t.selectCountry}
+          searchable
           options={[
             { label: t.selectCountry, value: "" },
             ...filteredCountries.map((item) => ({ label: item, value: item })),
@@ -3044,6 +3152,7 @@ function AppSelect<T extends string | number>({
   icon,
   iconOnlyOnMobile = false,
   floatingMenu = false,
+  searchable = false,
 }: {
   value: T | "";
   options: { label: string; value: T | "" }[];
@@ -3054,16 +3163,28 @@ function AppSelect<T extends string | number>({
   icon?: React.ReactNode;
   iconOnlyOnMobile?: boolean;
   floatingMenu?: boolean;
+  searchable?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const presence = useAnimatedPresence(open);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
   const selectedOption = options.find((option) => option.value === value);
+  const visibleOptions = searchable
+    ? options.filter((option) => {
+        if (option.value === "") return true;
+        return option.label.toLowerCase().includes(searchTerm.trim().toLowerCase());
+      })
+    : options;
   const useFloatingMenu = floatingMenu || iconOnlyOnMobile;
 
   useDismissible(open, () => setOpen(false), menuRef);
+
+  useEffect(() => {
+    if (!open) setSearchTerm("");
+  }, [open]);
 
   useLayoutEffect(() => {
     if (!open || !useFloatingMenu || !triggerRef.current) return;
@@ -3110,8 +3231,22 @@ function AppSelect<T extends string | number>({
             : "absolute inset-x-0 top-full mt-2"
       }`}
     >
+      {searchable ? (
+        <div className="relative mb-1">
+          <Search
+            size={16}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+          <input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder={placeholder}
+            className="w-full rounded-2xl border border-green-100 bg-white/90 px-3 py-2 pl-9 text-sm font-semibold text-slate-900 outline-none focus:border-green-500"
+          />
+        </div>
+      ) : null}
       <div className="max-h-72 overflow-y-auto pr-1">
-        {options.map((option) => {
+        {visibleOptions.map((option) => {
           const selected = option.value === value;
 
           return (

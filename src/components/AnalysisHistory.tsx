@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Download,
@@ -689,25 +689,24 @@ export default function AnalysisHistory({
 
   return (
     <section className="grid gap-3">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div className="relative pr-12">
         <div>
           <h2 className="text-base font-extrabold text-green-900 sm:text-lg">{l.title}</h2>
           <p className="mt-0.5 max-w-2xl text-xs text-slate-600">{l.desc}</p>
         </div>
 
-        <div className="flex justify-start md:justify-end">
-          <button
-            type="button"
-            onClick={loadAnalyses}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-green-200 bg-white/55 px-3 text-sm font-semibold text-green-800 hover:bg-green-50"
-          >
-            <RefreshCw size={16} />
-            {l.refresh}
-          </button>
-        </div>
+        <button
+          type="button"
+          title={l.refresh}
+          aria-label={l.refresh}
+          onClick={loadAnalyses}
+          className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-green-200 bg-white/55 text-green-800 transition hover:bg-green-50 active:scale-[0.98]"
+        >
+          <RefreshCw size={16} />
+        </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-stretch gap-2">
         <HistoryFilterButton
           label={l.activeReports}
           value={activeCount}
@@ -720,32 +719,34 @@ export default function AnalysisHistory({
           active={historyFilter === "versions"}
           onClick={() => setHistoryFilter("versions")}
         />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/60 bg-white/45 p-2">
-        <span className="inline-flex items-center gap-2 px-1 text-xs font-extrabold text-slate-600">
-          <ArrowUpDown size={15} />
-          {l.sortBy}
-        </span>
-        <select
-          value={sortKey}
-          onChange={(event) => setSortKey(event.target.value as HistorySortKey)}
-          className="min-h-9 rounded-xl border border-green-100 bg-white/80 px-2 text-sm font-semibold text-green-950 outline-none"
-        >
-          <option value="date">{l.date}</option>
-          <option value="name">{l.name}</option>
-          <option value="crop">{l.crop}</option>
-          <option value="type">{l.sampleType}</option>
-          <option value="location">{l.location}</option>
-        </select>
+        <label className="relative block h-full" title={l.sortBy} aria-label={l.sortBy}>
+          <select
+            value={sortKey}
+            onChange={(event) => setSortKey(event.target.value as HistorySortKey)}
+            className="h-full min-h-12 w-11 appearance-none rounded-2xl border border-white/60 bg-white/55 text-transparent outline-none transition hover:bg-white/75 focus:border-green-300"
+          >
+            <option value="date">{l.date}</option>
+            <option value="name">{l.name}</option>
+            <option value="crop">{l.crop}</option>
+            <option value="type">{l.sampleType}</option>
+            <option value="location">{l.location}</option>
+          </select>
+          <ArrowUpDown
+            aria-hidden="true"
+            size={17}
+            className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-green-800"
+          />
+        </label>
         <button
           type="button"
+          title={sortDirection === "asc" ? l.ascending : l.descending}
+          aria-label={sortDirection === "asc" ? l.ascending : l.descending}
           onClick={() =>
             setSortDirection((current) => (current === "asc" ? "desc" : "asc"))
           }
-          className="min-h-9 rounded-xl border border-green-100 bg-white/80 px-3 text-sm font-bold text-green-950"
+          className="inline-flex min-h-12 w-11 items-center justify-center rounded-2xl border border-white/60 bg-white/55 text-lg font-extrabold text-green-800 transition hover:bg-white/75 active:scale-[0.98]"
         >
-          {sortDirection === "asc" ? l.ascending : l.descending}
+          {sortDirection === "asc" ? "↑" : "↓"}
         </button>
       </div>
 
@@ -1152,6 +1153,11 @@ function ReportPreviewModal({
 }) {
   const l = analysisHistoryText[language as keyof typeof analysisHistoryText] || analysisHistoryText.en;
   const [activeFilter, setActiveFilter] = useState<PreviewGroupKey>("all");
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0 });
+  }, [analysis.analysis_id, loading]);
 
   const groupedValues = useMemo(
     () => ({
@@ -1266,11 +1272,11 @@ function ReportPreviewModal({
 
   return (
     <div
-      className="fixed inset-0 z-[20000] flex items-start justify-center overflow-y-auto bg-slate-950/35 px-3 py-4 backdrop-blur-md sm:items-center sm:px-4"
+      className="fixed inset-0 z-[20000] flex items-center justify-center overflow-hidden bg-slate-950/35 px-3 py-3 backdrop-blur-md sm:px-4"
       onClick={onClose}
     >
       <div
-        className="my-auto flex w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-xl sm:max-h-[min(92vh,100%)]"
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-5">
@@ -1308,7 +1314,7 @@ function ReportPreviewModal({
           </div>
         </header>
 
-        <div className="max-h-[min(72vh,calc(100dvh-9rem))] overflow-y-auto px-4 py-3 sm:px-5">
+        <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
           {loading ? (
             <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
               {l.loading}
@@ -1319,7 +1325,7 @@ function ReportPreviewModal({
             </div>
           ) : (
             <>
-              <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+              <section className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
                 <div>
                   <h3 className="text-sm font-bold text-green-900">{l.analysisSummary}</h3>
                   <p className="text-xs text-slate-600">
@@ -1349,7 +1355,7 @@ function ReportPreviewModal({
                 </div>
               </section>
 
-              <section className="mt-3 grid gap-3">
+              <section className="mx-auto mt-3 grid w-full max-w-3xl gap-3">
                 {visiblePreviewGroups.length === 0 ? (
                   <p className="rounded-2xl bg-slate-50 p-4 text-center text-sm text-slate-600">
                     {l.noValues}
@@ -1368,7 +1374,7 @@ function ReportPreviewModal({
                 )}
               </section>
 
-              <details className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+              <details className="mx-auto mt-4 w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-3">
                 <summary className="cursor-pointer text-sm font-bold text-green-900">
                   {l.viewFullTable}
                 </summary>

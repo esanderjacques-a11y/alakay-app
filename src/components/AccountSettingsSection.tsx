@@ -22,6 +22,7 @@ export default function AccountSettingsSection({ language, session }: Props) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [editing, setEditing] = useState(false);
@@ -64,6 +65,11 @@ export default function AccountSettingsSection({ language, session }: Props) {
       return;
     }
 
+    if (password && !currentPassword) {
+      setMessage(text.currentPasswordRequired);
+      return;
+    }
+
     if (password && password.length < 8) {
       setMessage(text.passwordTooShort);
       return;
@@ -81,6 +87,11 @@ export default function AccountSettingsSection({ language, session }: Props) {
       }
 
       if (password) {
+        const { error: passwordError } = await supabase.auth.signInWithPassword({
+          email: session.user.email || trimmedEmail,
+          password: currentPassword,
+        });
+        if (passwordError) throw passwordError;
         authUpdates.password = password;
       }
 
@@ -124,6 +135,7 @@ export default function AccountSettingsSection({ language, session }: Props) {
         await supabase.auth.updateUser({ data: authData });
       }
 
+      setCurrentPassword("");
       setPassword("");
       setConfirmPassword("");
       setMessage(
@@ -248,11 +260,23 @@ export default function AccountSettingsSection({ language, session }: Props) {
       </label>
 
       <label className="grid gap-1 text-sm font-semibold text-slate-700">
+        {text.currentPassword}
+        <input
+          type="password"
+          value={currentPassword}
+          onChange={(event) => setCurrentPassword(event.target.value)}
+          autoComplete="current-password"
+          className="min-h-11 rounded-2xl border border-green-100 bg-white/82 px-3 text-slate-900 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-700/10"
+        />
+      </label>
+
+      <label className="grid gap-1 text-sm font-semibold text-slate-700">
         {text.newPassword}
         <input
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
+          autoComplete="new-password"
           placeholder={text.passwordOptional}
           className="min-h-11 rounded-2xl border border-green-100 bg-white/82 px-3 text-slate-900 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-700/10"
         />
@@ -264,6 +288,7 @@ export default function AccountSettingsSection({ language, session }: Props) {
           type="password"
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
+          autoComplete="new-password"
           className="min-h-11 rounded-2xl border border-green-100 bg-white/82 px-3 text-slate-900 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-700/10"
         />
       </label>

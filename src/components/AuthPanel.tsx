@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { countries } from "@/lib/countries";
 import { normalizeAuthEmail } from "@/lib/email";
@@ -452,19 +452,25 @@ export default function AuthPanel({
             </select>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <select
-                className="rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
-                suppressHydrationWarning
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-              >
-                <option value="">{text.country}</option>
-                {countries.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <Search
+                  size={17}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  className="w-full rounded-2xl border border-slate-200 bg-white p-3 pl-10 outline-none focus:border-green-600"
+                  suppressHydrationWarning
+                  list="alakay-auth-countries"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder={text.country}
+                />
+                <datalist id="alakay-auth-countries">
+                  {countries.map((item) => (
+                    <option key={item} value={item} />
+                  ))}
+                </datalist>
+              </div>
 
               <input
                 className="rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"

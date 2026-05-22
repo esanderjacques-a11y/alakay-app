@@ -899,7 +899,17 @@ export default function AppSettingsScreen({
 
   return (
     <section className="mt-4 animate-slide-up">
-      <div className="values-screen-panel rounded-3xl p-4 pb-24 shadow-sm sm:p-5 sm:pb-24">
+      <SettingsToolbar
+        text={text}
+        isDirty={isDirty}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onSave={handleSave}
+      />
+
+      <div className="values-screen-panel rounded-3xl p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <button
@@ -935,7 +945,7 @@ export default function AppSettingsScreen({
           </span>
         </div>
 
-        <div className="mt-5 grid gap-4 pb-24">
+        <div className="mt-5 grid gap-4">
           <SettingsSection icon={<Globe2 size={18} />} title={text.sections.general}>
             <SelectField
               label={text.labels.language}
@@ -1170,15 +1180,6 @@ export default function AppSettingsScreen({
           </SettingsSection>
         </div>
 
-        <SettingsToolbar
-          text={text}
-          isDirty={isDirty}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          onSave={handleSave}
-        />
       </div>
     </section>
   );
@@ -1247,18 +1248,18 @@ function SettingsToolbar({
 }) {
   return (
     <div
-      className={`fixed inset-x-3 bottom-3 z-[13000] mx-auto max-w-6xl rounded-3xl border border-white/70 bg-white/82 px-2 py-2 shadow-xl shadow-green-900/10 backdrop-blur-xl transition sm:inset-x-4 ${
+      className={`fixed right-3 top-[4.75rem] z-[16000] rounded-3xl border border-white/70 bg-white/86 px-2 py-2 shadow-xl shadow-green-900/10 backdrop-blur-xl transition sm:right-4 sm:top-[5rem] ${
         isDirty ? "opacity-100" : "opacity-95"
       }`}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-end gap-1.5">
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onUndo}
             disabled={!canUndo}
             title={text.undo}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white/90 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white/90 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Undo2 size={16} />
           </button>
@@ -1267,7 +1268,7 @@ function SettingsToolbar({
             onClick={onRedo}
             disabled={!canRedo}
             title={text.redo}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white/90 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white/90 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Redo2 size={16} />
           </button>
@@ -1277,7 +1278,7 @@ function SettingsToolbar({
           type="button"
           onClick={onSave}
           disabled={!isDirty}
-          className={`inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-extrabold transition sm:flex-none ${
+          className={`inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-2xl px-3 text-xs font-extrabold transition sm:px-4 sm:text-sm ${
             isDirty
               ? "bg-green-700 text-white shadow-lg shadow-green-900/20 hover:bg-green-800"
               : "border border-slate-200 bg-white/80 text-slate-400"

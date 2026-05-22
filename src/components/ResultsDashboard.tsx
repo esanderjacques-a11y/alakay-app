@@ -38,13 +38,15 @@ export default function ResultsDashboard({
   const [activeTab, setActiveTab] = useState<"progress" | "history">(
     hasCurrentResults || enteredValuesCount > 0 ? "progress" : "history"
   );
+  const [readingReport, setReadingReport] = useState(false);
 
   const canViewHistory = Boolean(session?.user && !guestMode);
   const hasProgress = enteredValuesCount > 0 || hasCurrentResults;
 
   return (
     <section className="mt-4 grid gap-3 animate-fade-in">
-      <GlassPanel className="p-3 sm:p-4">
+      {!readingReport ? (
+        <GlassPanel className="p-3 sm:p-4">
         <article className="flex flex-col gap-2">
           <span>
             <h1 className="text-base font-extrabold uppercase tracking-wide text-green-900">
@@ -96,6 +98,7 @@ export default function ResultsDashboard({
           </button>
         </span>
       </GlassPanel>
+      ) : null}
 
       {activeTab === "progress" ? (
         <GlassPanel className="p-4 sm:p-5">
@@ -173,20 +176,21 @@ export default function ResultsDashboard({
           )}
         </GlassPanel>
       ) : (
-        <GlassPanel className="p-4 sm:p-5">
+        <div>
           {canViewHistory ? (
             <AnalysisHistory
               session={session}
               language={language}
               t={t}
               onEditAnalysis={onEditAnalysis}
+              onReadingChange={setReadingReport}
             />
           ) : (
             <p className="rounded-2xl bg-yellow-50/90 p-4 text-yellow-900">
               {t.loginForHistory}
             </p>
           )}
-        </GlassPanel>
+        </div>
       )}
     </section>
   );

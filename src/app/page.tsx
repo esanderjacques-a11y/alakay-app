@@ -18,6 +18,7 @@ import {
   Save,
   Search,
   SlidersHorizontal,
+  Table2,
   Upload,
 } from "lucide-react";
 
@@ -180,6 +181,7 @@ type UserCustomRange = {
 };
 
 type ParameterFilterGroup = "All" | "Chemical" | "Physical";
+type ValueEntryView = "cards" | "table";
 
 function normalizeParameterText(value: string | null | undefined) {
   return String(value || "")
@@ -1963,6 +1965,7 @@ export default function HomePage() {
             results={results}
             sampleType={sampleType}
             goToValues={() => setCurrentStep("values")}
+            onBack={() => setCurrentStep("home")}
           />
         ) : currentStep === "settings" ? (
           <AppSettingsScreen
@@ -2374,6 +2377,7 @@ function ValuesScreen({
   const customMenuRef = useRef<HTMLDivElement | null>(null);
   const stickyCustomMenuRef = useRef<HTMLDivElement | null>(null);
   const parameterGridRef = useRef<HTMLDivElement | null>(null);
+  const [valueEntryView, setValueEntryView] = useState<ValueEntryView>("cards");
   const hasVisibleParameters = Boolean(cropId && filteredParameters.length > 0);
   const hasEnteredValues = totalEnteredValues > 0;
   const showStickyAddAction = hasVisibleParameters && showParameterActions;
@@ -2639,16 +2643,37 @@ function ValuesScreen({
         </div>
 
         <div className="mt-3">
-          <ParameterCategoryFilter
-            categories={parameterCategories}
-            selectedCategory={selectedCategory}
-            onChange={(category) => {
-              setSelectedCategory(category);
-              setShowAllParameters(category === "All");
-            }}
-            language={language}
-            allLabel={t.all}
-          />
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <ParameterCategoryFilter
+              categories={parameterCategories}
+              selectedCategory={selectedCategory}
+              onChange={(category) => {
+                setSelectedCategory(category);
+                setShowAllParameters(category === "All");
+              }}
+              language={language}
+              allLabel={t.all}
+            />
+
+            <div className="inline-flex shrink-0 rounded-2xl border border-white/70 bg-white/58 p-1 shadow-sm">
+              {(["cards", "table"] as const).map((view) => (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => setValueEntryView(view)}
+                  className={`inline-flex min-h-9 items-center gap-2 rounded-xl px-3 text-xs font-extrabold transition ${
+                    valueEntryView === view
+                      ? "bg-[var(--accent-600)] text-white shadow-sm"
+                      : "text-green-900 hover:bg-white/70"
+                  }`}
+                  aria-pressed={valueEntryView === view}
+                >
+                  {view === "table" ? <Table2 size={15} /> : <SlidersHorizontal size={15} />}
+                  {view === "table" ? t.tableView : t.cardView}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2783,7 +2808,128 @@ function ValuesScreen({
         </div>
       )}
 
-      {cropId && filteredParameters.length > 0 && (
+      {cropId && filteredParameters.length > 0 && valueEntryView === "table" && (
+        <div
+          ref={parameterGridRef}
+          className="relative z-0 mt-4 overflow-x-auto rounded-2xl border border-white/65 bg-white/58 shadow-sm backdrop-blur-xl animate-slide-up"
+        >
+          <table className="w-full min-w-[620px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-green-900/10 text-left text-xs font-extrabold uppercase tracking-wide text-slate-500">
+                <th className="px-3 py-3">{t.parameterLabel}</th>
+                <th className="px-3 py-3">{t.valueLabel}</th>
+                <th className="px-3 py-3">{t.unitLabel}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredParameters.map((parameter) => {
+                const selectedUnitId =
+                  selectedUnits[parameter.parameter_key] || parameter.unit_id;
+                const selectedUnit =
+                  parameter.available_units.find(
+                    (unit) => unit.unit_id === selectedUnitId
+                  ) || parameter.available_units[0];
+                const selectedUnitDisplayKey =
+                  selectedUnitDisplayKeys[parameter.parameter_key] ||
+                  (selectedUnit ? getUnitOptionKey(selectedUnit) : "");
+                const displayParameterLabel =
+                  showParameterSymbolsOnly && parameter.symbol
+                    ? parameter.symbol
+                    : `${parameter.display_name}${
+                        parameter.symbol && !showParameterSymbolsOnly
+                          ? ` (${parameter.symbol})`
+                          : ""
+                      }`;
+                const aliasTitle = [
+                  `${t.aliasLabel}: ${parameter.display_name}`,
+                  parameter.parameter_name !== parameter.display_name
+                    ? `${t.originalName}: ${parameter.parameter_name}`
+                    : "",
+                  `${t.unitLabel}: ${
+                    selectedUnit?.display_symbol ||
+                    selectedUnit?.unit_symbol ||
+                    parameter.unit_symbol
+                  }`,
+                ]
+                  .filter(Boolean)
+                  .join("\n");
+
+                return (
+                  <tr
+                    key={parameter.parameter_key}
+                    title={aliasTitle}
+                    className="border-b border-green-900/6 last:border-0"
+                  >
+                    <td className="px-3 py-2 align-middle">
+                      <div className="font-bold text-slate-900">
+                        {displayParameterLabel}
+                      </div>
+                      {showParameterDetails && parameter.category ? (
+                        <div className="mt-0.5 text-xs text-slate-500">
+                          {translateCategory(parameter.category, language, translations)}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      <input
+                        className="w-full rounded-xl border border-green-700/16 bg-white/65 p-2.5 text-sm font-semibold outline-none backdrop-blur-md focus:border-green-700/60 focus:bg-white/90 focus:ring-4 focus:ring-green-700/10"
+                        type="text"
+                        inputMode="decimal"
+                        value={values[parameter.parameter_key] || ""}
+                        onChange={(e) =>
+                          updateValue(parameter.parameter_key, e.target.value)
+                        }
+                        placeholder={t.valuePlaceholder}
+                      />
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      {parameter.available_units.length > 1 ? (
+                        <select
+                          value={selectedUnitDisplayKey}
+                          onChange={(event) => {
+                            const unit = parameter.available_units.find(
+                              (option) =>
+                                getUnitOptionKey(option) === event.target.value
+                            );
+                            if (!unit) return;
+                            updateUnit(
+                              parameter.parameter_key,
+                              unit.unit_id,
+                              getUnitOptionKey(unit)
+                            );
+                          }}
+                          className="w-full rounded-xl border border-green-700/10 bg-white/82 px-3 py-2 text-xs font-bold text-green-800 outline-none focus:border-green-700"
+                          title={t.changeUnit}
+                        >
+                          {parameter.available_units.map((unit) => (
+                            <option
+                              key={getUnitOptionKey(unit)}
+                              value={getUnitOptionKey(unit)}
+                            >
+                              {unit.display_symbol || unit.unit_symbol}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span
+                          className="inline-flex max-w-28 truncate rounded-xl border border-green-700/10 bg-white/55 px-3 py-2 text-xs font-bold text-green-800"
+                          title={selectedUnit?.unit_symbol || parameter.unit_symbol}
+                        >
+                          {selectedUnit?.display_symbol ||
+                            selectedUnit?.unit_symbol ||
+                            parameter.unit_symbol}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {cropId && filteredParameters.length > 0 && valueEntryView === "cards" && (
         <div
           ref={parameterGridRef}
           className="relative z-0 mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3"

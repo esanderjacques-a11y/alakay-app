@@ -78,7 +78,7 @@ export default function AppDock({
               onClick={() => onStepChange(step.id)}
               className={`touch-target flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-semibold transition sm:text-xs ${
                 active
-                  ? "bg-white/68 text-green-900 shadow-lg shadow-green-950/10 ring-1 ring-white/70 backdrop-blur-md"
+                  ? "app-dock-tab-active"
                   : disabled
                     ? "cursor-not-allowed text-slate-300"
                     : "text-green-950/80 active:scale-95 hover:bg-white/46"

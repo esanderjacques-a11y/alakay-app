@@ -77,6 +77,8 @@ export default function AppHeader({
   const mobileMenuPresence = useAnimatedPresence(mobileMenuOpen, 220);
   const [mobileLanguageOpen, setMobileLanguageOpen] = useState(false);
   const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
+  const mobileLanguagePresence = useAnimatedPresence(mobileLanguageOpen, 180);
+  const mobileAccountPresence = useAnimatedPresence(mobileAccountOpen, 180);
   const headerRef = useRef<HTMLElement | null>(null);
 
   const accountLabel = guestMode ? t.guestMode : displayName || t.account;
@@ -226,8 +228,8 @@ export default function AppHeader({
             <section
               className={`mobile-menu-panel absolute right-0 top-0 flex h-full w-[min(20rem,84vw)] flex-col border-l border-white/70 p-3 shadow-2xl ${
               mobileMenuPresence.leaving
-                ? "animate-[slide-panel-out_0.22s_cubic-bezier(0.55,0,0.78,0.36)_both]"
-                : "animate-[slide-panel-in_0.38s_cubic-bezier(0.22,1,0.36,1)_both]"
+                ? "animate-slide-right-out"
+                : "animate-slide-right-in"
             }`}
           >
             <div className="flex items-center justify-between gap-2">
@@ -270,8 +272,14 @@ export default function AppHeader({
                   onClick={() => setMobileAccountOpen((open) => !open)}
                 />
 
-                {mobileAccountOpen ? (
-                  <div className="animate-slide-up pl-8">
+                {mobileAccountPresence.mounted ? (
+                  <div
+                    className={`pl-8 ${
+                      mobileAccountPresence.leaving
+                        ? "animate-slide-up-out"
+                        : "animate-slide-up-in"
+                    }`}
+                  >
                     {session?.user && guestMode ? (
                       <MobileMenuRow
                         icon={<UserRoundCog size={16} />}
@@ -348,8 +356,14 @@ export default function AppHeader({
                   onClick={() => setMobileLanguageOpen((open) => !open)}
                 />
 
-                {mobileLanguageOpen ? (
-                  <div className="animate-slide-up border-b border-emerald-900/10 py-1 pl-10">
+                {mobileLanguagePresence.mounted ? (
+                  <div
+                    className={`border-b border-emerald-900/10 py-1 pl-10 ${
+                      mobileLanguagePresence.leaving
+                        ? "animate-slide-up-out"
+                        : "animate-slide-up-in"
+                    }`}
+                  >
                   {languageOptions.map((item) => (
                     <button
                       key={item.code}

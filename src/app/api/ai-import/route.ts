@@ -9,8 +9,11 @@ type AiImportPayload = {
     value: string;
     unit?: string;
     sample?: string;
+    method?: string;
+    source?: string;
     confidence?: number;
   }>;
+  metadata?: Record<string, string>;
   warning?: string;
 };
 
@@ -58,7 +61,74 @@ async function readWithAi(bytes: Buffer, mimeType: string): Promise<AiImportPayl
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_IMPORT_MODEL || "gpt-4.1-mini",
+      model: process.env.OPENAI_IMPORT_MODEL || "gpt-4o-mini",
+      max_output_tokens: 2400,
+      temperature: 0,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "alakay_lab_import",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              text: { type: "string" },
+              metadata: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  labName: { type: "string" },
+                  clientName: { type: "string" },
+                  farmName: { type: "string" },
+                  lotName: { type: "string" },
+                  cropName: { type: "string" },
+                  reportDate: { type: "string" },
+                  sampleId: { type: "string" },
+                  analysisType: { type: "string" },
+                },
+                required: [
+                  "labName",
+                  "clientName",
+                  "farmName",
+                  "lotName",
+                  "cropName",
+                  "reportDate",
+                  "sampleId",
+                  "analysisType",
+                ],
+              },
+              rows: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    parameter: { type: "string" },
+                    value: { type: "string" },
+                    unit: { type: "string" },
+                    sample: { type: "string" },
+                    method: { type: "string" },
+                    source: { type: "string" },
+                    confidence: { type: "number" },
+                  },
+                  required: [
+                    "parameter",
+                    "value",
+                    "unit",
+                    "sample",
+                    "method",
+                    "source",
+                    "confidence",
+                  ],
+                },
+              },
+              warning: { type: "string" },
+            },
+            required: ["text", "metadata", "rows", "warning"],
+          },
+        },
+      },
       input: [
         {
           role: "user",
@@ -67,12 +137,17 @@ async function readWithAi(bytes: Buffer, mimeType: string): Promise<AiImportPayl
               type: "input_text",
               text: [
                 "Read this soil or foliar lab report for ALAKAY.",
-                "Return only strict JSON with keys text and rows.",
-                "rows must be an array of {parameter,value,unit,sample,confidence}.",
-                "Use only actual lab result values.",
-                "Do not use reference ranges, dates, phone numbers, page numbers, addresses, invoices, recommendations, legal text, chart axes, or status/rating values as results.",
-                "If the report has several plots, lots, or samples, keep the sample name on every row.",
-                "If a table has Resultado/Result/Value columns, prefer those columns over nearby numbers.",
+                "Return strict JSON only. Do not include markdown.",
+                "The text field should contain a compact transcription of the useful report text.",
+                "The rows field must contain lab results only: {parameter,value,unit,sample,method,source,confidence}.",
+                "Keep sample/lot/plot names on every row when several plots, lots, or samples appear.",
+                "If a table has Result, Resultado, Resultados, Valor, Concentracion, or Current columns, use those columns as the true values.",
+                "If a wide table has sample rows and parameter columns, create one row per sample and parameter.",
+                "If headers include method or unit, carry that method/unit into each row.",
+                "Do not import dates, phone numbers, page numbers, addresses, invoice/payment numbers, legal text, chart axes, recommendation kg/ha values, rating letters, status words, or reference ranges as results.",
+                "Treat Low/Medium/High, Bajo/Medio/Alto, Target, Guide, Optimum, Range, Rango, Reference, and bar/scale numbers as reference information, not result values.",
+                "Preserve different methods separately, for example P Olsen, P Bray, P Mehlich, pH H2O, pH KCl, nitrate-N, ammonium-N.",
+                "Use confidence from 0 to 1. Use lower confidence when OCR or layout is uncertain.",
               ].join(" "),
             },
             {
@@ -99,6 +174,8 @@ async function readWithAi(bytes: Buffer, mimeType: string): Promise<AiImportPayl
     engine: "ai",
     text: parsed.text || outputText,
     rows: parsed.rows || [],
+    metadata: parsed.metadata || {},
+    warning: parsed.warning || "",
   };
 }
 
@@ -133,13 +210,24 @@ function parseAiImportJson(rawText: string) {
   }
 }
 
-function normalizeAiImportPayload(payload: unknown): Pick<AiImportPayload, "text" | "rows"> {
+function normalizeAiImportPayload(
+  payload: unknown
+): Pick<AiImportPayload, "text" | "rows" | "metadata" | "warning"> {
   if (!payload || typeof payload !== "object") {
     return { text: "", rows: [] };
   }
 
   const record = payload as Record<string, unknown>;
   const text = typeof record.text === "string" ? record.text : "";
+  const metadata =
+    record.metadata && typeof record.metadata === "object"
+      ? Object.fromEntries(
+          Object.entries(record.metadata as Record<string, unknown>)
+            .filter(([, value]) => typeof value === "string")
+            .map(([key, value]) => [key, value as string])
+        )
+      : {};
+  const warning = typeof record.warning === "string" ? record.warning : "";
   const rawRows = Array.isArray(record.rows)
     ? record.rows
     : Array.isArray(record.values)
@@ -162,6 +250,8 @@ function normalizeAiImportPayload(payload: unknown): Pick<AiImportPayload, "text
         value,
         unit: String(item.unit ?? item.units ?? "").trim(),
         sample: String(item.sample ?? item.lot ?? item.plot ?? item.sampleName ?? "").trim(),
+        method: String(item.method ?? item.extractionMethod ?? "").trim(),
+        source: String(item.source ?? item.reason ?? item.location ?? "").trim(),
         confidence: Number.isFinite(confidenceRaw)
           ? confidenceRaw > 1
             ? confidenceRaw / 100
@@ -171,5 +261,5 @@ function normalizeAiImportPayload(payload: unknown): Pick<AiImportPayload, "text
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);
 
-  return { text, rows };
+  return { text, rows, metadata, warning };
 }

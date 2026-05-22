@@ -56,6 +56,7 @@ type Props = {
   results: ResultLite[];
   sampleType: "soil" | "foliar";
   goToValues?: () => void;
+  onBack?: () => void;
 };
 
 type CalculatorKey =
@@ -87,9 +88,11 @@ export default function CalculatorHub({
   results,
   sampleType,
   goToValues,
+  onBack,
 }: Props) {
   const t = calculatorHubText[language] || calculatorHubText.en;
-  const [active, setActive] = useState<CalculatorKey>("all");
+  const defaultCalculatorFilter: CalculatorKey = "priority";
+  const [active, setActive] = useState<CalculatorKey>(defaultCalculatorFilter);
   const lab = useMemo(() => buildLabValueIndex(parameters, values, results), [parameters, values, results]);
   const suggestions = getSuggestions(lab, results, t);
 
@@ -97,7 +100,20 @@ export default function CalculatorHub({
     <section className="mt-6 animate-slide-up">
       <div className="values-screen-panel rounded-3xl p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
+          <div className="min-w-0">
+            <button
+              type="button"
+              onClick={() => {
+                if (active !== defaultCalculatorFilter) {
+                  setActive(defaultCalculatorFilter);
+                  return;
+                }
+                onBack?.();
+              }}
+              className="mb-3 inline-flex min-h-9 items-center justify-center rounded-2xl border border-white/70 bg-white/72 px-3 text-sm font-bold text-green-900 shadow-sm transition hover:bg-white/90 active:scale-[0.98]"
+            >
+              {active !== defaultCalculatorFilter ? t.backToCalculators : t.back}
+            </button>
             <h1 className="text-base font-extrabold tracking-wide text-green-950 sm:text-lg">
               {t.title}
             </h1>
@@ -397,10 +413,10 @@ function SalinityCalculator({ t, lab }: { t: Record<string, string>; lab: Map<st
   );
 }
 
-type GraphStyle = "bars" | "dop" | "radial";
+type GraphStyle = "histogram" | "line" | "pie";
 
 function NutrientGraphs({ t, lab }: { t: Record<string, string>; lab: Map<string, CalculatorValue> }) {
-  const [graphStyle, setGraphStyle] = useState<GraphStyle>("dop");
+  const [graphStyle, setGraphStyle] = useState<GraphStyle>("histogram");
   const nutrients = ["nitrogen", "phosphorus", "potassium", "calcium", "magnesium", "sulfur", "iron", "zinc", "manganese", "copper", "boron"]
     .map((key) => lab.get(key))
     .filter(Boolean) as CalculatorValue[];
@@ -416,9 +432,9 @@ function NutrientGraphs({ t, lab }: { t: Record<string, string>; lab: Map<string
           value={graphStyle}
           onChange={(value) => setGraphStyle(value as GraphStyle)}
           options={[
-            ["dop", t.graphDop],
-            ["bars", t.graphBars],
-            ["radial", t.graphRadial],
+            ["histogram", t.graphHistogram],
+            ["line", t.graphLine],
+            ["pie", t.graphPie],
           ]}
         />
       </div>
@@ -426,82 +442,170 @@ function NutrientGraphs({ t, lab }: { t: Record<string, string>; lab: Map<string
       <div className="mt-4 grid gap-3">
         {nutrients.length === 0 ? (
           <p className="text-sm text-slate-600">{t.noData}</p>
-        ) : graphStyle === "radial" ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {nutrients.map((item) => {
-              const size = Math.max(72, Math.min(132, 72 + (item.value / maxValue) * 60));
-              return (
-                <div
-                  key={item.key}
-                  className="flex items-center gap-3 rounded-2xl border border-white/70 bg-white/72 p-3"
-                >
-                  <div
-                    className="grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 text-xs font-extrabold text-white"
-                    style={{ width: size, height: size }}
-                  >
-                    {item.value}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-green-950">{item.label}</p>
-                    <p className="text-xs text-slate-500">{item.unit}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : graphStyle === "dop" ? (
-          nutrients.map((item) => {
-            const optimum = maxValue * 0.7;
-            const dop = ((item.value - optimum) / optimum) * 100;
-            const clamped = Math.max(-100, Math.min(100, dop));
-            const isNegative = clamped < 0;
-
-            return (
-              <div key={item.key}>
-                <div className="mb-1 flex justify-between text-xs font-bold text-slate-600">
-                  <span>{item.label}</span>
-                  <span>
-                    {item.value} {item.unit} · {clamped.toFixed(0)}%
-                  </span>
-                </div>
-                <div className="relative h-6 overflow-hidden rounded-full bg-slate-100">
-                  <div className="absolute inset-y-0 left-1/2 w-px bg-slate-300" />
-                  <span
-                    className={`absolute top-0 h-full rounded-full ${
-                      isNegative
-                        ? "bg-gradient-to-l from-sky-500 to-cyan-400"
-                        : "bg-gradient-to-r from-amber-500 to-orange-500"
-                    }`}
-                    style={{
-                      width: `${Math.min(50, Math.abs(clamped) / 2)}%`,
-                      left: isNegative ? undefined : "50%",
-                      right: isNegative ? "50%" : undefined,
-                    }}
-                  />
-                </div>
-              </div>
-            );
-          })
+        ) : graphStyle === "line" ? (
+          <LineGraph nutrients={nutrients} maxValue={maxValue} />
+        ) : graphStyle === "pie" ? (
+          <PieGraph nutrients={nutrients} />
         ) : (
-          nutrients.map((item) => (
-            <div key={item.key}>
-              <div className="mb-1 flex justify-between text-xs font-bold text-slate-600">
-                <span>{item.label}</span>
-                <span>
-                  {item.value} {item.unit}
-                </span>
-              </div>
-              <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                <span
-                  className="block h-full rounded-full bg-gradient-to-r from-teal-600 to-emerald-500"
-                  style={{
-                    width: `${Math.max(8, Math.min(100, (item.value / maxValue) * 100))}%`,
-                  }}
-                />
-              </div>
-            </div>
-          ))
+          <HistogramGraph nutrients={nutrients} maxValue={maxValue} />
         )}
+      </div>
+    </div>
+  );
+}
+
+const GRAPH_COLORS = [
+  "#0f9f7a",
+  "#2563eb",
+  "#f59e0b",
+  "#db2777",
+  "#7c3aed",
+  "#0891b2",
+  "#65a30d",
+  "#ea580c",
+  "#475569",
+  "#14b8a6",
+  "#84cc16",
+];
+
+function HistogramGraph({
+  nutrients,
+  maxValue,
+}: {
+  nutrients: CalculatorValue[];
+  maxValue: number;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-white/70 bg-white/72 p-4">
+      <div className="flex min-w-[34rem] items-end gap-3">
+        {nutrients.map((item, index) => {
+          const height = Math.max(16, Math.min(180, (item.value / maxValue) * 180));
+          return (
+            <div key={item.key} className="flex flex-1 flex-col items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-600">
+                {item.value}
+              </span>
+              <span
+                className="w-full max-w-12 rounded-t-2xl shadow-sm"
+                style={{
+                  height,
+                  background: `linear-gradient(180deg, ${GRAPH_COLORS[index % GRAPH_COLORS.length]}, var(--accent-600, #16a34a))`,
+                }}
+              />
+              <span className="max-w-14 truncate text-[11px] font-extrabold text-green-950">
+                {item.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function LineGraph({
+  nutrients,
+  maxValue,
+}: {
+  nutrients: CalculatorValue[];
+  maxValue: number;
+}) {
+  const width = 640;
+  const height = 260;
+  const padding = 34;
+  const usableWidth = width - padding * 2;
+  const usableHeight = height - padding * 2;
+  const points = nutrients.map((item, index) => {
+    const x =
+      nutrients.length === 1
+        ? width / 2
+        : padding + (index / (nutrients.length - 1)) * usableWidth;
+    const y = height - padding - (item.value / maxValue) * usableHeight;
+    return { item, x, y };
+  });
+  const path = points.map((point) => `${point.x},${point.y}`).join(" ");
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-white/70 bg-white/72 p-4">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-72 min-w-[38rem] text-green-900"
+        role="img"
+      >
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="currentColor" strokeOpacity="0.25" />
+        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="currentColor" strokeOpacity="0.25" />
+        <polyline
+          fill="none"
+          stroke="var(--accent-700, #15803d)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="5"
+          points={path}
+        />
+        {points.map(({ item, x, y }, index) => (
+          <g key={item.key}>
+            <circle
+              cx={x}
+              cy={y}
+              r="7"
+              fill={GRAPH_COLORS[index % GRAPH_COLORS.length]}
+              stroke="white"
+              strokeWidth="3"
+            />
+            <text
+              x={x}
+              y={height - 8}
+              textAnchor="middle"
+              className="fill-green-950 text-[12px] font-bold"
+            >
+              {item.label}
+            </text>
+            <text
+              x={x}
+              y={Math.max(16, y - 12)}
+              textAnchor="middle"
+              className="fill-slate-600 text-[11px] font-bold"
+            >
+              {item.value}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function PieGraph({ nutrients }: { nutrients: CalculatorValue[] }) {
+  const total = nutrients.reduce((sum, item) => sum + Math.max(0, item.value), 0) || 1;
+  let start = 0;
+  const slices = nutrients.map((item, index) => {
+    const percent = Math.max(0, item.value) / total;
+    const end = start + percent * 100;
+    const slice = `${GRAPH_COLORS[index % GRAPH_COLORS.length]} ${start}% ${end}%`;
+    start = end;
+    return { item, slice, color: GRAPH_COLORS[index % GRAPH_COLORS.length], percent };
+  });
+
+  return (
+    <div className="grid gap-4 rounded-2xl border border-white/70 bg-white/72 p-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
+      <div
+        className="mx-auto h-56 w-56 rounded-full shadow-inner"
+        style={{
+          background: `conic-gradient(${slices.map((slice) => slice.slice).join(", ")})`,
+        }}
+      />
+      <div className="grid gap-2 sm:grid-cols-2">
+        {slices.map(({ item, color, percent }) => (
+          <div key={item.key} className="flex items-center gap-2 rounded-xl bg-white/62 px-3 py-2">
+            <span className="h-3 w-3 rounded-full" style={{ background: color }} />
+            <span className="min-w-0 flex-1 truncate text-sm font-bold text-green-950">
+              {item.label}
+            </span>
+            <span className="text-xs font-bold text-slate-500">
+              {(percent * 100).toFixed(0)}%
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -44,6 +44,7 @@ type ImportedRow = {
   value: string;
   unit?: string;
   sample?: string;
+  method?: string;
   confidence?: number;
   source?: string;
 };
@@ -683,6 +684,10 @@ export default function LabValueImporter({
       );
       const parsedValue = Number(String(row.value).replace(",", "."));
       const baseId = `${index + 2}-${row.parameter}-${row.value}`;
+      const sourceDetail =
+        [row.source || "", row.method ? `method: ${row.method}` : ""]
+          .filter(Boolean)
+          .join(" | ") || null;
 
       if (!row.parameter.trim()) {
         return {
@@ -693,7 +698,7 @@ export default function LabValueImporter({
           value: row.value,
           unit: row.unit || null,
           sampleName: row.sample || null,
-          source: row.source || null,
+          source: sourceDetail,
           selectedUnitId: null,
           status: "invalid" as const,
           message: "Missing parameter name.",
@@ -710,7 +715,7 @@ export default function LabValueImporter({
           value: row.value,
           unit: row.unit || null,
           sampleName: row.sample || null,
-          source: row.source || null,
+          source: sourceDetail,
           selectedUnitId: matchedParameter
             ? findUnitId(matchedParameter, row.unit)
             : null,
@@ -729,7 +734,7 @@ export default function LabValueImporter({
           value: String(parsedValue),
           unit: row.unit || null,
           sampleName: row.sample || null,
-          source: row.source || null,
+          source: sourceDetail,
           selectedUnitId: null,
           status: "unmatched" as const,
           message: "Choose a parameter.",
@@ -745,7 +750,7 @@ export default function LabValueImporter({
         value: String(parsedValue),
         unit: row.unit || matchedParameter.unit_symbol,
         sampleName: row.sample || null,
-        source: row.source || null,
+        source: sourceDetail,
         selectedUnitId: findUnitId(matchedParameter, row.unit),
         status: "matched" as const,
         message: row.confidence && row.confidence < 0.75 ? "Review match." : "Ready.",

@@ -121,6 +121,7 @@ type Props = {
   language: Language;
   t: Translation;
   onEditAnalysis?: (payload: EditableAnalysisPayload) => void;
+  onReadingChange?: (reading: boolean) => void;
 };
 
 
@@ -255,6 +256,7 @@ export default function AnalysisHistory({
   language,
   t,
   onEditAnalysis,
+  onReadingChange,
 }: Props) {
   const l = analysisHistoryText[language as keyof typeof analysisHistoryText] || analysisHistoryText.en;
 
@@ -281,6 +283,10 @@ export default function AnalysisHistory({
     loadAnalyses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id]);
+
+  useEffect(() => {
+    onReadingChange?.(Boolean(selectedAnalysis));
+  }, [onReadingChange, selectedAnalysis]);
 
   async function loadAnalyses() {
     if (!session?.user) return;
@@ -687,6 +693,38 @@ export default function AnalysisHistory({
     );
   }
 
+  if (selectedAnalysis) {
+    return (
+      <>
+        <ReportPreviewModal
+          analysis={selectedAnalysis}
+          values={selectedValues}
+          loading={valuesLoading}
+          language={language}
+          onClose={() => {
+            setSelectedAnalysis(null);
+            setSelectedValues([]);
+          }}
+          onEdit={() => editAnalysis(selectedAnalysis)}
+          onExport={() => exportAnalysisPdf(selectedAnalysis)}
+        />
+
+        {selectedVersionGroup && (
+          <VersionsModal
+            group={selectedVersionGroup}
+            language={language}
+            onClose={() => setVersionRootId(null)}
+            onView={viewAnalysis}
+            onEdit={editAnalysis}
+            onExport={exportAnalysisPdf}
+            onDelete={handleDeleteAnalysis}
+            onRestore={restoreAnalysis}
+          />
+        )}
+      </>
+    );
+  }
+
   return (
     <section className="grid gap-3">
       <div className="relative pr-12">
@@ -927,21 +965,6 @@ export default function AnalysisHistory({
           );
         })}
       </div>
-
-      {selectedAnalysis && (
-        <ReportPreviewModal
-          analysis={selectedAnalysis}
-          values={selectedValues}
-          loading={valuesLoading}
-          language={language}
-          onClose={() => {
-            setSelectedAnalysis(null);
-            setSelectedValues([]);
-          }}
-          onEdit={() => editAnalysis(selectedAnalysis)}
-          onExport={() => exportAnalysisPdf(selectedAnalysis)}
-        />
-      )}
 
       {selectedVersionGroup && (
         <VersionsModal
@@ -1271,18 +1294,19 @@ function ReportPreviewModal({
   ].filter((item) => item.value);
 
   return (
-    <div
-      className="fixed inset-0 z-[20000] flex items-center justify-center overflow-hidden bg-slate-950/35 px-3 py-3 backdrop-blur-md sm:px-4"
-      onClick={onClose}
-    >
-      <div
-        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-5">
+    <section className="animate-slide-up">
+      <div className="values-screen-panel flex min-h-[calc(100dvh-8rem)] w-full flex-col overflow-hidden rounded-3xl border border-white/65 bg-white/72 shadow-xl backdrop-blur-2xl">
+        <header className="shrink-0 border-b border-white/65 bg-white/55 px-4 py-3 backdrop-blur-xl sm:px-5">
           <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="truncate text-base font-bold text-green-900 sm:text-lg">
+            <div className="min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={onClose}
+                className="mb-2 inline-flex min-h-9 items-center rounded-2xl border border-white/70 bg-white/72 px-3 text-sm font-bold text-green-900 shadow-sm transition hover:bg-white/90 active:scale-[0.98]"
+              >
+                {l.back}
+              </button>
+              <h2 className="truncate text-lg font-extrabold text-green-900 sm:text-xl">
                 {getAnalysisTitle(analysis)}
               </h2>
               <p className="text-xs text-slate-500">
@@ -1314,7 +1338,7 @@ function ReportPreviewModal({
           </div>
         </header>
 
-        <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
+        <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
           {loading ? (
             <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
               {l.loading}
@@ -1433,7 +1457,7 @@ function ReportPreviewModal({
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 

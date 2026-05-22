@@ -14,6 +14,69 @@ type Props = {
   session: Session | null;
 };
 
+const AVATAR_STORAGE_PREFIX = "alakay_profile_avatar_";
+
+type CropSettings = {
+  zoom: number;
+  x: number;
+  y: number;
+};
+
+function getAvatarStorageKey(userId: string) {
+  return `${AVATAR_STORAGE_PREFIX}${userId}`;
+}
+
+function readImageFile(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("Image could not be read."));
+    };
+    reader.onerror = () => reject(new Error("Image could not be read."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Image could not be loaded."));
+    image.src = src;
+  });
+}
+
+async function cropAndCompressAvatar(
+  src: string,
+  crop: CropSettings,
+  outputSize = 128
+) {
+  const image = await loadImage(src);
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Image could not be processed.");
+
+  canvas.width = outputSize;
+  canvas.height = outputSize;
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, outputSize, outputSize);
+
+  const baseScale =
+    Math.max(outputSize / image.naturalWidth, outputSize / image.naturalHeight) *
+    crop.zoom;
+  const drawWidth = image.naturalWidth * baseScale;
+  const drawHeight = image.naturalHeight * baseScale;
+  const maxPanX = Math.max(0, (drawWidth - outputSize) / 2);
+  const maxPanY = Math.max(0, (drawHeight - outputSize) / 2);
+  const dx = (outputSize - drawWidth) / 2 + (crop.x / 100) * maxPanX;
+  const dy = (outputSize - drawHeight) / 2 + (crop.y / 100) * maxPanY;
+
+  context.drawImage(image, dx, dy, drawWidth, drawHeight);
+
+  return canvas.toDataURL("image/webp", 0.55);
+}
+
 export default function AccountSettingsSection({ language, session }: Props) {
   const text =
     accountSettingsText[language as keyof typeof accountSettingsText] ||
@@ -28,6 +91,12 @@ export default function AccountSettingsSection({ language, session }: Props) {
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [pendingAvatar, setPendingAvatar] = useState("");
+  const [cropSettings, setCropSettings] = useState<CropSettings>({
+    zoom: 1,
+    x: 0,
+    y: 0,
+  });
 
   useEffect(() => {
     if (!session?.user) return;
@@ -43,14 +112,23 @@ export default function AccountSettingsSection({ language, session }: Props) {
 
     async function loadProfile() {
       setEmail(userEmail);
-      setAvatarUrl(metaAvatar);
+      const cachedAvatar = localStorage.getItem(getAvatarStorageKey(userId)) || "";
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
-        .select("full_name")
+        .select("full_name, avatar_url")
         .eq("user_id", userId)
         .maybeSingle();
 
+      const profileAvatar =
+        !error &&
+        data &&
+        "avatar_url" in data &&
+        typeof data.avatar_url === "string"
+          ? data.avatar_url
+          : "";
+
+      setAvatarUrl(profileAvatar || cachedAvatar || metaAvatar);
       setFullName(data?.full_name || metaName || "");
     }
 
@@ -80,6 +158,7 @@ export default function AccountSettingsSection({ language, session }: Props) {
 
     try {
       const authUpdates: { email?: string; password?: string } = {};
+      let avatarSyncSkipped = false;
       const trimmedEmail = normalizeAuthEmail(email);
 
       if (trimmedEmail && trimmedEmail !== session.user.email) {
@@ -105,31 +184,33 @@ export default function AccountSettingsSection({ language, session }: Props) {
 
       if (trimmedName) {
         authData.full_name = trimmedName;
-        const profilePayload = {
-          user_id: session.user.id,
-          full_name: trimmedName,
-          avatar_url: avatarUrl || null,
-        };
+      }
 
-        const { error: profileError } = await supabase
+      const profilePayload = {
+        user_id: session.user.id,
+        full_name: trimmedName || null,
+        avatar_url: avatarUrl || null,
+      };
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert(profilePayload);
+
+      if (profileError && /avatar_url|column|schema/i.test(profileError.message)) {
+        const { error: fallbackProfileError } = await supabase
           .from("profiles")
-          .upsert(profilePayload);
-
-        if (profileError && /avatar_url|column|schema/i.test(profileError.message)) {
-          const { error: fallbackProfileError } = await supabase.from("profiles").upsert({
+          .upsert({
             user_id: session.user.id,
-            full_name: trimmedName,
+            full_name: trimmedName || null,
           });
 
-          if (fallbackProfileError) throw fallbackProfileError;
-        } else if (profileError) {
-          throw profileError;
-        }
+        if (fallbackProfileError) throw fallbackProfileError;
+        avatarSyncSkipped = Boolean(avatarUrl);
+      } else if (profileError) {
+        throw profileError;
       }
 
-      if (avatarUrl) {
-        authData.avatar_url = avatarUrl;
-      }
+      localStorage.setItem(getAvatarStorageKey(session.user.id), avatarUrl);
 
       if (Object.keys(authData).length > 0) {
         await supabase.auth.updateUser({ data: authData });
@@ -139,7 +220,11 @@ export default function AccountSettingsSection({ language, session }: Props) {
       setPassword("");
       setConfirmPassword("");
       setMessage(
-        authUpdates.email ? text.savedEmailConfirmation : text.saved
+        avatarSyncSkipped
+          ? text.avatarColumnMissing
+          : authUpdates.email
+            ? text.savedEmailConfirmation
+            : text.saved
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : text.saveFailed);
@@ -148,13 +233,29 @@ export default function AccountSettingsSection({ language, session }: Props) {
     }
   }
 
-  function handlePhotoChange(file: File | undefined) {
+  async function handlePhotoChange(file: File | undefined) {
     if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") setAvatarUrl(reader.result);
-    };
-    reader.readAsDataURL(file);
+    try {
+      setCropSettings({ zoom: 1, x: 0, y: 0 });
+      setPendingAvatar(await readImageFile(file));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : text.saveFailed);
+    }
+  }
+
+  async function applyAvatarCrop() {
+    if (!pendingAvatar) return;
+    try {
+      const nextAvatar = await cropAndCompressAvatar(pendingAvatar, cropSettings);
+      setAvatarUrl(nextAvatar);
+      if (session?.user) {
+        localStorage.setItem(getAvatarStorageKey(session.user.id), nextAvatar);
+      }
+      setPendingAvatar("");
+      setMessage(text.photoReady);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : text.saveFailed);
+    }
   }
 
   if (!session?.user) {
@@ -236,6 +337,92 @@ export default function AccountSettingsSection({ language, session }: Props) {
         </div>
         <p className="mt-2 text-xs text-slate-500">{text.photoHelp}</p>
       </div>
+
+      {pendingAvatar ? (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md">
+          <section className="w-full max-w-sm rounded-3xl border border-white/70 bg-white/90 p-4 shadow-2xl">
+            <p className="text-sm font-extrabold text-green-950">
+              {text.cropPhoto}
+            </p>
+            <div className="mx-auto mt-4 grid h-48 w-48 place-items-center overflow-hidden rounded-full border border-green-200 bg-white shadow-inner">
+              <img
+                src={pendingAvatar}
+                alt=""
+                className="h-full w-full object-cover"
+                style={{
+                  transform: `translate(${cropSettings.x / 3}%, ${
+                    cropSettings.y / 3
+                  }%) scale(${cropSettings.zoom})`,
+                }}
+              />
+            </div>
+            <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-700">
+              <label className="grid gap-1">
+                {text.zoom}
+                <input
+                  type="range"
+                  min="1"
+                  max="2.4"
+                  step="0.05"
+                  value={cropSettings.zoom}
+                  onChange={(event) =>
+                    setCropSettings((current) => ({
+                      ...current,
+                      zoom: Number(event.target.value),
+                    }))
+                  }
+                />
+              </label>
+              <label className="grid gap-1">
+                {text.horizontalPosition}
+                <input
+                  type="range"
+                  min="-100"
+                  max="100"
+                  value={cropSettings.x}
+                  onChange={(event) =>
+                    setCropSettings((current) => ({
+                      ...current,
+                      x: Number(event.target.value),
+                    }))
+                  }
+                />
+              </label>
+              <label className="grid gap-1">
+                {text.verticalPosition}
+                <input
+                  type="range"
+                  min="-100"
+                  max="100"
+                  value={cropSettings.y}
+                  onChange={(event) =>
+                    setCropSettings((current) => ({
+                      ...current,
+                      y: Number(event.target.value),
+                    }))
+                  }
+                />
+              </label>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingAvatar("")}
+                className="min-h-11 rounded-2xl border border-green-200 bg-white/80 text-sm font-extrabold text-green-900"
+              >
+                {text.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={applyAvatarCrop}
+                className="min-h-11 rounded-2xl bg-green-700 text-sm font-extrabold text-white"
+              >
+                {text.usePhoto}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       <label className="grid gap-1 text-sm font-semibold text-slate-700">
         {text.fullName}

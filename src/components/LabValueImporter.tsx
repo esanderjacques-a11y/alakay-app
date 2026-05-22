@@ -598,6 +598,39 @@ async function recognizeImage(blob: Blob) {
   } satisfies AiImportPayload;
 }
 
+async function recognizeExtractedContentWithAi(options: {
+  text?: string;
+  tableRows?: string[][];
+}) {
+  const formData = new FormData();
+  const text = options.text?.trim() || "";
+
+  if (text) formData.append("text", text);
+  if (options.tableRows?.length) {
+    formData.append("table", JSON.stringify(options.tableRows.slice(0, 300)));
+  }
+
+  const response = await fetch("/api/ai-import", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.error || "AI import failed.");
+  }
+
+  const payload = (await response.json()) as Partial<AiImportPayload>;
+  return {
+    text: payload.text || text,
+    tokens: payload.tokens || [],
+    rows: payload.rows || [],
+    metadata: payload.metadata,
+    engine: payload.engine,
+    warning: payload.warning,
+  } satisfies AiImportPayload;
+}
+
 export default function LabValueImporter({
   open,
   mode = "import",
@@ -933,7 +966,22 @@ export default function LabValueImporter({
           .map((line) => splitCsvLine(line))
           .filter((row) => row.some((cell) => cell.trim()));
         const smartRows = extractRowsWithIntelligence(tableRows);
-        buildPreview(smartRows.length > 0 ? smartRows : parseCsv(text));
+        if (smartRows.length > 0) {
+          setDocumentText(text);
+          setShowTextReview(true);
+          buildPreview(smartRows);
+          return;
+        }
+
+        setLoadingLabel("Asking AI to read the CSV structure...");
+        const payload = await recognizeExtractedContentWithAi({ text, tableRows });
+        if (payload.rows?.length) {
+          buildAiDocumentPreview(payload, file.name || "CSV");
+        } else {
+          setDocumentText(text);
+          setShowTextReview(true);
+          buildPreview(parseCsv(text));
+        }
         return;
       }
 
@@ -941,7 +989,15 @@ export default function LabValueImporter({
         const text = await file.text();
         setDocumentText(text);
         setShowTextReview(true);
-        buildDocumentPreview(text);
+        const textRows = extractRowsWithIntelligence(text);
+        if (textRows.length > 0) {
+          buildPreview(textRows);
+          return;
+        }
+
+        setLoadingLabel("Asking AI to read the report text...");
+        const payload = await recognizeExtractedContentWithAi({ text });
+        buildAiDocumentPreview(payload, file.name || "text report");
         return;
       }
 
@@ -950,10 +1006,18 @@ export default function LabValueImporter({
         const text = await extractPdfText(buffer);
         const textRows = extractRowsWithIntelligence(text);
 
+        setDocumentText(text);
+        setShowTextReview(true);
+
         if (textRows.length > 0) {
-          setDocumentText(text);
-          setShowTextReview(true);
           buildPreview(textRows);
+          return;
+        }
+
+        if (text.trim().length > 80) {
+          setLoadingLabel("Asking AI to read the PDF text...");
+          const payload = await recognizeExtractedContentWithAi({ text });
+          buildAiDocumentPreview(payload, file.name || "PDF");
           return;
         }
 
@@ -1014,7 +1078,19 @@ export default function LabValueImporter({
         const smartRows = extractRowsWithIntelligence(tableRows);
 
         if (smartRows.length > 0) {
+          setDocumentText(tableRows.map((row) => row.join(" | ")).join("\n"));
+          setShowTextReview(true);
           buildPreview(smartRows);
+          return;
+        }
+
+        setLoadingLabel("Asking AI to read the spreadsheet layout...");
+        const payload = await recognizeExtractedContentWithAi({
+          text: tableRows.map((row) => row.join(" | ")).join("\n"),
+          tableRows,
+        });
+        if (payload.rows?.length) {
+          buildAiDocumentPreview(payload, firstSheetName);
           return;
         }
 

@@ -1,6 +1,5 @@
 ﻿"use client";
 
-import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Database,
@@ -925,16 +924,6 @@ export default function AppSettingsScreen({
 
   return (
     <section className="mt-4 animate-slide-up">
-      <SettingsToolbar
-        text={text}
-        isDirty={isDirty}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        onSave={handleSave}
-      />
-
       <div className="values-screen-panel rounded-3xl p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1227,6 +1216,15 @@ export default function AppSettingsScreen({
           </SettingsSection>
         </div>
 
+        <SettingsToolbar
+          text={text}
+          isDirty={isDirty}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onSave={handleSave}
+        />
       </div>
     </section>
   );
@@ -1293,18 +1291,10 @@ function SettingsToolbar({
   onRedo: () => void;
   onSave: () => void;
 }) {
-  const [mounted, setMounted] = useState(false);
+  if (!isDirty) return null;
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted || !isDirty) return null;
-
-  return createPortal(
-    <div
-      className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] left-1/2 z-[16000] w-[min(calc(100vw-1.5rem),25rem)] -translate-x-1/2 rounded-3xl border border-white/70 bg-white/88 px-2.5 py-2 shadow-2xl shadow-green-950/15 backdrop-blur-xl transition animate-float-in sm:bottom-5 sm:left-auto sm:right-5 sm:w-auto sm:translate-x-0"
-    >
+  return (
+    <div className="sticky bottom-[5.25rem] z-[12000] mt-4 rounded-3xl border border-white/70 bg-white/70 p-1.5 shadow-2xl shadow-green-950/16 backdrop-blur-2xl animate-slide-up">
       <div className="flex items-center justify-end gap-1.5">
         <div className="flex gap-2">
           <button
@@ -1336,8 +1326,7 @@ function SettingsToolbar({
           {text.save}
         </button>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
 

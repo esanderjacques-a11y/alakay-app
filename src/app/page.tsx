@@ -1037,7 +1037,7 @@ export default function HomePage() {
         count: Object.keys(importedValues).length,
       })
     );
-    setCurrentStep(cropId || metadata?.cropName ? "values" : "setup");
+    setCurrentStep("values");
   }
 
   function applyImportedMetadata(metadata?: ImportedLabMetadata) {

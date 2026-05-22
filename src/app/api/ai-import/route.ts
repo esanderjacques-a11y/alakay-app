@@ -25,14 +25,27 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const image = formData.get("image");
+    const text = formData.get("text");
+    const table = formData.get("table");
 
-    if (!(image instanceof File)) {
-      return Response.json({ error: "No image was received." }, { status: 400 });
+    if (image instanceof File) {
+      const bytes = Buffer.from(await image.arrayBuffer());
+      const payload = await readImageWithAi(bytes, image.type);
+
+      return Response.json(payload);
     }
 
-    const bytes = Buffer.from(await image.arrayBuffer());
-    const payload = await readWithAi(bytes, image.type);
+    const textPayload = typeof text === "string" ? text.trim() : "";
+    const tablePayload = typeof table === "string" ? table.trim() : "";
 
+    if (!textPayload && !tablePayload) {
+      return Response.json(
+        { error: "No report image, text, or table was received." },
+        { status: 400 }
+      );
+    }
+
+    const payload = await readTextWithAi(textPayload, tablePayload);
     return Response.json(payload);
   } catch (error) {
     return Response.json(
@@ -47,13 +60,70 @@ export async function POST(request: Request) {
   }
 }
 
-async function readWithAi(bytes: Buffer, mimeType: string): Promise<AiImportPayload> {
+async function readImageWithAi(
+  bytes: Buffer,
+  mimeType: string
+): Promise<AiImportPayload> {
+  const imageUrl = `data:${mimeType || "image/png"};base64,${bytes.toString("base64")}`;
+  return requestAiImport([
+    {
+      type: "input_text",
+      text: buildAiImportInstructions(),
+    },
+    {
+      type: "input_image",
+      image_url: imageUrl,
+      detail: "high",
+    },
+  ]);
+}
+
+async function readTextWithAi(
+  text: string,
+  table: string
+): Promise<AiImportPayload> {
+  const content = [
+    buildAiImportInstructions(),
+    text ? `Extracted report text:\n${text}` : "",
+    table ? `Extracted table/cell data as JSON:\n${table}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  return requestAiImport([
+    {
+      type: "input_text",
+      text: content,
+    },
+  ]);
+}
+
+function buildAiImportInstructions() {
+  return [
+    "Read this soil or foliar lab report for ALAKAY.",
+    "Return strict JSON only. Do not include markdown.",
+    "The text field should contain a compact transcription of the useful report text.",
+    "The rows field must contain lab results only: {parameter,value,unit,sample,method,source,confidence}.",
+    "Keep sample/lot/plot names on every row when several plots, lots, or samples appear.",
+    "If a table has Result, Resultado, Resultados, Valor, Concentracion, or Current columns, use those columns as the true values.",
+    "If a wide table has sample rows and parameter columns, create one row per sample and parameter.",
+    "If headers include method or unit, carry that method/unit into each row.",
+    "Do not import dates, phone numbers, page numbers, addresses, invoice/payment numbers, legal text, chart axes, recommendation kg/ha values, rating letters, status words, or reference ranges as results.",
+    "Treat Low/Medium/High, Bajo/Medio/Alto, Target, Guide, Optimum, Range, Rango, Reference, and bar/scale numbers as reference information, not result values.",
+    "Preserve different methods separately, for example P Olsen, P Bray, P Mehlich, pH H2O, pH KCl, nitrate-N, ammonium-N.",
+    "If carbon, organic carbon, sodium, or sodio appears as a real result, include it as a row even if it may need manual review in the app.",
+    "Use confidence from 0 to 1. Use lower confidence when OCR or layout is uncertain.",
+  ].join(" ");
+}
+
+async function requestAiImport(
+  content: Array<Record<string, unknown>>
+): Promise<AiImportPayload> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("AI import needs OPENAI_API_KEY in .env.local.");
   }
 
-  const imageUrl = `data:${mimeType || "image/png"};base64,${bytes.toString("base64")}`;
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -132,31 +202,7 @@ async function readWithAi(bytes: Buffer, mimeType: string): Promise<AiImportPayl
       input: [
         {
           role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: [
-                "Read this soil or foliar lab report for ALAKAY.",
-                "Return strict JSON only. Do not include markdown.",
-                "The text field should contain a compact transcription of the useful report text.",
-                "The rows field must contain lab results only: {parameter,value,unit,sample,method,source,confidence}.",
-                "Keep sample/lot/plot names on every row when several plots, lots, or samples appear.",
-                "If a table has Result, Resultado, Resultados, Valor, Concentracion, or Current columns, use those columns as the true values.",
-                "If a wide table has sample rows and parameter columns, create one row per sample and parameter.",
-                "If headers include method or unit, carry that method/unit into each row.",
-                "Do not import dates, phone numbers, page numbers, addresses, invoice/payment numbers, legal text, chart axes, recommendation kg/ha values, rating letters, status words, or reference ranges as results.",
-                "Treat Low/Medium/High, Bajo/Medio/Alto, Target, Guide, Optimum, Range, Rango, Reference, and bar/scale numbers as reference information, not result values.",
-                "Preserve different methods separately, for example P Olsen, P Bray, P Mehlich, pH H2O, pH KCl, nitrate-N, ammonium-N.",
-                "If carbon, organic carbon, sodium, or sodio appears as a real result, include it as a row even if it may need manual review in the app.",
-                "Use confidence from 0 to 1. Use lower confidence when OCR or layout is uncertain.",
-              ].join(" "),
-            },
-            {
-              type: "input_image",
-              image_url: imageUrl,
-              detail: "high",
-            },
-          ],
+          content,
         },
       ],
     }),

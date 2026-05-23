@@ -102,10 +102,15 @@ function buildAiImportInstructions() {
   return [
     "Read this soil or foliar lab report for ALAKAY.",
     "Return strict JSON only. Do not include markdown.",
-    "The text field should contain a compact transcription of the useful report text.",
+    "The text field must be a faithful row-by-row transcription of useful result tables and nearby sample metadata, not a summary or explanation.",
     "The rows field must contain lab results only: {parameter,value,unit,sample,method,source,confidence}.",
+    "Rows are required when result tables are visible. Extract every real numeric result row that belongs to the lab analysis tables.",
+    "Do not infer, calculate, translate, or convert units. Keep the reported value and reported unit exactly as printed.",
+    "If a result value has a rating suffix attached, such as 23M, 110L, 992VL, or 357H, put only the numeric part in value and mention the suffix in source. Do not import rating suffixes as values.",
     "Keep sample/lot/plot names on every row when several plots, lots, or samples appear.",
+    "For wide multi-sample reports, sample IDs belong in sample and lab numbers belong in source or metadata; neither is a lab result value.",
     "If a table has Result, Resultado, Resultados, Valor, Concentracion, or Current columns, use those columns as the true values.",
+    "If a table has two result columns for the same variable, such as mg/kg and meq/100g, return one row for the unit column most directly usable as the lab result; for exchangeable bases prefer meq/100g or cmol(+)/kg over mg/kg. Do not convert.",
     "If a wide table has sample rows and parameter columns, create one row per sample and parameter.",
     "If headers include method or unit, carry that method/unit into each row.",
     "Do not import dates, phone numbers, page numbers, addresses, invoice/payment numbers, legal text, chart axes, recommendation kg/ha values, rating letters, status words, or reference ranges as results.",
@@ -132,7 +137,7 @@ async function requestAiImport(
     },
     body: JSON.stringify({
       model: process.env.OPENAI_IMPORT_MODEL || "gpt-4o-mini",
-      max_output_tokens: 2400,
+      max_output_tokens: 6000,
       temperature: 0,
       text: {
         format: {

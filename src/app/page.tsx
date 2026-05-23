@@ -1003,7 +1003,8 @@ export default function HomePage() {
   function importLabValues(
     importedValues: Record<string, string>,
     importedUnits: Record<string, number>,
-    metadata?: ImportedLabMetadata
+    metadata?: ImportedLabMetadata,
+    importedUnitDisplayKeys: Record<string, string> = {}
   ) {
     applyImportedMetadata(metadata);
 
@@ -1021,6 +1022,9 @@ export default function HomePage() {
       for (const [key, unitId] of Object.entries(importedUnits)) {
         const parameter = parameters.find((item) => item.parameter_key === key);
         const unitOption =
+          parameter?.available_units.find(
+            (unit) => getUnitOptionKey(unit) === importedUnitDisplayKeys[key]
+          ) ||
           parameter?.available_units.find((unit) => unit.unit_id === unitId) ||
           parameter?.available_units[0];
         if (unitOption) next[key] = getUnitOptionKey(unitOption);

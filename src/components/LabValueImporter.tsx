@@ -70,6 +70,7 @@ type ImportPreviewRow = {
   sampleName: string | null;
   source: string | null;
   selectedUnitId: number | null;
+  selectedUnitDisplayKey: string | null;
   status: "matched" | "unmatched" | "invalid";
   message: string;
   selected: boolean;
@@ -93,7 +94,8 @@ type Props = {
   onImportValues: (
     importedValues: Record<string, string>,
     importedUnits: Record<string, number>,
-    metadata?: ImportMetadata
+    metadata?: ImportMetadata,
+    importedUnitDisplayKeys?: Record<string, string>
   ) => void;
 };
 
@@ -260,7 +262,28 @@ function findBestParameterMatch(
 }
 
 function findUnitId(parameter: ParameterForImport, rawUnit: string | undefined) {
-  if (!rawUnit?.trim()) return parameter.unit_id;
+  return findUnitSelection(parameter, rawUnit).unitId;
+}
+
+function getUnitOptionKey(unit: {
+  unit_id: number;
+  unit_symbol: string;
+  display_symbol: string;
+}) {
+  return `${unit.unit_id}::${unit.display_symbol || unit.unit_symbol}`;
+}
+
+function findUnitSelection(parameter: ParameterForImport, rawUnit: string | undefined) {
+  const defaultOption =
+    parameter.available_units.find((unit) => unit.unit_id === parameter.unit_id) ||
+    parameter.available_units[0];
+
+  if (!rawUnit?.trim()) {
+    return {
+      unitId: defaultOption?.unit_id || parameter.unit_id,
+      displayKey: defaultOption ? getUnitOptionKey(defaultOption) : null,
+    };
+  }
 
   const normalizedRawUnit = normalizeText(rawUnit);
   const match = parameter.available_units.find((unit) => {
@@ -270,7 +293,11 @@ function findUnitId(parameter: ParameterForImport, rawUnit: string | undefined) 
     );
   });
 
-  return match?.unit_id || parameter.unit_id;
+  const selected = match || defaultOption;
+  return {
+    unitId: selected?.unit_id || parameter.unit_id,
+    displayKey: selected ? getUnitOptionKey(selected) : null,
+  };
 }
 
 function getParameterLabel(parameter: ParameterForImport) {
@@ -322,6 +349,20 @@ function parseNumber(raw: string) {
   const cleaned = raw.replace(",", ".").replace(/[^\d.+-]/g, "");
   const value = Number(cleaned);
   return Number.isFinite(value) ? value : null;
+}
+
+function parseImportedResultValue(raw: string) {
+  const text = raw.trim();
+  if (!text) return null;
+
+  const match = text.match(/^[<>]?\s*[+-]?\d+(?:[.,]\d+)?/);
+  if (!match) return null;
+
+  const normalized = match[0].replace(/\s+/g, "").replace(",", ".");
+  const numeric = Number(normalized.replace(/^[<>]/, ""));
+  if (!Number.isFinite(numeric)) return null;
+
+  return normalized;
 }
 
 function extractFirstValue(text: string) {
@@ -755,7 +796,7 @@ export default function LabValueImporter({
         parameters,
         searchMap
       );
-      const parsedValue = Number(String(row.value).replace(",", "."));
+      const parsedValue = parseImportedResultValue(String(row.value));
       const baseId = `${index + 2}-${row.parameter}-${row.value}`;
       const sourceDetail =
         [row.source || "", row.method ? `method: ${row.method}` : ""]
@@ -773,13 +814,14 @@ export default function LabValueImporter({
           sampleName: row.sample || null,
           source: sourceDetail,
           selectedUnitId: null,
+          selectedUnitDisplayKey: null,
           status: "invalid" as const,
           message: "Missing parameter name.",
           selected: false,
         };
       }
 
-      if (!row.value.trim() || Number.isNaN(parsedValue)) {
+      if (!row.value.trim() || !parsedValue) {
         return {
           id: baseId,
           rowNumber: index + 2,
@@ -791,6 +833,9 @@ export default function LabValueImporter({
           source: sourceDetail,
           selectedUnitId: matchedParameter
             ? findUnitId(matchedParameter, row.unit)
+            : null,
+          selectedUnitDisplayKey: matchedParameter
+            ? findUnitSelection(matchedParameter, row.unit).displayKey
             : null,
           status: "invalid" as const,
           message: "Invalid numeric value.",
@@ -804,27 +849,31 @@ export default function LabValueImporter({
           rowNumber: index + 2,
           rawParameter: row.parameter,
           matchedParameterKey: null,
-          value: String(parsedValue),
+          value: parsedValue,
           unit: row.unit || null,
           sampleName: row.sample || null,
           source: sourceDetail,
           selectedUnitId: null,
+          selectedUnitDisplayKey: null,
           status: "unmatched" as const,
           message: "Choose a parameter.",
           selected: false,
         };
       }
 
+      const selectedUnit = findUnitSelection(matchedParameter, row.unit);
+
       return {
         id: baseId,
         rowNumber: index + 2,
         rawParameter: row.parameter,
         matchedParameterKey: matchedParameter.parameter_key,
-        value: String(parsedValue),
-        unit: row.unit || matchedParameter.unit_symbol,
+        value: parsedValue,
+        unit: row.unit?.trim() || null,
         sampleName: row.sample || null,
         source: sourceDetail,
-        selectedUnitId: findUnitId(matchedParameter, row.unit),
+        selectedUnitId: selectedUnit.unitId,
+        selectedUnitDisplayKey: selectedUnit.displayKey,
         status: "matched" as const,
         message: row.confidence && row.confidence < 0.75 ? "Review match." : "Ready.",
         selected: true,
@@ -865,13 +914,13 @@ export default function LabValueImporter({
       ? payload.rows
       : payload.tokens?.length
         ? extractRowsWithIntelligence(payload.tokens)
-        : extractRowsWithIntelligence(text);
+        : [];
 
     if (rows.length === 0) {
       setPreviewRows([]);
       setMessage(
         payload.warning ||
-          "No lab values were detected. Try a clearer photo, another file, or paste the report text."
+          "The AI read the document text but did not return structured lab rows. Try a clearer scan or adjust the detected text before reviewing values."
       );
       return;
     }
@@ -1186,17 +1235,20 @@ export default function LabValueImporter({
             ...row,
             matchedParameterKey: null,
             selectedUnitId: null,
+            selectedUnitDisplayKey: null,
             status: "unmatched",
             message: "Choose a parameter.",
             selected: false,
           };
         }
 
+        const selectedUnit = findUnitSelection(parameter, row.unit || undefined);
+
         return {
           ...row,
           matchedParameterKey: parameter.parameter_key,
-          selectedUnitId: parameter.unit_id,
-          unit: parameter.unit_symbol,
+          selectedUnitId: selectedUnit.unitId,
+          selectedUnitDisplayKey: selectedUnit.displayKey,
           status: "matched",
           message: "Ready.",
           selected: true,
@@ -1205,11 +1257,21 @@ export default function LabValueImporter({
     );
   }
 
-  function updateRowUnit(rowId: string, unitId: number) {
+  function updateRowUnit(rowId: string, unitDisplayKey: string) {
     setPreviewRows((previousRows) =>
-      previousRows.map((row) =>
-        row.id === rowId ? { ...row, selectedUnitId: unitId } : row
-      )
+      previousRows.map((row) => {
+        if (row.id !== rowId || !row.matchedParameterKey) return row;
+        const parameter = parameterByKey.get(row.matchedParameterKey);
+        const unit = parameter?.available_units.find(
+          (option) => getUnitOptionKey(option) === unitDisplayKey
+        );
+        if (!unit) return row;
+        return {
+          ...row,
+          selectedUnitId: unit.unit_id,
+          selectedUnitDisplayKey: getUnitOptionKey(unit),
+        };
+      })
     );
   }
 
@@ -1271,14 +1333,18 @@ export default function LabValueImporter({
 
     const importedValues: Record<string, string> = {};
     const importedUnits: Record<string, number> = {};
+    const importedUnitDisplayKeys: Record<string, string> = {};
 
     for (const row of rowsToImport) {
       if (!row.matchedParameterKey || !row.selectedUnitId) continue;
       importedValues[row.matchedParameterKey] = row.value;
       importedUnits[row.matchedParameterKey] = row.selectedUnitId;
+      if (row.selectedUnitDisplayKey) {
+        importedUnitDisplayKeys[row.matchedParameterKey] = row.selectedUnitDisplayKey;
+      }
     }
 
-    onImportValues(importedValues, importedUnits, importMetadata);
+    onImportValues(importedValues, importedUnits, importMetadata, importedUnitDisplayKeys);
     closeModal();
   }
 
@@ -1672,15 +1738,15 @@ export default function LabValueImporter({
                             <div className="grid gap-1">
                             <select
                               className="w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-green-600"
-                              value={row.selectedUnitId || ""}
+                              value={row.selectedUnitDisplayKey || ""}
                               onChange={(event) =>
-                                updateRowUnit(row.id, Number(event.target.value))
+                                updateRowUnit(row.id, event.target.value)
                               }
                             >
                               {matchedParameter.available_units.map((unit, index) => (
                                 <option
                                   key={`${unit.unit_id}-${unit.display_symbol}-${index}`}
-                                  value={unit.unit_id}
+                                  value={getUnitOptionKey(unit)}
                                 >
                                   {unit.display_symbol || unit.unit_symbol}
                                 </option>

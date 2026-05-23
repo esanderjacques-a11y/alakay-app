@@ -1294,7 +1294,7 @@ function SettingsToolbar({
   if (!isDirty) return null;
 
   return (
-    <div className="sticky bottom-[5.25rem] z-[12000] mt-4 rounded-3xl border border-white/70 bg-white/70 p-1.5 shadow-2xl shadow-green-950/16 backdrop-blur-2xl animate-slide-up">
+    <div className="sticky bottom-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] z-[12000] mt-4 rounded-3xl border border-white/70 bg-white/70 p-1.5 shadow-2xl shadow-green-950/16 backdrop-blur-2xl animate-slide-up">
       <div className="flex items-center justify-end gap-1.5">
         <div className="flex gap-2">
           <button

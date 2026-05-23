@@ -176,6 +176,23 @@ export function buildAccentCssVariables(
     "--dark-hover-top": isBlackDark ? "rgb(33 33 33 / 0.94)" : withAlpha(scale[800], 0.7),
     "--dark-hover-bottom": isBlackDark ? "rgb(18 18 18 / 0.9)" : withAlpha(scale[900], 0.66),
     "--dark-disabled-bg": isBlackDark ? "rgb(14 14 14 / 0.72)" : withAlpha(scale[950], 0.42),
+    "--auth-card-bg": isDark
+      ? isBlackDark
+        ? "linear-gradient(180deg, rgb(18 18 18 / 0.84), rgb(10 10 10 / 0.8))"
+        : `linear-gradient(180deg, ${withAlpha(scale[900], 0.46)}, ${withAlpha(scale[950], 0.52)})`
+      : "linear-gradient(180deg, rgb(255 255 255 / 0.46), rgb(248 252 250 / 0.38))",
+    "--auth-card-border": isDark
+      ? (isBlackDark ? "rgb(255 255 255 / 0.16)" : "rgb(255 255 255 / 0.18)")
+      : "rgb(255 255 255 / 0.52)",
+    "--auth-card-shadow": isDark
+      ? (isBlackDark ? "0 20px 52px rgba(0, 0, 0, 0.48)" : "0 18px 44px rgba(0, 0, 0, 0.3)")
+      : "0 18px 46px rgba(21, 128, 61, 0.12)",
+    "--auth-chip-bg": isDark
+      ? (isBlackDark ? "rgb(20 20 20 / 0.78)" : withAlpha(scale[900], 0.34))
+      : "rgb(255 255 255 / 0.42)",
+    "--auth-chip-border": isDark
+      ? (isBlackDark ? "rgb(255 255 255 / 0.16)" : "rgb(255 255 255 / 0.2)")
+      : "rgb(255 255 255 / 0.5)",
     "--glass-border": isDark
       ? darkBorder
       : withAlpha(scale[200], 0.85),

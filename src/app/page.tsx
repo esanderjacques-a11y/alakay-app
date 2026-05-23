@@ -61,7 +61,6 @@ import { supabase } from "@/lib/supabase";
 import {
   loadCropAliasMap,
   loadParameterAliasMap,
-  loadUnitAliasMap,
   loadUnitAliasOptionsMap,
 } from "@/lib/aliases";
 import {
@@ -247,6 +246,69 @@ function getUnitSymbolForConversion(unit: {
   canonical_symbol?: string;
 }) {
   return unit.canonical_symbol || unit.unit_symbol || unit.display_symbol;
+}
+
+function getPreferredUnitDisplayKey(
+  parameter: Parameter,
+  selectedUnitId: number,
+  currentDisplayKey?: string
+) {
+  const currentOption = currentDisplayKey
+    ? parameter.available_units.find(
+        (unit) => getUnitOptionKey(unit) === currentDisplayKey
+      )
+    : null;
+
+  if (currentOption && currentOption.unit_id !== parameter.unit_id) {
+    return currentDisplayKey || getUnitOptionKey(currentOption);
+  }
+
+  const preferredDisplay = getFriendlyUnitSymbol(
+    parameter.unit_symbol || currentOption?.unit_symbol || ""
+  );
+  const preferredOption =
+    parameter.available_units.find(
+      (unit) =>
+        unit.unit_id === selectedUnitId &&
+        (unit.display_symbol || unit.unit_symbol) === preferredDisplay
+    ) ||
+    parameter.available_units.find((unit) => unit.unit_id === selectedUnitId) ||
+    parameter.available_units[0];
+
+  return preferredOption ? getUnitOptionKey(preferredOption) : "";
+}
+
+function getFriendlyUnitSymbol(unitSymbol: string) {
+  const rawUnitSymbol = String(unitSymbol || "").trim();
+
+  if (
+    /\bMg\s*\/\s*m(?:3|\^3|³)\b/.test(rawUnitSymbol) ||
+    /\bMg\s*m(?:-3|⁻3|−3)\b/.test(rawUnitSymbol)
+  ) {
+    return "g/cm3";
+  }
+
+  const compact = rawUnitSymbol
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/\u00b5/g, "u")
+    .replace(/\u207b/g, "-");
+
+  const friendlySymbols: Record<string, string> = {
+    "dag/kg": "%",
+    "dagkg-1": "%",
+    "ug/g": "mg/kg",
+    "µg/g": "mg/kg",
+    "mmhos/cm": "dS/m",
+    "mmhoscm-1": "dS/m",
+    "mmho/cm": "dS/m",
+    "mmhocm-1": "dS/m",
+    "meq100g-1": "meq/100g",
+    "meq/100g-1": "meq/100g",
+  };
+
+  return friendlySymbols[compact] || unitSymbol;
 }
 
 function convertRangeToUnit(
@@ -916,17 +978,12 @@ export default function HomePage() {
       unit_id: number;
       unit_symbol: string;
     }>;
-    const allUnitIds = allUnits.map((unit) => unit.unit_id);
 
     const parameterAliasMap = await loadParameterAliasMap(
       language,
       officialParameterIds
     );
 
-    const unitAliasMap = await loadUnitAliasMap(
-      language,
-      allUnitIds.length ? allUnitIds : unitIds
-    );
     const unitAliasOptionsMap = await loadUnitAliasOptionsMap(language, unitIds);
 
     function buildExpandedUnitOptions(
@@ -940,6 +997,7 @@ export default function HomePage() {
     ) {
       const options = initialOptions.map((option) => ({
         ...option,
+        display_symbol: getFriendlyUnitSymbol(option.display_symbol || option.unit_symbol),
         canonical_symbol: option.unit_symbol,
       }));
       const seen = new Set(options.map((option) => getUnitOptionKey(option)));
@@ -949,7 +1007,7 @@ export default function HomePage() {
         const option = {
           unit_id: candidate.unit_id,
           unit_symbol: candidate.unit_symbol,
-          display_symbol: unitAliasMap.get(candidate.unit_id) || candidate.unit_symbol,
+          display_symbol: getFriendlyUnitSymbol(candidate.unit_symbol),
           canonical_symbol: candidate.unit_symbol,
         };
         const key = getUnitOptionKey(option);
@@ -973,7 +1031,7 @@ export default function HomePage() {
 
       const unitId = unitData?.unit_id ?? row.default_unit_id;
       const unitSymbol = unitData?.unit_symbol ?? "";
-      const displayUnitSymbol = unitAliasMap.get(unitId) || unitSymbol;
+      const displayUnitSymbol = getFriendlyUnitSymbol(unitSymbol);
 
       return {
         parameter_key: `p-${row.parameter_id}`,
@@ -1006,7 +1064,7 @@ export default function HomePage() {
 
       const unitId = unitData?.unit_id ?? row.default_unit_id;
       const unitSymbol = unitData?.unit_symbol ?? "";
-      const displayUnitSymbol = unitAliasMap.get(unitId) || unitSymbol;
+      const displayUnitSymbol = getFriendlyUnitSymbol(unitSymbol);
 
       return {
         parameter_key: `c-${row.custom_parameter_id}`,
@@ -2251,20 +2309,22 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         ) : null}
       </section>
 
-      <AppDock
-        currentStep={currentStep}
-        onStepChange={setCurrentStep}
-        hasResults={results.length > 0}
-        hasHistoryOrProgress={hasHistoryOrProgress}
-        labels={{
-          home: t.home,
-          setup: t.setup,
-          values: t.values,
-          results: t.results,
-          calculators: t.calculators,
-          history: t.history,
-        }}
-      />
+      {currentStep !== "settings" && currentStep !== "recycle" ? (
+        <AppDock
+          currentStep={currentStep}
+          onStepChange={setCurrentStep}
+          hasResults={results.length > 0}
+          hasHistoryOrProgress={hasHistoryOrProgress}
+          labels={{
+            home: t.home,
+            setup: t.setup,
+            values: t.values,
+            results: t.results,
+            calculators: t.calculators,
+            history: t.history,
+          }}
+        />
+      ) : null}
 
       <LabValueImporter
         key={labValueImporterMode}
@@ -3104,8 +3164,11 @@ function ValuesScreen({
                     (unit) => unit.unit_id === selectedUnitId
                   ) || parameter.available_units[0];
                 const selectedUnitDisplayKey =
-                  selectedUnitDisplayKeys[parameter.parameter_key] ||
-                  (selectedUnit ? getUnitOptionKey(selectedUnit) : "");
+                  getPreferredUnitDisplayKey(
+                    parameter,
+                    selectedUnitId,
+                    selectedUnitDisplayKeys[parameter.parameter_key]
+                  ) || (selectedUnit ? getUnitOptionKey(selectedUnit) : "");
                 const displayParameterLabel =
                   parameter.symbol?.trim() || parameter.display_name;
                 const aliasTitle = [
@@ -3217,8 +3280,11 @@ function ValuesScreen({
                 (unit) => unit.unit_id === selectedUnitId
               ) || parameter.available_units[0];
             const selectedUnitDisplayKey =
-              selectedUnitDisplayKeys[parameter.parameter_key] ||
-              (selectedUnit ? getUnitOptionKey(selectedUnit) : "");
+              getPreferredUnitDisplayKey(
+                parameter,
+                selectedUnitId,
+                selectedUnitDisplayKeys[parameter.parameter_key]
+              ) || (selectedUnit ? getUnitOptionKey(selectedUnit) : "");
             const displayParameterLabel =
               showParameterSymbolsOnly && parameter.symbol
                 ? parameter.symbol

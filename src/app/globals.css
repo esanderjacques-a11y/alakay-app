@@ -491,12 +491,7 @@ html[data-theme="dark"] .mobile-menu-panel {
   .auth-page {
     isolation: isolate;
     overflow: hidden;
-    background:
-      linear-gradient(180deg, rgba(235, 253, 244, 0.78) 0%, rgba(221, 247, 232, 0.78) 54%, rgba(229, 244, 218, 0.84) 100%),
-      repeating-linear-gradient(112deg, rgba(21, 128, 61, 0.1) 0 1px, transparent 1px 24px),
-      repeating-linear-gradient(168deg, rgba(132, 97, 54, 0.08) 0 1px, transparent 1px 30px),
-      radial-gradient(ellipse at 50% 14%, rgba(255, 255, 255, 0.58), transparent 42%),
-      linear-gradient(135deg, #e8fff3 0%, #dff8eb 46%, #e9f5dd 100%);
+    background: var(--auth-page-gradient, var(--app-main-gradient));
   }
 
   .auth-page::before {
@@ -528,16 +523,16 @@ html[data-theme="dark"] .mobile-menu-panel {
 
   .auth-card {
     border-radius: 1.5rem;
-    background: rgba(255, 255, 255, 0.42);
-    border-color: rgba(255, 255, 255, 0.48);
-    box-shadow: 0 18px 46px rgba(21, 128, 61, 0.12);
+    background: var(--auth-card-bg, rgba(255, 255, 255, 0.42));
+    border-color: var(--auth-card-border, rgba(255, 255, 255, 0.48));
+    box-shadow: var(--auth-card-shadow, 0 18px 46px rgba(21, 128, 61, 0.12));
     backdrop-filter: blur(34px) saturate(1.2);
     -webkit-backdrop-filter: blur(34px) saturate(1.2);
   }
 
   .auth-page .touch-target.flex.items-center.gap-2.rounded-2xl {
-    background: rgba(255, 255, 255, 0.42);
-    border-color: rgba(255, 255, 255, 0.5);
+    background: var(--auth-chip-bg, rgba(255, 255, 255, 0.42));
+    border-color: var(--auth-chip-border, rgba(255, 255, 255, 0.5));
     box-shadow: 0 12px 34px rgba(21, 128, 61, 0.11);
     backdrop-filter: blur(24px) saturate(1.18);
     -webkit-backdrop-filter: blur(24px) saturate(1.18);
@@ -1655,19 +1650,8 @@ html[data-theme="dark"] .mobile-menu-panel {
   }
 
   html[data-theme="dark"] .auth-card{
-    background:
-      linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.1),
-        rgba(255, 255, 255, 0.04)
-      ),
-      rgba(14, 14, 14, 0.78);
-    border-color: rgba(255, 255, 255, 0.16);
-    box-shadow:
-      0 24px 60px rgba(0, 0, 0, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12);
-    backdrop-filter: blur(40px) saturate(1.35);
-    -webkit-backdrop-filter: blur(40px) saturate(1.35);
+    backdrop-filter: blur(38px) saturate(1.26);
+    -webkit-backdrop-filter: blur(38px) saturate(1.26);
   }
 
   

@@ -86,6 +86,27 @@ const tabs: Array<{ key: CalculatorKey; icon: ReactNode }> = [
   { key: "graphs", icon: <BarChart3 size={17} /> },
 ];
 
+const EARTH_DEPTH_OPTIONS = [
+  { key: "0-20", depthCm: 20, factor: 1 },
+  { key: "20-30", depthCm: 30, factor: 1.5 },
+] as const;
+
+type EarthDepthOption = (typeof EARTH_DEPTH_OPTIONS)[number]["key"];
+
+function getEarthDepthOptionLabel(
+  option: (typeof EARTH_DEPTH_OPTIONS)[number],
+  t: Record<string, string>
+) {
+  return `${option.key} cm (${t.incorporationFactorShort || "f"} = ${option.factor})`;
+}
+
+function getEarthDepthOption(value: EarthDepthOption) {
+  return (
+    EARTH_DEPTH_OPTIONS.find((option) => option.key === value) ||
+    EARTH_DEPTH_OPTIONS[0]
+  );
+}
+
 export default function CalculatorHub({
   language,
   parameters,
@@ -388,6 +409,7 @@ function AmendmentCalculator({
   );
   const [baseSaturationTarget, setBaseSaturationTarget] = useState(cropSuggestedV2);
   const [effectiveCec, setEffectiveCec] = useState(lab.get("cec")?.value || 10);
+  const [earthDepthOption, setEarthDepthOption] = useState<EarthDepthOption>("0-20");
   const [incorporationFactor, setIncorporationFactor] = useState(1);
   const [rndt, setRndt] = useState(90);
   const [bulkDensity, setBulkDensity] = useState(lab.get("bulk_density")?.value || 1.25);
@@ -404,6 +426,13 @@ function AmendmentCalculator({
   useEffect(() => {
     setBaseSaturationTarget(cropSuggestedV2);
   }, [cropSuggestedV2]);
+
+  function handleEarthDepthChange(value: string) {
+    const next = getEarthDepthOption(value as EarthDepthOption);
+    setEarthDepthOption(next.key);
+    setDepth(next.depthCm);
+    setIncorporationFactor(next.factor);
+  }
 
   const output = calculateSoilAmendment({
     method,
@@ -445,7 +474,7 @@ function AmendmentCalculator({
           />
           {!earthAvailable ? (
             <p className="text-xs font-semibold text-yellow-900 sm:col-span-2">
-              {t.earthSoilOnly || "EARTH method is available only for soil lab tests."}
+              {t.earthSoilOnly || "The base-saturation method is available only for soil lab tests."}
             </p>
           ) : null}
           {method === "earth_practical" ? (
@@ -469,11 +498,24 @@ function AmendmentCalculator({
                 onChange={setEffectiveCec}
               />
               <NumberField label={t.prntPercent || "PRNT (%)"} value={rndt} onChange={setRndt} />
+              <SelectField
+                label={t.incorporationDepth || "Incorporation depth"}
+                value={earthDepthOption}
+                onChange={handleEarthDepthChange}
+                options={EARTH_DEPTH_OPTIONS.map((option) => [
+                  option.key,
+                  getEarthDepthOptionLabel(option, t),
+                ])}
+              />
               <NumberField
                 label={t.incorporationFactor || "Incorporation factor (f)"}
                 value={incorporationFactor}
                 onChange={setIncorporationFactor}
               />
+              <p className="text-xs font-semibold text-slate-600 sm:col-span-2">
+                {t.incorporationDepthNote ||
+                  "The selected depth sets f automatically; adjust f only if your local recommendation uses another incorporation factor."}
+              </p>
             </>
           ) : (
             <>
@@ -526,7 +568,7 @@ function DopCalculator({
           onChange={setFallbackOptimum}
         />
         <p className="text-xs font-semibold text-slate-600">
-          {`When nutrient range is available, optimum uses the midpoint of min-max. Otherwise fallback optimum is used.`}
+          {t.dopOptimumHelp}
         </p>
       </div>
       <DopVerticalChart t={t} rows={dopRows} />
@@ -611,14 +653,14 @@ function DopVerticalChart({
                   className="h-2.5 w-2.5 rounded-full"
                   style={{ background: getDopBarColor("macro", false) }}
                 />
-                Macro
+                {t.macro}
               </span>
               <span className="inline-flex items-center gap-1">
                 <span
                   className="h-2.5 w-2.5 rounded-full"
                   style={{ background: getDopBarColor("micro", false) }}
                 />
-                Micro
+                {t.micro}
               </span>
             </div>
           </div>
@@ -694,7 +736,7 @@ function SalinityCalculator({
           <>
             <NumberField label={t.ecw} value={ecw} onChange={setEcw} />
             <NumberField label={t.eceTarget} value={eceTarget} onChange={setEceTarget} />
-            <NumberField label="PSI target (%)" value={psiTarget} onChange={setPsiTarget} />
+            <NumberField label={t.psiTarget} value={psiTarget} onChange={setPsiTarget} />
             <NumberField label="ET" value={etValue} onChange={setEtValue} />
           </>
         }
@@ -996,6 +1038,9 @@ function translateCalculatorText(value: string, t: Record<string, string>) {
     "Calculate the amount of product based on nutrient grade, efficiency, and area.":
       t.fertilizerRequirementDesc,
     "Gypsum requirement": t.gypsumRequirementTitle,
+    "Gypsum (meq/100 g)": t.gypsumMeqTitle,
+    "Gypsum (mg/100 g)": t.gypsumMgTitle,
+    "Gypsum (kg/t)": t.gypsumKgTitle,
     "Lime requirement": t.limeRequirementTitle,
     "Lime or amendment": t.amendmentRequirementTitle,
     "Estimate lime or gypsum need using pH, acidity, RNDT, depth, and density.":
@@ -1014,6 +1059,7 @@ function translateCalculatorText(value: string, t: Record<string, string>) {
       t.nutrientGraphsDesc,
     Porosity: t.porosityTitle,
     "Leaching requirement": t.leachingRequirementTitle,
+    "Total water": t.totalWaterTitle,
     "(target - current) / nutrient fraction / efficiency * area":
       t.fertilizerFormula,
     "target_ph adjusted by depth, bulk density, RNDT, and area":
@@ -1044,7 +1090,7 @@ function translateCalculatorText(value: string, t: Record<string, string>) {
       t.noteTargetPh,
     "Exchangeable acidity estimate. Best when the lab reports acidity or Al+H.":
       t.noteExchangeableAcidity,
-    "EARTH base-saturation method: V1 current base saturation, V2 target base saturation, CICE effective CEC, PRNT neutralization value, and f incorporation factor.":
+    "Base-saturation method: V1 current base saturation, V2 target base saturation, CICE effective CEC, PRNT neutralization value, and f incorporation factor.":
       t.noteEarthBaseSaturation,
     "Buffer-index estimate. Use the lab's local calibration if it provides one.":
       t.noteBufferIndex,

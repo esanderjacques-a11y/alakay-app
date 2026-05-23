@@ -129,7 +129,7 @@ export function calculateSoilAmendment(input: {
     tonsPerHa = ((baseGap * cecEffective) / (10 * prntPercent)) * incorporationFactor;
     formula = "((V2 - V1) * CICE) / (10 * PRNT) * f";
     methodNote =
-      "EARTH base-saturation method: V1 current base saturation, V2 target base saturation, CICE effective CEC, PRNT neutralization value, and f incorporation factor.";
+      "Base-saturation method: V1 current base saturation, V2 target base saturation, CICE effective CEC, PRNT neutralization value, and f incorporation factor.";
   }
 
   if (input.method === "target_ph") {

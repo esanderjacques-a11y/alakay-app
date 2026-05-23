@@ -64,26 +64,49 @@ export default function ResultsDashboard({
         </article>
 
         <span className="mt-3 grid grid-cols-2 gap-2">
+          {(() => {
+            const progressActive = activeTab === "progress";
+            return (
           <button
             type="button"
             onClick={() => setActiveTab("progress")}
-            className={`touch-target rounded-xl border px-3 py-2 text-left transition active:scale-[0.98] ${
-              activeTab === "progress"
-                ? "border-green-300 bg-green-50/90"
-                : "border-white/60 bg-white/68 hover:bg-white/80"
-            }`}
+                className={`touch-target rounded-xl border px-3 py-2 text-left transition active:scale-[0.98] ${
+                  progressActive
+                    ? "border-green-700 bg-green-700 text-white shadow-sm shadow-green-900/20"
+                    : "border-white/60 bg-white/68 hover:bg-white/80"
+                }`}
           >
             <span className="flex items-center gap-2">
-              <PlayCircle size={17} className="shrink-0 text-green-800" />
+                  <PlayCircle
+                    size={17}
+                    className={`shrink-0 ${
+                      progressActive ? "text-white" : "text-green-800"
+                    }`}
+                  />
               <span className="min-w-0">
-                <p className="truncate text-sm font-bold text-green-900">{t.inProgress}</p>
-                <p className="text-[11px] font-semibold text-slate-600">
+                    <p
+                      className={`truncate text-sm font-bold ${
+                        progressActive ? "text-white" : "text-green-900"
+                      }`}
+                    >
+                      {t.inProgress}
+                    </p>
+                    <p
+                      className={`text-[11px] font-semibold ${
+                        progressActive ? "text-white/85" : "text-slate-600"
+                      }`}
+                    >
                   {enteredValuesCount} {t.entered} - {interpretedResultsCount} {t.interpreted}
                 </p>
               </span>
             </span>
           </button>
+            );
+          })()}
 
+          {(() => {
+            const historyActive = activeTab === "history" && !historyDisabled;
+            return (
           <button
             type="button"
             disabled={historyDisabled}
@@ -91,31 +114,47 @@ export default function ResultsDashboard({
               if (historyDisabled) return;
               setActiveTab("history");
             }}
-            className={`touch-target rounded-xl border px-3 py-2 text-left transition active:scale-[0.98] ${
-              activeTab === "history" && !historyDisabled
-                ? "border-green-300 bg-green-50/90"
-                : "border-white/60 bg-white/68 hover:bg-white/80"
+                className={`touch-target rounded-xl border px-3 py-2 text-left transition active:scale-[0.98] ${
+                  historyActive
+                    ? "border-green-700 bg-green-700 text-white shadow-sm shadow-green-900/20"
+                    : "border-white/60 bg-white/68 hover:bg-white/80"
             } disabled:cursor-not-allowed disabled:border-white/60 disabled:bg-white/68 disabled:opacity-100 disabled:hover:bg-white/68`}
           >
             <span className="flex items-center gap-2">
               <History
                 size={17}
-                className={`shrink-0 ${historyDisabled ? "text-slate-700" : "text-green-800"}`}
+                    className={`shrink-0 ${
+                      historyActive
+                        ? "text-white"
+                        : historyDisabled
+                        ? "text-slate-700"
+                        : "text-green-800"
+                    }`}
               />
               <span className="min-w-0">
                 <p
                   className={`truncate text-sm font-bold ${
-                    historyDisabled ? "text-slate-700" : "text-green-900"
+                        historyActive
+                          ? "text-white"
+                          : historyDisabled
+                          ? "text-slate-700"
+                          : "text-green-900"
                   }`}
                 >
                   {t.history}
                 </p>
-                <p className="truncate text-[11px] font-semibold text-slate-600">
+                    <p
+                      className={`truncate text-[11px] font-semibold ${
+                        historyActive ? "text-white/85" : "text-slate-600"
+                      }`}
+                    >
                   {t.savedReports}
                 </p>
               </span>
             </span>
           </button>
+            );
+          })()}
         </span>
       </GlassPanel>
       ) : null}

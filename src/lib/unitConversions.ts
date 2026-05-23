@@ -5,7 +5,11 @@ export type UnitConversion = {
 };
 
 function cleanUnit(unit: string) {
-  return unit
+  const withCaseSensitiveSymbols = unit
+    .replace(/\bMg\s*\/\s*m(?:3|\^3|³)\b/g, "megagram/m3")
+    .replace(/\bMg\s*m(?:-3|⁻3|−3)\b/g, "megagram/m3");
+
+  return withCaseSensitiveSymbols
     .toLowerCase()
     .replace(/\s+/g, "")
     .replace(/[\u00b5\u03bc]/g, "u")
@@ -37,9 +41,21 @@ export function convertLabUnit(
   }
 
   const equivalentGroups = [
-    ["ppm", "mg/kg", "mgkg-1", "mg.kg-1"],
-    ["cmol(+)/kg", "cmolc/kg", "cmol/kg", "meq/100g"],
-    ["%", "percent", "g/100g"],
+    ["ppm", "mg/kg", "mgkg-1", "mg.kg-1", "ug/g"],
+    [
+      "cmol(+)/kg",
+      "cmolc/kg",
+      "cmol/kg",
+      "cmol(+)kg-1",
+      "cmolckg-1",
+      "cmolkg-1",
+      "meq/100g",
+      "meq/100g-1",
+      "meq100g-1",
+    ],
+    ["%", "percent", "g/100g", "dag/kg", "dagkg-1"],
+    ["g/cm3", "g/cm^3", "gcm-3", "megagram/m3"],
+    ["ds/m", "dsm-1", "ms/cm", "mscm-1", "mmhos/cm", "mmhoscm-1", "mmho/cm", "mmhocm-1"],
   ];
 
   if (equivalentGroups.some((group) => group.includes(from) && group.includes(to))) {
@@ -53,8 +69,6 @@ export function convertLabUnit(
   const factors: Record<string, number> = {
     "g/kg->%": 0.1,
     "%->g/kg": 10,
-    "ds/m->ms/cm": 1,
-    "ms/cm->ds/m": 1,
     "us/cm->ms/cm": 0.001,
     "ms/cm->us/cm": 1000,
     "us/cm->ds/m": 0.001,
@@ -74,4 +88,3 @@ export function convertLabUnit(
 export function canConvertLabUnit(fromUnit: string, toUnit: string) {
   return convertLabUnit(1, fromUnit, toUnit) !== null;
 }
-

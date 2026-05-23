@@ -204,16 +204,16 @@ html[data-theme="dark"] .auth-card {
       radial-gradient(circle at 50% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.12), transparent 52%);
     border-color: var(--dark-border, rgb(255 255 255 / 0.16));
     box-shadow:
-      0 24px 60px rgba(0, 0, 0, 0.48),
+      0 16px 42px rgba(0, 0, 0, 0.3),
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
   html[data-theme="dark"] .home-primary-action{
     background:
-      linear-gradient(135deg, rgb(var(--accent-900-rgb, 24 62 52) / 0.9), rgb(var(--accent-950-rgb, 14 40 34) / 0.88));
+      linear-gradient(135deg, rgb(var(--accent-800-rgb, 32 78 66) / 0.72), rgb(var(--accent-900-rgb, 18 52 44) / 0.68));
     border-color: rgb(var(--accent-400-rgb, 94 234 212) / 0.36);
     box-shadow:
-      0 16px 36px rgba(2, 6, 23, 0.34),
+      0 12px 26px rgba(2, 6, 23, 0.24),
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
@@ -234,10 +234,10 @@ html[data-theme="dark"] .auth-card {
   html[data-theme="dark"] .home-primary-action:hover,
   html[data-theme="dark"] .home-primary-action:focus-visible{
     background:
-      linear-gradient(135deg, rgb(var(--accent-800-rgb, 32 78 66) / 0.92), rgb(var(--accent-900-rgb, 18 52 44) / 0.88));
+      linear-gradient(135deg, rgb(var(--accent-700-rgb, 21 128 61) / 0.72), rgb(var(--accent-800-rgb, 32 78 66) / 0.68));
     border-color: rgb(var(--accent-300-rgb, 110 231 183) / 0.52);
     box-shadow:
-      0 20px 40px rgba(2, 6, 23, 0.38),
+      0 14px 28px rgba(2, 6, 23, 0.24),
       inset 0 1px 0 rgba(255, 255, 255, 0.14);
   }
 
@@ -245,15 +245,15 @@ html[data-theme="dark"] .app-header,
 html[data-theme="dark"] .app-dock,
 html[data-theme="dark"] .mobile-menu-panel {
   background:
-      linear-gradient(180deg, var(--dark-shell-top, rgb(20 20 20 / 0.86)), var(--dark-shell-bottom, rgb(13 13 13 / 0.78))),
+      linear-gradient(180deg, var(--dark-panel-bg-strong, rgb(24 24 24 / 0.8)), var(--dark-panel-bg, rgb(18 18 18 / 0.72))),
       radial-gradient(circle at 18% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.14), transparent 42%);
     border-color: var(--dark-border, rgb(255 255 255 / 0.16));
-    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.46);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
   }
 
   html[data-theme="dark"] .mobile-menu-panel {
     background:
-      linear-gradient(180deg, var(--dark-shell-top, rgb(20 20 20 / 0.86)), var(--dark-shell-bottom, rgb(13 13 13 / 0.78))),
+      linear-gradient(180deg, var(--dark-panel-bg-strong, rgb(24 24 24 / 0.8)), var(--dark-panel-bg, rgb(18 18 18 / 0.72))),
       radial-gradient(circle at 0% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.14), transparent 46%),
       radial-gradient(circle at 100% 16%, rgb(var(--accent-300-rgb, 125 211 183) / 0.08), transparent 40%);
   }
@@ -387,7 +387,7 @@ html[data-theme="dark"] .mobile-menu-panel {
   html[data-theme="dark"] input,
   html[data-theme="dark"] textarea,
   html[data-theme="dark"] select {
-    background-color: var(--dark-panel-bg-strong, rgb(24 24 24 / 0.8));
+    background-color: var(--dark-panel-bg, rgb(18 18 18 / 0.72));
     border-color: var(--dark-border, rgb(255 255 255 / 0.16));
     color: #ffffff;
   }
@@ -471,7 +471,7 @@ html[data-theme="dark"] .mobile-menu-panel {
     background-color: var(--dark-panel-bg, rgb(18 18 18 / 0.72));
     border-color: var(--dark-border, rgb(255 255 255 / 0.16));
     box-shadow:
-      0 14px 30px rgba(0, 0, 0, 0.36),
+      0 10px 20px rgba(0, 0, 0, 0.22),
       inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
@@ -483,7 +483,7 @@ html[data-theme="dark"] .mobile-menu-panel {
 
   html[data-theme="dark"] .dismiss-backdrop,
   html[data-theme="dark"] .home-import-backdrop {
-    background: rgba(2, 6, 23, 0.62);
+    background: rgba(2, 6, 23, 0.52);
     backdrop-filter: blur(26px) saturate(0.92);
     -webkit-backdrop-filter: blur(26px) saturate(0.92);
   }
@@ -1342,7 +1342,7 @@ html[data-theme="dark"] .mobile-menu-panel {
 
   html[data-theme="dark"] .result-graphs-panel {
     background:
-      linear-gradient(180deg, var(--dark-shell-top, rgb(20 20 20 / 0.86)), var(--dark-shell-bottom, rgb(13 13 13 / 0.78))),
+      linear-gradient(180deg, var(--dark-panel-bg-strong, rgb(24 24 24 / 0.8)), var(--dark-panel-bg, rgb(18 18 18 / 0.72))),
       radial-gradient(circle at 50% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.1), transparent 56%);
     border-color: var(--dark-border, rgb(255 255 255 / 0.16));
     color: #ffffff;

@@ -200,7 +200,7 @@ html[data-theme="dark"] .values-screen-panel,
 html[data-theme="dark"] .home-entry-panel,
 html[data-theme="dark"] .auth-card {
   background:
-      linear-gradient(180deg, rgb(20 20 20 / 0.86), rgb(13 13 13 / 0.78)),
+      linear-gradient(180deg, var(--dark-shell-top, rgb(20 20 20 / 0.86)), var(--dark-shell-bottom, rgb(13 13 13 / 0.78))),
       radial-gradient(circle at 50% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.12), transparent 52%);
     border-color: var(--dark-border, rgb(255 255 255 / 0.16));
     box-shadow:
@@ -245,7 +245,7 @@ html[data-theme="dark"] .app-header,
 html[data-theme="dark"] .app-dock,
 html[data-theme="dark"] .mobile-menu-panel {
   background:
-      linear-gradient(180deg, rgb(20 20 20 / 0.84), rgb(13 13 13 / 0.74)),
+      linear-gradient(180deg, var(--dark-shell-top, rgb(20 20 20 / 0.86)), var(--dark-shell-bottom, rgb(13 13 13 / 0.78))),
       radial-gradient(circle at 18% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.14), transparent 42%);
     border-color: var(--dark-border, rgb(255 255 255 / 0.16));
     box-shadow: 0 20px 56px rgba(0, 0, 0, 0.46);
@@ -253,7 +253,7 @@ html[data-theme="dark"] .mobile-menu-panel {
 
   html[data-theme="dark"] .mobile-menu-panel {
     background:
-      linear-gradient(180deg, rgb(22 22 22 / 0.86), rgb(14 14 14 / 0.78)),
+      linear-gradient(180deg, var(--dark-shell-top, rgb(20 20 20 / 0.86)), var(--dark-shell-bottom, rgb(13 13 13 / 0.78))),
       radial-gradient(circle at 0% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.14), transparent 46%),
       radial-gradient(circle at 100% 16%, rgb(var(--accent-300-rgb, 125 211 183) / 0.08), transparent 40%);
   }
@@ -387,7 +387,7 @@ html[data-theme="dark"] .mobile-menu-panel {
   html[data-theme="dark"] input,
   html[data-theme="dark"] textarea,
   html[data-theme="dark"] select {
-    background-color: rgb(13 13 13 / 0.9);
+    background-color: var(--dark-panel-bg-strong, rgb(24 24 24 / 0.8));
     border-color: var(--dark-border, rgb(255 255 255 / 0.16));
     color: #ffffff;
   }
@@ -398,7 +398,7 @@ html[data-theme="dark"] .mobile-menu-panel {
   }
 
   html[data-theme="dark"] option {
-    background: #0e0e0e;
+    background: var(--dark-surface, #0e0e0e);
     color: #ffffff;
   }
 
@@ -422,7 +422,7 @@ html[data-theme="dark"] .mobile-menu-panel {
   html[data-theme="dark"] .active\:bg-slate-50:active,
   html[data-theme="dark"] .focus-visible\:bg-white\/92:focus-visible,
   html[data-theme="dark"] .focus-visible\:bg-white\/85:focus-visible {
-    background-color: rgb(28 28 28 / 0.92);
+    background-color: var(--dark-hover-bottom, rgb(18 18 18 / 0.9));
     color: #ffffff;
   }
 
@@ -468,7 +468,7 @@ html[data-theme="dark"] .mobile-menu-panel {
   html[data-theme="dark"] .app-header button[class*="bg-white"],
   html[data-theme="dark"] .mobile-menu-panel button[class*="bg-white"],
   html[data-theme="dark"] .app-dock button[class*="bg-white"] {
-    background-color: rgb(16 16 16 / 0.88);
+    background-color: var(--dark-panel-bg, rgb(18 18 18 / 0.72));
     border-color: var(--dark-border, rgb(255 255 255 / 0.16));
     box-shadow:
       0 14px 30px rgba(0, 0, 0, 0.36),
@@ -478,7 +478,7 @@ html[data-theme="dark"] .mobile-menu-panel {
   html[data-theme="dark"] .app-header button[class*="bg-white"]:hover,
   html[data-theme="dark"] .mobile-menu-panel button[class*="bg-white"]:hover,
   html[data-theme="dark"] .app-dock button[class*="bg-white"]:hover {
-    background-color: rgb(24 24 24 / 0.95);
+    background-color: var(--dark-panel-bg-strong, rgb(24 24 24 / 0.8));
   }
 
   html[data-theme="dark"] .dismiss-backdrop,
@@ -497,13 +497,6 @@ html[data-theme="dark"] .mobile-menu-panel {
       repeating-linear-gradient(168deg, rgba(132, 97, 54, 0.08) 0 1px, transparent 1px 30px),
       radial-gradient(ellipse at 50% 14%, rgba(255, 255, 255, 0.58), transparent 42%),
       linear-gradient(135deg, #e8fff3 0%, #dff8eb 46%, #e9f5dd 100%);
-  }
-
-  html[data-theme="dark"] .auth-page {
-    background:
-      radial-gradient(circle at 20% 10%, rgb(var(--accent-400-rgb, 94 234 212) / 0.18), transparent 34%),
-      radial-gradient(circle at 82% 24%, rgb(var(--accent-300-rgb, 125 211 183) / 0.08), transparent 38%),
-      linear-gradient(145deg, #050505 0%, #0b0b0b 54%, #121212 100%);
   }
 
   .auth-page::before {
@@ -1349,7 +1342,7 @@ html[data-theme="dark"] .mobile-menu-panel {
 
   html[data-theme="dark"] .result-graphs-panel {
     background:
-      linear-gradient(180deg, rgb(21 21 21 / 0.9), rgb(14 14 14 / 0.82)),
+      linear-gradient(180deg, var(--dark-shell-top, rgb(20 20 20 / 0.86)), var(--dark-shell-bottom, rgb(13 13 13 / 0.78))),
       radial-gradient(circle at 50% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.1), transparent 56%);
     border-color: var(--dark-border, rgb(255 255 255 / 0.16));
     color: #ffffff;
@@ -1366,7 +1359,7 @@ html[data-theme="dark"] .mobile-menu-panel {
   html[data-theme="dark"] .result-graph-row {
     border-color: var(--dark-border, rgb(255 255 255 / 0.16));
     background:
-      linear-gradient(180deg, rgb(18 18 18 / 0.88), rgb(11 11 11 / 0.78));
+      linear-gradient(180deg, var(--dark-panel-bg-strong, rgb(24 24 24 / 0.8)), var(--dark-panel-bg, rgb(18 18 18 / 0.72)));
     box-shadow:
       0 16px 30px rgba(0, 0, 0, 0.34),
       inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -1420,7 +1413,7 @@ html[data-theme="dark"] .mobile-menu-panel {
   html[data-theme="dark"] .active\:bg-green-50:active,
   html[data-theme="dark"] .active\:bg-slate-50:active {
     background:
-      linear-gradient(135deg, rgb(33 33 33 / 0.94), rgb(18 18 18 / 0.9)),
+      linear-gradient(135deg, var(--dark-hover-top, rgb(33 33 33 / 0.94)), var(--dark-hover-bottom, rgb(18 18 18 / 0.9))),
       radial-gradient(circle at 50% 0%, rgb(var(--accent-400-rgb, 94 234 212) / 0.24), transparent 56%);
     border-color: rgb(var(--accent-400-rgb, 94 234 212) / 0.58);
     color: #ffffff;
@@ -1449,7 +1442,7 @@ html[data-theme="dark"] .mobile-menu-panel {
 
   html[data-theme="dark"] .home-secondary-action:disabled,
   html[data-theme="dark"] .home-secondary-action:disabled * {
-    background: rgb(14 14 14 / 0.72);
+    background: var(--dark-disabled-bg, rgb(14 14 14 / 0.72));
     color: rgb(255 255 255 / 0.46);
   }
 }

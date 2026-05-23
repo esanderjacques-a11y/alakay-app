@@ -112,9 +112,9 @@ export function buildAccentCssVariables(
   const glow = hslToRgbParts(seed);
   const isDark = theme === "dark";
   const isBlackDark = isDark && darkVariant === "black";
-  const darkBase = isBlackDark ? "hsl(0 0% 2%)" : `hsl(${seed.h} 60% 18%)`;
-  const darkSurface = isBlackDark ? "hsl(0 0% 7%)" : `hsl(${seed.h} 54% 23%)`;
-  const darkSurfaceRaised = isBlackDark ? "hsl(0 0% 11%)" : `hsl(${seed.h} 46% 28%)`;
+  const darkBase = isBlackDark ? "hsl(0 0% 2%)" : `hsl(${seed.h} 56% 21%)`;
+  const darkSurface = isBlackDark ? "hsl(0 0% 7%)" : `hsl(${seed.h} 50% 26%)`;
+  const darkSurfaceRaised = isBlackDark ? "hsl(0 0% 11%)" : `hsl(${seed.h} 44% 31%)`;
   const darkBorder = isBlackDark ? "rgb(255 255 255 / 0.16)" : "rgb(255 255 255 / 0.24)";
   const darkMuted = isBlackDark ? "rgb(230 230 230 / 0.74)" : "rgb(236 244 240 / 0.86)";
 
@@ -169,8 +169,13 @@ export function buildAccentCssVariables(
     "--dark-surface-raised": darkSurfaceRaised,
     "--dark-border": darkBorder,
     "--dark-muted": darkMuted,
-    "--dark-panel-bg": isBlackDark ? "rgb(18 18 18 / 0.72)" : withAlpha(scale[950], 0.54),
-    "--dark-panel-bg-strong": isBlackDark ? "rgb(24 24 24 / 0.8)" : withAlpha(scale[900], 0.62),
+    "--dark-panel-bg": isBlackDark ? "rgb(18 18 18 / 0.72)" : withAlpha(scale[800], 0.48),
+    "--dark-panel-bg-strong": isBlackDark ? "rgb(24 24 24 / 0.8)" : withAlpha(scale[700], 0.54),
+    "--dark-shell-top": isBlackDark ? "rgb(20 20 20 / 0.86)" : withAlpha(scale[700], 0.58),
+    "--dark-shell-bottom": isBlackDark ? "rgb(13 13 13 / 0.78)" : withAlpha(scale[900], 0.5),
+    "--dark-hover-top": isBlackDark ? "rgb(33 33 33 / 0.94)" : withAlpha(scale[600], 0.68),
+    "--dark-hover-bottom": isBlackDark ? "rgb(18 18 18 / 0.9)" : withAlpha(scale[800], 0.6),
+    "--dark-disabled-bg": isBlackDark ? "rgb(14 14 14 / 0.72)" : withAlpha(scale[900], 0.42),
     "--glass-border": isDark
       ? darkBorder
       : withAlpha(scale[200], 0.85),

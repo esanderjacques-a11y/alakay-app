@@ -6,6 +6,7 @@ type AiImportPayload = {
   text: string;
   rows?: Array<{
     parameter: string;
+    symbol?: string;
     value: string;
     unit?: string;
     sample?: string;
@@ -120,8 +121,10 @@ function buildAiImportInstructionsForLanguage(language: string) {
   return [
     "Read this soil or foliar lab report for ALAKAY.",
     "Return strict JSON only. Do not include markdown.",
-    `Use ${languageName} for parameter names when writing rows.parameter, but also include the chemical symbol when present, for example Potassium (K), Potasio (K), Calcium (Ca), pH, EC/CE, CEC/CIC/CICE.`,
+    `Use ${languageName} for parameter names when writing rows.parameter. Keep names short and lab-style.`,
+    "Return rows.symbol separately with the exact detected symbol when available (for example K, Ca, Mg, Na, Fe, Zn, Cu, B, pH, EC, CEC, CIC, CICE).",
     "Prefer concise parameter names plus symbols over long descriptions. Do not use prose sentences as parameter names.",
+    "If symbol and parameter text disagree, trust the symbol visible next to the value column.",
     "The text field must be a faithful row-by-row transcription of useful result tables and nearby sample metadata, not a summary or explanation.",
     "The rows field must contain lab results only: {parameter,value,unit,sample,method,source,confidence}.",
     "Rows are required when result tables are visible. Extract every real numeric result row that belongs to the lab analysis tables.",
@@ -133,12 +136,14 @@ function buildAiImportInstructionsForLanguage(language: string) {
     "If a table has two result columns for the same variable, such as mg/kg and meq/100g, return one row for the unit column most directly usable as the lab result; for exchangeable bases prefer meq/100g or cmol(+)/kg over mg/kg. Do not convert.",
     "Include texture rows when present: Sand/Arena, Silt/Limo, Clay/Arcilla, and texture class when shown.",
     "If a wide table has sample rows and parameter columns, create one row per sample and parameter.",
+    "Do not mix two parameters in one row. One row must contain one parameter and one numeric value.",
     "If headers include method or unit, carry that method/unit into each row.",
     "Do not import dates, phone numbers, page numbers, addresses, invoice/payment numbers, legal text, chart axes, recommendation kg/ha values, rating letters, status words, or reference ranges as results.",
     "Treat Low/Medium/High, Bajo/Medio/Alto, Target, Guide, Optimum, Range, Rango, Reference, and bar/scale numbers as reference information, not result values.",
     "Preserve different methods separately, for example P Olsen, P Bray, P Mehlich, pH H2O, pH KCl, nitrate-N, ammonium-N.",
     "If carbon, organic carbon, sodium, or sodio appears as a real result, include it as a row even if it may need manual review in the app.",
     "Use confidence from 0 to 1. Use lower confidence when OCR or layout is uncertain.",
+    "Rows.value must be numeric only (digits with optional decimal separator and optional sign). Do not include units, words, or symbols in rows.value.",
   ].join(" ");
 }
 
@@ -201,6 +206,7 @@ async function requestAiImport(
                   additionalProperties: false,
                   properties: {
                     parameter: { type: "string" },
+                    symbol: { type: "string" },
                     value: { type: "string" },
                     unit: { type: "string" },
                     sample: { type: "string" },
@@ -210,6 +216,7 @@ async function requestAiImport(
                   },
                   required: [
                     "parameter",
+                    "symbol",
                     "value",
                     "unit",
                     "sample",
@@ -318,8 +325,11 @@ function normalizeAiImportPayload(
       if (!parameter || !value) return null;
 
       const confidenceRaw = Number(item.confidence);
+      const rawSymbol = String(item.symbol ?? "").trim();
+      const inlineSymbolMatch = parameter.match(/\(([A-Za-z][A-Za-z0-9+\-]{0,5})\)/);
       return {
         parameter,
+        symbol: rawSymbol || inlineSymbolMatch?.[1] || "",
         value,
         unit: String(item.unit ?? item.units ?? "").trim(),
         sample: String(item.sample ?? item.lot ?? item.plot ?? item.sampleName ?? "").trim(),

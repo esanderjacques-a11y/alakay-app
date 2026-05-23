@@ -45,6 +45,7 @@ type ImportedRow = {
   parameter: string;
   value: string;
   unit?: string;
+  symbol?: string;
   sample?: string;
   method?: string;
   confidence?: number;
@@ -337,6 +338,34 @@ function getParameterAliasTerms(parameter: ParameterForImport) {
   return Array.from(aliases);
 }
 
+function extractSymbolHint(value: string) {
+  const parenthesized = value.match(/\(([A-Za-z][A-Za-z0-9+\-]{0,5})\)/);
+  if (parenthesized?.[1]) return normalizeText(parenthesized[1]);
+  return "";
+}
+
+function detectAliasFamilies(value: string) {
+  const normalized = normalizeText(value);
+  const tokens = tokenSet(normalized);
+  const families = new Set<string>();
+
+  for (const [family, aliases] of Object.entries(IMPORT_PARAMETER_ALIASES)) {
+    const matched = aliases.some((alias) => {
+      const normalizedAlias = normalizeText(alias);
+      if (!normalizedAlias) return false;
+      if (normalizedAlias.length <= 2) return tokens.has(normalizedAlias);
+      return (
+        normalized === normalizedAlias ||
+        normalized.includes(normalizedAlias) ||
+        normalizedAlias.includes(normalized)
+      );
+    });
+    if (matched) families.add(family);
+  }
+
+  return families;
+}
+
 function looksLikeSodiumName(value: string) {
   const normalized = normalizeText(value);
   if (!normalized) return false;
@@ -409,23 +438,50 @@ function parameterMatchScore(rawName: string, terms: string[]) {
 function findBestParameterMatch(
   rawName: string,
   parameters: ParameterForImport[],
-  searchMap: Map<string, ParameterForImport>
+  searchMap: Map<string, ParameterForImport>,
+  rawSymbolHint?: string
 ) {
   const normalizedRawName = normalizeText(rawName);
   if (!normalizedRawName) return null;
-
-  const exactMatch = searchMap.get(normalizedRawName);
-  if (exactMatch) {
-    return forceSodiumParameterMatch(rawName, exactMatch, parameters);
-  }
+  const normalizedRawSymbol = normalizeText(rawSymbolHint || extractSymbolHint(rawName));
+  const rawFamilies = detectAliasFamilies(rawName);
 
   const ranked = parameters
-    .map((parameter) => ({
-      parameter,
-      score: parameterMatchScore(rawName, getParameterSearchTerms(parameter)),
-    }))
-    .filter((match) => match.score >= 0.86)
+    .map((parameter) => {
+      const baseScore = parameterMatchScore(rawName, getParameterSearchTerms(parameter));
+      const parameterSymbol = normalizeText(parameter.symbol || "");
+      const parameterFamilies = detectAliasFamilies(
+        `${parameter.display_name} ${parameter.parameter_name} ${parameter.symbol || ""}`
+      );
+
+      let score = baseScore;
+
+      if (normalizedRawSymbol) {
+        if (parameterSymbol && parameterSymbol === normalizedRawSymbol) score += 0.3;
+        else if (parameterSymbol && parameterSymbol !== normalizedRawSymbol) score -= 0.25;
+      }
+
+      if (rawFamilies.size > 0 && parameterFamilies.size > 0) {
+        const overlaps = [...rawFamilies].some((family) => parameterFamilies.has(family));
+        score += overlaps ? 0.25 : -0.2;
+      }
+
+      return { parameter, score };
+    })
+    .filter((match) => match.score >= 0.8)
     .sort((left, right) => right.score - left.score);
+
+  const exactMatch = searchMap.get(normalizedRawName);
+  if (exactMatch && ranked.length > 0) {
+    const exactRanked = ranked.find(
+      (item) => item.parameter.parameter_key === exactMatch.parameter_key
+    );
+    if (exactRanked && exactRanked.score >= ranked[0].score - 0.05) {
+      return forceSodiumParameterMatch(rawName, exactMatch, parameters);
+    }
+  } else if (exactMatch) {
+    return forceSodiumParameterMatch(rawName, exactMatch, parameters);
+  }
 
   if (ranked.length === 0) {
     return forceSodiumParameterMatch(rawName, null, parameters);
@@ -539,18 +595,21 @@ function parseNumber(raw: string) {
   return Number.isFinite(value) ? value : null;
 }
 
+function normalizeNumericValue(raw: string) {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const numeric = parseNumber(trimmed);
+  if (numeric === null) return "";
+  return String(numeric);
+}
+
 function parseImportedResultValue(raw: string) {
-  const text = raw.trim();
+  const text = normalizeScannedText(raw).trim();
   if (!text) return null;
 
-  const match = text.match(/^[<>]?\s*[+-]?\d+(?:[.,]\d+)?/);
+  const match = text.match(/[+-]?\d+(?:[.,]\d+)?/);
   if (!match) return null;
-
-  const normalized = match[0].replace(/\s+/g, "").replace(",", ".");
-  const numeric = Number(normalized.replace(/^[<>]/, ""));
-  if (!Number.isFinite(numeric)) return null;
-
-  return normalized;
+  return normalizeNumericValue(match[0]) || null;
 }
 
 function extractFirstValue(text: string) {
@@ -1058,7 +1117,8 @@ export default function LabValueImporter({
       const matchedParameter = findBestParameterMatch(
         row.parameter,
         parameters,
-        searchMap
+        searchMap,
+        row.symbol
       );
       const parsedValue = parseImportedResultValue(String(row.value));
       const baseId = `${index + 2}-${row.parameter}-${row.value}`;
@@ -1514,15 +1574,16 @@ export default function LabValueImporter({
         }
 
         const selectedUnit = findUnitSelection(parameter, row.unit || undefined);
+        const hasNumericValue = normalizeNumericValue(row.value) !== "";
 
         return {
           ...row,
           matchedParameterKey: parameter.parameter_key,
           selectedUnitId: selectedUnit.unitId,
           selectedUnitDisplayKey: selectedUnit.displayKey,
-          status: "matched",
-          message: "Ready.",
-          selected: true,
+          status: hasNumericValue ? "matched" : "invalid",
+          message: hasNumericValue ? "Ready." : "Invalid numeric value.",
+          selected: hasNumericValue,
         };
       })
     );
@@ -1566,6 +1627,33 @@ export default function LabValueImporter({
       previousRows.map((row) =>
         row.id === rowId ? { ...row, sampleName } : row
       )
+    );
+  }
+
+  function updateRowValue(rowId: string, rawValue: string) {
+    if (!/^-?\d*(?:[.,]\d*)?$/.test(rawValue)) return;
+
+    setPreviewRows((previousRows) =>
+      previousRows.map((row) => {
+        if (row.id !== rowId) return row;
+        const normalizedValue = normalizeNumericValue(rawValue);
+        const hasValue = normalizedValue !== "";
+        return {
+          ...row,
+          value: rawValue,
+          status: hasValue
+            ? row.matchedParameterKey
+              ? "matched"
+              : "unmatched"
+            : "invalid",
+          message: hasValue
+            ? row.matchedParameterKey
+              ? "Ready."
+              : "Choose a parameter."
+            : "Invalid numeric value.",
+          selected: hasValue ? row.selected : false,
+        };
+      })
     );
   }
 
@@ -1623,7 +1711,9 @@ export default function LabValueImporter({
 
     for (const row of rowsToImport) {
       if (!row.matchedParameterKey || !row.selectedUnitId) continue;
-      importedValues[row.matchedParameterKey] = row.value;
+      const normalizedValue = normalizeNumericValue(row.value);
+      if (!normalizedValue) continue;
+      importedValues[row.matchedParameterKey] = normalizedValue;
       importedUnits[row.matchedParameterKey] = row.selectedUnitId;
       if (row.selectedUnitDisplayKey) {
         importedUnitDisplayKeys[row.matchedParameterKey] = row.selectedUnitDisplayKey;
@@ -2056,7 +2146,20 @@ export default function LabValueImporter({
                           ) : null}
                         </td>
                         <td className="border-b border-slate-100 p-3 font-bold">
-                          {row.value || "-"}
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="w-full rounded-xl border border-slate-200 bg-white p-2 font-bold text-slate-900 outline-none focus:border-green-600"
+                            value={row.value}
+                            placeholder="-"
+                            onChange={(event) =>
+                              updateRowValue(row.id, event.target.value)
+                            }
+                            onBlur={() => {
+                              const normalized = normalizeNumericValue(row.value);
+                              updateRowValue(row.id, normalized);
+                            }}
+                          />
                         </td>
                         <td className="border-b border-slate-100 p-3">
                           {matchedParameter ? (

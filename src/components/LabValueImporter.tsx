@@ -90,9 +90,33 @@ type AiImportPayload = {
 
 function repairImportedRow(row: ImportedRow): ImportedRow {
   const originalParameter = String(row.parameter || "");
+  const originalValue = String(row.value || "");
+  const parameterNormalized = normalizeText(originalParameter.replace(/_/g, " "));
   const leadingNumericToken = originalParameter.match(
     /^\s*([<>]?\s*[+-]?\d+(?:[.,]\d+)?)\s+(.+)$/
   );
+  const parameterNumber = parseImportedResultValue(originalParameter);
+  const valueNumber = parseImportedResultValue(originalValue);
+  const parameterLooksLikePh = /\bph\b/.test(parameterNormalized);
+
+  if (parameterLooksLikePh && parameterNumber) {
+    const parameterWithinPhRange =
+      Number(parameterNumber) >= 3 && Number(parameterNumber) <= 10;
+    const suspiciousValue =
+      !valueNumber || valueNumber === "0" || (Number(valueNumber) <= 2 && Number(parameterNumber) >= 3.5);
+    const outOfPhRange = valueNumber ? Number(valueNumber) > 12 : false;
+    if (parameterWithinPhRange && (suspiciousValue || outOfPhRange)) {
+      return {
+        ...row,
+        parameter: "pH",
+        value: parameterNumber,
+        unit: row.unit && row.unit.trim() ? row.unit : "pH",
+        source: [row.source, "auto-fixed pH value from merged OCR text"]
+          .filter(Boolean)
+          .join(" | "),
+      };
+    }
+  }
 
   if (!leadingNumericToken) return row;
 
@@ -129,6 +153,7 @@ function repairImportedRow(row: ImportedRow): ImportedRow {
 type Props = {
   open: boolean;
   mode?: ImportMode;
+  autoRestoreToken?: number;
   onClose: () => void;
   language: Language;
   parameters: ParameterForImport[];
@@ -1019,6 +1044,7 @@ async function recognizeExtractedContentWithAi(options: {
 export default function LabValueImporter({
   open,
   mode = "import",
+  autoRestoreToken = 0,
   onClose,
   language,
   parameters,
@@ -1095,6 +1121,12 @@ export default function LabValueImporter({
       void startCamera();
     }
   }, [open, mode]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!autoRestoreToken) return;
+    loadLastImport();
+  }, [open, autoRestoreToken]);
 
   useEffect(() => {
     return () => stopCamera();

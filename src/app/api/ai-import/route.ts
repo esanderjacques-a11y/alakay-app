@@ -290,6 +290,49 @@ function parseAiImportJson(rawText: string) {
   }
 }
 
+function parseNumericString(value: string) {
+  const matched = String(value || "").match(/[+-]?\d+(?:[.,]\d+)?/);
+  if (!matched) return null;
+  const parsed = Number(matched[0].replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeParameterLabel(value: string) {
+  return String(value || "")
+    .replace(/[_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeImportedRowShape(parameterRaw: string, valueRaw: string, unitRaw: string) {
+  let parameter = normalizeParameterLabel(parameterRaw);
+  let value = String(valueRaw || "").trim();
+  let unit = String(unitRaw || "").trim();
+
+  const merged = parameter.match(/^([<>]?\s*[+-]?\d+(?:[.,]\d+)?)\s+(.+)$/);
+  const parsedValue = parseNumericString(value);
+  const parameterLower = parameter.toLowerCase();
+  const looksLikePh = /\bph\b/.test(parameterLower);
+
+  if (merged && /\bph\b/.test(merged[2].toLowerCase())) {
+    const mergedValue = parseNumericString(merged[1]);
+    const suspiciousCurrent =
+      parsedValue === null || parsedValue < 2 || parsedValue > 12;
+    if (mergedValue !== null && suspiciousCurrent) {
+      parameter = "pH";
+      value = String(mergedValue);
+      if (!unit) unit = "pH";
+    }
+  }
+
+  if (looksLikePh && parameter !== "pH") {
+    parameter = "pH";
+    if (!unit) unit = "pH";
+  }
+
+  return { parameter, value, unit };
+}
+
 function normalizeAiImportPayload(
   payload: unknown
 ): Pick<AiImportPayload, "text" | "rows" | "metadata" | "warning"> {
@@ -318,10 +361,14 @@ function normalizeAiImportPayload(
     .map((row) => {
       if (!row || typeof row !== "object") return null;
       const item = row as Record<string, unknown>;
-      const parameter = String(
+      const rawParameter = String(
         item.parameter ?? item.name ?? item.label ?? item.nutrient ?? ""
       ).trim();
-      const value = String(item.value ?? item.result ?? item.concentration ?? "").trim();
+      const rawValue = String(item.value ?? item.result ?? item.concentration ?? "").trim();
+      const rawUnit = String(item.unit ?? item.units ?? "").trim();
+      const normalized = normalizeImportedRowShape(rawParameter, rawValue, rawUnit);
+      const parameter = normalized.parameter;
+      const value = normalized.value;
       if (!parameter || !value) return null;
 
       const confidenceRaw = Number(item.confidence);
@@ -331,7 +378,7 @@ function normalizeAiImportPayload(
         parameter,
         symbol: rawSymbol || inlineSymbolMatch?.[1] || "",
         value,
-        unit: String(item.unit ?? item.units ?? "").trim(),
+        unit: normalized.unit,
         sample: String(item.sample ?? item.lot ?? item.plot ?? item.sampleName ?? "").trim(),
         method: String(item.method ?? item.extractionMethod ?? "").trim(),
         source: String(item.source ?? item.reason ?? item.location ?? "").trim(),

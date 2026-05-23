@@ -505,6 +505,9 @@ export default function HomePage() {
     unitSymbol?: string;
     applySodiumTropicalPreset?: boolean;
   } | null>(null);
+  const [importerAutoRestoreToken, setImporterAutoRestoreToken] = useState(0);
+  const resumeImporterAfterCustomParameterSaveRef = useRef(false);
+  const customParameterSavedFromImporterRef = useRef(false);
   const [showCustomParameterManager, setShowCustomParameterManager] =
     useState(false);
   const [showCustomRangeManager, setShowCustomRangeManager] = useState(false);
@@ -1208,6 +1211,8 @@ export default function HomePage() {
         (looksLikeSodium ? "cmol(+)/kg" : undefined),
       applySodiumTropicalPreset: looksLikeSodium,
     });
+    resumeImporterAfterCustomParameterSaveRef.current = true;
+    customParameterSavedFromImporterRef.current = false;
     setShowLabValueImporter(false);
     setShowCustomParameterModal(true);
   }
@@ -2245,6 +2250,7 @@ export default function HomePage() {
         key={labValueImporterMode}
         open={showLabValueImporter}
         mode={labValueImporterMode}
+        autoRestoreToken={importerAutoRestoreToken}
         onClose={() => setShowLabValueImporter(false)}
         language={language}
         parameters={parameters}
@@ -2256,10 +2262,23 @@ export default function HomePage() {
       <CustomParameterModal
         open={showCustomParameterModal}
         onClose={() => {
+          const shouldResumeImporter =
+            resumeImporterAfterCustomParameterSaveRef.current &&
+            customParameterSavedFromImporterRef.current;
           setShowCustomParameterModal(false);
           setCustomParameterDraft(null);
+          resumeImporterAfterCustomParameterSaveRef.current = false;
+          customParameterSavedFromImporterRef.current = false;
+          if (shouldResumeImporter) {
+            setLabValueImporterMode("import");
+            setShowLabValueImporter(true);
+            setImporterAutoRestoreToken((previous) => previous + 1);
+          }
         }}
-        onCreated={loadParameters}
+        onCreated={() => {
+          void loadParameters();
+          customParameterSavedFromImporterRef.current = true;
+        }}
         session={session}
         language={language}
         sampleType={sampleType}

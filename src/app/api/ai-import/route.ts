@@ -304,15 +304,21 @@ function normalizeParameterLabel(value: string) {
     .trim();
 }
 
-function normalizeImportedRowShape(parameterRaw: string, valueRaw: string, unitRaw: string) {
+function normalizeImportedRowShape(
+  parameterRaw: string,
+  valueRaw: string,
+  unitRaw: string,
+  symbolRaw = ""
+) {
   let parameter = normalizeParameterLabel(parameterRaw);
   let value = String(valueRaw || "").trim();
   let unit = String(unitRaw || "").trim();
+  const symbol = String(symbolRaw || "").trim().toLowerCase();
 
-  const merged = parameter.match(/^([<>]?\s*[+-]?\d+(?:[.,]\d+)?)\s+(.+)$/);
+  const merged = parameter.match(/^([<>]?\s*[+-]?\d+(?:[.,]\d+)?)(?:\s*[-_:]?\s*)(.+)$/);
   const parsedValue = parseNumericString(value);
   const parameterLower = parameter.toLowerCase();
-  const looksLikePh = /\bph\b/.test(parameterLower);
+  const looksLikePh = /\bph\b/.test(parameterLower) || symbol === "ph";
 
   if (merged && /\bph\b/.test(merged[2].toLowerCase())) {
     const mergedValue = parseNumericString(merged[1]);
@@ -366,13 +372,18 @@ function normalizeAiImportPayload(
       ).trim();
       const rawValue = String(item.value ?? item.result ?? item.concentration ?? "").trim();
       const rawUnit = String(item.unit ?? item.units ?? "").trim();
-      const normalized = normalizeImportedRowShape(rawParameter, rawValue, rawUnit);
+      const rawSymbol = String(item.symbol ?? "").trim();
+      const normalized = normalizeImportedRowShape(
+        rawParameter,
+        rawValue,
+        rawUnit,
+        rawSymbol
+      );
       const parameter = normalized.parameter;
       const value = normalized.value;
       if (!parameter || !value) return null;
 
       const confidenceRaw = Number(item.confidence);
-      const rawSymbol = String(item.symbol ?? "").trim();
       const inlineSymbolMatch = parameter.match(/\(([A-Za-z][A-Za-z0-9+\-]{0,5})\)/);
       return {
         parameter,

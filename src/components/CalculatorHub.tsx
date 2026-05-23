@@ -61,6 +61,7 @@ type Props = {
   selectedCropName?: string | null;
   goToValues?: () => void;
   onBack?: () => void;
+  onOutputsChange?: (outputs: CalculationOutput[]) => void;
 };
 
 type CalculatorKey =
@@ -94,12 +95,36 @@ export default function CalculatorHub({
   selectedCropName,
   goToValues,
   onBack,
+  onOutputsChange,
 }: Props) {
   const t = calculatorHubText[language] || calculatorHubText.en;
   const defaultCalculatorFilter: CalculatorKey = "priority";
   const [active, setActive] = useState<CalculatorKey>(defaultCalculatorFilter);
+  const [calculatorOutputs, setCalculatorOutputs] = useState<Record<string, CalculationOutput[]>>({});
   const lab = useMemo(() => buildLabValueIndex(parameters, values, results), [parameters, values, results]);
   const suggestions = getSuggestions(lab, results, t);
+
+  function reportOutputs(key: string, outputs: CalculationOutput[]) {
+    const cleanOutputs = outputs.filter(Boolean);
+    setCalculatorOutputs((previous) => {
+      const current = previous[key] || [];
+      if (sameOutputs(current, cleanOutputs)) return previous;
+      return {
+        ...previous,
+        [key]: cleanOutputs,
+      };
+    });
+  }
+
+  useEffect(() => {
+    if (!onOutputsChange) return;
+    onOutputsChange(
+      Object.values(calculatorOutputs)
+        .flat()
+        .filter(Boolean)
+        .map((output) => translateCalculationOutput(output, t))
+    );
+  }, [calculatorOutputs, onOutputsChange, t]);
 
   return (
     <section className="mt-6 animate-slide-up">
@@ -158,35 +183,59 @@ export default function CalculatorHub({
           <div className="mt-4 grid gap-5">
             <PriorityCalculators t={t} suggestions={suggestions} setActive={setActive} />
             <NutrientGraphs t={t} lab={lab} />
-            <RatioCalculator t={t} lab={lab} />
-            <FertilizerCalculator t={t} lab={lab} />
-            <AmendmentCalculator t={t} lab={lab} sampleType={sampleType} selectedCropName={selectedCropName} />
+            <RatioCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("ratios", outputs)} />
+            <FertilizerCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("fertilizer", outputs)} />
+            <AmendmentCalculator
+              t={t}
+              lab={lab}
+              sampleType={sampleType}
+              selectedCropName={selectedCropName}
+              onOutputsChange={(outputs) => reportOutputs("amendment", outputs)}
+            />
             {sampleType === "foliar" ? (
-              <DopCalculator t={t} lab={lab} />
+              <DopCalculator
+                t={t}
+                lab={lab}
+                results={results}
+                onOutputsChange={(outputs) => reportOutputs("dop", outputs)}
+              />
             ) : (
               <p className="rounded-2xl bg-yellow-50/90 p-4 text-sm font-bold text-yellow-900">
                 {t.dopFoliarOnly}
               </p>
             )}
-            <SalinityCalculator t={t} lab={lab} />
+            <SalinityCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("salinity", outputs)} />
           </div>
         ) : null}
         {active === "priority" ? (
           <PriorityCalculators t={t} suggestions={suggestions} setActive={setActive} />
         ) : null}
-        {active === "ratios" ? <RatioCalculator t={t} lab={lab} /> : null}
-        {active === "fertilizer" ? <FertilizerCalculator t={t} lab={lab} /> : null}
-        {active === "amendment" ? <AmendmentCalculator t={t} lab={lab} sampleType={sampleType} selectedCropName={selectedCropName} /> : null}
+        {active === "ratios" ? <RatioCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("ratios", outputs)} /> : null}
+        {active === "fertilizer" ? <FertilizerCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("fertilizer", outputs)} /> : null}
+        {active === "amendment" ? (
+          <AmendmentCalculator
+            t={t}
+            lab={lab}
+            sampleType={sampleType}
+            selectedCropName={selectedCropName}
+            onOutputsChange={(outputs) => reportOutputs("amendment", outputs)}
+          />
+        ) : null}
         {active === "dop" ? (
           sampleType === "foliar" ? (
-            <DopCalculator t={t} lab={lab} />
+            <DopCalculator
+              t={t}
+              lab={lab}
+              results={results}
+              onOutputsChange={(outputs) => reportOutputs("dop", outputs)}
+            />
           ) : (
             <p className="mt-4 rounded-2xl bg-yellow-50/90 p-4 text-sm font-bold text-yellow-900">
               {t.dopFoliarOnly}
             </p>
           )
         ) : null}
-        {active === "salinity" ? <SalinityCalculator t={t} lab={lab} /> : null}
+        {active === "salinity" ? <SalinityCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("salinity", outputs)} /> : null}
         {active === "graphs" ? <NutrientGraphs t={t} lab={lab} /> : null}
       </div>
     </section>
@@ -227,7 +276,15 @@ function PriorityCalculators({
   );
 }
 
-function RatioCalculator({ t, lab }: { t: Record<string, string>; lab: Map<string, CalculatorValue> }) {
+function RatioCalculator({
+  t,
+  lab,
+  onOutputsChange,
+}: {
+  t: Record<string, string>;
+  lab: Map<string, CalculatorValue>;
+  onOutputsChange?: (outputs: CalculationOutput[]) => void;
+}) {
   const cn = calculateCNRatio(lab.get("organic_carbon")?.value || lab.get("organic_matter")?.value || 0, lab.get("nitrogen")?.value || 0);
   const caMg = calculateNutrientRatio(
     lab.get("calcium") || { key: "ca", label: "Ca", value: 0 },
@@ -237,11 +294,24 @@ function RatioCalculator({ t, lab }: { t: Record<string, string>; lab: Map<strin
     lab.get("potassium") || { key: "k", label: "K", value: 0 },
     lab.get("magnesium") || { key: "mg", label: "Mg", value: 0 }
   );
+  const outputs = [cn, caMg, kMg].filter(Boolean) as CalculationOutput[];
 
-  return <OutputGrid t={t} outputs={[cn, caMg, kMg]} />;
+  useEffect(() => {
+    onOutputsChange?.(outputs);
+  }, [onOutputsChange, outputs]);
+
+  return <OutputGrid t={t} outputs={outputs} />;
 }
 
-function FertilizerCalculator({ t, lab }: { t: Record<string, string>; lab: Map<string, CalculatorValue> }) {
+function FertilizerCalculator({
+  t,
+  lab,
+  onOutputsChange,
+}: {
+  t: Record<string, string>;
+  lab: Map<string, CalculatorValue>;
+  onOutputsChange?: (outputs: CalculationOutput[]) => void;
+}) {
   const [element, setElement] = useState("nitrogen");
   const [target, setTarget] = useState(80);
   const [grade, setGrade] = useState(20);
@@ -259,6 +329,10 @@ function FertilizerCalculator({ t, lab }: { t: Record<string, string>; lab: Map<
     efficiencyPercent: efficiency,
     mode,
   });
+
+  useEffect(() => {
+    onOutputsChange?.(output ? [output] : []);
+  }, [onOutputsChange, output]);
 
   return (
         <CalculatorPanel
@@ -296,11 +370,13 @@ function AmendmentCalculator({
   lab,
   sampleType,
   selectedCropName,
+  onOutputsChange,
 }: {
   t: Record<string, string>;
   lab: Map<string, CalculatorValue>;
   sampleType: "soil" | "foliar";
   selectedCropName?: string | null;
+  onOutputsChange?: (outputs: CalculationOutput[]) => void;
 }) {
   const cropSuggestedV2 = suggestEarthBaseSaturationTarget(selectedCropName);
   const earthAvailable = sampleType === "soil";
@@ -345,6 +421,10 @@ function AmendmentCalculator({
     area,
     areaUnit,
   });
+
+  useEffect(() => {
+    onOutputsChange?.(output ? [output] : []);
+  }, [onOutputsChange, output]);
 
   return (
     <CalculatorPanel
@@ -412,82 +492,151 @@ function AmendmentCalculator({
   );
 }
 
-function DopCalculator({ t, lab }: { t: Record<string, string>; lab: Map<string, CalculatorValue> }) {
-  const [value, setValue] = useState(lab.get("potassium")?.value || 0);
-  const [optimum, setOptimum] = useState(1);
-  const output = calculateDop(value, optimum);
+function DopCalculator({
+  t,
+  lab,
+  results,
+  onOutputsChange,
+}: {
+  t: Record<string, string>;
+  lab: Map<string, CalculatorValue>;
+  results: ResultLite[];
+  onOutputsChange?: (outputs: CalculationOutput[]) => void;
+}) {
+  const [fallbackOptimum, setFallbackOptimum] = useState(1);
+  const dopRows = useMemo(
+    () => buildDopRows(lab, results, fallbackOptimum),
+    [lab, results, fallbackOptimum]
+  );
+  const outputs = useMemo(
+    () => dopRows.map((row) => row.output),
+    [dopRows]
+  );
+
+  useEffect(() => {
+    onOutputsChange?.(outputs);
+  }, [onOutputsChange, outputs]);
 
   return (
-    <>
-      <CalculatorPanel
-        t={t}
-        output={output}
-        fields={
-          <>
-            <NumberField label={t.current} value={value} onChange={setValue} />
-            <NumberField label={t.optimum} value={optimum} onChange={setOptimum} />
-          </>
-        }
-      />
-      <DopDeviationChart t={t} value={value} optimum={optimum} dopPercent={output?.value ?? null} />
-    </>
+    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <div className="grid gap-3 rounded-2xl bg-white/66 p-4">
+        <NumberField
+          label={`${t.optimum} (${t.current})`}
+          value={fallbackOptimum}
+          onChange={setFallbackOptimum}
+        />
+        <p className="text-xs font-semibold text-slate-600">
+          {`When nutrient range is available, optimum uses the midpoint of min-max. Otherwise fallback optimum is used.`}
+        </p>
+      </div>
+      <DopVerticalChart t={t} rows={dopRows} />
+    </div>
   );
 }
 
-function DopDeviationChart({
+function DopVerticalChart({
   t,
-  value,
-  optimum,
-  dopPercent,
+  rows,
 }: {
   t: Record<string, string>;
-  value: number;
-  optimum: number;
-  dopPercent: number | null;
+  rows: Array<{
+    key: string;
+    label: string;
+    dop: number;
+    optimum: number;
+    value: number;
+    nutrientGroup: "macro" | "micro" | "other";
+  }>;
 }) {
-  const safeOptimum = optimum > 0 ? optimum : 1;
-  const deviation = dopPercent ?? ((value - safeOptimum) / safeOptimum) * 100;
-  const clamped = Math.max(-120, Math.min(120, deviation));
-  const barWidth = `${Math.min(100, Math.abs(clamped))}%`;
-  const isNegative = clamped < 0;
+  const maxAbs = Math.max(
+    20,
+    ...rows.map((row) => Math.abs(row.dop))
+  );
+  const chartRows = rows.map((row) => {
+    const clamped = Math.max(-180, Math.min(180, row.dop));
+    const height = `${(Math.abs(clamped) / maxAbs) * 100}%`;
+    return {
+      ...row,
+      isNegative: clamped < 0,
+      height,
+    };
+  });
 
   return (
-    <div className="mt-4 rounded-2xl border border-white/70 bg-white/72 p-4 shadow-sm">
+    <div className="rounded-2xl border border-white/70 bg-white/72 p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm font-extrabold text-green-950">{t.graphDop}</p>
-        <p className="text-sm font-bold text-slate-600">
-          {Number.isFinite(deviation) ? `${deviation.toFixed(1)}%` : "—"}
-        </p>
+        <p className="text-sm font-bold text-slate-600">%</p>
       </div>
-      <div className="relative h-28 rounded-2xl bg-slate-50/90 px-3 py-4">
-        <div className="absolute inset-y-4 left-1/2 w-px -translate-x-1/2 bg-slate-300" />
-        <div
-          className={`absolute top-1/2 h-8 -translate-y-1/2 rounded-full ${
-            isNegative
-              ? "bg-gradient-to-l from-sky-500 to-cyan-400"
-              : "bg-gradient-to-r from-amber-500 to-orange-500"
-          }`}
-          style={{
-            width: barWidth,
-            left: isNegative ? undefined : "50%",
-            right: isNegative ? "50%" : undefined,
-          }}
-        />
-        <div className="absolute bottom-2 left-3 text-[11px] font-bold text-sky-700">
-          {t.deficiency}
-        </div>
-        <div className="absolute bottom-2 right-3 text-[11px] font-bold text-orange-700">
-          {t.excess}
-        </div>
-        <div className="absolute left-1/2 top-2 -translate-x-1/2 text-[11px] font-bold text-emerald-700">
-          {t.optimum}
-        </div>
+      <div className="overflow-x-auto rounded-2xl border border-white/65 bg-white/62 p-3">
+        {chartRows.length === 0 ? (
+          <p className="text-sm text-slate-600">{t.noData}</p>
+        ) : (
+          <div className="min-w-[36rem]">
+            <div className="relative grid h-72 grid-cols-12 items-stretch gap-2">
+              <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-px bg-slate-300" />
+              {chartRows.map((row, index) => (
+                <div key={row.key} className="flex flex-col items-center justify-between">
+                  <span className="text-[11px] font-semibold text-slate-600">
+                    {`${row.dop.toFixed(1)}%`}
+                  </span>
+                  <div className="relative flex h-full w-full items-center justify-center">
+                    <div
+                      className="w-7 rounded-md"
+                      style={{
+                        height: row.height,
+                        alignSelf: row.isNegative ? "flex-start" : "flex-end",
+                        marginTop: row.isNegative ? undefined : "auto",
+                        marginBottom: row.isNegative ? "auto" : undefined,
+                        opacity: 0.95 - (index % 4) * 0.08,
+                        background: getDopBarColor(row.nutrientGroup, row.isNegative),
+                      }}
+                      title={`${row.label}: ${row.value} | ${t.optimum}: ${row.optimum}`}
+                    />
+                  </div>
+                  <span className="mt-2 max-w-14 truncate text-[11px] font-extrabold text-green-950">
+                    {row.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[11px] font-semibold">
+              <span className="text-sky-700">{t.deficiency}</span>
+              <span className="text-emerald-700">{t.optimum}</span>
+              <span className="text-orange-700">{t.excess}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600">
+              <span className="inline-flex items-center gap-1">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ background: getDopBarColor("macro", false) }}
+                />
+                Macro
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ background: getDopBarColor("micro", false) }}
+                />
+                Micro
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function SalinityCalculator({ t, lab }: { t: Record<string, string>; lab: Map<string, CalculatorValue> }) {
+function SalinityCalculator({
+  t,
+  lab,
+  onOutputsChange,
+}: {
+  t: Record<string, string>;
+  lab: Map<string, CalculatorValue>;
+  onOutputsChange?: (outputs: CalculationOutput[]) => void;
+}) {
   const [ecw, setEcw] = useState(1);
   const [eceTarget, setEceTarget] = useState(2);
   const [psiTarget, setPsiTarget] = useState(10);
@@ -530,6 +679,11 @@ function SalinityCalculator({ t, lab }: { t: Record<string, string>; lab: Map<st
         },
       ]
     : [];
+  const outputs = [lr, sar, psi, porosity, ...gypsumOutputs, totalWater].filter(Boolean) as CalculationOutput[];
+
+  useEffect(() => {
+    onOutputsChange?.(outputs);
+  }, [onOutputsChange, outputs]);
 
   return (
     <>
@@ -545,16 +699,7 @@ function SalinityCalculator({ t, lab }: { t: Record<string, string>; lab: Map<st
           </>
         }
       />
-      <OutputGrid
-        t={t}
-        outputs={[
-          sar,
-          psi,
-          porosity,
-          ...gypsumOutputs,
-          totalWater,
-        ]}
-      />
+      <OutputGrid t={t} outputs={outputs} />
     </>
   );
 }
@@ -793,6 +938,15 @@ function OutputCard({ t, output }: { t: Record<string, string>; output: Calculat
           <p className="mt-2 text-3xl font-extrabold text-green-950">
             {translatedOutput.value} <span className="text-base">{translatedOutput.unit}</span>
           </p>
+          {translatedOutput.alternatives?.length ? (
+            <ul className="mt-2 grid gap-1 text-sm font-semibold text-slate-700">
+              {translatedOutput.alternatives.map((alternative) => (
+                <li key={`${alternative.value}-${alternative.unit}`}>
+                  = {alternative.value} {alternative.unit}
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <p className="mt-3 text-xs font-semibold text-slate-500">{t.formula}: {translatedOutput.formula}</p>
           <ul className="mt-3 grid gap-1 text-sm text-slate-600">
             {translatedOutput.notes.map((note) => <li key={note}>{note}</li>)}
@@ -815,6 +969,10 @@ function translateCalculationOutput(
     label: translateCalculatorText(output.label, t),
     formula: translateCalculatorText(output.formula, t),
     notes: output.notes.map((note) => translateCalculatorText(note, t)),
+    alternatives: output.alternatives?.map((alternative) => ({
+      ...alternative,
+      unit: translateCalculatorText(alternative.unit, t),
+    })),
   };
 }
 
@@ -1140,4 +1298,154 @@ function normalizeName(value: string) {
     .replace(/[().:/_-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function sameOutputs(previous: CalculationOutput[], next: CalculationOutput[]) {
+  if (previous.length !== next.length) return false;
+
+  return previous.every((item, index) => {
+    const compare = next[index];
+    if (!compare) return false;
+
+    const previousAlternatives = item.alternatives || [];
+    const nextAlternatives = compare.alternatives || [];
+    if (previousAlternatives.length !== nextAlternatives.length) return false;
+
+    const sameAlternatives = previousAlternatives.every((alternative, alternativeIndex) => {
+      const nextAlternative = nextAlternatives[alternativeIndex];
+      return Boolean(
+        nextAlternative &&
+          alternative.value === nextAlternative.value &&
+          alternative.unit === nextAlternative.unit
+      );
+    });
+
+    return (
+      item.value === compare.value &&
+      item.unit === compare.unit &&
+      item.label === compare.label &&
+      item.formula === compare.formula &&
+      item.notes.join("||") === compare.notes.join("||") &&
+      sameAlternatives
+    );
+  });
+}
+
+function buildDopRows(
+  lab: Map<string, CalculatorValue>,
+  results: ResultLite[],
+  fallbackOptimum: number
+) {
+  const nutrientKeys = [
+    "nitrogen",
+    "phosphorus",
+    "potassium",
+    "calcium",
+    "magnesium",
+    "sulfur",
+    "sodium",
+    "iron",
+    "zinc",
+    "manganese",
+    "copper",
+    "boron",
+  ] as const;
+
+  return nutrientKeys
+    .map((key) => {
+      const item = lab.get(key);
+      if (!item || !Number.isFinite(item.value) || item.value <= 0) return null;
+
+      const matchingResult = results.find((result) =>
+        matchResultToNutrient(key, `${result.display_parameter_name || result.parameter_name}`)
+      );
+      const min = Number(matchingResult?.min);
+      const max = Number(matchingResult?.max);
+      const rangeOptimum =
+        Number.isFinite(min) && Number.isFinite(max) && max > min
+          ? (min + max) / 2
+          : Number.NaN;
+      const optimum =
+        Number.isFinite(rangeOptimum) && rangeOptimum > 0
+          ? rangeOptimum
+          : Math.max(0.01, fallbackOptimum || 1);
+      const output = calculateDop(item.value, optimum);
+      if (!output) return null;
+
+      return {
+        key,
+        label: item.label || key.toUpperCase(),
+        value: item.value,
+        optimum,
+        dop: output.value,
+        nutrientGroup: getNutrientGroup(key),
+        output: {
+          ...output,
+          label: `DOP ${item.label || key.toUpperCase()}`,
+        } satisfies CalculationOutput,
+      };
+    })
+    .filter(Boolean) as Array<{
+    key: string;
+    label: string;
+    value: number;
+    optimum: number;
+    dop: number;
+    nutrientGroup: "macro" | "micro" | "other";
+    output: CalculationOutput;
+  }>;
+}
+
+function matchResultToNutrient(key: string, label: string) {
+  const normalized = normalizeName(label);
+  const patterns: Record<string, RegExp> = {
+    nitrogen: /\b(n|nitrogen|nitrogeno|azote|nh4|no3)\b/,
+    phosphorus: /\b(p|phosphorus|fosforo|phosphore)\b/,
+    potassium: /\b(k|potassium|potasio)\b/,
+    calcium: /\b(ca|calcium|calcio)\b/,
+    magnesium: /\b(mg|magnesium|magnesio)\b/,
+    sulfur: /\b(s|sulfur|azufre|soufre)\b/,
+    sodium: /\b(na|sodium|sodio)\b/,
+    iron: /\b(fe|iron|hierro|fer)\b/,
+    zinc: /\b(zn|zinc)\b/,
+    manganese: /\b(mn|manganese|manganeso)\b/,
+    copper: /\b(cu|copper|cobre|cuivre)\b/,
+    boron: /\b(b|boron|boro|bore)\b/,
+  };
+
+  return patterns[key]?.test(normalized) ?? false;
+}
+
+function getNutrientGroup(key: string): "macro" | "micro" | "other" {
+  if (
+    ["nitrogen", "phosphorus", "potassium", "calcium", "magnesium", "sulfur", "sodium"].includes(
+      key
+    )
+  ) {
+    return "macro";
+  }
+
+  if (["iron", "zinc", "manganese", "copper", "boron"].includes(key)) {
+    return "micro";
+  }
+
+  return "other";
+}
+
+function getDopBarColor(group: "macro" | "micro" | "other", isNegative: boolean) {
+  if (group === "macro") {
+    return isNegative
+      ? "linear-gradient(180deg, #0ea5e9, #0369a1)"
+      : "linear-gradient(180deg, #f59e0b, #d97706)";
+  }
+
+  if (group === "micro") {
+    return isNegative
+      ? "linear-gradient(180deg, #8b5cf6, #6d28d9)"
+      : "linear-gradient(180deg, #10b981, #047857)";
+  }
+
+  return isNegative
+    ? "linear-gradient(180deg, #94a3b8, #475569)"
+    : "linear-gradient(180deg, #9ca3af, #6b7280)";
 }

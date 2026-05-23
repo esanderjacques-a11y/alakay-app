@@ -2,6 +2,7 @@
 import { formatMessage } from "@/lib/translations";
 import { saveBlobWithPicker } from "@/lib/fileSave";
 import { calculateSoilTexture } from "@/lib/soilTexture";
+import type { CalculationOutput } from "@/lib/agronomicCalculators";
 
 export type PdfResult = {
   display_parameter_name: string;
@@ -46,6 +47,7 @@ export type PdfReportOptions = {
   includeSummary?: boolean;
   includeCharts?: boolean;
   includeOriginalLabValues?: boolean;
+  includeCalculationValues?: boolean;
 };
 
 const GROUP_KEYS = [
@@ -134,6 +136,7 @@ export async function exportAnalysisPdf(options: {
   groupedResults: GroupedPdfResults;
   missingResults: { display_name: string; parameter_name: string; value: number }[];
   textureSummary: TextureSummary | null;
+  calculationValues?: CalculationOutput[];
   isGeneralCrop: boolean;
   locale: string;
   reportMeta?: PdfReportMeta;
@@ -147,6 +150,7 @@ export async function exportAnalysisPdf(options: {
     groupedResults,
     missingResults,
     textureSummary,
+    calculationValues = [],
     isGeneralCrop,
     locale,
     reportMeta,
@@ -159,6 +163,7 @@ export async function exportAnalysisPdf(options: {
     includeSummary: reportOptions?.includeSummary ?? true,
     includeCharts: reportOptions?.includeCharts ?? true,
     includeOriginalLabValues: reportOptions?.includeOriginalLabValues ?? true,
+    includeCalculationValues: reportOptions?.includeCalculationValues ?? true,
   };
 
   const pdf = new jsPDF("p", "mm", "a4");
@@ -425,6 +430,21 @@ export async function exportAnalysisPdf(options: {
         `• ${item.display_name || item.parameter_name}: ${item.value}`,
         9
       );
+    }
+  }
+
+  if (exportOptions.includeCalculationValues && calculationValues.length > 0) {
+    drawSectionTitle(t.calculators);
+    for (const result of calculationValues) {
+      drawParagraph(`${result.label}: ${result.value} ${result.unit}`, 9, true);
+      for (const alternative of result.alternatives || []) {
+        drawParagraph(`= ${alternative.value} ${alternative.unit}`, 9);
+      }
+      drawParagraph(`Formula: ${result.formula}`, 8);
+      for (const note of result.notes) {
+        drawParagraph(`• ${note}`, 8);
+      }
+      y += 2;
     }
   }
 

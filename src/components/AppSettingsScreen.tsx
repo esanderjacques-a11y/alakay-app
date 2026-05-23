@@ -129,6 +129,10 @@ type SettingsText = {
     accentAmber: string;
     accentRose: string;
     accentViolet: string;
+    accentCyan: string;
+    accentLime: string;
+    accentOrange: string;
+    accentFuchsia: string;
     soil: string;
     foliar: string;
     both: string;
@@ -225,6 +229,10 @@ const settingsText: Record<Language, SettingsText> = {
       accentAmber: "Amber",
       accentRose: "Rose",
       accentViolet: "Violet",
+      accentCyan: "Cyan",
+      accentLime: "Lime",
+      accentOrange: "Orange",
+      accentFuchsia: "Fuchsia",
       soil: "Soil",
       foliar: "Foliar",
       both: "Both",
@@ -319,6 +327,10 @@ const settingsText: Record<Language, SettingsText> = {
       accentAmber: "Ámbar",
       accentRose: "Rosa",
       accentViolet: "Violeta",
+      accentCyan: "Cian",
+      accentLime: "Lima",
+      accentOrange: "Naranja",
+      accentFuchsia: "Fucsia",
       soil: "Suelo",
       foliar: "Foliar",
       both: "Ambos",
@@ -413,6 +425,10 @@ const settingsText: Record<Language, SettingsText> = {
       accentAmber: "Ambre",
       accentRose: "Rose",
       accentViolet: "Violet",
+      accentCyan: "Cyan",
+      accentLime: "Citron vert",
+      accentOrange: "Orange",
+      accentFuchsia: "Fuchsia",
       soil: "Sol",
       foliar: "Foliaire",
       both: "Les deux",
@@ -507,6 +523,10 @@ const settingsText: Record<Language, SettingsText> = {
       accentAmber: "Anba",
       accentRose: "Woz",
       accentViolet: "Vyolèt",
+      accentCyan: "Syan",
+      accentLime: "Sitwon vèt",
+      accentOrange: "Zoranj",
+      accentFuchsia: "Fichsya",
       soil: "Tè",
       foliar: "Fèy",
       both: "Tou de",
@@ -601,6 +621,10 @@ const settingsText: Record<Language, SettingsText> = {
       accentAmber: "Ámbar",
       accentRose: "Rosa",
       accentViolet: "Violeta",
+      accentCyan: "Ciano",
+      accentLime: "Lima",
+      accentOrange: "Laranja",
+      accentFuchsia: "Fúcsia",
       soil: "Solo",
       foliar: "Foliar",
       both: "Ambos",
@@ -695,6 +719,10 @@ const settingsText: Record<Language, SettingsText> = {
       accentAmber: "Manjano",
       accentRose: "Waridi",
       accentViolet: "Zambarau",
+      accentCyan: "Samawati",
+      accentLime: "Limu",
+      accentOrange: "Machungwa",
+      accentFuchsia: "Fuksia",
       soil: "Udongo",
       foliar: "Majani",
       both: "Zote mbili",
@@ -744,6 +772,10 @@ const accentOptions = (text: SettingsText): { value: AccentColor; label: string 
   { value: "amber", label: text.options.accentAmber },
   { value: "rose", label: text.options.accentRose },
   { value: "violet", label: text.options.accentViolet },
+  { value: "cyan", label: text.options.accentCyan },
+  { value: "lime", label: text.options.accentLime },
+  { value: "orange", label: text.options.accentOrange },
+  { value: "fuchsia", label: text.options.accentFuchsia },
 ];
 
 const sampleTypeOptions = (text: SettingsText): { value: DefaultSampleType; label: string }[] => [
@@ -1237,6 +1269,10 @@ const ACCENT_OPTIONS: AccentColor[] = [
   "amber",
   "rose",
   "violet",
+  "cyan",
+  "lime",
+  "orange",
+  "fuchsia",
 ];
 
 function AccentSwatches({
@@ -1294,7 +1330,7 @@ function SettingsToolbar({
   if (!isDirty) return null;
 
   return (
-    <div className="sticky bottom-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] z-[12000] mt-4 rounded-3xl border border-white/70 bg-white/70 p-1.5 shadow-2xl shadow-green-950/16 backdrop-blur-2xl animate-slide-up">
+    <div className="sticky bottom-[max(0.25rem,env(safe-area-inset-bottom))] z-[12000] mt-4 rounded-3xl border border-white/70 bg-white/70 p-1.5 shadow-2xl shadow-green-950/16 backdrop-blur-2xl animate-slide-up">
       <div className="flex items-center justify-end gap-1.5">
         <div className="flex gap-2">
           <button

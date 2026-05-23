@@ -17,6 +17,10 @@ const ACCENT_SEEDS: Record<AccentColor, Hsl> = {
   amber: { h: 32, s: 95, l: 44 },
   rose: { h: 347, s: 77, l: 42 },
   violet: { h: 263, s: 70, l: 50 },
+  cyan: { h: 191, s: 86, l: 44 },
+  lime: { h: 90, s: 78, l: 40 },
+  orange: { h: 24, s: 92, l: 48 },
+  fuchsia: { h: 300, s: 72, l: 44 },
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -103,20 +107,23 @@ export function buildAccentCssVariables(accent: AccentColor, theme: AppTheme) {
   const seed = ACCENT_SEEDS[accent];
   const glow = hslToRgbParts(seed);
   const isDark = theme === "dark";
+  const darkBase = "hsl(0 0% 2%)";
+  const darkSurface = "hsl(0 0% 7%)";
+  const darkSurfaceRaised = "hsl(0 0% 11%)";
+  const darkBorder = "rgb(255 255 255 / 0.16)";
+  const darkMuted = "rgb(230 230 230 / 0.74)";
 
   const primary = isDark ? scale[400] : scale[700];
   const primaryDark = isDark ? scale[300] : scale[800];
-  const surface = isDark
-    ? `hsl(${seed.h} 24% 9%)`
-    : scale[50];
-  const foreground = isDark ? scale[50] : scale[950];
+  const surface = isDark ? darkBase : scale[50];
+  const foreground = isDark ? "#ffffff" : scale[950];
 
   const bodyGradient = isDark
-    ? `radial-gradient(circle at 18% 10%, ${withAlpha(scale[400], 0.2)}, transparent 28%), radial-gradient(circle at 82% 18%, ${withAlpha(scale[300], 0.14)}, transparent 30%), linear-gradient(145deg, hsl(${seed.h} 28% 10%) 0%, hsl(${seed.h} 30% 12%) 48%, hsl(${seed.h} 22% 14%) 100%)`
+    ? `radial-gradient(circle at 16% 8%, ${withAlpha(scale[400], 0.18)}, transparent 32%), radial-gradient(circle at 84% 14%, ${withAlpha(scale[300], 0.1)}, transparent 34%), linear-gradient(145deg, hsl(0 0% 2%) 0%, hsl(0 0% 4%) 52%, hsl(0 0% 6%) 100%)`
     : `linear-gradient(145deg, ${scale[100]} 0%, ${scale[50]} 35%, #ffffff 70%, ${scale[100]} 100%)`;
 
   const mainGradient = isDark
-    ? `linear-gradient(180deg, ${withAlpha(scale[900], 0.94)} 0%, ${withAlpha(scale[800], 0.94)} 56%, hsl(${seed.h} 24% 14% / 0.94) 100%), repeating-linear-gradient(112deg, ${withAlpha(scale[400], 0.08)} 0 1px, transparent 1px 24px), repeating-linear-gradient(168deg, ${withAlpha(scale[300], 0.05)} 0 1px, transparent 1px 30px), radial-gradient(ellipse at 50% 12%, ${withAlpha(scale[400], 0.2)}, transparent 42%), linear-gradient(135deg, hsl(${seed.h} 32% 12%) 0%, hsl(${seed.h} 34% 14%) 50%, hsl(${seed.h} 26% 16%) 100%)`
+    ? `linear-gradient(180deg, rgb(14 14 14 / 0.94) 0%, rgb(10 10 10 / 0.96) 56%, rgb(7 7 7 / 0.96) 100%), repeating-linear-gradient(112deg, ${withAlpha(scale[400], 0.07)} 0 1px, transparent 1px 24px), repeating-linear-gradient(168deg, ${withAlpha(scale[300], 0.04)} 0 1px, transparent 1px 30px), radial-gradient(ellipse at 50% 12%, ${withAlpha(scale[400], 0.16)}, transparent 42%), linear-gradient(135deg, rgb(12 12 12 / 0.95) 0%, rgb(18 18 18 / 0.92) 46%, rgb(8 8 8 / 0.95) 100%)`
     : `linear-gradient(180deg, ${withAlpha(scale[100], 0.78)} 0%, ${withAlpha(scale[50], 0.78)} 54%, ${withAlpha(scale[100], 0.84)} 100%), repeating-linear-gradient(112deg, ${withAlpha(scale[700], 0.1)} 0 1px, transparent 1px 24px), repeating-linear-gradient(168deg, ${withAlpha(scale[600], 0.06)} 0 1px, transparent 1px 30px), radial-gradient(ellipse at 50% 14%, rgba(255, 255, 255, 0.58), transparent 42%), linear-gradient(135deg, ${scale[50]} 0%, ${scale[100]} 46%, ${scale[50]} 100%)`;
 
   const authGradient = mainGradient;
@@ -148,19 +155,24 @@ export function buildAccentCssVariables(accent: AccentColor, theme: AppTheme) {
     "--alakay-green-dark": primaryDark,
     "--background": surface,
     "--foreground": foreground,
+    "--dark-base": darkBase,
+    "--dark-surface": darkSurface,
+    "--dark-surface-raised": darkSurfaceRaised,
+    "--dark-border": darkBorder,
+    "--dark-muted": darkMuted,
     "--glass-border": isDark
-      ? withAlpha(scale[300], 0.26)
+      ? darkBorder
       : withAlpha(scale[200], 0.85),
     "--glass-shadow": isDark
-      ? `0 18px 52px rgba(${glow.r}, ${glow.g}, ${glow.b}, 0.22)`
+      ? "0 20px 54px rgba(0, 0, 0, 0.52)"
       : `0 8px 32px rgba(${glow.r}, ${glow.g}, ${glow.b}, 0.14)`,
     "--body-gradient": bodyGradient,
     "--app-main-gradient": mainGradient,
     "--auth-page-gradient": authGradient,
     "--accent-glow-rgb": `${glow.r} ${glow.g} ${glow.b}`,
-    "--accent-ring": withAlpha(scale[600], 0.22),
+    "--accent-ring": isDark ? withAlpha(scale[500], 0.42) : withAlpha(scale[600], 0.22),
     "--accent-surface-tint": isDark
-      ? withAlpha(scale[800], 0.55)
+      ? "rgb(255 255 255 / 0.03)"
       : withAlpha(scale[100], 0.72),
   };
 

@@ -70,6 +70,7 @@ import {
 } from "@/lib/interpretationLogic";
 import { calculateSoilTexture } from "@/lib/soilTexture";
 import { canConvertLabUnit, convertLabUnit } from "@/lib/unitConversions";
+import type { CalculationOutput } from "@/lib/agronomicCalculators";
 
 type Crop = {
   crop_id: number;
@@ -245,6 +246,35 @@ function getUnitSymbolForConversion(unit: {
   canonical_symbol?: string;
 }) {
   return unit.canonical_symbol || unit.unit_symbol || unit.display_symbol;
+}
+
+function convertRangeToUnit(
+  min: number | null,
+  max: number | null,
+  fromUnit: string,
+  toUnit: string
+) {
+  if (!fromUnit || !toUnit || normalizeForMatching(fromUnit) === normalizeForMatching(toUnit)) {
+    return { min, max, converted: false };
+  }
+
+  const minConverted =
+    min === null ? null : convertLabUnit(min, fromUnit, toUnit)?.value ?? null;
+  const maxConverted =
+    max === null ? null : convertLabUnit(max, fromUnit, toUnit)?.value ?? null;
+
+  if (
+    (min !== null && minConverted === null) ||
+    (max !== null && maxConverted === null)
+  ) {
+    return { min, max, converted: false };
+  }
+
+  return {
+    min: minConverted,
+    max: maxConverted,
+    converted: true,
+  };
 }
 
 function getParameterSortRank(parameter: Parameter) {
@@ -526,6 +556,7 @@ export default function HomePage() {
 
   const [results, setResults] = useState<InterpretationResult[]>([]);
   const [missingResults, setMissingResults] = useState<MissingResult[]>([]);
+  const [calculatorOutputs, setCalculatorOutputs] = useState<CalculationOutput[]>([]);
 
   const [analysisName, setAnalysisName] = useState("");
   const [farmName, setFarmName] = useState("");
@@ -1039,46 +1070,7 @@ export default function HomePage() {
     setSavedAnalysisSignature(null);
   }
 
-  function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
-    const parameter = parameters.find((item) => item.parameter_key === parameterKey);
-    const selectedUnitDisplayKey = selectedUnitDisplayKeys[parameterKey];
-    const fromUnit =
-      parameter?.available_units.find(
-        (unit) => getUnitOptionKey(unit) === selectedUnitDisplayKey
-      ) ||
-      parameter?.available_units.find((unit) => unit.unit_id === selectedUnits[parameterKey]) ||
-      parameter?.available_units[0];
-    const toUnit =
-      parameter?.available_units.find(
-        (unit) => displayKey && getUnitOptionKey(unit) === displayKey
-      ) ||
-      parameter?.available_units.find((unit) => unit.unit_id === unitId) ||
-      parameter?.available_units[0];
-
-    const rawValue = values[parameterKey];
-    const numericValue =
-      rawValue && rawValue.trim() !== ""
-        ? Number(rawValue.replace(",", "."))
-        : null;
-    if (
-      fromUnit &&
-      toUnit &&
-      numericValue !== null &&
-      Number.isFinite(numericValue)
-    ) {
-      const converted = convertLabUnit(
-        numericValue,
-        getUnitSymbolForConversion(fromUnit),
-        getUnitSymbolForConversion(toUnit)
-      );
-      if (converted) {
-        setValues((previous) => ({
-          ...previous,
-          [parameterKey]: String(converted.value),
-        }));
-      }
-    }
-
+function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setSelectedUnits((previous) => ({
       ...previous,
       [parameterKey]: unitId,
@@ -1202,13 +1194,17 @@ export default function HomePage() {
     const looksLikeSodium =
       /\b(sodio|sodium|na)\b/.test(normalizedName) &&
       !/\b(nitrato|nitrate|nitrogen|nitrogeno)\b/.test(normalizedName);
+    const looksLikeCec =
+      /\b(cice|cic|cec|cation exchange capacity|intercambio cationico)\b/.test(
+        normalizedName
+      );
 
     setCustomParameterDraft({
       parameterName: draft.parameterName,
       unitSymbol:
         unitOption?.unit_symbol ||
         draft.unitSymbol ||
-        (looksLikeSodium ? "cmol(+)/kg" : undefined),
+        (looksLikeSodium || looksLikeCec ? "cmol(+)/kg" : undefined),
       applySodiumTropicalPreset: looksLikeSodium,
     });
     resumeImporterAfterCustomParameterSaveRef.current = true;
@@ -1575,18 +1571,32 @@ export default function HomePage() {
       }
 
       const range = data[0] as RangeMatch;
+      const convertedRange = convertRangeToUnit(
+        range.min,
+        range.max,
+        range.unit_symbol,
+        item.unit_symbol
+      );
+      const rangeMin = convertedRange.min;
+      const rangeMax = convertedRange.max;
+      const rangeUnitSymbol = convertedRange.converted
+        ? item.unit_symbol
+        : range.unit_symbol;
 
       const logicInput = {
         parameter_id: item.parameter_id || 0,
         parameter_name: item.parameter_name,
         value: item.value,
-        min: range.min,
-        max: range.max,
+        min: rangeMin,
+        max: rangeMax,
       };
 
       interpretedResults.push({
         ...range,
         custom_parameter_id: null,
+        unit_symbol: rangeUnitSymbol,
+        min: rangeMin,
+        max: rangeMax,
         value: item.value,
         level_code: getLevelCode(logicInput),
         final_group_code: getFinalGroupCode(logicInput),
@@ -2148,6 +2158,7 @@ export default function HomePage() {
                 groupedResults={groupedResults}
                 missingResults={missingResults}
                 textureSummary={textureSummary}
+                calculatorOutputs={calculatorOutputs}
                 language={language}
                 t={t}
                 saving={saving}
@@ -2200,6 +2211,7 @@ export default function HomePage() {
             selectedCropName={selectedCrop?.display_name || selectedCrop?.crop_name || null}
             goToValues={() => setCurrentStep("values")}
             onBack={() => setCurrentStep("home")}
+            onOutputsChange={setCalculatorOutputs}
           />
         ) : currentStep === "settings" ? (
           <AppSettingsScreen
@@ -3067,7 +3079,7 @@ function ValuesScreen({
           ref={parameterGridRef}
           className="relative z-0 mt-4 overflow-x-auto rounded-2xl border border-white/65 bg-white/58 shadow-sm backdrop-blur-xl animate-slide-up"
         >
-          <table className="w-full min-w-[620px] border-collapse text-sm">
+          <table className="w-full min-w-[520px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-green-900/10 text-left text-xs font-extrabold uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-3">{t.parameterLabel}</th>
@@ -3087,13 +3099,7 @@ function ValuesScreen({
                   selectedUnitDisplayKeys[parameter.parameter_key] ||
                   (selectedUnit ? getUnitOptionKey(selectedUnit) : "");
                 const displayParameterLabel =
-                  showParameterSymbolsOnly && parameter.symbol
-                    ? parameter.symbol
-                    : `${parameter.display_name}${
-                        parameter.symbol && !showParameterSymbolsOnly
-                          ? ` (${parameter.symbol})`
-                          : ""
-                      }`;
+                  parameter.symbol?.trim() || parameter.display_name;
                 const aliasTitle = [
                   `${t.aliasLabel}: ${parameter.display_name}`,
                   parameter.parameter_name !== parameter.display_name
@@ -3118,11 +3124,6 @@ function ValuesScreen({
                       <div className="font-bold text-slate-900">
                         {displayParameterLabel}
                       </div>
-                      {showParameterDetails && parameter.category ? (
-                        <div className="mt-0.5 text-xs text-slate-500">
-                          {translateCategory(parameter.category, language, translations)}
-                        </div>
-                      ) : null}
                     </td>
                     <td className="px-3 py-2 align-middle">
                       <input
@@ -3857,6 +3858,7 @@ function ResultsSection({
   groupedResults,
   missingResults,
   textureSummary,
+  calculatorOutputs,
   language,
   t,
   saving,
@@ -3879,6 +3881,7 @@ function ResultsSection({
   };
   missingResults: MissingResult[];
   textureSummary: TextureSummary | null;
+  calculatorOutputs: CalculationOutput[];
   language: Language;
   t: (typeof translations)[Language];
   saving: boolean;
@@ -3937,6 +3940,7 @@ function ResultsSection({
         groupedResults: translatedGroupedResults,
         missingResults,
         textureSummary,
+        calculationValues: calculatorOutputs,
         isGeneralCrop,
         locale: locales[language] || "en-US",
         reportMeta,
@@ -4167,7 +4171,7 @@ function ResultsSection({
         </div>
       </section>
 
-      <div className="sticky bottom-[5.25rem] z-[12000] mt-4 grid gap-2 rounded-3xl border border-white/65 bg-white/68 p-2 shadow-2xl shadow-green-950/12 backdrop-blur-2xl md:grid-cols-2">
+      <div className="sticky bottom-[max(0.25rem,env(safe-area-inset-bottom))] z-[12000] mt-4 grid gap-2 rounded-3xl border border-white/65 bg-white/68 p-2 shadow-2xl shadow-green-950/12 backdrop-blur-2xl md:grid-cols-2">
         <button
           type="button"
           onClick={exportToPdf}

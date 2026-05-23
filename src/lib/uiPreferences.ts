@@ -87,7 +87,11 @@ export function readStoredAccent(): AccentColor {
     accent === "blue" ||
     accent === "amber" ||
     accent === "rose" ||
-    accent === "violet"
+    accent === "violet" ||
+    accent === "cyan" ||
+    accent === "lime" ||
+    accent === "orange" ||
+    accent === "fuchsia"
   ) {
     return accent;
   }

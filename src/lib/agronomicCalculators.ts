@@ -16,6 +16,10 @@ export type CalculationOutput = {
   label: string;
   formula: string;
   notes: string[];
+  alternatives?: Array<{
+    value: number;
+    unit: string;
+  }>;
 };
 
 const AREA_TO_HA: Record<AreaUnit, number> = {
@@ -158,12 +162,20 @@ export function calculateSoilAmendment(input: {
         ? "Dolomitic lime also supplies magnesium."
         : "Calcitic lime mainly supplies calcium carbonate equivalent.";
 
+  const totalTons = tonsPerHa * areaHa;
+
   return {
-    value: round(tonsPerHa * areaHa, 2),
+    value: round(totalTons, 2),
     unit: "t product",
     label: input.material === "gypsum" ? "Gypsum requirement" : "Lime requirement",
     formula,
     notes: [`${round(tonsPerHa, 2)} t/ha estimated.`, methodNote, materialNote],
+    alternatives: [
+      {
+        value: round(totalTons * 1000, 2),
+        unit: "kg product",
+      },
+    ],
   } satisfies CalculationOutput;
 }
 

@@ -63,14 +63,14 @@ export default function ResultsDashboard({
             className={`touch-target rounded-xl border px-3 py-2 text-left transition active:scale-[0.98] ${
               activeTab === "progress"
                 ? "border-green-300 bg-green-50/90"
-                : "border-white/60 bg-white/40 hover:bg-white/70"
+                : "border-white/60 bg-white/68 hover:bg-white/80"
             }`}
           >
             <span className="flex items-center gap-2">
               <PlayCircle size={17} className="shrink-0 text-green-800" />
               <span className="min-w-0">
                 <p className="truncate text-sm font-bold text-green-900">{t.inProgress}</p>
-                <p className="text-[11px] font-semibold text-slate-500">
+                <p className="text-[11px] font-semibold text-slate-600">
                   {enteredValuesCount} {t.entered} · {interpretedResultsCount} {t.interpreted}
                 </p>
               </span>
@@ -83,14 +83,14 @@ export default function ResultsDashboard({
             className={`touch-target rounded-xl border px-3 py-2 text-left transition active:scale-[0.98] ${
               activeTab === "history"
                 ? "border-green-300 bg-green-50/90"
-                : "border-white/60 bg-white/40 hover:bg-white/70"
+                : "border-white/60 bg-white/68 hover:bg-white/80"
             }`}
           >
             <span className="flex items-center gap-2">
               <History size={17} className="shrink-0 text-green-800" />
               <span className="min-w-0">
                 <p className="truncate text-sm font-bold text-green-900">{t.history}</p>
-                <p className="truncate text-[11px] font-semibold text-slate-500">
+                <p className="truncate text-[11px] font-semibold text-slate-600">
                   {t.savedReports}
                 </p>
               </span>

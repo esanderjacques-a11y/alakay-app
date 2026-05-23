@@ -19,7 +19,7 @@ import {
   type DocToken,
 } from "@/lib/import/intelligentLabExtractor";
 import type { Language } from "@/lib/translations";
-import { canConvertLabUnit, convertLabUnit } from "@/lib/unitConversions";
+import { canConvertLabUnit } from "@/lib/unitConversions";
 
 type ImportMode = "scan" | "import";
 
@@ -92,12 +92,14 @@ function repairImportedRow(row: ImportedRow): ImportedRow {
   const originalParameter = String(row.parameter || "");
   const originalValue = String(row.value || "");
   const parameterNormalized = normalizeText(originalParameter.replace(/_/g, " "));
+  const symbolNormalized = normalizeText(String(row.symbol || ""));
   const leadingNumericToken = originalParameter.match(
-    /^\s*([<>]?\s*[+-]?\d+(?:[.,]\d+)?)\s+(.+)$/
+    /^\s*([<>]?\s*[+-]?\d+(?:[.,]\d+)?)(?:\s*[-_:]?\s*)(.+)$/
   );
   const parameterNumber = parseImportedResultValue(originalParameter);
   const valueNumber = parseImportedResultValue(originalValue);
-  const parameterLooksLikePh = /\bph\b/.test(parameterNormalized);
+  const parameterLooksLikePh =
+    /\bph\b/.test(parameterNormalized) || symbolNormalized === "ph";
 
   if (parameterLooksLikePh && parameterNumber) {
     const parameterWithinPhRange =
@@ -128,7 +130,8 @@ function repairImportedRow(row: ImportedRow): ImportedRow {
 
   const looksLikeUnitHeader =
     /\bunit\b/.test(trailingNormalized) || /_unit/i.test(originalParameter);
-  const looksLikePhLabel = /\bph\b/.test(trailingNormalized);
+  const looksLikePhLabel =
+    /\bph\b/.test(trailingNormalized) || symbolNormalized === "ph";
 
   if (looksLikePhLabel || looksLikeUnitHeader) {
     return {
@@ -195,7 +198,7 @@ function normalizeText(value: string) {
 }
 
 const IMPORT_PARAMETER_ALIASES: Record<string, string[]> = {
-  ph: ["ph", "soil ph", "ph suelo", "ph agua", "ph h2o", "ph kcl", "reaction"],
+  ph: ["ph", "ph unit", "soil ph", "ph suelo", "ph agua", "ph h2o", "ph kcl", "reaction"],
   electrical_conductivity: [
     "ce",
     "ec",
@@ -207,11 +210,18 @@ const IMPORT_PARAMETER_ALIASES: Record<string, string[]> = {
   ],
   cec: [
     "cice",
+    "c i c e",
     "cic",
     "cec",
+    "c e c",
+    "c.e.c.",
+    "c.i.c.",
+    "c.i.c.e.",
     "cation exchange capacity",
     "capacidad de intercambio cationico efectiva",
     "capacidad de intercambio cationico",
+    "capacidad de intercambio catiónico efectiva",
+    "capacidad de intercambio catiónico",
   ],
   organic_matter: ["mo", "om", "materia organica", "organic matter", "matiere organique"],
   organic_carbon: ["co", "coox", "carbono organico", "carbono organico oxidable", "organic carbon"],
@@ -441,8 +451,135 @@ function looksLikeSodiumName(value: string) {
   return /\b(na|sodium|sodio)\b/.test(normalized);
 }
 
+function looksLikePhName(value: string) {
+  const normalized = normalizeText(value);
+  if (!normalized) return false;
+  return /\bph\b/.test(normalized);
+}
+
+function looksLikeCecName(value: string) {
+  const normalized = normalizeText(value);
+  if (!normalized) return false;
+  return /\b(cec|cic|cice|cation exchange capacity|intercambio cationico)\b/.test(
+    normalized
+  );
+}
+
 function isSodiumParameter(parameter: ParameterForImport) {
   return getParameterSearchTerms(parameter).some((term) => looksLikeSodiumName(term));
+}
+
+function isPhParameter(parameter: ParameterForImport) {
+  return getParameterSearchTerms(parameter).some((term) => looksLikePhName(term));
+}
+
+function isCecParameter(parameter: ParameterForImport) {
+  return getParameterSearchTerms(parameter).some((term) => looksLikeCecName(term));
+}
+
+function parameterHasKclHint(parameter: ParameterForImport) {
+  return getParameterSearchTerms(parameter).some((term) =>
+    /\bkcl\b/.test(normalizeText(term))
+  );
+}
+
+function parameterHasWaterHint(parameter: ParameterForImport) {
+  return getParameterSearchTerms(parameter).some((term) =>
+    /\b(h2o|water|agua)\b/.test(normalizeText(term))
+  );
+}
+
+function forcePhParameterMatch(
+  rawName: string,
+  current: ParameterForImport | null,
+  parameters: ParameterForImport[],
+  rawSymbolHint?: string,
+  methodHint?: string
+) {
+  const combinedHint = `${rawName} ${rawSymbolHint || ""} ${methodHint || ""}`;
+  if (!looksLikePhName(combinedHint)) return current;
+  if (current && isPhParameter(current)) return current;
+
+  const phCandidates = parameters.filter((parameter) => isPhParameter(parameter));
+  if (phCandidates.length === 0) return current;
+
+  const normalizedHint = normalizeText(combinedHint);
+  const wantsKcl = /\bkcl\b/.test(normalizedHint);
+  const wantsWater = /\b(h2o|water|agua)\b/.test(normalizedHint);
+
+  if (wantsKcl) {
+    const kcl = phCandidates.find((parameter) => parameterHasKclHint(parameter));
+    if (kcl) return kcl;
+  }
+
+  if (wantsWater) {
+    const water = phCandidates.find((parameter) => parameterHasWaterHint(parameter));
+    if (water) return water;
+  }
+
+  const ranked = phCandidates
+    .map((parameter) => ({
+      parameter,
+      score: parameterMatchScore(rawName, getParameterSearchTerms(parameter)),
+    }))
+    .sort((left, right) => right.score - left.score);
+
+  const preferred =
+    ranked.find(({ parameter }) => parameterHasWaterHint(parameter)) ||
+    ranked.find(({ parameter }) => !parameterHasKclHint(parameter)) ||
+    ranked[0];
+
+  return preferred?.parameter || current;
+}
+
+function forceCecParameterMatch(
+  rawName: string,
+  current: ParameterForImport | null,
+  parameters: ParameterForImport[]
+) {
+  if (!looksLikeCecName(rawName)) return current;
+  if (current && isCecParameter(current)) return current;
+
+  const cecCandidates = parameters.filter((parameter) => isCecParameter(parameter));
+  if (cecCandidates.length === 0) return current;
+
+  const ranked = cecCandidates
+    .map((parameter) => ({
+      parameter,
+      score: parameterMatchScore(rawName, getParameterSearchTerms(parameter)),
+    }))
+    .sort((left, right) => right.score - left.score);
+
+  return ranked[0]?.parameter || current;
+}
+
+function forceCriticalParameterMatch(
+  rawName: string,
+  current: ParameterForImport | null,
+  parameters: ParameterForImport[],
+  rawSymbolHint?: string,
+  methodHint?: string
+) {
+  const phHint = `${rawName} ${rawSymbolHint || ""} ${methodHint || ""}`;
+  if (looksLikePhName(phHint)) {
+    return forcePhParameterMatch(
+      rawName,
+      current,
+      parameters,
+      rawSymbolHint,
+      methodHint
+    );
+  }
+
+  if (looksLikeCecName(rawName)) {
+    return forceCecParameterMatch(rawName, current, parameters);
+  }
+
+  if (looksLikeSodiumName(rawName)) {
+    return forceSodiumParameterMatch(rawName, current, parameters);
+  }
+
+  return current;
 }
 
 function forceSodiumParameterMatch(
@@ -507,7 +644,8 @@ function findBestParameterMatch(
   rawName: string,
   parameters: ParameterForImport[],
   searchMap: Map<string, ParameterForImport>,
-  rawSymbolHint?: string
+  rawSymbolHint?: string,
+  methodHint?: string
 ) {
   const normalizedRawName = normalizeText(rawName);
   if (!normalizedRawName) return null;
@@ -546,14 +684,32 @@ function findBestParameterMatch(
       (item) => item.parameter.parameter_key === exactMatch.parameter_key
     );
     if (exactRanked && exactRanked.score >= ranked[0].score - 0.05) {
-      return forceSodiumParameterMatch(rawName, exactMatch, parameters);
+      return forceCriticalParameterMatch(
+        rawName,
+        exactMatch,
+        parameters,
+        rawSymbolHint,
+        methodHint
+      );
     }
   } else if (exactMatch) {
-    return forceSodiumParameterMatch(rawName, exactMatch, parameters);
+    return forceCriticalParameterMatch(
+      rawName,
+      exactMatch,
+      parameters,
+      rawSymbolHint,
+      methodHint
+    );
   }
 
   if (ranked.length === 0) {
-    return forceSodiumParameterMatch(rawName, null, parameters);
+    return forceCriticalParameterMatch(
+      rawName,
+      null,
+      parameters,
+      rawSymbolHint,
+      methodHint
+    );
   }
   if (looksLikeSodiumName(rawName)) {
     const sodiumRank = ranked.find((item) => isSodiumParameter(item.parameter));
@@ -562,10 +718,22 @@ function findBestParameterMatch(
     }
   }
   if (ranked[1] && ranked[0].score - ranked[1].score < 0.06) {
-    return forceSodiumParameterMatch(rawName, null, parameters);
+    return forceCriticalParameterMatch(
+      rawName,
+      ranked[0].parameter,
+      parameters,
+      rawSymbolHint,
+      methodHint
+    );
   }
 
-  return forceSodiumParameterMatch(rawName, ranked[0].parameter, parameters);
+  return forceCriticalParameterMatch(
+    rawName,
+    ranked[0].parameter,
+    parameters,
+    rawSymbolHint,
+    methodHint
+  );
 }
 
 function findUnitId(parameter: ParameterForImport, rawUnit: string | undefined) {
@@ -580,6 +748,16 @@ function getUnitOptionKey(unit: {
   return `${unit.unit_id}::${unit.display_symbol || unit.unit_symbol}`;
 }
 
+function normalizeUnitForMatching(value: string) {
+  return normalizeText(value)
+    .replace(/\bper\b/g, "/")
+    .replace(/\s+/g, " ")
+    .replace(/\b100\s*g\s*-?\s*1\b/g, "100g")
+    .replace(/\bkg\s*-?\s*1\b/g, "kg")
+    .replace(/\bcmolc\b/g, "cmol(+)")
+    .trim();
+}
+
 function findUnitSelection(parameter: ParameterForImport, rawUnit: string | undefined) {
   const defaultOption =
     parameter.available_units.find((unit) => unit.unit_id === parameter.unit_id) ||
@@ -589,21 +767,58 @@ function findUnitSelection(parameter: ParameterForImport, rawUnit: string | unde
     return {
       unitId: defaultOption?.unit_id || parameter.unit_id,
       displayKey: defaultOption ? getUnitOptionKey(defaultOption) : null,
+      quality: "default" as const,
     };
   }
 
-  const normalizedRawUnit = normalizeText(rawUnit);
-  const match = parameter.available_units.find((unit) => {
+  const normalizedRawUnit = normalizeUnitForMatching(rawUnit);
+  const rawUnitLiteral = rawUnit.trim().toLowerCase();
+  const literalMatch = parameter.available_units.find((unit) => {
     return (
-      normalizeText(unit.unit_symbol) === normalizedRawUnit ||
-      normalizeText(unit.display_symbol) === normalizedRawUnit
+      String(unit.display_symbol || "").trim().toLowerCase() === rawUnitLiteral ||
+      String(unit.unit_symbol || "").trim().toLowerCase() === rawUnitLiteral
+    );
+  });
+  if (literalMatch) {
+    return {
+      unitId: literalMatch.unit_id,
+      displayKey: getUnitOptionKey(literalMatch),
+      quality: "exact" as const,
+    };
+  }
+
+  const exactMatch = parameter.available_units.find((unit) => {
+    return (
+      normalizeUnitForMatching(unit.unit_symbol) === normalizedRawUnit ||
+      normalizeUnitForMatching(unit.display_symbol) === normalizedRawUnit
     );
   });
 
-  const selected = match || defaultOption;
+  if (exactMatch) {
+    return {
+      unitId: exactMatch.unit_id,
+      displayKey: getUnitOptionKey(exactMatch),
+      quality: "exact" as const,
+    };
+  }
+
+  const compatibleMatch = parameter.available_units.find((unit) =>
+    canConvertLabUnit(rawUnit, unit.unit_symbol || unit.display_symbol)
+  );
+
+  if (compatibleMatch) {
+    return {
+      unitId: compatibleMatch.unit_id,
+      displayKey: getUnitOptionKey(compatibleMatch),
+      quality: "compatible" as const,
+    };
+  }
+
+  const selected = defaultOption;
   return {
     unitId: selected?.unit_id || parameter.unit_id,
     displayKey: selected ? getUnitOptionKey(selected) : null,
+    quality: "none" as const,
   };
 }
 
@@ -874,7 +1089,11 @@ function parseLooseDocumentText(
     if (value === null) continue;
 
     const parameterText = line.replace(/[-+]?\d+(?:[.,]\d+)?.*$/, "").trim();
-    const parameter = findBestParameterMatch(parameterText, parameters, searchMap);
+    const parameter = findBestParameterMatch(
+      parameterText,
+      parameters,
+      searchMap
+    );
     if (!parameter) continue;
 
     addRow(parameter, value, extractUnit(line, parameter), 0.68, "document");
@@ -1201,7 +1420,8 @@ export default function LabValueImporter({
         row.parameter,
         parameters,
         searchMap,
-        row.symbol
+        row.symbol,
+        row.method
       );
       const parsedValue = parseImportedResultValue(String(row.value));
       const baseId = `${index + 2}-${row.parameter}-${row.value}`;
@@ -1269,6 +1489,8 @@ export default function LabValueImporter({
       }
 
       const selectedUnit = findUnitSelection(matchedParameter, row.unit);
+      const requiresUnitReview =
+        Boolean(row.unit?.trim()) && selectedUnit.quality === "none";
 
       return {
         id: baseId,
@@ -1281,9 +1503,15 @@ export default function LabValueImporter({
         source: sourceDetail,
         selectedUnitId: selectedUnit.unitId,
         selectedUnitDisplayKey: selectedUnit.displayKey,
-        status: "matched" as const,
-        message: row.confidence && row.confidence < 0.75 ? "Review match." : "Ready.",
-        selected: true,
+        status: requiresUnitReview ? ("unmatched" as const) : ("matched" as const),
+        message: requiresUnitReview
+          ? "Review unit."
+          : row.confidence && row.confidence < 0.75
+            ? "Review match."
+            : selectedUnit.quality === "compatible"
+              ? "Ready (unit equivalent)."
+              : "Ready.",
+        selected: !requiresUnitReview,
       };
     });
 
@@ -1658,15 +1886,25 @@ export default function LabValueImporter({
 
         const selectedUnit = findUnitSelection(parameter, row.unit || undefined);
         const hasNumericValue = normalizeNumericValue(row.value) !== "";
+        const requiresUnitReview =
+          Boolean(row.unit?.trim()) && selectedUnit.quality === "none";
 
         return {
           ...row,
           matchedParameterKey: parameter.parameter_key,
           selectedUnitId: selectedUnit.unitId,
           selectedUnitDisplayKey: selectedUnit.displayKey,
-          status: hasNumericValue ? "matched" : "invalid",
-          message: hasNumericValue ? "Ready." : "Invalid numeric value.",
-          selected: hasNumericValue,
+          status: hasNumericValue
+            ? requiresUnitReview
+              ? "unmatched"
+              : "matched"
+            : "invalid",
+          message: hasNumericValue
+            ? requiresUnitReview
+              ? "Review unit."
+              : "Ready."
+            : "Invalid numeric value.",
+          selected: hasNumericValue && !requiresUnitReview,
         };
       })
     );
@@ -1677,27 +1915,13 @@ export default function LabValueImporter({
       previousRows.map((row) => {
         if (row.id !== rowId || !row.matchedParameterKey) return row;
         const parameter = parameterByKey.get(row.matchedParameterKey);
-        const currentUnit = parameter?.available_units.find(
-          (option) => getUnitOptionKey(option) === row.selectedUnitDisplayKey
-        );
         const unit = parameter?.available_units.find(
           (option) => getUnitOptionKey(option) === unitDisplayKey
         );
-        if (!unit || !currentUnit) return row;
-
-        const parsedValue = Number(String(row.value).replace(",", "."));
-        if (!Number.isFinite(parsedValue)) return row;
-
-        const converted = convertLabUnit(
-          parsedValue,
-          currentUnit.unit_symbol || currentUnit.display_symbol,
-          unit.unit_symbol || unit.display_symbol
-        );
-        if (!converted) return row;
+        if (!unit) return row;
 
         return {
           ...row,
-          value: String(converted.value),
           selectedUnitId: unit.unit_id,
           selectedUnitDisplayKey: getUnitOptionKey(unit),
         };

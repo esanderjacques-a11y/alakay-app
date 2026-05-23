@@ -738,7 +738,7 @@ export default function AnalysisHistory({
           title={l.refresh}
           aria-label={l.refresh}
           onClick={loadAnalyses}
-          className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-green-200 bg-white/55 text-green-800 transition hover:bg-green-50 active:scale-[0.98]"
+          className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-green-200 bg-white/70 text-green-800 transition hover:bg-green-50 active:scale-[0.98]"
         >
           <RefreshCw size={16} />
         </button>
@@ -761,7 +761,7 @@ export default function AnalysisHistory({
           <select
             value={sortKey}
             onChange={(event) => setSortKey(event.target.value as HistorySortKey)}
-            className="h-full min-h-12 w-11 appearance-none rounded-2xl border border-white/60 bg-white/55 text-transparent outline-none transition hover:bg-white/75 focus:border-green-300"
+            className="h-full min-h-12 w-11 appearance-none rounded-2xl border border-white/60 bg-white/72 text-transparent outline-none transition hover:bg-white/85 focus:border-green-300"
           >
             <option value="date">{l.date}</option>
             <option value="name">{l.name}</option>
@@ -782,7 +782,7 @@ export default function AnalysisHistory({
           onClick={() =>
             setSortDirection((current) => (current === "asc" ? "desc" : "asc"))
           }
-          className="inline-flex min-h-12 w-11 items-center justify-center rounded-2xl border border-white/60 bg-white/55 text-lg font-extrabold text-green-800 transition hover:bg-white/75 active:scale-[0.98]"
+          className="inline-flex min-h-12 w-11 items-center justify-center rounded-2xl border border-white/60 bg-white/72 text-lg font-extrabold text-green-800 transition hover:bg-white/85 active:scale-[0.98]"
         >
           {sortDirection === "asc" ? "↑" : "↓"}
         </button>
@@ -1001,7 +1001,7 @@ function HistoryFilterButton({
       className={`rounded-2xl border px-3 py-2 text-left transition active:scale-[0.98] ${
         active
           ? "border-green-200 bg-green-50/80 text-green-900"
-          : "border-white/60 bg-white/45 text-slate-600 hover:bg-white/70"
+          : "border-white/60 bg-white/68 text-slate-700 hover:bg-white/85"
       }`}
     >
       <span className="block text-lg font-extrabold leading-none">{value}</span>

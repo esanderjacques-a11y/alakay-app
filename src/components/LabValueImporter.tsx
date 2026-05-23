@@ -402,6 +402,48 @@ function lineLooksLikeAnotherParameter(
   });
 }
 
+function countParameterMentions(line: string, parameters: ParameterForImport[]) {
+  const normalizedLine = normalizeText(line);
+  const seen = new Set<string>();
+
+  for (const parameter of parameters) {
+    const matched = getParameterSearchTerms(parameter).some((term) => {
+      const normalizedTerm = normalizeText(term);
+      return (
+        normalizedTerm.length >= 2 &&
+        new RegExp(`(^|\\s)${escapeRegExp(normalizedTerm)}(\\s|$)`).test(
+          normalizedLine
+        )
+      );
+    });
+
+    if (matched) seen.add(parameter.parameter_key);
+  }
+
+  return seen.size;
+}
+
+function looksLikeNarrativeSummary(
+  line: string,
+  parameters: ParameterForImport[]
+) {
+  const normalizedLine = normalizeText(line);
+  const parameterMentions = countParameterMentions(line, parameters);
+  const hasSummaryLanguage =
+    /\b(informe|report|analisis|analysis|resultados|results|incluyen|include|presenta|present|datos|data|detected|extracted|uploaded|documento|document)\b/.test(
+      normalizedLine
+    );
+  const hasConnectorList = /\b(y|and|as well as|asi como|tambien)\b/.test(normalizedLine);
+
+  return (
+    (normalizedLine.length > 90 && parameterMentions >= 2 && hasSummaryLanguage) ||
+    (parameterMentions >= 3 && hasConnectorList) ||
+    /\b(con datos sobre|data for|report text|uploaded document|documento cargado)\b/.test(
+      normalizedLine
+    )
+  );
+}
+
 function parseLooseDocumentText(
   text: string,
   parameters: ParameterForImport[]
@@ -409,7 +451,9 @@ function parseLooseDocumentText(
   const lines = text
     .split(/\r?\n/)
     .map((line) => normalizeScannedText(line))
-    .filter((line) => line.length > 0);
+    .filter(
+      (line) => line.length > 0 && !looksLikeNarrativeSummary(line, parameters)
+    );
   const rows: ImportedRow[] = [];
   const seen = new Set<string>();
 
@@ -941,21 +985,27 @@ export default function LabValueImporter({
 
   function extractRowsWithIntelligence(input: string | string[][] | DocToken[]) {
     const extraction = extractLabIntelligently(input);
-    const rows = extraction.values.map((value) => ({
-      parameter: value.originalLabel || value.normalizedParameter || value.originalValueRaw,
-      value: value.originalValueRaw,
-      unit: value.normalizedUnit || value.originalUnit || "",
-      sample: value.sampleName || "",
-      confidence:
-        value.confidenceScore !== undefined ? value.confidenceScore / 100 : undefined,
-      source: [
-        extraction.layoutFamily,
-        value.sampleName ? `sample: ${value.sampleName}` : "",
-        value.extractionMethod ? `method: ${value.extractionMethod}` : "",
-      ]
-        .filter(Boolean)
-        .join(" | "),
-    }));
+    const rows = extraction.values
+      .filter(
+        (value) =>
+          !looksLikeNarrativeSummary(value.originalLabel, parameters) &&
+          !looksLikeNarrativeSummary(value.source?.bbox ? "" : value.originalValueRaw, parameters)
+      )
+      .map((value) => ({
+        parameter: value.originalLabel || value.normalizedParameter || value.originalValueRaw,
+        value: value.originalValueRaw,
+        unit: value.normalizedUnit || value.originalUnit || "",
+        sample: value.sampleName || "",
+        confidence:
+          value.confidenceScore !== undefined ? value.confidenceScore / 100 : undefined,
+        source: [
+          extraction.layoutFamily,
+          value.sampleName ? `sample: ${value.sampleName}` : "",
+          value.extractionMethod ? `method: ${value.extractionMethod}` : "",
+        ]
+          .filter(Boolean)
+          .join(" | "),
+      }));
 
     if (rows.length > 0) return rows;
 

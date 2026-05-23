@@ -60,7 +60,7 @@ import { countries, countryRegions, type CountryRegion } from "@/lib/countries";
 import { supabase } from "@/lib/supabase";
 import {
   loadCropAliasMap,
-  loadParameterAliasMap,
+  loadParameterAliasOptionsMap,
   loadUnitAliasOptionsMap,
 } from "@/lib/aliases";
 import {
@@ -84,6 +84,7 @@ type Parameter = {
   custom_parameter_id: number | null;
   parameter_name: string;
   display_name: string;
+  aliases?: string[];
   symbol: string | null;
   category: string | null;
   unit_id: number;
@@ -309,6 +310,53 @@ function getFriendlyUnitSymbol(unitSymbol: string) {
   };
 
   return friendlySymbols[compact] || unitSymbol;
+}
+
+function normalizeUnitSymbol(unitSymbol: string) {
+  return getFriendlyUnitSymbol(unitSymbol)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+function getPreferredFoliarUnitSymbol(parameter: {
+  parameter_name: string;
+  symbol: string | null;
+  category: string | null;
+}) {
+  const symbol = String(parameter.symbol || "").trim().toLowerCase();
+  const name = parameter.parameter_name.toLowerCase();
+  const category = String(parameter.category || "").toLowerCase();
+
+  if (
+    category.includes("micro") ||
+    category.includes("toxic") ||
+    ["b", "cu", "fe", "mn", "zn", "al", "mo", "cl", "na", "si"].includes(symbol)
+  ) {
+    return "mg/kg";
+  }
+
+  if (
+    category.includes("macro") ||
+    ["n", "p", "k", "ca", "mg", "s"].includes(symbol) ||
+    /\b(nitrogen|phosphorus|potassium|calcium|magnesium|sulfur|sulphur)\b/.test(name)
+  ) {
+    return "%";
+  }
+
+  return null;
+}
+
+function findUnitBySymbol(
+  units: Array<{ unit_id: number; unit_symbol: string }>,
+  unitSymbol: string | null
+) {
+  if (!unitSymbol) return null;
+  const normalizedSymbol = normalizeUnitSymbol(unitSymbol);
+  return (
+    units.find((unit) => normalizeUnitSymbol(unit.unit_symbol) === normalizedSymbol) ||
+    null
+  );
 }
 
 function convertRangeToUnit(
@@ -979,7 +1027,7 @@ export default function HomePage() {
       unit_symbol: string;
     }>;
 
-    const parameterAliasMap = await loadParameterAliasMap(
+    const parameterAliasOptionsMap = await loadParameterAliasOptionsMap(
       language,
       officialParameterIds
     );
@@ -993,7 +1041,9 @@ export default function HomePage() {
         unit_id: number;
         unit_symbol: string;
         display_symbol: string;
-      }[]
+      }[],
+      preferredUnitId = baseUnitId,
+      preferredUnitSymbol = baseUnitSymbol
     ) {
       const options = initialOptions.map((option) => ({
         ...option,
@@ -1001,6 +1051,20 @@ export default function HomePage() {
         canonical_symbol: option.unit_symbol,
       }));
       const seen = new Set(options.map((option) => getUnitOptionKey(option)));
+
+      if (preferredUnitId && preferredUnitSymbol) {
+        const preferredOption = {
+          unit_id: preferredUnitId,
+          unit_symbol: preferredUnitSymbol,
+          display_symbol: getFriendlyUnitSymbol(preferredUnitSymbol),
+          canonical_symbol: preferredUnitSymbol,
+        };
+        const key = getUnitOptionKey(preferredOption);
+        if (!seen.has(key)) {
+          options.push(preferredOption);
+          seen.add(key);
+        }
+      }
 
       for (const candidate of allUnits) {
         if (!canConvertLabUnit(baseUnitSymbol, candidate.unit_symbol)) continue;
@@ -1018,6 +1082,8 @@ export default function HomePage() {
       }
 
       options.sort((left, right) => {
+        if (left.unit_id === preferredUnitId) return -1;
+        if (right.unit_id === preferredUnitId) return 1;
         if (left.unit_id === baseUnitId) return -1;
         if (right.unit_id === baseUnitId) return 1;
         return left.display_symbol.localeCompare(right.display_symbol);
@@ -1029,9 +1095,13 @@ export default function HomePage() {
     const officialParameters: Parameter[] = officialRows.map((row) => {
       const unitData = Array.isArray(row.units) ? row.units[0] : row.units;
 
-      const unitId = unitData?.unit_id ?? row.default_unit_id;
-      const unitSymbol = unitData?.unit_symbol ?? "";
-      const displayUnitSymbol = getFriendlyUnitSymbol(unitSymbol);
+      const databaseUnitId = unitData?.unit_id ?? row.default_unit_id;
+      const databaseUnitSymbol = unitData?.unit_symbol ?? "";
+      const foliarPreferredUnit = sampleType === "foliar"
+        ? findUnitBySymbol(allUnits, getPreferredFoliarUnitSymbol(row))
+        : null;
+      const unitId = foliarPreferredUnit?.unit_id ?? databaseUnitId;
+      const unitSymbol = foliarPreferredUnit?.unit_symbol ?? databaseUnitSymbol;
 
       return {
         parameter_key: `p-${row.parameter_id}`,
@@ -1039,22 +1109,25 @@ export default function HomePage() {
         custom_parameter_id: null,
         parameter_name: row.parameter_name,
         display_name:
-          parameterAliasMap.get(row.parameter_id) || row.parameter_name,
+          parameterAliasOptionsMap.get(row.parameter_id)?.[0] || row.parameter_name,
+        aliases: parameterAliasOptionsMap.get(row.parameter_id) || [],
         symbol: row.symbol,
         category: row.category,
         unit_id: unitId,
         unit_symbol: unitSymbol,
         is_custom: false,
         available_units: buildExpandedUnitOptions(
-          unitId,
-          unitSymbol,
-          unitAliasOptionsMap.get(unitId) || [
+          databaseUnitId,
+          databaseUnitSymbol,
+          unitAliasOptionsMap.get(databaseUnitId) || [
             {
-              unit_id: unitId,
-              unit_symbol: unitSymbol,
-              display_symbol: displayUnitSymbol,
+              unit_id: databaseUnitId,
+              unit_symbol: databaseUnitSymbol,
+              display_symbol: getFriendlyUnitSymbol(databaseUnitSymbol),
             },
-          ]
+          ],
+          unitId,
+          unitSymbol
         ),
       };
     });
@@ -1072,6 +1145,7 @@ export default function HomePage() {
         custom_parameter_id: row.custom_parameter_id,
         parameter_name: row.parameter_name,
         display_name: row.parameter_name,
+        aliases: [],
         symbol: row.symbol,
         category: row.category || "Custom",
         unit_id: unitId,
@@ -1108,14 +1182,18 @@ export default function HomePage() {
       }
     }
 
-    setSelectedUnits((previous) => ({
-      ...defaultSelectedUnits,
-      ...previous,
-    }));
-    setSelectedUnitDisplayKeys((previous) => ({
-      ...defaultSelectedUnitDisplayKeys,
-      ...previous,
-    }));
+    const sampleTypeChanged = parametersSampleType !== column;
+
+    setSelectedUnits((previous) =>
+      sampleTypeChanged
+        ? { ...previous, ...defaultSelectedUnits }
+        : { ...defaultSelectedUnits, ...previous }
+    );
+    setSelectedUnitDisplayKeys((previous) =>
+      sampleTypeChanged
+        ? { ...previous, ...defaultSelectedUnitDisplayKeys }
+        : { ...defaultSelectedUnitDisplayKeys, ...previous }
+    );
   }
 
   function updateValue(parameterKey: string, newValue: string) {

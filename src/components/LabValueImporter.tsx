@@ -29,6 +29,7 @@ type ParameterForImport = {
   custom_parameter_id: number | null;
   parameter_name: string;
   display_name: string;
+  aliases?: string[];
   symbol: string | null;
   category: string | null;
   unit_id: number;
@@ -270,6 +271,73 @@ const IMPORT_PARAMETER_ALIASES: Record<string, string[]> = {
   texture: ["textura", "texture", "soil texture"],
 };
 
+const ADDITIONAL_IMPORT_PARAMETER_ALIASES: Record<string, string[]> = {
+  ph: [
+    "p h",
+    "ph unidad",
+    "ph del suelo",
+    "ph h₂o",
+    "reaccion",
+    "reaccion del suelo",
+  ],
+  electrical_conductivity: [
+    "c e",
+    "e c",
+    "conductivity",
+    "conductividad",
+    "conductividad electrica ce",
+    "conductividad electrica ec",
+    "salinidad",
+  ],
+  cec: [
+    "effective cec",
+    "effective cation exchange capacity",
+    "capacidad intercambio cationico",
+    "capacidad intercambio cationico efectiva",
+    "intercambio cationico",
+    "intercambio cationico efectivo",
+  ],
+  organic_matter: [
+    "m o",
+    "o m",
+    "materia organica total",
+  ],
+  organic_carbon: [
+    "c o",
+    "carbono",
+  ],
+  phosphorus: ["fosforo disponible", "available phosphorus"],
+  potassium: ["k intercambiable", "exchangeable k"],
+  calcium: ["ca intercambiable", "exchangeable ca"],
+  magnesium: ["mg intercambiable", "exchangeable mg"],
+  exchangeable_acidity: ["al h", "al+h", "h aluminio", "aluminio hidrogeno"],
+  chloride: ["chlorine"],
+  bulk_density: ["densidad aparente da", "apparent density"],
+  moisture: [
+    "saturacion humedad",
+    "humedad media",
+    "soil moisture",
+  ],
+  clay: ["particula arcilla"],
+  sand: ["particula arena"],
+  silt: ["particula limo"],
+  base_saturation: ["sb", "v", "v%", "sat bases", "saturacion de bases", "base saturation", "bases saturation"],
+};
+
+function getImportParameterAliasEntries() {
+  const merged = new Map<string, string[]>();
+
+  for (const [family, aliases] of Object.entries(IMPORT_PARAMETER_ALIASES)) {
+    merged.set(family, [...aliases]);
+  }
+
+  for (const [family, aliases] of Object.entries(ADDITIONAL_IMPORT_PARAMETER_ALIASES)) {
+    merged.set(family, [...(merged.get(family) || []), ...aliases]);
+  }
+
+  return Array.from(merged.entries());
+}
+
 function normalizeScannedText(value: string) {
   return value
     .replace(/[|]/g, " ")
@@ -382,11 +450,11 @@ function buildParameterSearchMap(parameters: ParameterForImport[]) {
 
 function getParameterAliasTerms(parameter: ParameterForImport) {
   const combined = normalizeText(
-    `${parameter.parameter_name} ${parameter.display_name} ${parameter.symbol || ""}`
+    `${parameter.parameter_name} ${parameter.display_name} ${parameter.symbol || ""} ${(parameter.aliases || []).join(" ")}`
   );
   const aliases = new Set<string>();
 
-  for (const terms of Object.values(IMPORT_PARAMETER_ALIASES)) {
+  for (const [, terms] of getImportParameterAliasEntries()) {
     const familyMatch = terms.some((term) => {
       const normalizedTerm = normalizeText(term);
       const combinedTokens = tokenSet(combined);
@@ -422,7 +490,7 @@ function detectAliasFamilies(value: string) {
   const tokens = tokenSet(normalized);
   const families = new Set<string>();
 
-  for (const [family, aliases] of Object.entries(IMPORT_PARAMETER_ALIASES)) {
+  for (const [family, aliases] of getImportParameterAliasEntries()) {
     const matched = aliases.some((alias) => {
       const normalizedAlias = normalizeText(alias);
       if (!normalizedAlias) return false;
@@ -657,7 +725,7 @@ function findBestParameterMatch(
       const baseScore = parameterMatchScore(rawName, getParameterSearchTerms(parameter));
       const parameterSymbol = normalizeText(parameter.symbol || "");
       const parameterFamilies = detectAliasFamilies(
-        `${parameter.display_name} ${parameter.parameter_name} ${parameter.symbol || ""}`
+        `${parameter.display_name} ${parameter.parameter_name} ${parameter.symbol || ""} ${(parameter.aliases || []).join(" ")}`
       );
       const familyOverlap = hasFamilyOverlap(rawFamilies, parameterFamilies);
 
@@ -710,6 +778,29 @@ function findBestParameterMatch(
       rawSymbolHint,
       methodHint
     );
+  }
+  if (rawFamilies.size > 0) {
+    const familyRanked = ranked.filter((item) =>
+      hasFamilyOverlap(
+        rawFamilies,
+        detectAliasFamilies(
+          `${item.parameter.display_name} ${item.parameter.parameter_name} ${item.parameter.symbol || ""} ${(item.parameter.aliases || []).join(" ")}`
+        )
+      )
+    );
+
+    if (
+      familyRanked.length > 0 &&
+      (familyRanked[0].score >= 0.7 || familyRanked[0].score >= ranked[0].score - 0.25)
+    ) {
+      return forceCriticalParameterMatch(
+        rawName,
+        familyRanked[0].parameter,
+        parameters,
+        rawSymbolHint,
+        methodHint
+      );
+    }
   }
   if (looksLikeSodiumName(rawName)) {
     const sodiumRank = ranked.find((item) => isSodiumParameter(item.parameter));
@@ -831,7 +922,7 @@ function getParameterLabel(parameter: ParameterForImport) {
 function getTextureClass(parameter: ParameterForImport | null | undefined) {
   if (!parameter) return null;
   const text = normalizeText(
-    `${parameter.display_name} ${parameter.parameter_name} ${parameter.symbol || ""}`
+    `${parameter.display_name} ${parameter.parameter_name} ${parameter.symbol || ""} ${(parameter.aliases || []).join(" ")}`
   );
   if (/\b(sand|arena|sable)\b/.test(text)) return "sand";
   if (/\b(silt|limo|limon)\b/.test(text)) return "silt";
@@ -870,6 +961,7 @@ function getParameterSearchTerms(parameter: ParameterForImport) {
     parameter.display_name,
     parameter.parameter_name,
     parameter.symbol || "",
+    ...(parameter.aliases || []),
     parameter.symbol ? `${parameter.display_name} ${parameter.symbol}` : "",
     parameter.symbol ? `${parameter.parameter_name} ${parameter.symbol}` : "",
     ...getParameterAliasTerms(parameter),

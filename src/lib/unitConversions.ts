@@ -8,8 +8,9 @@ function cleanUnit(unit: string) {
   return unit
     .toLowerCase()
     .replace(/\s+/g, "")
-    .replace("µ", "u")
-    .replace("⁻", "-");
+    .replace(/[\u00b5\u03bc]/g, "u")
+    .replace(/\u207b/g, "-")
+    .replace(/\u00b7/g, ".");
 }
 
 export function roundConvertedValue(value: number, decimals = 2) {
@@ -26,6 +27,7 @@ export function convertLabUnit(
 
   const from = cleanUnit(fromUnit);
   const to = cleanUnit(toUnit);
+
   if (!from || !to || from === to) {
     return {
       value: roundConvertedValue(value),
@@ -65,6 +67,11 @@ export function convertLabUnit(
   return {
     value: roundConvertedValue(value * factor),
     unit: toUnit,
-    note: "Converted only after an explicit matching request.",
+    note: "Converted after unit selection.",
   };
 }
+
+export function canConvertLabUnit(fromUnit: string, toUnit: string) {
+  return convertLabUnit(1, fromUnit, toUnit) !== null;
+}
+

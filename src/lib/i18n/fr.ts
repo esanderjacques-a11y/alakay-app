@@ -261,9 +261,13 @@
   adviceEcOk:
     "La conductivité électrique n'indique pas de risque majeur de salinité selon la référence actuelle.",
   adviceSodiumHigh:
-    "Le sodium est élevé. Il peut affecter la structure du sol, l'infiltration et le développement racinaire. Vérifiez CE, SAR/ESP si disponible, calcium, drainage et besoin éventuel de gypse.",
+    "Le sodium est sodique/problématique (>1.0 cmol(+)/kg). Il peut affecter la structure du sol, l'infiltration et le développement racinaire. Vérifiez CE, SAR/ESP si disponible, calcium, drainage et besoin éventuel de gypse.",
+  adviceSodiumVeryHigh:
+    "Le sodium est très sodique (>2.0 cmol(+)/kg). Des problèmes sévères de structure et d'infiltration sont probables. Vérifiez CE, SAR/ESP, drainage, calcium et besoin en gypse en priorité.",
+  adviceSodiumModerate:
+    "Le sodium est légèrement élevé (0.5-1.0 cmol(+)/kg). Surveillez la CE et le risque structural, surtout en sols sensibles.",
   adviceSodiumOk:
-    "Le sodium est dans la plage attendue selon la référence actuelle.",
+    "Le sodium est dans la zone sûre (<0.5 cmol(+)/kg) selon la référence actuelle.",
   adviceAluminumHigh:
     "L'aluminium est élevé. Il peut endommager les racines dans les sols acides et réduire l'absorption des nutriments. Vérifiez le pH et les options de correction de l'acidité comme le chaulage.",
   adviceAluminumOk:

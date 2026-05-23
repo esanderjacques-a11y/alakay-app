@@ -69,6 +69,7 @@ import {
   getSimpleAdvice,
 } from "@/lib/interpretationLogic";
 import { calculateSoilTexture } from "@/lib/soilTexture";
+import { canConvertLabUnit, convertLabUnit } from "@/lib/unitConversions";
 
 type Crop = {
   crop_id: number;
@@ -91,6 +92,7 @@ type Parameter = {
     unit_id: number;
     unit_symbol: string;
     display_symbol: string;
+    canonical_symbol?: string;
   }[];
 };
 
@@ -232,8 +234,17 @@ function getUnitOptionKey(unit: {
   unit_id: number;
   unit_symbol: string;
   display_symbol: string;
+  canonical_symbol?: string;
 }) {
   return `${unit.unit_id}::${unit.display_symbol || unit.unit_symbol}`;
+}
+
+function getUnitSymbolForConversion(unit: {
+  unit_symbol: string;
+  display_symbol: string;
+  canonical_symbol?: string;
+}) {
+  return unit.canonical_symbol || unit.unit_symbol || unit.display_symbol;
 }
 
 function getParameterSortRank(parameter: Parameter) {
@@ -413,7 +424,9 @@ function translateAdvice(
   }
 
   if (name === "na" || name.includes("sodium") || name.includes("sodio")) {
+    if (level === "very_high") return t.adviceSodiumVeryHigh;
     if (level === "high") return t.adviceSodiumHigh;
+    if (level === "moderate") return t.adviceSodiumModerate;
     return t.adviceSodiumOk;
   }
 
@@ -487,6 +500,11 @@ export default function HomePage() {
   const [showReportDetails, setShowReportDetails] = useState(false);
   const [showCustomParameterModal, setShowCustomParameterModal] =
     useState(false);
+  const [customParameterDraft, setCustomParameterDraft] = useState<{
+    parameterName?: string;
+    unitSymbol?: string;
+    applySodiumTropicalPreset?: boolean;
+  } | null>(null);
   const [showCustomParameterManager, setShowCustomParameterManager] =
     useState(false);
   const [showCustomRangeManager, setShowCustomRangeManager] = useState(false);
@@ -848,14 +866,71 @@ export default function HomePage() {
       .filter((id): id is number => typeof id === "number");
 
     const unitIds = [...officialUnitIds, ...customUnitIds];
+    const { data: allUnitsData, error: allUnitsError } = await supabase
+      .from("units")
+      .select("unit_id, unit_symbol")
+      .order("unit_symbol");
+
+    if (allUnitsError) {
+      setMessage(allUnitsError.message);
+      return;
+    }
+
+    const allUnits = (allUnitsData || []) as Array<{
+      unit_id: number;
+      unit_symbol: string;
+    }>;
+    const allUnitIds = allUnits.map((unit) => unit.unit_id);
 
     const parameterAliasMap = await loadParameterAliasMap(
       language,
       officialParameterIds
     );
 
-    const unitAliasMap = await loadUnitAliasMap(language, unitIds);
+    const unitAliasMap = await loadUnitAliasMap(
+      language,
+      allUnitIds.length ? allUnitIds : unitIds
+    );
     const unitAliasOptionsMap = await loadUnitAliasOptionsMap(language, unitIds);
+
+    function buildExpandedUnitOptions(
+      baseUnitId: number,
+      baseUnitSymbol: string,
+      initialOptions: {
+        unit_id: number;
+        unit_symbol: string;
+        display_symbol: string;
+      }[]
+    ) {
+      const options = initialOptions.map((option) => ({
+        ...option,
+        canonical_symbol: option.unit_symbol,
+      }));
+      const seen = new Set(options.map((option) => getUnitOptionKey(option)));
+
+      for (const candidate of allUnits) {
+        if (!canConvertLabUnit(baseUnitSymbol, candidate.unit_symbol)) continue;
+        const option = {
+          unit_id: candidate.unit_id,
+          unit_symbol: candidate.unit_symbol,
+          display_symbol: unitAliasMap.get(candidate.unit_id) || candidate.unit_symbol,
+          canonical_symbol: candidate.unit_symbol,
+        };
+        const key = getUnitOptionKey(option);
+        if (!seen.has(key)) {
+          options.push(option);
+          seen.add(key);
+        }
+      }
+
+      options.sort((left, right) => {
+        if (left.unit_id === baseUnitId) return -1;
+        if (right.unit_id === baseUnitId) return 1;
+        return left.display_symbol.localeCompare(right.display_symbol);
+      });
+
+      return options;
+    }
 
     const officialParameters: Parameter[] = officialRows.map((row) => {
       const unitData = Array.isArray(row.units) ? row.units[0] : row.units;
@@ -876,14 +951,17 @@ export default function HomePage() {
         unit_id: unitId,
         unit_symbol: unitSymbol,
         is_custom: false,
-        available_units:
+        available_units: buildExpandedUnitOptions(
+          unitId,
+          unitSymbol,
           unitAliasOptionsMap.get(unitId) || [
             {
               unit_id: unitId,
               unit_symbol: unitSymbol,
               display_symbol: displayUnitSymbol,
             },
-          ],
+          ]
+        ),
       };
     });
 
@@ -905,14 +983,17 @@ export default function HomePage() {
         unit_id: unitId,
         unit_symbol: unitSymbol,
         is_custom: true,
-        available_units:
+        available_units: buildExpandedUnitOptions(
+          unitId,
+          unitSymbol,
           unitAliasOptionsMap.get(unitId) || [
             {
               unit_id: unitId,
               unit_symbol: unitSymbol,
               display_symbol: displayUnitSymbol,
             },
-          ],
+          ]
+        ),
       };
     });
 
@@ -956,6 +1037,45 @@ export default function HomePage() {
   }
 
   function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
+    const parameter = parameters.find((item) => item.parameter_key === parameterKey);
+    const selectedUnitDisplayKey = selectedUnitDisplayKeys[parameterKey];
+    const fromUnit =
+      parameter?.available_units.find(
+        (unit) => getUnitOptionKey(unit) === selectedUnitDisplayKey
+      ) ||
+      parameter?.available_units.find((unit) => unit.unit_id === selectedUnits[parameterKey]) ||
+      parameter?.available_units[0];
+    const toUnit =
+      parameter?.available_units.find(
+        (unit) => displayKey && getUnitOptionKey(unit) === displayKey
+      ) ||
+      parameter?.available_units.find((unit) => unit.unit_id === unitId) ||
+      parameter?.available_units[0];
+
+    const rawValue = values[parameterKey];
+    const numericValue =
+      rawValue && rawValue.trim() !== ""
+        ? Number(rawValue.replace(",", "."))
+        : null;
+    if (
+      fromUnit &&
+      toUnit &&
+      numericValue !== null &&
+      Number.isFinite(numericValue)
+    ) {
+      const converted = convertLabUnit(
+        numericValue,
+        getUnitSymbolForConversion(fromUnit),
+        getUnitSymbolForConversion(toUnit)
+      );
+      if (converted) {
+        setValues((previous) => ({
+          ...previous,
+          [parameterKey]: String(converted.value),
+        }));
+      }
+    }
+
     setSelectedUnits((previous) => ({
       ...previous,
       [parameterKey]: unitId,
@@ -982,6 +1102,21 @@ export default function HomePage() {
   }
 
   function resetSampleTypeState(nextSampleType: "soil" | "foliar") {
+    if (nextSampleType === sampleType) return;
+
+    const hasValues = Object.values(values).some((value) => value?.trim());
+    if (hasValues) {
+      const keepValues = window.confirm(
+        "You have entered values. Keep them while switching sample type?"
+      );
+
+      if (keepValues) {
+        setSampleType(nextSampleType);
+        setMessage("Values were kept. Review units and ranges for the new sample type.");
+        return;
+      }
+    }
+
     setSampleType(nextSampleType);
     setValues({});
     setSelectedUnits({});
@@ -1042,6 +1177,39 @@ export default function HomePage() {
       })
     );
     setCurrentStep("values");
+  }
+
+  function requestCreateCustomParameterFromImport(draft: {
+    parameterName: string;
+    unitSymbol?: string;
+  }) {
+    const normalizedUnit = normalizeForMatching(draft.unitSymbol || "");
+    const unitOption = parameters
+      .flatMap((parameter) => parameter.available_units)
+      .find((unit) => {
+        const symbols = [
+          unit.display_symbol,
+          unit.unit_symbol,
+          unit.canonical_symbol || "",
+        ].map((value) => normalizeForMatching(value));
+        return symbols.includes(normalizedUnit);
+      });
+
+    const normalizedName = normalizeForMatching(draft.parameterName);
+    const looksLikeSodium =
+      /\b(sodio|sodium|na)\b/.test(normalizedName) &&
+      !/\b(nitrato|nitrate|nitrogen|nitrogeno)\b/.test(normalizedName);
+
+    setCustomParameterDraft({
+      parameterName: draft.parameterName,
+      unitSymbol:
+        unitOption?.unit_symbol ||
+        draft.unitSymbol ||
+        (looksLikeSodium ? "cmol(+)/kg" : undefined),
+      applySodiumTropicalPreset: looksLikeSodium,
+    });
+    setShowLabValueImporter(false);
+    setShowCustomParameterModal(true);
   }
 
   function applyImportedMetadata(metadata?: ImportedLabMetadata) {
@@ -1946,7 +2114,10 @@ export default function HomePage() {
               setLabValueImporterMode("import");
               setShowLabValueImporter(true);
             }}
-            openCustomParameterModal={() => setShowCustomParameterModal(true)}
+            openCustomParameterModal={() => {
+              setCustomParameterDraft(null);
+              setShowCustomParameterModal(true);
+            }}
             openCustomParameterManager={() =>
               setShowCustomParameterManager(true)
             }
@@ -2021,6 +2192,7 @@ export default function HomePage() {
             values={values}
             results={results}
             sampleType={sampleType}
+            selectedCropName={selectedCrop?.display_name || selectedCrop?.crop_name || null}
             goToValues={() => setCurrentStep("values")}
             onBack={() => setCurrentStep("home")}
           />
@@ -2074,19 +2246,25 @@ export default function HomePage() {
         open={showLabValueImporter}
         mode={labValueImporterMode}
         onClose={() => setShowLabValueImporter(false)}
+        language={language}
         parameters={parameters}
         existingValues={values}
+        onRequestCreateParameter={requestCreateCustomParameterFromImport}
         onImportValues={importLabValues}
       />
 
       <CustomParameterModal
         open={showCustomParameterModal}
-        onClose={() => setShowCustomParameterModal(false)}
+        onClose={() => {
+          setShowCustomParameterModal(false);
+          setCustomParameterDraft(null);
+        }}
         onCreated={loadParameters}
         session={session}
         language={language}
         sampleType={sampleType}
         cropId={cropId}
+        importDraft={customParameterDraft}
       />
 
       <CustomParameterManager
@@ -2959,12 +3137,23 @@ function ValuesScreen({
                           title={t.changeUnit}
                         >
                           {parameter.available_units.map((unit) => (
+                            (() => {
+                              const canConvert =
+                                !selectedUnit ||
+                                canConvertLabUnit(
+                                  getUnitSymbolForConversion(selectedUnit),
+                                  getUnitSymbolForConversion(unit)
+                                );
+                              return (
                             <option
                               key={getUnitOptionKey(unit)}
                               value={getUnitOptionKey(unit)}
+                              disabled={!canConvert}
                             >
                               {unit.display_symbol || unit.unit_symbol}
                             </option>
+                              );
+                            })()
                           ))}
                         </select>
                       ) : (
@@ -3090,9 +3279,23 @@ function ValuesScreen({
                       title={t.changeUnit}
                     >
                       {parameter.available_units.map((unit) => (
-                        <option key={getUnitOptionKey(unit)} value={getUnitOptionKey(unit)}>
-                          {unit.display_symbol || unit.unit_symbol}
-                        </option>
+                        (() => {
+                          const canConvert =
+                            !selectedUnit ||
+                            canConvertLabUnit(
+                              getUnitSymbolForConversion(selectedUnit),
+                              getUnitSymbolForConversion(unit)
+                            );
+                          return (
+                            <option
+                              key={getUnitOptionKey(unit)}
+                              value={getUnitOptionKey(unit)}
+                              disabled={!canConvert}
+                            >
+                              {unit.display_symbol || unit.unit_symbol}
+                            </option>
+                          );
+                        })()
                       ))}
                     </select>
                   ) : (

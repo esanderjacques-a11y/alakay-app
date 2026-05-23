@@ -17,6 +17,15 @@ type AiImportPayload = {
   warning?: string;
 };
 
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  ht: "Haitian Creole",
+  pt: "Portuguese",
+  sw: "Swahili",
+};
+
 export async function GET() {
   return Response.json({ ok: true });
 }
@@ -27,10 +36,11 @@ export async function POST(request: Request) {
     const image = formData.get("image");
     const text = formData.get("text");
     const table = formData.get("table");
+    const language = normalizeLanguage(formData.get("language"));
 
     if (image instanceof File) {
       const bytes = Buffer.from(await image.arrayBuffer());
-      const payload = await readImageWithAi(bytes, image.type);
+      const payload = await readImageWithAi(bytes, image.type, language);
 
       return Response.json(payload);
     }
@@ -45,7 +55,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const payload = await readTextWithAi(textPayload, tablePayload);
+    const payload = await readTextWithAi(textPayload, tablePayload, language);
     return Response.json(payload);
   } catch (error) {
     return Response.json(
@@ -62,13 +72,14 @@ export async function POST(request: Request) {
 
 async function readImageWithAi(
   bytes: Buffer,
-  mimeType: string
+  mimeType: string,
+  language: string
 ): Promise<AiImportPayload> {
   const imageUrl = `data:${mimeType || "image/png"};base64,${bytes.toString("base64")}`;
   return requestAiImport([
     {
       type: "input_text",
-      text: buildAiImportInstructions(),
+      text: buildAiImportInstructionsForLanguage(language),
     },
     {
       type: "input_image",
@@ -80,10 +91,11 @@ async function readImageWithAi(
 
 async function readTextWithAi(
   text: string,
-  table: string
+  table: string,
+  language: string
 ): Promise<AiImportPayload> {
   const content = [
-    buildAiImportInstructions(),
+    buildAiImportInstructionsForLanguage(language),
     text ? `Extracted report text:\n${text}` : "",
     table ? `Extracted table/cell data as JSON:\n${table}` : "",
   ]
@@ -98,10 +110,18 @@ async function readTextWithAi(
   ]);
 }
 
-function buildAiImportInstructions() {
+function normalizeLanguage(value: FormDataEntryValue | null) {
+  const raw = typeof value === "string" ? value : "en";
+  return LANGUAGE_NAMES[raw] ? raw : "en";
+}
+
+function buildAiImportInstructionsForLanguage(language: string) {
+  const languageName = LANGUAGE_NAMES[language] || LANGUAGE_NAMES.en;
   return [
     "Read this soil or foliar lab report for ALAKAY.",
     "Return strict JSON only. Do not include markdown.",
+    `Use ${languageName} for parameter names when writing rows.parameter, but also include the chemical symbol when present, for example Potassium (K), Potasio (K), Calcium (Ca), pH, EC/CE, CEC/CIC/CICE.`,
+    "Prefer concise parameter names plus symbols over long descriptions. Do not use prose sentences as parameter names.",
     "The text field must be a faithful row-by-row transcription of useful result tables and nearby sample metadata, not a summary or explanation.",
     "The rows field must contain lab results only: {parameter,value,unit,sample,method,source,confidence}.",
     "Rows are required when result tables are visible. Extract every real numeric result row that belongs to the lab analysis tables.",
@@ -111,6 +131,7 @@ function buildAiImportInstructions() {
     "For wide multi-sample reports, sample IDs belong in sample and lab numbers belong in source or metadata; neither is a lab result value.",
     "If a table has Result, Resultado, Resultados, Valor, Concentracion, or Current columns, use those columns as the true values.",
     "If a table has two result columns for the same variable, such as mg/kg and meq/100g, return one row for the unit column most directly usable as the lab result; for exchangeable bases prefer meq/100g or cmol(+)/kg over mg/kg. Do not convert.",
+    "Include texture rows when present: Sand/Arena, Silt/Limo, Clay/Arcilla, and texture class when shown.",
     "If a wide table has sample rows and parameter columns, create one row per sample and parameter.",
     "If headers include method or unit, carry that method/unit into each row.",
     "Do not import dates, phone numbers, page numbers, addresses, invoice/payment numbers, legal text, chart axes, recommendation kg/ha values, rating letters, status words, or reference ranges as results.",

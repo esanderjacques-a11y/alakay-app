@@ -16,11 +16,14 @@ import {
   calculateCNRatio,
   calculateDop,
   calculateFertilizerRequirement,
+  calculateGypsumRequirementByPsi,
   calculateLeachingRequirement,
   calculateNutrientRatio,
   calculatePorosity,
+  calculatePsi,
   calculateSar,
   calculateSoilAmendment,
+  calculateTotalWaterFromLeaching,
   type AreaUnit,
   type CalculationOutput,
   type CalculatorValue,
@@ -55,6 +58,7 @@ type Props = {
   values: Record<string, string>;
   results: ResultLite[];
   sampleType: "soil" | "foliar";
+  selectedCropName?: string | null;
   goToValues?: () => void;
   onBack?: () => void;
 };
@@ -87,6 +91,7 @@ export default function CalculatorHub({
   values,
   results,
   sampleType,
+  selectedCropName,
   goToValues,
   onBack,
 }: Props) {
@@ -155,7 +160,7 @@ export default function CalculatorHub({
             <NutrientGraphs t={t} lab={lab} />
             <RatioCalculator t={t} lab={lab} />
             <FertilizerCalculator t={t} lab={lab} />
-            <AmendmentCalculator t={t} lab={lab} />
+            <AmendmentCalculator t={t} lab={lab} sampleType={sampleType} selectedCropName={selectedCropName} />
             {sampleType === "foliar" ? (
               <DopCalculator t={t} lab={lab} />
             ) : (
@@ -171,7 +176,7 @@ export default function CalculatorHub({
         ) : null}
         {active === "ratios" ? <RatioCalculator t={t} lab={lab} /> : null}
         {active === "fertilizer" ? <FertilizerCalculator t={t} lab={lab} /> : null}
-        {active === "amendment" ? <AmendmentCalculator t={t} lab={lab} /> : null}
+        {active === "amendment" ? <AmendmentCalculator t={t} lab={lab} sampleType={sampleType} selectedCropName={selectedCropName} /> : null}
         {active === "dop" ? (
           sampleType === "foliar" ? (
             <DopCalculator t={t} lab={lab} />
@@ -286,21 +291,54 @@ function FertilizerCalculator({ t, lab }: { t: Record<string, string>; lab: Map<
   );
 }
 
-function AmendmentCalculator({ t, lab }: { t: Record<string, string>; lab: Map<string, CalculatorValue> }) {
+function AmendmentCalculator({
+  t,
+  lab,
+  sampleType,
+  selectedCropName,
+}: {
+  t: Record<string, string>;
+  lab: Map<string, CalculatorValue>;
+  sampleType: "soil" | "foliar";
+  selectedCropName?: string | null;
+}) {
+  const cropSuggestedV2 = suggestEarthBaseSaturationTarget(selectedCropName);
+  const earthAvailable = sampleType === "soil";
   const [method, setMethod] = useState<LimeMethod>("earth_practical");
   const [targetPh, setTargetPh] = useState(6.2);
   const [acidity, setAcidity] = useState(lab.get("exchangeable_acidity")?.value || 0);
+  const [baseSaturationCurrent, setBaseSaturationCurrent] = useState(
+    lab.get("base_saturation")?.value || 50
+  );
+  const [baseSaturationTarget, setBaseSaturationTarget] = useState(cropSuggestedV2);
+  const [effectiveCec, setEffectiveCec] = useState(lab.get("cec")?.value || 10);
+  const [incorporationFactor, setIncorporationFactor] = useState(1);
   const [rndt, setRndt] = useState(90);
   const [bulkDensity, setBulkDensity] = useState(lab.get("bulk_density")?.value || 1.25);
   const [depth, setDepth] = useState(20);
   const [area, setArea] = useState(1);
   const [areaUnit, setAreaUnit] = useState<AreaUnit>("ha");
+
+  useEffect(() => {
+    if (!earthAvailable && method === "earth_practical") {
+      setMethod("target_ph");
+    }
+  }, [earthAvailable, method]);
+
+  useEffect(() => {
+    setBaseSaturationTarget(cropSuggestedV2);
+  }, [cropSuggestedV2]);
+
   const output = calculateSoilAmendment({
     method,
     material: method === "target_ph" ? "calcitic_lime" : "dolomitic_lime",
     currentPh: lab.get("ph")?.value,
     targetPh,
     exchangeableAcidity: acidity,
+    baseSaturationCurrent,
+    baseSaturationTarget,
+    effectiveCec,
+    incorporationFactor,
     rndtPercent: rndt,
     bulkDensity,
     depthCm: depth,
@@ -314,13 +352,59 @@ function AmendmentCalculator({ t, lab }: { t: Record<string, string>; lab: Map<s
       output={output}
       fields={
         <>
-          <SelectField label={t.limeMethod} value={method} onChange={(value) => setMethod(value as LimeMethod)} options={[["earth_practical", t.earthPractical], ["target_ph", t.targetPh], ["exchangeable_acidity", t.acidity], ["buffer_index", t.buffer]]} />
-          <NumberField label="pH" value={lab.get("ph")?.value || 0} readOnly />
-          <NumberField label={t.target} value={targetPh} onChange={setTargetPh} />
-          <NumberField label={t.acidity} value={acidity} onChange={setAcidity} />
-          <NumberField label={t.rndt} value={rndt} onChange={setRndt} />
-          <NumberField label={t.bulkDensity} value={bulkDensity} onChange={setBulkDensity} />
-          <NumberField label={t.depth} value={depth} onChange={setDepth} />
+          <SelectField
+            label={t.limeMethod}
+            value={method}
+            onChange={(value) => setMethod(value as LimeMethod)}
+            options={[
+              ...(earthAvailable ? ([["earth_practical", t.earthPractical]] as Array<[string, string]>) : []),
+              ["target_ph", t.targetPh],
+              ["exchangeable_acidity", t.acidity],
+              ["buffer_index", t.buffer],
+            ]}
+          />
+          {!earthAvailable ? (
+            <p className="text-xs font-semibold text-yellow-900 sm:col-span-2">
+              {t.earthSoilOnly || "EARTH method is available only for soil lab tests."}
+            </p>
+          ) : null}
+          {method === "earth_practical" ? (
+            <>
+              <NumberField
+                label={t.baseSaturationCurrent || "Current base saturation V1 (%)"}
+                value={baseSaturationCurrent}
+                onChange={setBaseSaturationCurrent}
+              />
+              <NumberField
+                label={t.baseSaturationTarget || "Target base saturation V2 (%)"}
+                value={baseSaturationTarget}
+                onChange={setBaseSaturationTarget}
+              />
+              <p className="text-xs font-semibold text-slate-600 sm:col-span-2">
+                {`${t.v2SuggestedByCrop || "V2 suggested by selected crop"}: ${cropSuggestedV2}%`}
+              </p>
+              <NumberField
+                label={t.effectiveCec || "Effective CEC (CICE)"}
+                value={effectiveCec}
+                onChange={setEffectiveCec}
+              />
+              <NumberField label={t.prntPercent || "PRNT (%)"} value={rndt} onChange={setRndt} />
+              <NumberField
+                label={t.incorporationFactor || "Incorporation factor (f)"}
+                value={incorporationFactor}
+                onChange={setIncorporationFactor}
+              />
+            </>
+          ) : (
+            <>
+              <NumberField label="pH" value={lab.get("ph")?.value || 0} readOnly />
+              <NumberField label={t.target} value={targetPh} onChange={setTargetPh} />
+              <NumberField label={t.acidity} value={acidity} onChange={setAcidity} />
+              <NumberField label={t.rndt} value={rndt} onChange={setRndt} />
+              <NumberField label={t.bulkDensity} value={bulkDensity} onChange={setBulkDensity} />
+              <NumberField label={t.depth} value={depth} onChange={setDepth} />
+            </>
+          )}
           <AreaFields t={t} area={area} setArea={setArea} areaUnit={areaUnit} setAreaUnit={setAreaUnit} />
         </>
       }
@@ -406,9 +490,46 @@ function DopDeviationChart({
 function SalinityCalculator({ t, lab }: { t: Record<string, string>; lab: Map<string, CalculatorValue> }) {
   const [ecw, setEcw] = useState(1);
   const [eceTarget, setEceTarget] = useState(2);
+  const [psiTarget, setPsiTarget] = useState(10);
+  const [etValue, setEtValue] = useState(5);
   const lr = calculateLeachingRequirement(ecw, eceTarget);
   const sar = calculateSar(lab.get("sodium")?.value || 0, lab.get("calcium")?.value || 0, lab.get("magnesium")?.value || 0);
+  const psi = calculatePsi(lab.get("sodium")?.value || 0, lab.get("cec")?.value || 0);
+  const gypsum = calculateGypsumRequirementByPsi({
+    cec: lab.get("cec")?.value || 0,
+    psiCurrent: psi?.value || 0,
+    psiTarget,
+  });
+  const totalWater = calculateTotalWaterFromLeaching(
+    etValue,
+    lr ? lr.value / 100 : Number.NaN
+  );
   const porosity = calculatePorosity(lab.get("bulk_density")?.value || 0);
+  const gypsumOutputs: CalculationOutput[] = gypsum
+    ? [
+        {
+          value: gypsum.meqPer100g,
+          unit: "meq/100g",
+          label: "Gypsum (meq/100 g)",
+          formula: "CEC x ((PSI current - PSI target)/100)",
+          notes: [],
+        },
+        {
+          value: gypsum.mgPer100g,
+          unit: "mg/100g",
+          label: "Gypsum (mg/100 g)",
+          formula: "[CEC x ((PSI current - PSI target)/100)] x 87",
+          notes: [],
+        },
+        {
+          value: gypsum.kgPerTon,
+          unit: "kg/t",
+          label: "Gypsum (kg/t)",
+          formula: "[CEC x ((PSI current - PSI target)/100)] x 1.74",
+          notes: [],
+        },
+      ]
+    : [];
 
   return (
     <>
@@ -419,10 +540,21 @@ function SalinityCalculator({ t, lab }: { t: Record<string, string>; lab: Map<st
           <>
             <NumberField label={t.ecw} value={ecw} onChange={setEcw} />
             <NumberField label={t.eceTarget} value={eceTarget} onChange={setEceTarget} />
+            <NumberField label="PSI target (%)" value={psiTarget} onChange={setPsiTarget} />
+            <NumberField label="ET" value={etValue} onChange={setEtValue} />
           </>
         }
       />
-      <OutputGrid t={t} outputs={[sar, porosity]} />
+      <OutputGrid
+        t={t}
+        outputs={[
+          sar,
+          psi,
+          porosity,
+          ...gypsumOutputs,
+          totalWater,
+        ]}
+      />
     </>
   );
 }
@@ -730,13 +862,18 @@ function translateCalculatorText(value: string, t: Record<string, string>) {
       t.targetPhFormula,
     "exchangeable_acidity adjusted by depth, bulk density, RNDT, and area":
       t.acidityFormula,
-    "earth_practical adjusted by depth, bulk density, RNDT, and area":
-      t.acidityFormula,
+    "((V2 - V1) * CICE) / (10 * PRNT) * f":
+      t.earthFormula,
     "buffer_index adjusted by depth, bulk density, RNDT, and area":
       t.bufferFormula,
     "((value - optimum) / optimum) * 100": t.dopFormula,
     "(1 - bulk density / particle density) * 100": t.porosityFormula,
     "ECw / (5 * ECe target - ECw) * 100": t.leachingFormula,
+    "(Na exchangeable / CEC) * 100": t.psiFormula,
+    "ET / (1 - RL)": t.totalWaterFormula,
+    "CEC x ((PSI current - PSI target)/100)": t.gypsumMeqFormula,
+    "[CEC x ((PSI current - PSI target)/100)] x 87": t.gypsumMgFormula,
+    "[CEC x ((PSI current - PSI target)/100)] x 1.74": t.gypsumKgFormula,
     "Useful for judging organic matter decomposition speed and nitrogen immobilization risk.":
       t.noteCnRatio,
     "Use ratios as balance indicators, not as a replacement for crop-specific sufficiency ranges.":
@@ -749,8 +886,8 @@ function translateCalculatorText(value: string, t: Record<string, string>) {
       t.noteTargetPh,
     "Exchangeable acidity estimate. Best when the lab reports acidity or Al+H.":
       t.noteExchangeableAcidity,
-    "EARTH field-practice style estimate using exchangeable acidity, depth, density, RNDT, and measured area.":
-      t.noteExchangeableAcidity,
+    "EARTH base-saturation method: V1 current base saturation, V2 target base saturation, CICE effective CEC, PRNT neutralization value, and f incorporation factor.":
+      t.noteEarthBaseSaturation,
     "Buffer-index estimate. Use the lab's local calibration if it provides one.":
       t.noteBufferIndex,
     "Gypsum supplies calcium and sulfur and is more relevant for sodicity/salinity structure problems than pH increase.":
@@ -874,6 +1011,25 @@ function AreaFields({
   );
 }
 
+function suggestEarthBaseSaturationTarget(cropName?: string | null) {
+  const normalizedCrop = normalizeName(cropName || "");
+  if (!normalizedCrop) return 70;
+
+  const rules: Array<{ pattern: RegExp; value: number }> = [
+    { pattern: /\b(arroz|rice|trigo|wheat|pasto|pasture|forage|pineapple|pina|piña)\b/, value: 50 },
+    { pattern: /\b(soya|soja|soybean|cana|caña|sugarcane|algodon|algodao|cotton|frijol|frejol|bean)\b/, value: 60 },
+    { pattern: /\b(banano|banana|platano|plantain|aguacate|avocado)\b/, value: 65 },
+    { pattern: /\b(maiz|maize|corn|citricos|citrus|cafe|coffee|guayaba|guava|higo|fig|durazno|peach)\b/, value: 70 },
+    { pattern: /\b(tomate|tomato|pepino|cucumber|pimiento|pepper|brocoli|broccoli|cebolla|onion|rabano|radish|hortaliza|vegetable|mango|papaya|maracuya|passion fruit|uva|uvas|grape)\b/, value: 80 },
+  ];
+
+  for (const rule of rules) {
+    if (rule.pattern.test(normalizedCrop)) return rule.value;
+  }
+
+  return 70;
+}
+
 function buildLabValueIndex(
   parameters: ParameterLite[],
   values: Record<string, string>,
@@ -925,6 +1081,8 @@ function addKnownValue(
     ["organic_carbon", /\b(organic carbon|carbono organico)\b/],
     ["exchangeable_acidity", /\b(acidity|acidez|h\+al)\b/],
     ["bulk_density", /\b(bulk density|densidad aparente|da)\b/],
+    ["cec", /\b(cec|cice|cic|ctc|cation exchange capacity|capacidad de intercambio cationico)\b/],
+    ["base_saturation", /\b(base saturation|saturacion de bases|saturacao de bases|v%|sb)\b/],
   ] as const;
 
   for (const [key, pattern] of keys) {

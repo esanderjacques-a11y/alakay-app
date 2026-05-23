@@ -260,8 +260,12 @@
   adviceEcOk:
     "La conductividad eléctrica no indica un riesgo importante de salinidad según la referencia actual.",
   adviceSodiumHigh:
-    "El sodio es alto. Puede afectar la estructura del suelo, la infiltración y el desarrollo de raíces. Revise CE, SAR/ESP si está disponible, calcio, drenaje y posible necesidad de yeso.",
-  adviceSodiumOk: "El sodio está dentro del rango esperado según la referencia actual.",
+    "El sodio es sódico/problemático (>1.0 cmol(+)/kg). Puede afectar la estructura del suelo, la infiltración y el desarrollo de raíces. Revise CE, SAR/ESP si está disponible, calcio, drenaje y posible necesidad de yeso.",
+  adviceSodiumVeryHigh:
+    "El sodio es muy sódico (>2.0 cmol(+)/kg). Es probable que haya problemas severos de estructura e infiltración. Revise CE, SAR/ESP, drenaje, calcio y requerimiento de yeso con prioridad.",
+  adviceSodiumModerate:
+    "El sodio está ligeramente elevado (0.5-1.0 cmol(+)/kg). Vigile CE y riesgo estructural, sobre todo en suelos sensibles.",
+  adviceSodiumOk: "El sodio está en rango seguro (<0.5 cmol(+)/kg) según la referencia actual.",
   adviceAluminumHigh:
     "El aluminio es alto. Puede dañar raíces en suelos ácidos y reducir la absorción de nutrientes. Revise el pH y opciones de corrección de acidez como encalado.",
   adviceAluminumOk:

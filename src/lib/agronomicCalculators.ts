@@ -97,6 +97,10 @@ export function calculateSoilAmendment(input: {
   targetPh?: number;
   exchangeableAcidity?: number;
   bufferIndex?: number;
+  baseSaturationCurrent?: number;
+  baseSaturationTarget?: number;
+  effectiveCec?: number;
+  incorporationFactor?: number;
   rndtPercent?: number;
   bulkDensity?: number;
   depthCm?: number;
@@ -109,20 +113,31 @@ export function calculateSoilAmendment(input: {
   const densityFactor = (input.bulkDensity || 1.25) / 1.25;
   let tonsPerHa = 0;
   let methodNote = "";
+  let formula = "";
 
   if (input.method === "earth_practical") {
-    tonsPerHa = finitePositive(input.exchangeableAcidity) * 1.5 * depthFactor * densityFactor / rndt;
-    methodNote = "EARTH field-practice style estimate using exchangeable acidity, depth, density, RNDT, and measured area.";
+    const baseCurrent = finitePositive(input.baseSaturationCurrent);
+    const baseTarget = finitePositive(input.baseSaturationTarget);
+    const cecEffective = finitePositive(input.effectiveCec);
+    const prntPercent = Math.max(1, input.rndtPercent || 90);
+    const incorporationFactor = finitePositive(input.incorporationFactor) || 1;
+    const baseGap = Math.max(0, baseTarget - baseCurrent);
+    tonsPerHa = ((baseGap * cecEffective) / (10 * prntPercent)) * incorporationFactor;
+    formula = "((V2 - V1) * CICE) / (10 * PRNT) * f";
+    methodNote =
+      "EARTH base-saturation method: V1 current base saturation, V2 target base saturation, CICE effective CEC, PRNT neutralization value, and f incorporation factor.";
   }
 
   if (input.method === "target_ph") {
     const gap = Math.max(0, (input.targetPh || 6.2) - (input.currentPh || 0));
     tonsPerHa = gap * 2.2 * depthFactor * densityFactor / rndt;
+    formula = "target_ph adjusted by depth, bulk density, RNDT, and area";
     methodNote = "Simple target pH estimate. Confirm with local buffer/acidity method when possible.";
   }
 
   if (input.method === "exchangeable_acidity") {
     tonsPerHa = finitePositive(input.exchangeableAcidity) * 1.5 * depthFactor * densityFactor / rndt;
+    formula = "exchangeable_acidity adjusted by depth, bulk density, RNDT, and area";
     methodNote = "Exchangeable acidity estimate. Best when the lab reports acidity or Al+H.";
   }
 
@@ -130,6 +145,7 @@ export function calculateSoilAmendment(input: {
     const target = input.targetPh || 6.5;
     const buffer = input.bufferIndex || target;
     tonsPerHa = Math.max(0, target - buffer) * 5.5 * depthFactor * densityFactor / rndt;
+    formula = "buffer_index adjusted by depth, bulk density, RNDT, and area";
     methodNote = "Buffer-index estimate. Use the lab's local calibration if it provides one.";
   }
 
@@ -146,7 +162,7 @@ export function calculateSoilAmendment(input: {
     value: round(tonsPerHa * areaHa, 2),
     unit: "t product",
     label: input.material === "gypsum" ? "Gypsum requirement" : "Lime requirement",
-    formula: `${input.method} adjusted by depth, bulk density, RNDT, and area`,
+    formula,
     notes: [`${round(tonsPerHa, 2)} t/ha estimated.`, methodNote, materialNote],
   } satisfies CalculationOutput;
 }
@@ -190,6 +206,36 @@ export function calculateSar(sodium: number, calcium: number, magnesium: number)
   } satisfies CalculationOutput;
 }
 
+export function calculatePsi(exchangeableSodium: number, cec: number) {
+  if (!finitePositive(exchangeableSodium) || !finitePositive(cec)) return null;
+
+  return {
+    value: round((exchangeableSodium / cec) * 100, 2),
+    unit: "%",
+    label: "PSI / ESP",
+    formula: "(Na exchangeable / CEC) * 100",
+    notes: ["Use consistent exchangeable Na and CEC units such as cmol(+)/kg or meq/100g."],
+  } satisfies CalculationOutput;
+}
+
+export function calculateGypsumRequirementByPsi(input: {
+  cec: number;
+  psiCurrent: number;
+  psiTarget: number;
+}) {
+  if (!finitePositive(input.cec)) return null;
+  const psiGap = Math.max(0, input.psiCurrent - input.psiTarget);
+  if (!psiGap) return null;
+
+  const meqPer100g = input.cec * (psiGap / 100);
+
+  return {
+    meqPer100g: round(meqPer100g, 3),
+    mgPer100g: round(meqPer100g * 87, 2),
+    kgPerTon: round(meqPer100g * 1.74, 2),
+  };
+}
+
 export function calculateLeachingRequirement(ecWater: number, ecSoilTarget: number) {
   if (!finitePositive(ecWater) || !finitePositive(ecSoilTarget)) return null;
   const denominator = 5 * ecSoilTarget - ecWater;
@@ -201,6 +247,19 @@ export function calculateLeachingRequirement(ecWater: number, ecSoilTarget: numb
     label: "Leaching requirement",
     formula: "ECw / (5 * ECe target - ECw) * 100",
     notes: ["Requires drainage. Do not apply leaching water where drainage is poor."],
+  } satisfies CalculationOutput;
+}
+
+export function calculateTotalWaterFromLeaching(et: number, rlFraction: number) {
+  if (!finitePositive(et)) return null;
+  if (!Number.isFinite(rlFraction) || rlFraction < 0 || rlFraction >= 1) return null;
+
+  return {
+    value: round(et / (1 - rlFraction), 3),
+    unit: "ET units",
+    label: "Total water",
+    formula: "ET / (1 - RL)",
+    notes: ["ET and total water use the same base unit (for example mm or m3/ha)."],
   } satisfies CalculationOutput;
 }
 

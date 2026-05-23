@@ -70,7 +70,9 @@ export function getLevelCode(input: LogicInput) {
   }
 
   if (isSodium(name)) {
-    if (max !== null && value > max) return "high";
+    if (value > 2) return "very_high";
+    if (value > 1) return "high";
+    if (value >= 0.5) return "moderate";
     return "acceptable";
   }
 
@@ -104,7 +106,8 @@ export function getFinalGroupCode(input: LogicInput) {
   }
 
   if (isSodium(name)) {
-    if (level === "high") return "negative";
+    if (level === "very_high" || level === "high") return "negative";
+    if (level === "moderate") return "warning";
     return "normal";
   }
 
@@ -162,11 +165,19 @@ export function getSimpleAdvice(input: LogicInput) {
   }
 
   if (isSodium(name)) {
-    if (level === "high") {
-      return "Sodium is high. This can affect soil structure, infiltration, and root development, especially when combined with salinity or poor drainage. Consider checking EC, SAR/ESP if available, calcium, drainage, and possible gypsum requirement.";
+    if (level === "very_high") {
+      return "Sodium is highly sodic (>2.0 cmol(+)/kg). Severe structural and infiltration problems are likely. Review EC, SAR/ESP, drainage, calcium status, and gypsum requirement urgently.";
     }
 
-    return "Sodium is within the expected range based on the current reference.";
+    if (level === "high") {
+      return "Sodium is sodic/problematic (>1.0 cmol(+)/kg). Soil structure, infiltration, and root development can be affected. Check EC, SAR/ESP, calcium, drainage, and gypsum requirement.";
+    }
+
+    if (level === "moderate") {
+      return "Sodium is slightly elevated (0.5-1.0 cmol(+)/kg). Monitor EC and structure risk, especially in sensitive soils or low-drainage conditions.";
+    }
+
+    return "Sodium is in the safe range (<0.5 cmol(+)/kg) based on the current reference.";
   }
 
   if (isAluminum(name)) {

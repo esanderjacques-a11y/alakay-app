@@ -252,8 +252,12 @@
   adviceEcOk:
     "Kondiktivite elèktrik la pa montre gwo risk salinite selon referans aktyèl la.",
   adviceSodiumHigh:
-    "Sodym nan wo. Sa ka afekte estrikti tè a, enfiltrasyon ak devlopman rasin. Verifye EC, SAR/ESP si disponib, kalsym, drenaj ak posiblite bezwen jips.",
-  adviceSodiumOk: "Sodym nan nan nivo ki espere selon referans aktyèl la.",
+    "Sodym nan sodik/pwoblematik (>1.0 cmol(+)/kg). Sa ka afekte estrikti tè a, enfiltrasyon ak devlopman rasin. Verifye EC, SAR/ESP si disponib, kalsym, drenaj ak bezwen jips.",
+  adviceSodiumVeryHigh:
+    "Sodym nan trè sodik (>2.0 cmol(+)/kg). Gwo pwoblèm estrikti tè ak enfiltrasyon posib. Verifye EC, SAR/ESP, drenaj, kalsym ak bezwen jips rapidman.",
+  adviceSodiumModerate:
+    "Sodym nan yon ti kras wo (0.5-1.0 cmol(+)/kg). Siveye EC ak risk estrikti, espesyalman nan tè sansib.",
+  adviceSodiumOk: "Sodym nan nan zòn sekirite (<0.5 cmol(+)/kg) selon referans aktyèl la.",
   adviceAluminumHigh:
     "Aliminyòm nan wo. Sa ka domaje rasin nan tè asid epi diminye absòpsyon eleman nitritif. Verifye pH tè a ak opsyon koreksyon asidite tankou lacho.",
   adviceAluminumOk:

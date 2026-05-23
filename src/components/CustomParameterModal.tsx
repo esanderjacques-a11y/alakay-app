@@ -20,6 +20,11 @@ type Props = {
   language: Language;
   sampleType: "soil" | "foliar";
   cropId: number | "";
+  importDraft?: {
+    parameterName?: string;
+    unitSymbol?: string;
+    applySodiumTropicalPreset?: boolean;
+  } | null;
 };
 
 export default function CustomParameterModal({
@@ -30,6 +35,7 @@ export default function CustomParameterModal({
   language,
   sampleType,
   cropId,
+  importDraft,
 }: Props) {
   const appText = translations[language];
   const l = appText.customParameterModal;
@@ -45,6 +51,10 @@ export default function CustomParameterModal({
 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+
+  function normalize(value: string) {
+    return value.toLowerCase().replace(/\s+/g, "").trim();
+  }
 
   async function loadUnits() {
     const { data, error } = await supabase
@@ -67,6 +77,38 @@ export default function CustomParameterModal({
       });
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !importDraft) return;
+
+    if (importDraft.parameterName?.trim()) {
+      setParameterName(importDraft.parameterName.trim());
+    }
+
+    if (!importDraft.unitSymbol?.trim() || units.length === 0) return;
+
+    const normalizedDraftUnit = normalize(importDraft.unitSymbol);
+    const matchedUnit = units.find(
+      (unit) =>
+        normalize(unit.unit_symbol) === normalizedDraftUnit ||
+        normalizedDraftUnit.includes(normalize(unit.unit_symbol))
+    );
+
+    if (matchedUnit) {
+      setUnitId(matchedUnit.unit_id);
+    }
+
+    if (importDraft.applySodiumTropicalPreset) {
+      setSymbol((previous) => previous || "Na");
+      setMinValue((previous) => previous || "0");
+      setMaxValue((previous) => previous || "0.5");
+      setNote(
+        (previous) =>
+          previous ||
+          "Global sodium thresholds: safe <0.5, slightly elevated 0.5-1.0, sodic >1.0, highly sodic >2.0 (cmol(+)/kg)"
+      );
+    }
+  }, [open, importDraft, units]);
 
   function resetForm() {
     setParameterName("");
@@ -114,14 +156,38 @@ export default function CustomParameterModal({
       return;
     }
 
-    const hasRange = minValue.trim() !== "" || maxValue.trim() !== "";
+    let parsedMin = minValue.trim() === "" ? null : Number(minValue.trim());
+    let parsedMax = maxValue.trim() === "" ? null : Number(maxValue.trim());
+    let rangeNote = note.trim() || null;
+    let hasRange = minValue.trim() !== "" || maxValue.trim() !== "";
+
+    const normalizedName = parameterName.toLowerCase();
+    const looksLikeSodium =
+      /\b(sodio|sodium|na)\b/.test(normalizedName) &&
+      !/\b(nitrato|nitrate|nitrogen|nitrogeno)\b/.test(normalizedName);
+    const useGlobalSodiumPreset =
+      Boolean(importDraft?.applySodiumTropicalPreset) && looksLikeSodium;
+
+    if (!hasRange && useGlobalSodiumPreset) {
+      parsedMin = 0;
+      parsedMax = 0.5;
+      rangeNote =
+        "Global sodium thresholds: safe <0.5, slightly elevated 0.5-1.0, sodic >1.0, highly sodic >2.0 (cmol(+)/kg)";
+      hasRange = true;
+    } else if (!hasRange && looksLikeSodium) {
+      const applyPreset = window.confirm(
+        "Apply sodium thresholds preset (safe <0.5, slightly elevated 0.5-1.0, sodic >1.0, highly sodic >2.0 cmol(+)/kg)?"
+      );
+      if (applyPreset) {
+        parsedMin = 0;
+        parsedMax = 0.5;
+        rangeNote =
+          "Global sodium thresholds: safe <0.5, slightly elevated 0.5-1.0, sodic >1.0, highly sodic >2.0 (cmol(+)/kg)";
+        hasRange = true;
+      }
+    }
 
     if (hasRange) {
-      const parsedMin =
-        minValue.trim() === "" ? null : Number(minValue.trim());
-      const parsedMax =
-        maxValue.trim() === "" ? null : Number(maxValue.trim());
-
       if (
         (parsedMin !== null && Number.isNaN(parsedMin)) ||
         (parsedMax !== null && Number.isNaN(parsedMax))
@@ -137,12 +203,12 @@ export default function CustomParameterModal({
           user_id: session.user.id,
           custom_parameter_id: parameterData.custom_parameter_id,
           parameter_id: null,
-          crop_id: cropId || null,
+          crop_id: useGlobalSodiumPreset ? null : cropId || null,
           sample_type: sampleType,
           unit_id: unitId,
           min_value: parsedMin,
           max_value: parsedMax,
-          interpretation_note: note.trim() || null,
+          interpretation_note: rangeNote,
           source_name: appText.userCustomRange,
           is_deleted: false,
         });

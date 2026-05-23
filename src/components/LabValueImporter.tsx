@@ -18,6 +18,8 @@ import {
   extractLabIntelligently,
   type DocToken,
 } from "@/lib/import/intelligentLabExtractor";
+import type { Language } from "@/lib/translations";
+import { canConvertLabUnit, convertLabUnit } from "@/lib/unitConversions";
 
 type ImportMode = "scan" | "import";
 
@@ -89,8 +91,13 @@ type Props = {
   open: boolean;
   mode?: ImportMode;
   onClose: () => void;
+  language: Language;
   parameters: ParameterForImport[];
   existingValues?: Record<string, string>;
+  onRequestCreateParameter?: (draft: {
+    parameterName: string;
+    unitSymbol?: string;
+  }) => void;
   onImportValues: (
     importedValues: Record<string, string>,
     importedUnits: Record<string, number>,
@@ -105,11 +112,89 @@ function normalizeText(value: string) {
   return value
     .toLowerCase()
     .trim()
+    .replace(/[\u2080\u2070]/g, "0")
+    .replace(/[\u2081\u00b9]/g, "1")
+    .replace(/[\u2082\u00b2]/g, "2")
+    .replace(/[\u2083\u00b3]/g, "3")
+    .replace(/[\u2084\u2074]/g, "4")
+    .replace(/[\u2085\u2075]/g, "5")
+    .replace(/[\u2086\u2076]/g, "6")
+    .replace(/[\u2087\u2077]/g, "7")
+    .replace(/[\u2088\u2078]/g, "8")
+    .replace(/[\u2089\u2079]/g, "9")
+    .replace(/[\u207a\u208a]/g, "+")
+    .replace(/[\u207b\u208b]/g, "-")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[()%/.,;:_-]/g, " ")
     .replace(/\s+/g, " ");
 }
+
+const IMPORT_PARAMETER_ALIASES: Record<string, string[]> = {
+  ph: ["ph", "soil ph", "ph suelo", "ph agua", "ph h2o", "ph kcl", "reaction"],
+  electrical_conductivity: [
+    "ce",
+    "ec",
+    "conductividad electrica",
+    "electrical conductivity",
+    "cond electrica",
+    "soluble salts",
+    "sales solubles",
+  ],
+  cec: [
+    "cice",
+    "cic",
+    "cec",
+    "cation exchange capacity",
+    "capacidad de intercambio cationico efectiva",
+    "capacidad de intercambio cationico",
+  ],
+  organic_matter: ["mo", "om", "materia organica", "organic matter", "matiere organique"],
+  organic_carbon: ["co", "coox", "carbono organico", "carbono organico oxidable", "organic carbon"],
+  nitrogen: ["n", "nitrogeno", "nitrogen", "n total", "nitrogeno total", "total nitrogen"],
+  nitrate: ["no3", "no3 n", "n no3", "n-no3", "nitrato", "nitrate", "nitrate nitrogen"],
+  ammonium: ["nh4", "nh4 n", "n nh4", "n-nh4", "amonio", "ammonium", "ammonium nitrogen"],
+  phosphorus: ["p", "fosforo", "phosphorus", "phosphore"],
+  phosphorus_olsen: ["p olsen", "fosforo olsen", "phosphorus olsen", "nahco3 p", "nahco3-p"],
+  phosphorus_bray: ["p bray", "fosforo bray", "phosphorus bray"],
+  phosphorus_mehlich: ["p mehlich", "fosforo mehlich", "phosphorus mehlich"],
+  potassium: ["k", "potasio", "potassium", "potasio intercambiable", "exchangeable potassium"],
+  calcium: ["ca", "calcio", "calcium", "calcio intercambiable", "exchangeable calcium"],
+  magnesium: ["mg", "magnesio", "magnesium", "magnesio intercambiable", "exchangeable magnesium"],
+  sodium: [
+    "na",
+    "na intercambiable",
+    "na exchangeable",
+    "exchangeable na",
+    "sodio",
+    "sodium",
+    "sodio intercambiable",
+    "sodium exchangeable",
+    "exchangeable sodium",
+  ],
+  exchangeable_acidity: [
+    "acidez",
+    "acidez intercambiable",
+    "ac inter",
+    "ac interc",
+    "h al",
+    "h+al",
+    "exchangeable acidity",
+  ],
+  sulfur: ["s", "azufre", "sulfur", "sulphur", "soufre"],
+  iron: ["fe", "hierro", "iron", "fer"],
+  zinc: ["zn", "zinc"],
+  manganese: ["mn", "manganeso", "manganese"],
+  copper: ["cu", "cobre", "copper", "cuivre"],
+  boron: ["b", "boro", "boron", "bore"],
+  chloride: ["cl", "cloruro", "chloride"],
+  bulk_density: ["da", "d a", "densidad aparente", "bulk density", "bd"],
+  moisture: ["saturacion de humedad media", "humedad", "moisture", "humidity", "water saturation"],
+  clay: ["arcilla", "clay", "argile"],
+  sand: ["arena", "sand", "sable"],
+  silt: ["limo", "silt", "limon"],
+  texture: ["textura", "texture", "soil texture"],
+};
 
 function normalizeScannedText(value: string) {
   return value
@@ -213,20 +298,112 @@ function buildParameterSearchMap(parameters: ParameterForImport[]) {
   const map = new Map<string, ParameterForImport>();
 
   for (const parameter of parameters) {
-    const names = [
-      parameter.display_name,
-      parameter.parameter_name,
-      parameter.symbol || "",
-      `${parameter.display_name} ${parameter.symbol || ""}`,
-      `${parameter.parameter_name} ${parameter.symbol || ""}`,
-    ].filter(Boolean);
-
-    for (const name of names) {
+    for (const name of getParameterSearchTerms(parameter)) {
       map.set(normalizeText(name), parameter);
     }
   }
 
   return map;
+}
+
+function getParameterAliasTerms(parameter: ParameterForImport) {
+  const combined = normalizeText(
+    `${parameter.parameter_name} ${parameter.display_name} ${parameter.symbol || ""}`
+  );
+  const aliases = new Set<string>();
+
+  for (const terms of Object.values(IMPORT_PARAMETER_ALIASES)) {
+    const familyMatch = terms.some((term) => {
+      const normalizedTerm = normalizeText(term);
+      const combinedTokens = tokenSet(combined);
+      const termTokens = tokenSet(normalizedTerm);
+
+      if (normalizedTerm.length <= 2) {
+        return termTokens.size === 1 && combinedTokens.has(normalizedTerm);
+      }
+
+      return (
+        combined === normalizedTerm ||
+        combined.includes(normalizedTerm) ||
+        normalizedTerm.includes(combined)
+      );
+    });
+
+    if (familyMatch) {
+      terms.forEach((term) => aliases.add(term));
+    }
+  }
+
+  return Array.from(aliases);
+}
+
+function looksLikeSodiumName(value: string) {
+  const normalized = normalizeText(value);
+  if (!normalized) return false;
+  if (/\b(nitrate|nitrato|nitrogen|nitrogeno)\b/.test(normalized)) return false;
+  return /\b(na|sodium|sodio)\b/.test(normalized);
+}
+
+function isSodiumParameter(parameter: ParameterForImport) {
+  return getParameterSearchTerms(parameter).some((term) => looksLikeSodiumName(term));
+}
+
+function forceSodiumParameterMatch(
+  rawName: string,
+  current: ParameterForImport | null,
+  parameters: ParameterForImport[]
+) {
+  if (!looksLikeSodiumName(rawName)) return current;
+  if (current && isSodiumParameter(current)) return current;
+
+  const sodiumCandidates = parameters.filter((parameter) => isSodiumParameter(parameter));
+  if (sodiumCandidates.length === 0) return current;
+
+  const ranked = sodiumCandidates
+    .map((parameter) => ({
+      parameter,
+      score: parameterMatchScore(rawName, getParameterSearchTerms(parameter)),
+    }))
+    .sort((left, right) => right.score - left.score);
+
+  return ranked[0]?.parameter || current;
+}
+
+function tokenSet(value: string) {
+  return new Set(normalizeText(value).split(" ").filter(Boolean));
+}
+
+function parameterMatchScore(rawName: string, terms: string[]) {
+  const normalizedRawName = normalizeText(rawName);
+  if (!normalizedRawName) return 0;
+
+  let best = 0;
+  const rawTokens = tokenSet(normalizedRawName);
+
+  for (const term of terms) {
+    const normalizedTerm = normalizeText(term);
+    if (!normalizedTerm) continue;
+
+    if (normalizedRawName === normalizedTerm) {
+      best = Math.max(best, 1);
+      continue;
+    }
+
+    const termTokens = tokenSet(normalizedTerm);
+    const everyTermTokenPresent = [...termTokens].every((token) => rawTokens.has(token));
+    if (everyTermTokenPresent && termTokens.size > 0) {
+      best = Math.max(best, termTokens.size === rawTokens.size ? 0.96 : 0.88);
+    }
+
+    if (
+      normalizedTerm.length >= 4 &&
+      new RegExp(`(^|\\s)${escapeRegExp(normalizedTerm)}(\\s|$)`).test(normalizedRawName)
+    ) {
+      best = Math.max(best, 0.86);
+    }
+  }
+
+  return best;
 }
 
 function findBestParameterMatch(
@@ -238,27 +415,26 @@ function findBestParameterMatch(
   if (!normalizedRawName) return null;
 
   const exactMatch = searchMap.get(normalizedRawName);
-  if (exactMatch) return exactMatch;
+  if (exactMatch) {
+    return forceSodiumParameterMatch(rawName, exactMatch, parameters);
+  }
 
-  const containsMatch = parameters.find((parameter) => {
-    const possibleNames = [
-      parameter.display_name,
-      parameter.parameter_name,
-      parameter.symbol || "",
-    ]
-      .filter(Boolean)
-      .map(normalizeText)
-      .filter((name) => name.length >= 2);
+  const ranked = parameters
+    .map((parameter) => ({
+      parameter,
+      score: parameterMatchScore(rawName, getParameterSearchTerms(parameter)),
+    }))
+    .filter((match) => match.score >= 0.86)
+    .sort((left, right) => right.score - left.score);
 
-    return possibleNames.some(
-      (name) =>
-        normalizedRawName === name ||
-        normalizedRawName.includes(name) ||
-        name.includes(normalizedRawName)
-    );
-  });
+  if (ranked.length === 0) {
+    return forceSodiumParameterMatch(rawName, null, parameters);
+  }
+  if (ranked[1] && ranked[0].score - ranked[1].score < 0.06) {
+    return forceSodiumParameterMatch(rawName, null, parameters);
+  }
 
-  return containsMatch || null;
+  return forceSodiumParameterMatch(rawName, ranked[0].parameter, parameters);
 }
 
 function findUnitId(parameter: ParameterForImport, rawUnit: string | undefined) {
@@ -306,6 +482,17 @@ function getParameterLabel(parameter: ParameterForImport) {
   }${parameter.is_custom ? " - Custom" : ""}`;
 }
 
+function getTextureClass(parameter: ParameterForImport | null | undefined) {
+  if (!parameter) return null;
+  const text = normalizeText(
+    `${parameter.display_name} ${parameter.parameter_name} ${parameter.symbol || ""}`
+  );
+  if (/\b(sand|arena|sable)\b/.test(text)) return "sand";
+  if (/\b(silt|limo|limon)\b/.test(text)) return "silt";
+  if (/\b(clay|arcilla|argile)\b/.test(text)) return "clay";
+  return null;
+}
+
 function readImportMemory(): AiImportPayload | null {
   if (typeof window === "undefined") return null;
   try {
@@ -339,6 +526,7 @@ function getParameterSearchTerms(parameter: ParameterForImport) {
     parameter.symbol || "",
     parameter.symbol ? `${parameter.display_name} ${parameter.symbol}` : "",
     parameter.symbol ? `${parameter.parameter_name} ${parameter.symbol}` : "",
+    ...getParameterAliasTerms(parameter),
   ]
     .filter(Boolean)
     .map((term) => term.trim())
@@ -657,10 +845,11 @@ async function prepareImageForAi(input: Blob) {
   });
 }
 
-async function recognizeImage(blob: Blob) {
+async function recognizeImage(blob: Blob, language: Language) {
   const preparedImage = await prepareImageForAi(blob);
   const formData = new FormData();
   formData.append("image", preparedImage, "lab-report.png");
+  formData.append("language", language);
 
   const response = await fetch("/api/ai-import", {
     method: "POST",
@@ -686,11 +875,13 @@ async function recognizeImage(blob: Blob) {
 async function recognizeExtractedContentWithAi(options: {
   text?: string;
   tableRows?: string[][];
+  language: Language;
 }) {
   const formData = new FormData();
   const text = options.text?.trim() || "";
 
   if (text) formData.append("text", text);
+  formData.append("language", options.language);
   if (options.tableRows?.length) {
     formData.append("table", JSON.stringify(options.tableRows.slice(0, 300)));
   }
@@ -720,8 +911,10 @@ export default function LabValueImporter({
   open,
   mode = "import",
   onClose,
+  language,
   parameters,
   existingValues = {},
+  onRequestCreateParameter,
   onImportValues,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -758,6 +951,33 @@ export default function LabValueImporter({
     if (!row.matchedParameterKey) return false;
     return Boolean(existingValues[row.matchedParameterKey]?.trim());
   }).length;
+
+  const textureSummary = useMemo(() => {
+    const bucket = { sand: null as number | null, silt: null as number | null, clay: null as number | null };
+
+    for (const row of previewRows) {
+      if (!row.matchedParameterKey) continue;
+      const parameter = parameterByKey.get(row.matchedParameterKey);
+      const klass = getTextureClass(parameter);
+      if (!klass) continue;
+      const value = Number(row.value.replace(",", "."));
+      if (!Number.isFinite(value)) continue;
+      bucket[klass] = value;
+    }
+
+    const found = ["sand", "silt", "clay"].filter((item) => bucket[item as keyof typeof bucket] !== null).length;
+    const complete = found === 3;
+    const total = complete ? (bucket.sand || 0) + (bucket.silt || 0) + (bucket.clay || 0) : null;
+    const withinRange = total !== null ? total >= 95 && total <= 105 : false;
+
+    return {
+      found,
+      complete,
+      total,
+      withinRange,
+      values: bucket,
+    };
+  }, [previewRows, parameterByKey]);
 
   useEffect(() => {
     if (!open) return;
@@ -1018,7 +1238,7 @@ export default function LabValueImporter({
     setMessage("");
 
     try {
-      const payload = await recognizeImage(blob);
+      const payload = await recognizeImage(blob, language);
       buildAiDocumentPreview(payload, sourceLabel);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Photo analysis failed.");
@@ -1073,7 +1293,7 @@ export default function LabValueImporter({
         }
 
         setLoadingLabel("Asking AI to read the CSV structure...");
-        const payload = await recognizeExtractedContentWithAi({ text, tableRows });
+      const payload = await recognizeExtractedContentWithAi({ text, tableRows, language });
         if (payload.rows?.length) {
           buildAiDocumentPreview(payload, file.name || "CSV");
         } else {
@@ -1095,7 +1315,7 @@ export default function LabValueImporter({
         }
 
         setLoadingLabel("Asking AI to read the report text...");
-        const payload = await recognizeExtractedContentWithAi({ text });
+        const payload = await recognizeExtractedContentWithAi({ text, language });
         buildAiDocumentPreview(payload, file.name || "text report");
         return;
       }
@@ -1115,7 +1335,7 @@ export default function LabValueImporter({
 
         if (text.trim().length > 80) {
           setLoadingLabel("Asking AI to read the PDF text...");
-          const payload = await recognizeExtractedContentWithAi({ text });
+          const payload = await recognizeExtractedContentWithAi({ text, language });
           buildAiDocumentPreview(payload, file.name || "PDF");
           return;
         }
@@ -1127,7 +1347,7 @@ export default function LabValueImporter({
 
         for (let index = 0; index < pageImages.length; index += 1) {
           setLoadingLabel(`Reading PDF page ${index + 1} of ${pageImages.length}...`);
-          const payload = await recognizeImage(pageImages[index]);
+          const payload = await recognizeImage(pageImages[index], language);
           pageTexts.push(payload.text);
           pageTokens.push(
             ...(payload.tokens || []).map((token) => ({
@@ -1187,6 +1407,7 @@ export default function LabValueImporter({
         const payload = await recognizeExtractedContentWithAi({
           text: tableRows.map((row) => row.join(" | ")).join("\n"),
           tableRows,
+          language,
         });
         if (payload.rows?.length) {
           buildAiDocumentPreview(payload, firstSheetName);
@@ -1312,12 +1533,27 @@ export default function LabValueImporter({
       previousRows.map((row) => {
         if (row.id !== rowId || !row.matchedParameterKey) return row;
         const parameter = parameterByKey.get(row.matchedParameterKey);
+        const currentUnit = parameter?.available_units.find(
+          (option) => getUnitOptionKey(option) === row.selectedUnitDisplayKey
+        );
         const unit = parameter?.available_units.find(
           (option) => getUnitOptionKey(option) === unitDisplayKey
         );
-        if (!unit) return row;
+        if (!unit || !currentUnit) return row;
+
+        const parsedValue = Number(String(row.value).replace(",", "."));
+        if (!Number.isFinite(parsedValue)) return row;
+
+        const converted = convertLabUnit(
+          parsedValue,
+          currentUnit.unit_symbol || currentUnit.display_symbol,
+          unit.unit_symbol || unit.display_symbol
+        );
+        if (!converted) return row;
+
         return {
           ...row,
+          value: String(converted.value),
           selectedUnitId: unit.unit_id,
           selectedUnitDisplayKey: getUnitOptionKey(unit),
         };
@@ -1702,6 +1938,28 @@ export default function LabValueImporter({
               />
             </div>
 
+            {textureSummary.found > 0 ? (
+              <div
+                className={`mt-3 rounded-2xl p-3 text-sm font-semibold ${
+                  textureSummary.complete
+                    ? textureSummary.withinRange
+                      ? "bg-green-50 text-green-900"
+                      : "bg-yellow-50 text-yellow-900"
+                    : "bg-slate-50 text-slate-700"
+                }`}
+              >
+                Texture summary: {textureSummary.found}/3 detected
+                {textureSummary.values.sand !== null ? `, Sand ${textureSummary.values.sand}%` : ""}
+                {textureSummary.values.silt !== null ? `, Silt ${textureSummary.values.silt}%` : ""}
+                {textureSummary.values.clay !== null ? `, Clay ${textureSummary.values.clay}%` : ""}
+                {textureSummary.total !== null
+                  ? `, Sum ${textureSummary.total.toFixed(1)}% ${
+                      textureSummary.withinRange ? "(coherent)" : "(check values)"
+                    }`
+                  : ""}
+              </div>
+            ) : null}
+
             <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
               <table className="w-full min-w-[1040px] border-collapse bg-white text-sm">
                 <thead className="bg-slate-50 text-left text-slate-600">
@@ -1721,6 +1979,9 @@ export default function LabValueImporter({
                     const matchedParameter = row.matchedParameterKey
                       ? parameterByKey.get(row.matchedParameterKey)
                       : null;
+                    const selectedRowUnit = matchedParameter?.available_units.find(
+                      (option) => getUnitOptionKey(option) === row.selectedUnitDisplayKey
+                    );
                     const hasExistingValue =
                       row.matchedParameterKey &&
                       existingValues[row.matchedParameterKey]?.trim();
@@ -1779,6 +2040,20 @@ export default function LabValueImporter({
                               Existing value will be replaced.
                             </p>
                           ) : null}
+                          {row.status === "unmatched" && onRequestCreateParameter ? (
+                            <button
+                              type="button"
+                              className="mt-1 text-xs font-semibold text-green-800 underline underline-offset-2"
+                              onClick={() =>
+                                onRequestCreateParameter({
+                                  parameterName: row.rawParameter,
+                                  unitSymbol: row.unit || undefined,
+                                })
+                              }
+                            >
+                              Add as custom parameter
+                            </button>
+                          ) : null}
                         </td>
                         <td className="border-b border-slate-100 p-3 font-bold">
                           {row.value || "-"}
@@ -1793,18 +2068,27 @@ export default function LabValueImporter({
                                 updateRowUnit(row.id, event.target.value)
                               }
                             >
-                              {matchedParameter.available_units.map((unit, index) => (
+                              {matchedParameter.available_units.map((unit, index) => {
+                                const canConvert =
+                                  !selectedRowUnit ||
+                                  canConvertLabUnit(
+                                    selectedRowUnit.unit_symbol || selectedRowUnit.display_symbol,
+                                    unit.unit_symbol || unit.display_symbol
+                                  );
+                                return (
                                 <option
                                   key={`${unit.unit_id}-${unit.display_symbol}-${index}`}
                                   value={getUnitOptionKey(unit)}
+                                  disabled={!canConvert}
                                 >
                                   {unit.display_symbol || unit.unit_symbol}
                                 </option>
-                              ))}
+                                );
+                              })}
                             </select>
                               {row.unit ? (
                                 <p className="text-xs font-semibold text-slate-500">
-                                  Detected: {row.unit}. Values are not converted.
+                                  Detected: {row.unit}. Values convert only when compatible.
                                 </p>
                               ) : null}
                             </div>
@@ -1864,3 +2148,4 @@ function ImportStat({
     </div>
   );
 }
+

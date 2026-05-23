@@ -286,7 +286,7 @@ html[data-theme="dark"] .mobile-menu-panel {
   html[data-theme="dark"] .bg-white\/45,
   html[data-theme="dark"] .bg-white\/40,
   html[data-theme="dark"] .bg-white\/15 {
-    background-color: rgb(18 18 18 / 0.72);
+    background-color: var(--dark-panel-bg, rgb(18 18 18 / 0.72));
   }
 
   html[data-theme="dark"] .bg-slate-50,
@@ -295,7 +295,7 @@ html[data-theme="dark"] .mobile-menu-panel {
   html[data-theme="dark"] .bg-green-50\/70,
   html[data-theme="dark"] .bg-green-50\/80,
   html[data-theme="dark"] .bg-emerald-50\/70 {
-    background-color: rgb(24 24 24 / 0.8);
+    background-color: var(--dark-panel-bg-strong, rgb(24 24 24 / 0.8));
   }
 
   html[data-theme="dark"] .text-green-950,

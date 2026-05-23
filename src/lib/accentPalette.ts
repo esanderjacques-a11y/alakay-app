@@ -1,5 +1,5 @@
 import type { AccentColor } from "@/lib/appSettings";
-import type { AppTheme } from "@/lib/uiPreferences";
+import type { AppTheme, DarkVariant } from "@/lib/uiPreferences";
 
 type Hsl = { h: number; s: number; l: number };
 
@@ -101,17 +101,22 @@ function withAlpha(hslColor: string, alpha: number) {
   return hslColor.replace("hsl(", "hsla(").replace(")", ` / ${alpha})`);
 }
 
-export function buildAccentCssVariables(accent: AccentColor, theme: AppTheme) {
+export function buildAccentCssVariables(
+  accent: AccentColor,
+  theme: AppTheme,
+  darkVariant: DarkVariant = "classic"
+) {
   const hslScale = buildAccentHslScale(accent);
   const scale = buildAccentScale(accent);
   const seed = ACCENT_SEEDS[accent];
   const glow = hslToRgbParts(seed);
   const isDark = theme === "dark";
-  const darkBase = "hsl(0 0% 2%)";
-  const darkSurface = "hsl(0 0% 7%)";
-  const darkSurfaceRaised = "hsl(0 0% 11%)";
-  const darkBorder = "rgb(255 255 255 / 0.16)";
-  const darkMuted = "rgb(230 230 230 / 0.74)";
+  const isBlackDark = isDark && darkVariant === "black";
+  const darkBase = isBlackDark ? "hsl(0 0% 2%)" : `hsl(${seed.h} 24% 10%)`;
+  const darkSurface = isBlackDark ? "hsl(0 0% 7%)" : `hsl(${seed.h} 20% 14%)`;
+  const darkSurfaceRaised = isBlackDark ? "hsl(0 0% 11%)" : `hsl(${seed.h} 18% 18%)`;
+  const darkBorder = isBlackDark ? "rgb(255 255 255 / 0.16)" : "rgb(255 255 255 / 0.2)";
+  const darkMuted = isBlackDark ? "rgb(230 230 230 / 0.74)" : "rgb(233 239 236 / 0.82)";
 
   const primary = isDark ? scale[400] : scale[700];
   const primaryDark = isDark ? scale[300] : scale[800];
@@ -119,11 +124,15 @@ export function buildAccentCssVariables(accent: AccentColor, theme: AppTheme) {
   const foreground = isDark ? "#ffffff" : scale[950];
 
   const bodyGradient = isDark
-    ? `radial-gradient(circle at 16% 8%, ${withAlpha(scale[400], 0.18)}, transparent 32%), radial-gradient(circle at 84% 14%, ${withAlpha(scale[300], 0.1)}, transparent 34%), linear-gradient(145deg, hsl(0 0% 2%) 0%, hsl(0 0% 4%) 52%, hsl(0 0% 6%) 100%)`
+    ? isBlackDark
+      ? `radial-gradient(circle at 16% 8%, ${withAlpha(scale[400], 0.18)}, transparent 32%), radial-gradient(circle at 84% 14%, ${withAlpha(scale[300], 0.1)}, transparent 34%), linear-gradient(145deg, hsl(0 0% 2%) 0%, hsl(0 0% 4%) 52%, hsl(0 0% 6%) 100%)`
+      : `radial-gradient(circle at 14% 10%, ${withAlpha(scale[300], 0.2)}, transparent 32%), radial-gradient(circle at 82% 16%, ${withAlpha(scale[500], 0.12)}, transparent 36%), linear-gradient(145deg, ${darkBase} 0%, ${darkSurface} 48%, ${darkSurfaceRaised} 100%)`
     : `linear-gradient(145deg, ${scale[100]} 0%, ${scale[50]} 35%, #ffffff 70%, ${scale[100]} 100%)`;
 
   const mainGradient = isDark
-    ? `linear-gradient(180deg, rgb(14 14 14 / 0.94) 0%, rgb(10 10 10 / 0.96) 56%, rgb(7 7 7 / 0.96) 100%), repeating-linear-gradient(112deg, ${withAlpha(scale[400], 0.07)} 0 1px, transparent 1px 24px), repeating-linear-gradient(168deg, ${withAlpha(scale[300], 0.04)} 0 1px, transparent 1px 30px), radial-gradient(ellipse at 50% 12%, ${withAlpha(scale[400], 0.16)}, transparent 42%), linear-gradient(135deg, rgb(12 12 12 / 0.95) 0%, rgb(18 18 18 / 0.92) 46%, rgb(8 8 8 / 0.95) 100%)`
+    ? isBlackDark
+      ? `linear-gradient(180deg, rgb(14 14 14 / 0.94) 0%, rgb(10 10 10 / 0.96) 56%, rgb(7 7 7 / 0.96) 100%), repeating-linear-gradient(112deg, ${withAlpha(scale[400], 0.07)} 0 1px, transparent 1px 24px), repeating-linear-gradient(168deg, ${withAlpha(scale[300], 0.04)} 0 1px, transparent 1px 30px), radial-gradient(ellipse at 50% 12%, ${withAlpha(scale[400], 0.16)}, transparent 42%), linear-gradient(135deg, rgb(12 12 12 / 0.95) 0%, rgb(18 18 18 / 0.92) 46%, rgb(8 8 8 / 0.95) 100%)`
+      : `linear-gradient(180deg, ${withAlpha(darkSurface, 0.94)} 0%, ${withAlpha(darkBase, 0.96)} 56%, ${withAlpha(darkSurfaceRaised, 0.94)} 100%), repeating-linear-gradient(112deg, ${withAlpha(scale[300], 0.1)} 0 1px, transparent 1px 24px), repeating-linear-gradient(168deg, ${withAlpha(scale[400], 0.06)} 0 1px, transparent 1px 30px), radial-gradient(ellipse at 50% 12%, ${withAlpha(scale[400], 0.18)}, transparent 42%), linear-gradient(135deg, ${withAlpha(darkBase, 0.96)} 0%, ${withAlpha(darkSurface, 0.94)} 46%, ${withAlpha(darkSurfaceRaised, 0.94)} 100%)`
     : `linear-gradient(180deg, ${withAlpha(scale[100], 0.78)} 0%, ${withAlpha(scale[50], 0.78)} 54%, ${withAlpha(scale[100], 0.84)} 100%), repeating-linear-gradient(112deg, ${withAlpha(scale[700], 0.1)} 0 1px, transparent 1px 24px), repeating-linear-gradient(168deg, ${withAlpha(scale[600], 0.06)} 0 1px, transparent 1px 30px), radial-gradient(ellipse at 50% 14%, rgba(255, 255, 255, 0.58), transparent 42%), linear-gradient(135deg, ${scale[50]} 0%, ${scale[100]} 46%, ${scale[50]} 100%)`;
 
   const authGradient = mainGradient;
@@ -179,11 +188,15 @@ export function buildAccentCssVariables(accent: AccentColor, theme: AppTheme) {
   return vars;
 }
 
-export function applyAccentTheme(accent: AccentColor, theme: AppTheme) {
+export function applyAccentTheme(
+  accent: AccentColor,
+  theme: AppTheme,
+  darkVariant: DarkVariant = "classic"
+) {
   if (typeof document === "undefined") return;
 
   document.documentElement.dataset.accent = accent;
-  const variables = buildAccentCssVariables(accent, theme);
+  const variables = buildAccentCssVariables(accent, theme, darkVariant);
 
   for (const [name, value] of Object.entries(variables)) {
     document.documentElement.style.setProperty(name, value);

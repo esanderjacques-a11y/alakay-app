@@ -2,7 +2,7 @@ import type { Language } from "@/lib/translations";
 
 export const APP_SETTINGS_STORAGE_KEY = "alakay_app_settings";
 
-export type AppThemePreference = "system" | "light" | "dark";
+export type AppThemePreference = "system" | "light" | "dark" | "dark_black";
 export type AccentColor =
   | "green"
   | "teal"
@@ -183,7 +183,9 @@ function mergeSettings(settings: Partial<AppSettings>): AppSettings {
     Math.max(1, merged.data.permanentDeleteDays || MAX_PERMANENT_DELETE_DAYS)
   );
   merged.general.theme =
-    merged.general.theme === "light" || merged.general.theme === "dark"
+    merged.general.theme === "light" ||
+    merged.general.theme === "dark" ||
+    merged.general.theme === "dark_black"
       ? merged.general.theme
       : "system";
   if (

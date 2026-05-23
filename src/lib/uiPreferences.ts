@@ -6,19 +6,28 @@ import type { Language } from "@/lib/translations";
 export type { AccentColor } from "@/lib/appSettings";
 
 export type AppTheme = "light" | "dark";
+export type DarkVariant = "classic" | "black";
 
 const LANGUAGE_KEY = "alakay-language";
 const THEME_KEY = "alakay-theme";
+const THEME_VARIANT_KEY = "alakay-theme-variant";
 
 export function resolveThemePreference(
   preference: AppThemePreference
 ): AppTheme {
   if (preference === "light") return "light";
   if (preference === "dark") return "dark";
+  if (preference === "dark_black") return "dark";
   if (typeof window === "undefined") return "light";
   return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
+}
+
+export function resolveDarkVariantPreference(
+  preference: AppThemePreference
+): DarkVariant {
+  return preference === "dark_black" ? "black" : "classic";
 }
 
 export function readStoredLanguage(): Language {
@@ -58,6 +67,20 @@ export function readStoredTheme(): AppTheme {
   return resolveThemePreference(preference);
 }
 
+export function readStoredDarkVariant(): DarkVariant {
+  if (typeof window === "undefined") return "classic";
+
+  const preference = getSettings().general.theme;
+  if (preference === "dark_black") return "black";
+
+  const legacyVariant = window.localStorage.getItem(THEME_VARIANT_KEY);
+  if (legacyVariant === "black" || legacyVariant === "classic") {
+    return legacyVariant;
+  }
+
+  return "classic";
+}
+
 export function persistLanguage(language: Language) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(LANGUAGE_KEY, language);
@@ -68,15 +91,26 @@ export function persistTheme(theme: AppTheme) {
   window.localStorage.setItem(THEME_KEY, theme);
 }
 
-export function applyTheme(theme: AppTheme) {
+function persistThemeVariant(variant: DarkVariant) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(THEME_VARIANT_KEY, variant);
+}
+
+export function applyTheme(theme: AppTheme, darkVariant: DarkVariant = readStoredDarkVariant()) {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset.darkVariant = theme === "dark" ? darkVariant : "classic";
   persistTheme(theme);
+  persistThemeVariant(darkVariant);
   applyVisualTone();
 }
 
-export function applyAccentColor(accent: AccentColor, theme: AppTheme = readStoredTheme()) {
-  applyAccentPalette(accent, theme);
+export function applyAccentColor(
+  accent: AccentColor,
+  theme: AppTheme = readStoredTheme(),
+  darkVariant: DarkVariant = readStoredDarkVariant()
+) {
+  applyAccentPalette(accent, theme, darkVariant);
 }
 
 export function readStoredAccent(): AccentColor {

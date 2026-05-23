@@ -50,6 +50,7 @@ import {
   readStoredAccent,
   readStoredLanguage,
   readStoredTheme,
+  resolveDarkVariantPreference,
   resolveThemePreference,
   type AppTheme,
 } from "@/lib/uiPreferences";
@@ -623,14 +624,15 @@ export default function HomePage() {
   }, [currentStep]);
 
   useEffect(() => {
-    applyTheme(theme);
-    applyAccentColor(readStoredAccent(), theme);
+    const darkVariant = resolveDarkVariantPreference(appSettings.general.theme);
+    applyTheme(theme, darkVariant);
+    applyAccentColor(readStoredAccent(), theme, darkVariant);
     applyVisualTone();
     document.documentElement.style.setProperty(
       "--app-root-font-size",
       `${16 + getSettings().general.appFontSizeDelta}px`
     );
-  }, [theme]);
+  }, [theme, appSettings.general.theme]);
 
   function changeLanguage(nextLanguage: Language) {
     setLanguage(nextLanguage);
@@ -1969,9 +1971,15 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     theme,
     onToggleTheme: () =>
       setTheme((currentTheme) => {
-        const nextTheme = currentTheme === "light" ? "dark" : "light";
-        updateSetting("general", "theme", nextTheme);
-        return nextTheme;
+        if (currentTheme === "light") {
+          const currentPreference = getSettings().general.theme;
+          const nextPreference =
+            currentPreference === "dark_black" ? "dark_black" : "dark";
+          updateSetting("general", "theme", nextPreference);
+          return "dark";
+        }
+        updateSetting("general", "theme", "light");
+        return "light";
       }),
   };
 

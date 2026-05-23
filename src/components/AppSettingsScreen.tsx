@@ -35,6 +35,7 @@ import {
   applyBrightness,
   applyContrast,
   applySaturation,
+  resolveDarkVariantPreference,
   resolveThemePreference,
 } from "@/lib/uiPreferences";
 import AccountSettingsSection from "@/components/AccountSettingsSection";
@@ -123,6 +124,7 @@ type SettingsText = {
     system: string;
     light: string;
     dark: string;
+    darkBlack: string;
     accentGreen: string;
     accentTeal: string;
     accentBlue: string;
@@ -223,6 +225,7 @@ const settingsText: Record<Language, SettingsText> = {
       system: "System",
       light: "Light",
       dark: "Dark",
+      darkBlack: "Black dark",
       accentGreen: "Green",
       accentTeal: "Teal",
       accentBlue: "Blue",
@@ -321,6 +324,7 @@ const settingsText: Record<Language, SettingsText> = {
       system: "Sistema",
       light: "Claro",
       dark: "Oscuro",
+      darkBlack: "Oscuro negro",
       accentGreen: "Verde",
       accentTeal: "Turquesa",
       accentBlue: "Azul",
@@ -419,6 +423,7 @@ const settingsText: Record<Language, SettingsText> = {
       system: "Système",
       light: "Clair",
       dark: "Sombre",
+      darkBlack: "Noir profond",
       accentGreen: "Vert",
       accentTeal: "Sarcelle",
       accentBlue: "Bleu",
@@ -517,6 +522,7 @@ const settingsText: Record<Language, SettingsText> = {
       system: "Sistèm",
       light: "Klè",
       dark: "Fonse",
+      darkBlack: "Fonse nwa",
       accentGreen: "Vèt",
       accentTeal: "Ble sarcel",
       accentBlue: "Ble",
@@ -615,6 +621,7 @@ const settingsText: Record<Language, SettingsText> = {
       system: "Sistema",
       light: "Claro",
       dark: "Escuro",
+      darkBlack: "Escuro preto",
       accentGreen: "Verde",
       accentTeal: "Azul-petróleo",
       accentBlue: "Azul",
@@ -713,6 +720,7 @@ const settingsText: Record<Language, SettingsText> = {
       system: "Mfumo",
       light: "Angavu",
       dark: "Meusi",
+      darkBlack: "Meusi kabisa",
       accentGreen: "Kijani",
       accentTeal: "Samawati-kijani",
       accentBlue: "Bluu",
@@ -763,6 +771,7 @@ const themeOptions = (text: SettingsText): { value: AppThemePreference; label: s
   { value: "system", label: text.options.system },
   { value: "light", label: text.options.light },
   { value: "dark", label: text.options.dark },
+  { value: "dark_black", label: text.options.darkBlack },
 ];
 
 const accentOptions = (text: SettingsText): { value: AccentColor; label: string }[] => [
@@ -860,9 +869,10 @@ export default function AppSettingsScreen({
 
   function previewSettings(nextSettings: AppSettings) {
     const resolvedTheme = resolveThemePreference(nextSettings.general.theme);
+    const darkVariant = resolveDarkVariantPreference(nextSettings.general.theme);
     onLanguageChange(nextSettings.general.language);
     onThemePreferenceChange(nextSettings.general.theme);
-    applyAccentColor(nextSettings.general.accentColor, resolvedTheme);
+    applyAccentColor(nextSettings.general.accentColor, resolvedTheme, darkVariant);
     applyBrightness(nextSettings.general.brightness);
     applySaturation(nextSettings.general.saturation);
     applyContrast(nextSettings.general.contrast);

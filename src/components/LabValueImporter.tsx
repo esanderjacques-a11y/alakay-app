@@ -88,6 +88,44 @@ type AiImportPayload = {
   warning?: string;
 };
 
+function repairImportedRow(row: ImportedRow): ImportedRow {
+  const originalParameter = String(row.parameter || "");
+  const leadingNumericToken = originalParameter.match(
+    /^\s*([<>]?\s*[+-]?\d+(?:[.,]\d+)?)\s+(.+)$/
+  );
+
+  if (!leadingNumericToken) return row;
+
+  const candidateValue = parseImportedResultValue(leadingNumericToken[1]);
+  const trailingLabel = String(leadingNumericToken[2] || "").trim();
+  const trailingNormalized = normalizeText(trailingLabel.replace(/_/g, " "));
+
+  if (!candidateValue) return row;
+
+  const looksLikeUnitHeader =
+    /\bunit\b/.test(trailingNormalized) || /_unit/i.test(originalParameter);
+  const looksLikePhLabel = /\bph\b/.test(trailingNormalized);
+
+  if (looksLikePhLabel || looksLikeUnitHeader) {
+    return {
+      ...row,
+      parameter: looksLikePhLabel ? "pH" : trailingLabel || row.parameter,
+      value: candidateValue,
+      unit:
+        row.unit && row.unit.trim()
+          ? row.unit
+          : looksLikePhLabel
+            ? "pH"
+            : row.unit,
+      source: [row.source, "auto-fixed from merged OCR row"]
+        .filter(Boolean)
+        .join(" | "),
+    };
+  }
+
+  return row;
+}
+
 type Props = {
   open: boolean;
   mode?: ImportMode;
@@ -366,6 +404,11 @@ function detectAliasFamilies(value: string) {
   return families;
 }
 
+function hasFamilyOverlap(left: Set<string>, right: Set<string>) {
+  if (left.size === 0 || right.size === 0) return false;
+  return [...left].some((family) => right.has(family));
+}
+
 function looksLikeSodiumName(value: string) {
   const normalized = normalizeText(value);
   if (!normalized) return false;
@@ -453,17 +496,18 @@ function findBestParameterMatch(
       const parameterFamilies = detectAliasFamilies(
         `${parameter.display_name} ${parameter.parameter_name} ${parameter.symbol || ""}`
       );
+      const familyOverlap = hasFamilyOverlap(rawFamilies, parameterFamilies);
 
       let score = baseScore;
 
       if (normalizedRawSymbol) {
         if (parameterSymbol && parameterSymbol === normalizedRawSymbol) score += 0.3;
-        else if (parameterSymbol && parameterSymbol !== normalizedRawSymbol) score -= 0.25;
+        else if (!familyOverlap && parameterSymbol && parameterSymbol !== normalizedRawSymbol)
+          score -= 0.08;
       }
 
       if (rawFamilies.size > 0 && parameterFamilies.size > 0) {
-        const overlaps = [...rawFamilies].some((family) => parameterFamilies.has(family));
-        score += overlaps ? 0.25 : -0.2;
+        score += familyOverlap ? 0.25 : -0.2;
       }
 
       return { parameter, score };
@@ -485,6 +529,12 @@ function findBestParameterMatch(
 
   if (ranked.length === 0) {
     return forceSodiumParameterMatch(rawName, null, parameters);
+  }
+  if (looksLikeSodiumName(rawName)) {
+    const sodiumRank = ranked.find((item) => isSodiumParameter(item.parameter));
+    if (sodiumRank && sodiumRank.score >= 0.55) {
+      return sodiumRank.parameter;
+    }
   }
   if (ranked[1] && ranked[0].score - ranked[1].score < 0.06) {
     return forceSodiumParameterMatch(rawName, null, parameters);
@@ -1113,7 +1163,8 @@ export default function LabValueImporter({
   function buildPreview(rows: ImportedRow[]) {
     const searchMap = buildParameterSearchMap(parameters);
 
-    const preview = rows.map((row, index) => {
+    const preview = rows.map((unsafeRow, index) => {
+      const row = repairImportedRow(unsafeRow);
       const matchedParameter = findBestParameterMatch(
         row.parameter,
         parameters,

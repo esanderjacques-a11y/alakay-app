@@ -726,11 +726,11 @@ export default function AnalysisHistory({
   }
 
   return (
-    <section className="grid gap-3">
-      <div className="relative pr-12">
+    <section className="grid gap-4">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-extrabold text-green-900 sm:text-lg">{l.title}</h2>
-          <p className="mt-0.5 max-w-2xl text-xs text-slate-600">{l.desc}</p>
+          <p className="mt-0.5 max-w-2xl text-sm font-medium text-slate-600">{l.desc}</p>
         </div>
 
         <button
@@ -738,54 +738,58 @@ export default function AnalysisHistory({
           title={l.refresh}
           aria-label={l.refresh}
           onClick={loadAnalyses}
-          className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-green-200 bg-white/70 text-green-800 transition hover:bg-green-50 active:scale-[0.98]"
+          className="history-icon-button shrink-0"
         >
           <RefreshCw size={16} />
         </button>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-stretch gap-2">
-        <HistoryFilterButton
-          label={l.activeReports}
-          value={activeCount}
-          active={historyFilter === "active"}
-          onClick={() => setHistoryFilter("active")}
-        />
-        <HistoryFilterButton
-          label={l.versions}
-          value={versionedCount}
-          active={historyFilter === "versions"}
-          onClick={() => setHistoryFilter("versions")}
-        />
-        <label className="relative block h-full" title={l.sortBy} aria-label={l.sortBy}>
-          <select
-            value={sortKey}
-            onChange={(event) => setSortKey(event.target.value as HistorySortKey)}
-            className="h-full min-h-12 w-11 appearance-none rounded-2xl border border-white/60 bg-white/72 text-transparent outline-none transition hover:bg-white/85 focus:border-green-300"
-          >
-            <option value="date">{l.date}</option>
-            <option value="name">{l.name}</option>
-            <option value="crop">{l.crop}</option>
-            <option value="type">{l.sampleType}</option>
-            <option value="location">{l.location}</option>
-          </select>
-          <ArrowUpDown
-            aria-hidden="true"
-            size={17}
-            className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-green-800"
+      <div className="grid items-stretch gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <div className="grid gap-2 sm:grid-cols-2 lg:contents">
+          <HistoryFilterButton
+            label={l.activeReports}
+            value={activeCount}
+            active={historyFilter === "active"}
+            onClick={() => setHistoryFilter("active")}
           />
-        </label>
-        <button
-          type="button"
-          title={sortDirection === "asc" ? l.ascending : l.descending}
-          aria-label={sortDirection === "asc" ? l.ascending : l.descending}
-          onClick={() =>
-            setSortDirection((current) => (current === "asc" ? "desc" : "asc"))
-          }
-          className="inline-flex min-h-12 w-11 items-center justify-center rounded-2xl border border-white/60 bg-white/72 text-lg font-extrabold text-green-800 transition hover:bg-white/85 active:scale-[0.98]"
-        >
-          {sortDirection === "asc" ? "↑" : "↓"}
-        </button>
+          <HistoryFilterButton
+            label={l.versions}
+            value={versionedCount}
+            active={historyFilter === "versions"}
+            onClick={() => setHistoryFilter("versions")}
+          />
+        </div>
+        <div className="history-sort-group">
+          <label className="relative min-w-0 flex-1" title={l.sortBy} aria-label={l.sortBy}>
+            <select
+              value={sortKey}
+              onChange={(event) => setSortKey(event.target.value as HistorySortKey)}
+              className="history-sort-select"
+            >
+              <option value="date">{l.date}</option>
+              <option value="name">{l.name}</option>
+              <option value="crop">{l.crop}</option>
+              <option value="type">{l.sampleType}</option>
+              <option value="location">{l.location}</option>
+            </select>
+            <ArrowUpDown
+              aria-hidden="true"
+              size={16}
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
+            />
+          </label>
+          <button
+            type="button"
+            title={sortDirection === "asc" ? l.ascending : l.descending}
+            aria-label={sortDirection === "asc" ? l.ascending : l.descending}
+            onClick={() =>
+              setSortDirection((current) => (current === "asc" ? "desc" : "asc"))
+            }
+            className="history-icon-button shrink-0"
+          >
+            {sortDirection === "asc" ? "↑" : "↓"}
+          </button>
+        </div>
       </div>
 
       {message && (
@@ -806,7 +810,7 @@ export default function AnalysisHistory({
         </div>
       )}
 
-      <div className="grid gap-2">
+      <div className="grid gap-3">
         {visibleGroups.map((group) => {
           const analysis = group.latest;
           const versionCount = group.versions.length;
@@ -830,39 +834,39 @@ export default function AnalysisHistory({
                   );
                 }
               }}
-          className={`cursor-pointer rounded-2xl border px-3 py-2.5 shadow-sm transition hover:bg-white/90 ${
+              className={`history-report-card cursor-pointer rounded-2xl border px-4 py-3 shadow-sm transition ${
                 analysis.is_deleted
-                  ? "border-red-200 bg-red-50/80"
+                  ? "history-report-card-deleted"
                   : isExpanded
-                    ? "border-green-300 bg-white/90"
-                    : "border-slate-200 bg-white/80"
+                    ? "history-report-card-expanded"
+                    : ""
               }`}
             >
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-left text-sm font-extrabold text-green-900">
+                    <span className="min-w-0 truncate text-left text-base font-extrabold leading-tight text-green-900">
                       {getAnalysisTitle(analysis)}
                     </span>
 
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
+                    <span className="history-badge history-badge-neutral">
                       {getVersionLabel(analysis, language)}
                     </span>
 
                     {versionCount > 1 && (
-                      <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-800">
+                      <span className="history-badge history-badge-accent">
                         {versionCount} {l.versions}
                       </span>
                     )}
 
                     {analysis.is_deleted ? (
-                      <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-bold text-red-700">
+                      <span className="history-badge history-badge-danger">
                         {l.deleted}
                       </span>
                     ) : null}
                   </div>
 
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-600">
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
                     <p className="min-w-0">
                       <strong>{l.crop}:</strong> {getCropName(analysis)}
                     </p>
@@ -998,14 +1002,10 @@ function HistoryFilterButton({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`rounded-2xl border px-3 py-2 text-left transition active:scale-[0.98] ${
-        active
-          ? "border-green-200 bg-green-50/80 text-green-900"
-          : "border-white/60 bg-white/68 text-slate-700 hover:bg-white/85"
-      }`}
+      className={`history-filter-button ${active ? "history-filter-button-active" : ""}`}
     >
-      <span className="block text-lg font-extrabold leading-none">{value}</span>
-      <span className="mt-1 block text-xs font-semibold">{label}</span>
+      <span className="block text-xl font-extrabold leading-none">{value}</span>
+      <span className="mt-1 block text-sm font-bold">{label}</span>
     </button>
   );
 }

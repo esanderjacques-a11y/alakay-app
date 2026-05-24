@@ -3223,14 +3223,19 @@ function ValuesScreen({
       {cropId && filteredParameters.length > 0 && valueEntryView === "table" && (
         <div
           ref={parameterGridRef}
-          className="relative z-0 mt-4 overflow-x-auto rounded-2xl border border-white/65 bg-white/58 shadow-sm backdrop-blur-xl animate-slide-up"
+          className="relative z-0 mt-4 overflow-hidden rounded-2xl border border-white/65 bg-white/58 shadow-sm backdrop-blur-xl animate-slide-up md:overflow-x-auto"
         >
-          <table className="w-full min-w-[520px] border-collapse text-sm">
+          <table className="w-full table-fixed border-collapse text-xs sm:text-sm md:min-w-[520px]">
+            <colgroup>
+              <col className="w-[30%] sm:w-[34%]" />
+              <col className="w-[36%] sm:w-[38%]" />
+              <col className="w-[34%] sm:w-[28%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-green-900/10 text-left text-xs font-extrabold uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-3">{t.parameterLabel}</th>
-                <th className="px-3 py-3">{t.valueLabel}</th>
-                <th className="px-3 py-3">{t.unitLabel}</th>
+                <th className="px-2 py-3 sm:px-3">{t.parameterLabel}</th>
+                <th className="px-2 py-3 sm:px-3">{t.valueLabel}</th>
+                <th className="px-2 py-3 sm:px-3">{t.unitLabel}</th>
               </tr>
             </thead>
             <tbody>
@@ -3269,14 +3274,14 @@ function ValuesScreen({
                     title={aliasTitle}
                     className="border-b border-green-900/6 last:border-0"
                   >
-                    <td className="px-3 py-2 align-middle">
-                      <div className="font-bold text-slate-900">
+                    <td className="px-2 py-2 align-middle sm:px-3">
+                      <div className="truncate font-bold text-slate-900">
                         {displayParameterLabel}
                       </div>
                     </td>
-                    <td className="px-3 py-2 align-middle">
+                    <td className="px-2 py-2 align-middle sm:px-3">
                       <input
-                        className="w-full rounded-xl border border-green-700/16 bg-white/65 p-2.5 text-sm font-semibold outline-none backdrop-blur-md focus:border-green-700/60 focus:bg-white/90 focus:ring-4 focus:ring-green-700/10"
+                        className="min-h-11 w-full min-w-0 rounded-xl border border-green-700/16 bg-white/65 px-2 py-2 text-xs font-semibold outline-none backdrop-blur-md placeholder:text-xs focus:border-green-700/60 focus:bg-white/90 focus:ring-4 focus:ring-green-700/10 sm:px-3 sm:text-sm"
                         type="text"
                         inputMode="decimal"
                         value={values[parameter.parameter_key] || ""}
@@ -3286,7 +3291,7 @@ function ValuesScreen({
                         placeholder={t.valuePlaceholder}
                       />
                     </td>
-                    <td className="px-3 py-2 align-middle">
+                    <td className="px-2 py-2 align-middle sm:px-3">
                       {parameter.available_units.length > 1 ? (
                         <select
                           value={selectedUnitDisplayKey}
@@ -3302,7 +3307,7 @@ function ValuesScreen({
                               getUnitOptionKey(unit)
                             );
                           }}
-                          className="w-full rounded-xl border border-green-700/10 bg-white/82 px-3 py-2 text-xs font-bold text-green-800 outline-none focus:border-green-700"
+                          className="min-h-11 w-full min-w-0 rounded-xl border border-green-700/10 bg-white/82 px-2 py-2 text-[11px] font-bold text-green-800 outline-none focus:border-green-700 sm:px-3 sm:text-xs"
                           title={t.changeUnit}
                         >
                           {parameter.available_units.map((unit) => (
@@ -3327,7 +3332,7 @@ function ValuesScreen({
                         </select>
                       ) : (
                         <span
-                          className="inline-flex max-w-28 truncate rounded-xl border border-green-700/10 bg-white/55 px-3 py-2 text-xs font-bold text-green-800"
+                          className="inline-flex min-h-11 w-full max-w-full items-center truncate rounded-xl border border-green-700/10 bg-white/55 px-2 py-2 text-[11px] font-bold text-green-800 sm:px-3 sm:text-xs"
                           title={selectedUnit?.unit_symbol || parameter.unit_symbol}
                         >
                           {selectedUnit?.display_symbol ||

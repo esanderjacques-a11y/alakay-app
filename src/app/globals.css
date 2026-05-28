@@ -56,7 +56,6 @@ body {
   background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-app-sans);
-  filter: brightness(var(--app-brightness)) saturate(var(--app-saturation)) contrast(var(--app-contrast));
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -190,8 +189,13 @@ textarea {
     background: var(--app-main-gradient);
   }
 
+  .app-visual-tone {
+    filter: brightness(var(--app-brightness)) saturate(var(--app-saturation)) contrast(var(--app-contrast));
+  }
+
   .auth-page {
     background: var(--auth-page-gradient, var(--app-main-gradient));
+    filter: brightness(var(--app-brightness)) saturate(var(--app-saturation)) contrast(var(--app-contrast));
   }
 
 html[data-theme="dark"] .glass-panel,
@@ -522,12 +526,71 @@ html[data-theme="dark"] .mobile-menu-panel {
   }
 
   .auth-card {
+    width: 100%;
+    max-width: 28rem;
+    margin-inline: auto;
     border-radius: 1.5rem;
     background: var(--auth-card-bg, rgba(255, 255, 255, 0.42));
     border-color: var(--auth-card-border, rgba(255, 255, 255, 0.48));
     box-shadow: var(--auth-card-shadow, 0 18px 46px rgba(21, 128, 61, 0.12));
     backdrop-filter: blur(34px) saturate(1.2);
     -webkit-backdrop-filter: blur(34px) saturate(1.2);
+  }
+
+  @media (min-width: 1024px) {
+    .auth-card-signup {
+      display: grid;
+      max-width: 60rem;
+      grid-template-columns: minmax(15rem, 0.78fr) minmax(0, 1.35fr);
+      grid-template-areas:
+        "intro tabs"
+        "intro form";
+      column-gap: 2rem;
+      align-items: center;
+      padding: 1.5rem 1.75rem;
+    }
+
+    .auth-card-signup > div:first-child {
+      grid-area: intro;
+      justify-content: center;
+    }
+
+    .auth-card-signup > div:first-child img {
+      height: 9rem;
+      width: 9rem;
+    }
+
+    .auth-card-signup .auth-mode-tabs {
+      grid-area: tabs;
+      margin-top: 0;
+    }
+
+    .auth-card-signup .auth-form {
+      grid-area: form;
+      margin-top: 1rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+
+    .auth-card-signup .auth-form > * {
+      min-width: 0;
+    }
+
+    .auth-card-signup .auth-form > .grid,
+    .auth-card-signup .auth-strength,
+    .auth-card-signup .auth-policy,
+    .auth-card-signup .auth-form > div[class*="bg-yellow"] {
+      grid-column: span 2;
+    }
+
+    .auth-card-signup .auth-submit {
+      min-height: 3rem;
+    }
+
+    .auth-card-signup .auth-toggle {
+      align-self: center;
+      justify-self: end;
+    }
   }
 
   .auth-page .touch-target.flex.items-center.gap-2.rounded-2xl {

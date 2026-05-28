@@ -351,7 +351,11 @@ export default function AuthPanel({
 
   return (
     <>
-    <section className="auth-card glass-panel-strong overflow-hidden px-5 py-7 sm:px-7">
+    <section
+      className={`auth-card glass-panel-strong overflow-hidden px-5 py-7 sm:px-7 ${
+        mode === "signup" ? "auth-card-signup" : ""
+      }`}
+    >
       <div className="flex flex-col items-center text-center">
         <img
           src="/app-icon.png"
@@ -374,7 +378,7 @@ export default function AuthPanel({
       </div>
 
       {mode === "signup" ? (
-        <div className="mt-7 grid w-full grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1">
+        <div className="auth-mode-tabs mt-7 grid w-full grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1">
           <button
             type="button"
             onClick={() => {
@@ -399,7 +403,7 @@ export default function AuthPanel({
       ) : null}
 
       <form
-        className="mt-7 grid gap-4"
+        className="auth-form mt-7 grid gap-4"
         suppressHydrationWarning
         onSubmit={(event) => {
           event.preventDefault();
@@ -496,7 +500,7 @@ export default function AuthPanel({
         )}
 
         <input
-          className="rounded-2xl border border-green-700/35 bg-white/72 p-3 text-slate-900 shadow-sm outline-none placeholder:text-slate-500 focus:border-green-700 focus:bg-white focus:ring-4 focus:ring-green-700/10"
+          className="auth-email-field rounded-2xl border border-green-700/35 bg-white/72 p-3 text-slate-900 shadow-sm outline-none placeholder:text-slate-500 focus:border-green-700 focus:bg-white focus:ring-4 focus:ring-green-700/10"
           suppressHydrationWarning
           type="text"
           inputMode="email"
@@ -507,7 +511,7 @@ export default function AuthPanel({
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        <div className="relative">
+        <div className="auth-password-field relative">
           <input
             className="w-full rounded-2xl border border-green-700/35 bg-white/72 p-3 pr-14 text-slate-900 shadow-sm outline-none placeholder:text-slate-500 focus:border-green-700 focus:bg-white focus:ring-4 focus:ring-green-700/10"
             suppressHydrationWarning
@@ -540,7 +544,7 @@ export default function AuthPanel({
 
         {mode === "signup" && (
           <>
-            <div className="rounded-2xl bg-slate-50 p-4">
+            <div className="auth-strength rounded-2xl bg-slate-50 p-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-700">
                   {text.passwordStrength}
@@ -600,7 +604,7 @@ export default function AuthPanel({
               </div>
             )}
 
-            <label className="flex gap-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
+            <label className="auth-policy flex gap-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
               <input
                 suppressHydrationWarning
                 type="checkbox"
@@ -610,7 +614,7 @@ export default function AuthPanel({
               <span>{text.policies}</span>
             </label>
 
-            <label className="flex gap-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
+            <label className="auth-policy flex gap-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
               <input
                 suppressHydrationWarning
                 type="checkbox"
@@ -625,7 +629,7 @@ export default function AuthPanel({
         <button
           type="submit"
           disabled={loading}
-          className="rounded-2xl bg-green-700 px-5 py-3 font-semibold text-white hover:bg-green-800 disabled:opacity-60"
+          className="auth-submit rounded-2xl bg-green-700 px-5 py-3 font-semibold text-white hover:bg-green-800 disabled:opacity-60"
         >
           {loading
             ? text.wait
@@ -642,7 +646,7 @@ export default function AuthPanel({
             setPassword("");
             setRepeatPassword("");
           }}
-          className="text-sm font-semibold text-green-800"
+          className="auth-toggle text-sm font-semibold text-green-800"
         >
           {mode === "login" ? text.needAccount : text.alreadyAccount}
         </button>

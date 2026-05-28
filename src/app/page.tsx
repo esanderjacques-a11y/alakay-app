@@ -2141,7 +2141,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             open={isBusy}
             label={loading ? t.interpreting : t.saving}
           />
-          <section className="w-full max-w-md animate-slide-up">
+          <section className="w-full max-w-md animate-slide-up lg:max-w-5xl">
             <AuthPanel
               t={t}
               language={language}
@@ -2184,7 +2184,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           open={isBusy}
           label={loading ? t.interpreting : t.saving}
         />
-        <section className="mx-auto max-w-6xl">
+        <section className="app-visual-tone mx-auto max-w-6xl">
         {currentStep === "home" ? (
           <section className="home-screen-wrap">
             <HomeScreen

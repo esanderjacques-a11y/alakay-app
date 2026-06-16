@@ -33,6 +33,7 @@ import {
 } from "@/lib/agronomicCalculators";
 import type { Language } from "@/lib/translations";
 import { calculatorHubText } from "@/lib/i18n/componentText";
+import { getUptakeProfileForCrop } from "@/lib/i18n/uptakeProfiles";
 
 type ParameterLite = {
   parameter_key: string;
@@ -228,7 +229,7 @@ export default function CalculatorHub({
                 {t.dopFoliarOnly}
               </p>
             )}
-            <CropUptakeGuide t={t} selectedCropName={selectedCropName} />
+            <CropUptakeGuide t={t} language={language} selectedCropName={selectedCropName} />
             <SalinityCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("salinity", outputs)} />
           </div>
         ) : null}
@@ -261,7 +262,7 @@ export default function CalculatorHub({
           )
         ) : null}
         {active === "uptake" ? (
-          <CropUptakeGuide t={t} selectedCropName={selectedCropName} />
+          <CropUptakeGuide t={t} language={language} selectedCropName={selectedCropName} />
         ) : null}
         {active === "salinity" ? <SalinityCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("salinity", outputs)} /> : null}
         {active === "graphs" ? <NutrientGraphs t={t} lab={lab} /> : null}
@@ -614,12 +615,12 @@ function DopVerticalChart({
   });
 
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/72 p-4 shadow-sm">
+    <div className="calc-surface p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm font-extrabold text-green-950">{t.graphDop}</p>
         <p className="text-sm font-bold text-slate-600">%</p>
       </div>
-      <div className="overflow-x-auto rounded-2xl border border-white/65 bg-white/62 p-3">
+      <div className="calc-surface-muted p-3">
         {chartRows.length === 0 ? (
           <p className="text-sm text-slate-600">{t.noData}</p>
         ) : (
@@ -630,7 +631,7 @@ function DopVerticalChart({
               <span>-{scaleMax}%</span>
             </div>
             <div
-              className="relative grid h-72 items-stretch gap-3 rounded-xl bg-white/38 px-2 py-3"
+              className="calc-chart-plot relative grid h-72 items-stretch gap-3 px-2 py-3"
               style={{
                 gridTemplateColumns: `repeat(${Math.max(chartRows.length, 1)}, minmax(2.8rem, 1fr))`,
               }}
@@ -639,7 +640,7 @@ function DopVerticalChart({
               <div className="pointer-events-none absolute bottom-3 left-2 right-2 top-3 bg-[linear-gradient(to_bottom,rgba(148,163,184,0.12)_1px,transparent_1px)] bg-[length:100%_25%]" />
               {chartRows.map((row, index) => (
                 <div key={row.key} className="relative flex min-w-0 flex-col items-center justify-between">
-                  <span className="z-10 rounded-full bg-white/72 px-1.5 py-0.5 text-[11px] font-extrabold text-slate-700 shadow-sm">
+                  <span className="calc-value-pill z-10">
                     {`${row.dop.toFixed(1)}%`}
                   </span>
                   <div className="relative my-2 h-full w-full">
@@ -691,152 +692,16 @@ function DopVerticalChart({
   );
 }
 
-type UptakeStage = {
-  label: string;
-  timing: string;
-  uptake: number;
-  focus: string[];
-  note: string;
-};
-
-type UptakeProfile = {
-  key: string;
-  title: string;
-  pattern: "vegetative" | "fruiting" | "storage" | "perennial";
-  stages: UptakeStage[];
-  nutrients: Array<{ symbol: string; timing: string; note: string }>;
-};
-
-const UPTAKE_PROFILES: UptakeProfile[] = [
-  {
-    key: "banana",
-    title: "Banana / Plantain",
-    pattern: "perennial",
-    stages: [
-      { label: "Establishment", timing: "0-2 mo", uptake: 8, focus: ["P", "Ca", "Zn"], note: "Rooting and early leaf area." },
-      { label: "Vegetative build", timing: "2-5 mo", uptake: 34, focus: ["N", "K", "Mg"], note: "Rapid canopy and pseudostem growth." },
-      { label: "Bunch initiation", timing: "5-8 mo", uptake: 68, focus: ["K", "N", "B"], note: "Demand rises before visible flowering." },
-      { label: "Filling", timing: "8-11 mo", uptake: 92, focus: ["K", "Ca", "Mg"], note: "Fruit filling and quality period." },
-      { label: "Harvest / ratoon", timing: "11+ mo", uptake: 100, focus: ["K", "N"], note: "Maintain follower vigor." },
-    ],
-    nutrients: [
-      { symbol: "K", timing: "high from bunch initiation to filling", note: "Often the dominant nutrient for yield and bunch filling." },
-      { symbol: "N", timing: "early to mid growth", note: "Supports leaf area, but excess can soften tissues." },
-      { symbol: "Ca, Mg, B", timing: "before and during filling", note: "Important for quality, transport, and balance." },
-    ],
-  },
-  {
-    key: "fruiting-vegetable",
-    title: "Fruiting vegetable",
-    pattern: "fruiting",
-    stages: [
-      { label: "Seedling", timing: "0-3 wk", uptake: 6, focus: ["P", "Ca"], note: "Root establishment and transplant recovery." },
-      { label: "Vegetative", timing: "3-6 wk", uptake: 28, focus: ["N", "Mg"], note: "Canopy formation." },
-      { label: "Flowering", timing: "6-9 wk", uptake: 55, focus: ["K", "Ca", "B"], note: "Shift from leaf growth to flowers and fruit set." },
-      { label: "Fruit set", timing: "9-13 wk", uptake: 82, focus: ["K", "Ca", "N"], note: "Peak uptake and quality risk period." },
-      { label: "Harvests", timing: "13+ wk", uptake: 100, focus: ["K", "Ca"], note: "Keep supply steady through repeated harvests." },
-    ],
-    nutrients: [
-      { symbol: "K", timing: "flowering through harvest", note: "Key for fruit filling and soluble solids." },
-      { symbol: "Ca", timing: "continuous, strongest during fruit growth", note: "Needs steady water flow; foliar Ca cannot fully replace root uptake." },
-      { symbol: "B, Zn", timing: "before flowering", note: "Support flowering, pollen, and early fruit set." },
-    ],
-  },
-  {
-    key: "cassava",
-    title: "Cassava / storage root",
-    pattern: "storage",
-    stages: [
-      { label: "Establishment", timing: "0-1 mo", uptake: 5, focus: ["P", "Zn"], note: "Root initiation." },
-      { label: "Canopy growth", timing: "1-3 mo", uptake: 28, focus: ["N", "Mg"], note: "Leaf area drives later storage." },
-      { label: "Root bulking", timing: "3-7 mo", uptake: 70, focus: ["K", "Ca"], note: "Main storage-root demand period." },
-      { label: "Late bulking", timing: "7-10 mo", uptake: 92, focus: ["K", "B"], note: "Starch accumulation and quality." },
-      { label: "Maturity", timing: "10+ mo", uptake: 100, focus: ["K"], note: "Avoid late excess N." },
-    ],
-    nutrients: [
-      { symbol: "K", timing: "root bulking", note: "Critical for storage-root yield and starch movement." },
-      { symbol: "N", timing: "early canopy only", note: "Too much late N can favor leaves over roots." },
-      { symbol: "P, Zn", timing: "establishment", note: "Help rooting on low-P tropical soils." },
-    ],
-  },
-  {
-    key: "grain-legume",
-    title: "Grain legume",
-    pattern: "fruiting",
-    stages: [
-      { label: "Emergence", timing: "0-2 wk", uptake: 5, focus: ["P", "Ca"], note: "Rooting and nodulation start." },
-      { label: "Vegetative", timing: "2-5 wk", uptake: 26, focus: ["P", "Mo", "Mg"], note: "N fixation becomes important." },
-      { label: "Flowering", timing: "5-7 wk", uptake: 55, focus: ["K", "B"], note: "Sensitive stage for stress." },
-      { label: "Pod fill", timing: "7-10 wk", uptake: 88, focus: ["K", "Ca"], note: "Seed fill and translocation." },
-      { label: "Maturity", timing: "10+ wk", uptake: 100, focus: ["K"], note: "Most uptake is complete." },
-    ],
-    nutrients: [
-      { symbol: "P", timing: "early to flowering", note: "Important for roots and biological N fixation." },
-      { symbol: "K", timing: "flowering and pod fill", note: "Supports transport and seed filling." },
-      { symbol: "Mo, B", timing: "early and pre-flowering", note: "Useful checks for legumes in acidic tropical soils." },
-    ],
-  },
-  {
-    key: "grain",
-    title: "Grain crop",
-    pattern: "vegetative",
-    stages: [
-      { label: "Emergence", timing: "0-2 wk", uptake: 4, focus: ["P", "Zn"], note: "Starter nutrition and roots." },
-      { label: "Vegetative", timing: "2-6 wk", uptake: 35, focus: ["N", "K"], note: "Fast biomass accumulation." },
-      { label: "Reproductive start", timing: "6-9 wk", uptake: 68, focus: ["N", "K", "B"], note: "Yield components are being set." },
-      { label: "Grain fill", timing: "9-13 wk", uptake: 92, focus: ["K", "Mg"], note: "Translocation to grain." },
-      { label: "Maturity", timing: "13+ wk", uptake: 100, focus: ["K"], note: "Most uptake is complete." },
-    ],
-    nutrients: [
-      { symbol: "N", timing: "vegetative to reproductive start", note: "Main driver of canopy and yield potential." },
-      { symbol: "P, Zn", timing: "early", note: "Common early limits where roots are small or soil is cool/wet." },
-      { symbol: "K, Mg", timing: "reproductive to fill", note: "Support transport, water regulation, and grain filling." },
-    ],
-  },
-  {
-    key: "perennial-fruit",
-    title: "Perennial fruit crop",
-    pattern: "perennial",
-    stages: [
-      { label: "Post-harvest", timing: "after harvest", uptake: 12, focus: ["N", "K"], note: "Reserve recovery." },
-      { label: "Flush", timing: "new growth", uptake: 32, focus: ["N", "Mg", "Zn"], note: "Leaves and shoots expand." },
-      { label: "Flowering", timing: "pre-flower", uptake: 55, focus: ["B", "Ca", "P"], note: "Flower quality and fruit set." },
-      { label: "Fruit growth", timing: "set-fill", uptake: 86, focus: ["K", "Ca"], note: "Peak fruit demand." },
-      { label: "Maturation", timing: "finish", uptake: 100, focus: ["K"], note: "Quality and reserve balance." },
-    ],
-    nutrients: [
-      { symbol: "B, Zn", timing: "pre-flowering and flush", note: "Important for flowering and new growth." },
-      { symbol: "K, Ca", timing: "fruit growth", note: "Key for size, firmness, and quality." },
-      { symbol: "N", timing: "post-harvest and flush", note: "Avoid pushing excess vegetative growth near flowering." },
-    ],
-  },
-  {
-    key: "general",
-    title: "General tropical crop",
-    pattern: "vegetative",
-    stages: [
-      { label: "Establishment", timing: "0-15%", uptake: 6, focus: ["P", "Ca", "Zn"], note: "Roots first." },
-      { label: "Vegetative", timing: "15-40%", uptake: 30, focus: ["N", "Mg"], note: "Build leaf area." },
-      { label: "Transition", timing: "40-65%", uptake: 58, focus: ["K", "B"], note: "Demand accelerates." },
-      { label: "Yield formation", timing: "65-90%", uptake: 88, focus: ["K", "Ca"], note: "Peak uptake." },
-      { label: "Maturity", timing: "90-100%", uptake: 100, focus: ["K"], note: "Maintenance and finish." },
-    ],
-    nutrients: [
-      { symbol: "N", timing: "vegetative growth", note: "Supports canopy; match to growth rate." },
-      { symbol: "P", timing: "early", note: "Most useful when roots are developing." },
-      { symbol: "K, Ca, Mg", timing: "yield formation", note: "Important for transport, quality, and balance." },
-    ],
-  },
-];
-
 function CropUptakeGuide({
   t,
+  language,
   selectedCropName,
 }: {
   t: Record<string, string>;
+  language: Language;
   selectedCropName?: string | null;
 }) {
-  const profile = getUptakeProfile(selectedCropName);
+  const profile = getUptakeProfileForCrop(selectedCropName, language);
   const width = 620;
   const height = 230;
   const paddingX = 42;
@@ -855,7 +720,7 @@ function CropUptakeGuide({
   const path = points.map((point) => `${point.x},${point.y}`).join(" ");
 
   return (
-    <div className="mt-4 grid gap-4 rounded-2xl border border-white/70 bg-white/72 p-4 shadow-sm">
+    <div className="calc-surface mt-4 grid gap-4 p-4">
       <div>
         <p className="text-sm font-extrabold text-green-950">{t.uptakeCurve}</p>
         <h2 className="mt-1 text-xl font-extrabold text-green-950">{profile.title}</h2>
@@ -864,7 +729,7 @@ function CropUptakeGuide({
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-white/65 bg-white/62 p-3">
+      <div className="calc-surface-muted overflow-x-auto p-3">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="h-64 min-w-[38rem] text-green-950"
@@ -878,7 +743,7 @@ function CropUptakeGuide({
             return (
               <g key={tick}>
                 <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="currentColor" strokeOpacity="0.08" />
-                <text x={12} y={y + 4} className="fill-slate-500 text-[11px] font-bold">
+                <text x={12} y={y + 4} className="calc-chart-axis-label text-[11px] font-bold">
                   {tick}%
                 </text>
               </g>
@@ -899,13 +764,13 @@ function CropUptakeGuide({
                 cy={y}
                 r="8"
                 fill={GRAPH_COLORS[index % GRAPH_COLORS.length]}
-                stroke="white"
+                className="calc-chart-dot"
                 strokeWidth="3"
               />
-              <text x={x} y={height - 25} textAnchor="middle" className="fill-green-950 text-[11px] font-extrabold">
+              <text x={x} y={height - 25} textAnchor="middle" className="calc-chart-stage-label text-[11px] font-extrabold">
                 {stage.label}
               </text>
-              <text x={x} y={height - 9} textAnchor="middle" className="fill-slate-500 text-[10px] font-bold">
+              <text x={x} y={height - 9} textAnchor="middle" className="calc-chart-axis-label text-[10px] font-bold">
                 {stage.timing}
               </text>
             </g>
@@ -914,18 +779,18 @@ function CropUptakeGuide({
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-2xl bg-white/66 p-3">
+        <div className="calc-surface-inner">
           <p className="text-sm font-extrabold text-green-950">{t.stageFocus}</p>
           <div className="mt-2 grid gap-2">
             {profile.stages.map((stage) => (
-              <div key={stage.label} className="rounded-xl border border-green-900/10 bg-white/56 p-3">
+              <div key={stage.label} className="calc-stage-card">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-extrabold text-green-950">{stage.label}</span>
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-bold text-green-800">
+                  <span className="calc-uptake-pill">
                     {stage.uptake}%
                   </span>
                   {stage.focus.map((item) => (
-                    <span key={item} className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-slate-700">
+                    <span key={item} className="calc-chip">
                       {item}
                     </span>
                   ))}
@@ -936,11 +801,11 @@ function CropUptakeGuide({
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white/66 p-3">
+        <div className="calc-surface-inner">
           <p className="text-sm font-extrabold text-green-950">{t.nutrientTiming}</p>
           <div className="mt-2 grid gap-2">
             {profile.nutrients.map((item) => (
-              <div key={item.symbol} className="rounded-xl border border-green-900/10 bg-white/56 p-3">
+              <div key={item.symbol} className="calc-stage-card">
                 <p className="font-extrabold text-green-950">{item.symbol}</p>
                 <p className="text-xs font-bold text-green-800">{item.timing}</p>
                 <p className="mt-1 text-xs font-semibold text-slate-600">{item.note}</p>
@@ -954,20 +819,6 @@ function CropUptakeGuide({
       </div>
     </div>
   );
-}
-
-function getUptakeProfile(selectedCropName?: string | null) {
-  const crop = (selectedCropName || "").toLowerCase();
-  const matchers: Array<[RegExp, string]> = [
-    [/\b(banana|banano|platan|plantain|guineo)\b/, "banana"],
-    [/\b(tomato|tomate|pepper|pimiento|chili|aji|ají|pepino|cucumber|eggplant|berenjena)\b/, "fruiting-vegetable"],
-    [/\b(cassava|yuca|manioc|mandioca)\b/, "cassava"],
-    [/\b(bean|beans|frijol|frijoles|soya|soybean|cowpea|legume)\b/, "grain-legume"],
-    [/\b(maize|corn|maiz|maíz|rice|arroz|sorghum|wheat|trigo)\b/, "grain"],
-    [/\b(coffee|cafe|café|cacao|cocoa|mango|citrus|limon|limón|orange|naranja|pineapple|piña|papaya|avocado|aguacate)\b/, "perennial-fruit"],
-  ];
-  const profileKey = matchers.find(([pattern]) => pattern.test(crop))?.[1] || "general";
-  return UPTAKE_PROFILES.find((profile) => profile.key === profileKey) || UPTAKE_PROFILES[UPTAKE_PROFILES.length - 1];
 }
 
 function SalinityCalculator({
@@ -1159,7 +1010,7 @@ function LineGraph({
   const path = points.map((point) => `${point.x},${point.y}`).join(" ");
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-white/70 bg-white/72 p-4">
+    <div className="calc-surface-muted overflow-x-auto p-4">
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="h-72 min-w-[38rem] text-green-900"
@@ -1182,14 +1033,14 @@ function LineGraph({
               cy={y}
               r="7"
               fill={GRAPH_COLORS[index % GRAPH_COLORS.length]}
-              stroke="white"
+              className="calc-chart-dot"
               strokeWidth="3"
             />
             <text
               x={x}
               y={height - 8}
               textAnchor="middle"
-              className="fill-green-950 text-[12px] font-bold"
+              className="calc-chart-stage-label text-[12px] font-bold"
             >
               {item.label}
             </text>
@@ -1197,7 +1048,7 @@ function LineGraph({
               x={x}
               y={Math.max(16, y - 12)}
               textAnchor="middle"
-              className="fill-slate-600 text-[11px] font-bold"
+              className="calc-chart-axis-label text-[11px] font-bold"
             >
               {item.value}
             </text>

@@ -1295,7 +1295,7 @@ function ReportPreviewModal({
 
   return (
     <section className="animate-slide-up">
-      <div className="values-screen-panel flex min-h-[calc(100dvh-8rem)] w-full flex-col overflow-hidden rounded-3xl border border-white/65 bg-white/72 shadow-xl backdrop-blur-2xl">
+      <div className="values-screen-panel flex max-h-[calc(100dvh-7.5rem)] w-full flex-col overflow-hidden rounded-3xl border border-white/65 bg-white/72 shadow-xl backdrop-blur-2xl">
         <header className="shrink-0 border-b border-white/65 bg-white/55 px-4 py-3 backdrop-blur-xl sm:px-5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -1398,13 +1398,13 @@ function ReportPreviewModal({
                 )}
               </section>
 
-              <details className="mx-auto mt-4 w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-3">
+              <details className="preview-details-panel mx-auto mt-4 w-full max-w-5xl rounded-2xl border border-slate-200 p-3">
                 <summary className="cursor-pointer text-sm font-bold text-green-900">
                   {l.viewFullTable}
                 </summary>
 
                 <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
-                  <table className="w-full min-w-[720px] border-collapse bg-white text-xs sm:text-sm">
+                  <table className="preview-table-wrap w-full min-w-[720px] border-collapse text-xs sm:text-sm">
                     <thead className="bg-slate-50 text-left text-slate-600">
                       <tr>
                         <th className="border-b border-slate-200 p-2.5">Parameter</th>
@@ -1619,7 +1619,7 @@ function SummaryFilterChip({
 }) {
   const toneStyles: Record<typeof tone, { idle: string; active: string }> = {
     all: {
-      idle: "bg-white text-slate-700 ring-slate-200 hover:bg-green-50",
+      idle: "preview-filter-chip-idle ring-slate-200 hover:bg-green-50",
       active: "bg-green-700 text-white ring-green-700",
     },
     red: {
@@ -1698,7 +1698,7 @@ function PreviewValueGroup({
           {title}
         </h3>
         <span
-          className={`rounded-full bg-white/80 font-bold text-slate-700 ${
+          className={`calc-value-pill font-bold ${
             compact ? "px-2 py-0.5 text-xs" : "px-3 py-1 text-sm"
           }`}
         >
@@ -1714,7 +1714,7 @@ function PreviewValueGroup({
           return (
             <article
               key={`${item.parameter_id}-${item.custom_parameter_id}-${index}`}
-              className={`rounded-xl bg-white shadow-sm ${compact ? "p-2.5" : "rounded-2xl p-4"}`}
+              className={`preview-value-card ${compact ? "p-2.5" : "rounded-2xl p-4"}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">

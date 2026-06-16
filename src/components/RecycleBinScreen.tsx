@@ -221,7 +221,7 @@ export default function RecycleBinScreen({
           </button>
         </div>
 
-        <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+        <div className="app-scroll-x mt-5 flex gap-2 pb-1">
           {[
             ["all", labels.allDeleted],
             ["reports", labels.reports],

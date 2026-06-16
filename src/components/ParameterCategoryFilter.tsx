@@ -27,7 +27,7 @@ export default function ParameterCategoryFilter({
   }
 
   return (
-    <div className="flex gap-1.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
+    <div className="app-scroll-x flex gap-1.5 pb-1">
       {items.map((category) => {
         const active = selectedCategory === category;
         return (

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Check,
+  ChevronDown,
   Database,
   FileDown,
   FlaskConical,
@@ -12,6 +14,8 @@ import {
   ScanLine,
   Undo2,
 } from "lucide-react";
+import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
+import { useDismissible } from "@/hooks/useDismissible";
 import { buildAccentScale } from "@/lib/accentPalette";
 import type { Session } from "@supabase/supabase-js";
 import {
@@ -1004,13 +1008,13 @@ export default function AppSettingsScreen({
 
         <div className="mt-5 grid gap-4">
           <SettingsSection icon={<Globe2 size={18} />} title={text.sections.general}>
-            <SelectField
+            <SettingsMenuSelect
               label={text.labels.language}
               value={draftSettings.general.language}
               options={languageOptions(text)}
               onChange={(value) => changeSetting("general", "language", value)}
             />
-            <SelectField
+            <SettingsMenuSelect
               label={text.labels.theme}
               value={draftSettings.general.theme}
               options={themeOptions(text)}
@@ -1388,7 +1392,7 @@ function SettingsSection({
   return (
     <section className="rounded-2xl border border-white/65 bg-white/58 p-3 shadow-sm backdrop-blur-xl sm:p-4">
       <div className="mb-3 flex items-center gap-2">
-        <span className="grid h-9 w-9 place-items-center rounded-2xl bg-emerald-100/80 text-emerald-800">
+        <span className="settings-section-icon grid h-9 w-9 place-items-center rounded-2xl">
           {icon}
         </span>
         <h2 className="text-sm font-extrabold uppercase tracking-wide text-green-950">
@@ -1397,6 +1401,88 @@ function SettingsSection({
       </div>
       <div className="grid gap-3 md:grid-cols-2">{children}</div>
     </section>
+  );
+}
+
+function SettingsMenuSelect<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const presence = useAnimatedPresence(open);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const selected = options.find((option) => option.value === value);
+
+  useDismissible(open, () => setOpen(false), menuRef);
+
+  return (
+    <div className="grid gap-1.5">
+      <span className="text-xs font-extrabold uppercase tracking-wide text-slate-600">
+        {label}
+      </span>
+      <div ref={menuRef} className={`relative ${open ? "z-[12000]" : "z-0"}`}>
+        {presence.mounted ? (
+          <button
+            type="button"
+            aria-label="Close menu"
+            className={`dismiss-backdrop ${presence.leaving ? "animate-fade-out" : "animate-fade-in"}`}
+            onClick={() => setOpen(false)}
+          />
+        ) : null}
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((previous) => !previous)}
+          className="settings-menu-select-trigger flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl border px-3 text-left text-sm font-bold outline-none transition"
+        >
+          <span className="truncate">{selected?.label ?? ""}</span>
+          <ChevronDown
+            size={18}
+            className={`shrink-0 transition ${open ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
+        {presence.mounted ? (
+          <section
+            className={`settings-menu-select-menu absolute inset-x-0 top-full z-[12001] mt-2 overflow-hidden rounded-3xl border p-2 shadow-2xl ${
+              presence.leaving ? "animate-scale-out" : "animate-scale-in"
+            }`}
+          >
+            <div className="max-h-72 overflow-y-auto pr-1">
+              {options.map((option) => {
+                const isSelected = option.value === value;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                    }}
+                    className={`settings-menu-select-option flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-left text-sm font-semibold transition ${
+                      isSelected ? "settings-menu-select-option-active" : ""
+                    }`}
+                  >
+                    <span className="whitespace-nowrap">{option.label}</span>
+                    {isSelected ? (
+                      <Check size={16} className="shrink-0" aria-hidden="true" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

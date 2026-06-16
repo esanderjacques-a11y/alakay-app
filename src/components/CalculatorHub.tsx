@@ -186,7 +186,7 @@ export default function CalculatorHub({
           ) : null}
         </div>
 
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
+        <div className="app-scroll-x mt-4 flex gap-2 pb-2">
           {tabs.map((tab) => (
             <button
               key={tab.key}

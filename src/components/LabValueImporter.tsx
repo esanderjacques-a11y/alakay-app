@@ -4,9 +4,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
-  Download,
-  FileSpreadsheet,
-  FileText,
   Image as ImageIcon,
   Loader2,
   RefreshCcw,
@@ -2123,170 +2120,126 @@ export default function LabValueImporter({
     closeModal();
   }
 
-  function downloadTemplate() {
-    const template = [
-      ["parameter", "value", "unit"],
-      ["pH", "6.2", ""],
-      ["Nitrogen", "2.8", "%"],
-      ["Phosphorus", "18", "mg/kg"],
-      ["Potassium", "0.35", "cmol(+)/kg"],
-      ["Organic matter", "3.5", "%"],
-      ["Calcium", "6.1", "cmol(+)/kg"],
-      ["Magnesium", "1.8", "cmol(+)/kg"],
-    ];
-    const csv = template
-      .map((row) =>
-        row
-          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
-          .join(",")
-      )
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-
-    anchor.href = url;
-    anchor.download = "alakay-lab-values-template.csv";
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
   if (!open) return null;
 
   const matchedCount = previewRows.filter(
     (row) => row.status === "matched"
   ).length;
   const isScanMode = mode === "scan";
-  const title = isScanMode ? "Take report photo" : "Import lab report";
-  const subtitle =
-    isScanMode
-      ? "Center the report, capture it, then confirm the values Alakay finds."
-      : "Import Excel, CSV, PDF, TXT, or photo reports. Alakay will find the lab values automatically.";
+  const hasPreview = previewRows.length > 0;
+  const showTextPanel =
+    Boolean(documentText.trim()) || showTextReview || (loading && !isScanMode);
+  const showScanTextPanel =
+    isScanMode && (Boolean(documentText.trim()) || showTextReview);
+  const modalWidth = hasPreview ? "max-w-6xl" : "max-w-md";
+  const title = isScanMode ? "Take picture" : "Import document";
+  const subtitle = isScanMode
+    ? "Photograph your lab report. Alakay finds the values automatically."
+    : "Upload Excel, CSV, PDF, or TXT.";
 
   return (
-    <div className="fixed inset-0 z-[20000] flex items-center justify-center bg-slate-950/35 px-3 backdrop-blur-md sm:px-4">
+    <div className="fixed inset-0 z-[20000] flex items-end justify-center bg-slate-950/35 px-0 backdrop-blur-md sm:items-center sm:px-4">
       <div
-        className={`max-h-[94vh] w-full overflow-y-auto rounded-3xl border border-white/70 bg-white/92 p-4 shadow-2xl sm:p-5 ${
-          isScanMode ? "max-w-3xl" : "max-w-6xl"
-        }`}
+        className={`glass-modal-shell import-modal-shell max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl p-4 sm:rounded-3xl sm:p-5 ${modalWidth}`}
       >
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-extrabold uppercase tracking-[0.04em] text-green-950 sm:text-xl">
+          <div className="min-w-0">
+            <h2 className="text-base font-extrabold uppercase tracking-[0.04em] text-green-950 sm:text-lg">
               {title}
             </h2>
-            <p className="mt-1 max-w-2xl text-sm text-slate-600">{subtitle}</p>
+            {!hasPreview ? (
+              <p className="mt-0.5 text-sm text-slate-600">{subtitle}</p>
+            ) : null}
           </div>
 
           <button
             type="button"
             onClick={closeModal}
-            className="rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:bg-slate-50"
+            className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:bg-slate-50"
             aria-label="Close"
           >
-            <X size={18} />
+            <X size={17} />
           </button>
         </div>
 
-        <section
-          className={`mt-4 grid gap-4 ${
-            isScanMode ? "" : "lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]"
-          }`}
-        >
-          <div className="rounded-3xl border border-green-100 bg-green-50/60 p-3 sm:p-4">
+        {!hasPreview ? (
+          <section className="mt-3">
             {isScanMode ? (
               <div>
-                <div className="overflow-hidden rounded-3xl border border-white/80 bg-slate-900 shadow-inner">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-900 shadow-inner">
                   <video
                     ref={videoRef}
-                    className="aspect-[16/10] w-full object-cover"
+                    className="aspect-[4/3] w-full object-cover"
                     playsInline
                     muted
                   />
                 </div>
 
                 {cameraError ? (
-                  <div className="mt-3 rounded-2xl bg-yellow-50 p-3 text-sm text-yellow-900">
+                  <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
                     {cameraError}
-                  </div>
+                  </p>
                 ) : null}
 
-                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                <div className="mt-3 grid gap-2">
                   <button
                     type="button"
                     onClick={capturePhoto}
                     disabled={!cameraReady || loading}
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-green-700 px-4 font-bold text-white shadow-lg shadow-green-900/15 hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-55"
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-green-700 px-4 text-sm font-bold text-white shadow-md hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-55"
                   >
-                    <ScanLine size={18} />
+                    <ScanLine size={17} />
                     Capture and analyze
                   </button>
                   <button
                     type="button"
                     onClick={() => photoInputRef.current?.click()}
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-green-200 bg-white px-4 font-bold text-green-900 hover:bg-green-50"
+                    className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                   >
-                    <ImageIcon size={18} />
-                    Choose photo
+                    <ImageIcon size={16} />
+                    Choose from gallery
                   </button>
                 </div>
 
-                <div className="mt-2 flex items-center justify-between gap-2 text-xs text-green-900/70">
-                  <span>Use a flat, well-lit photo. Avoid shadows over the numbers.</span>
+                {!cameraError ? (
                   <button
                     type="button"
                     onClick={() => void startCamera()}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-xl px-2 py-1 font-semibold text-green-800 hover:bg-white"
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-green-800"
                   >
-                    <RefreshCcw size={14} />
-                    Reopen
+                    <RefreshCcw size={13} />
+                    Restart camera
                   </button>
-                </div>
+                ) : null}
               </div>
             ) : (
-              <div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-green-700 px-4 font-bold text-white shadow-lg shadow-green-900/15 hover:bg-green-800"
-                  >
-                    <Upload size={18} />
-                    Choose file
-                  </button>
-                  <button
-                    type="button"
-                    onClick={downloadTemplate}
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-green-200 bg-white px-4 font-bold text-green-900 hover:bg-green-50"
-                  >
-                    <Download size={18} />
-                    Template
-                  </button>
-                </div>
+              <div className="grid gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-green-700 px-4 text-sm font-bold text-white shadow-md hover:bg-green-800"
+                >
+                  <Upload size={17} />
+                  Choose file
+                </button>
 
                 {hasImportMemory ? (
                   <button
                     type="button"
                     onClick={loadLastImport}
-                    className="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-50/75 px-4 text-sm font-bold text-green-900 hover:bg-green-50"
+                    className="inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 hover:bg-white"
                   >
-                    <RefreshCcw size={16} />
-                    Use last analyzed import
+                    <RefreshCcw size={15} />
+                    Resume last import
                   </button>
                 ) : null}
-
-                <div className="mt-3 grid gap-2 text-sm text-slate-600">
-                  <FormatPill icon={<FileSpreadsheet size={16} />} label="Excel and CSV" />
-                  <FormatPill icon={<FileText size={16} />} label="PDF reports" />
-                  <FormatPill icon={<ImageIcon size={16} />} label="Photos and screenshots" />
-                </div>
               </div>
             )}
 
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv,.xlsx,.xls,.txt,.pdf,image/*"
+              accept=".csv,.xlsx,.xls,.txt,.pdf"
               className="hidden"
               onChange={(event) => {
                 const file = event.target.files?.[0];
@@ -2304,74 +2257,54 @@ export default function LabValueImporter({
                 if (file) void analyzePhotoBlob(file, file.name || "photo");
               }}
             />
-          </div>
+          </section>
+        ) : null}
 
-          {(!isScanMode || documentText.trim() || showTextReview) ? (
-          <div className="rounded-3xl border border-slate-200 bg-white p-3 sm:p-4">
-            <div className="flex items-start gap-3">
-              <FileText size={20} className="mt-0.5 shrink-0 text-green-800" />
-              <div>
-                <p className="font-extrabold text-green-950">
-                  {isScanMode ? "Review detected text" : "Detected report text"}
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  You can adjust the text before reviewing the imported values.
-                </p>
-              </div>
-            </div>
-
+        {(showTextPanel || showScanTextPanel) && !hasPreview ? (
+          <section className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+            <p className="text-sm font-bold text-green-950">Detected text</p>
             <textarea
-              className="mt-3 min-h-32 w-full rounded-2xl border border-green-100 bg-green-50/35 p-3 text-sm outline-none focus:border-green-600 focus:ring-4 focus:ring-green-700/10"
+              className="mt-2 min-h-28 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-green-600 focus:ring-2 focus:ring-green-700/10"
               value={documentText}
               onChange={(event) => {
                 setDocumentText(event.target.value);
                 setShowTextReview(true);
               }}
-              placeholder={"Example:\nNitrogen (N) 2.8 %\nPhosphorus\n18 mg/kg\nPotassium 0.35 cmol(+)/kg"}
+              placeholder="Edit the detected text if needed."
             />
-
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-2 flex gap-2">
               <button
                 type="button"
                 onClick={() => buildDocumentPreview(documentText)}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-green-700 px-4 font-bold text-white hover:bg-green-800"
+                className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-green-700 px-3 text-sm font-bold text-white hover:bg-green-800"
               >
-                <FileText size={17} />
-                Review detected values
+                Review values
               </button>
               <button
                 type="button"
                 onClick={resetImporter}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 font-bold text-slate-700 hover:bg-slate-50"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
               >
                 Reset
               </button>
             </div>
-
-            {showTextReview ? (
-              <p className="mt-3 text-xs text-slate-500">
-                Alakay checks names, symbols, nearby values, next-line values,
-                and visible units before asking you to confirm.
-              </p>
-            ) : null}
-          </div>
-          ) : null}
-        </section>
+          </section>
+        ) : null}
 
         {loading ? (
-          <div className="mt-4 flex items-center gap-3 rounded-2xl bg-green-50 p-4 text-green-900">
-            <Loader2 size={18} className="animate-spin" />
+          <div className="mt-3 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-sm text-green-900">
+            <Loader2 size={16} className="animate-spin shrink-0" />
             <span className="font-semibold">{loadingLabel || "Working..."}</span>
           </div>
         ) : null}
 
         {message ? (
-          <div className="mt-4 rounded-2xl bg-yellow-50 p-4 text-sm font-medium text-yellow-950">
+          <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-950">
             {message}
           </div>
         ) : null}
 
-        {previewRows.length > 0 ? (
+        {hasPreview ? (
           <section className="mt-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -2620,15 +2553,6 @@ export default function LabValueImporter({
           </section>
         ) : null}
       </div>
-    </div>
-  );
-}
-
-function FormatPill({ icon, label }: { icon: ReactNode; label: string }) {
-  return (
-    <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 font-semibold text-green-900">
-      {icon}
-      {label}
     </div>
   );
 }

@@ -42,7 +42,7 @@ export default function ParameterCategoryFilter({
             } ${
               active
                 ? "bg-green-600 text-white shadow-sm"
-                : "bg-white text-slate-600 ring-1 ring-green-100 hover:bg-green-50"
+                : "auth-panel-muted text-slate-600 hover:bg-white/48"
             }`}
           >
             {labelFor(category)}

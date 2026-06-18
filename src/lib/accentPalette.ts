@@ -156,9 +156,9 @@ export function buildAccentCssVariables(
 
   const mainGradient = isDark
     ? isBlackDark
-      ? `linear-gradient(180deg, rgb(12 12 12 / 0.96) 0%, rgb(8 8 8 / 0.98) 56%, rgb(6 6 6 / 0.98) 100%), radial-gradient(ellipse at 50% 12%, rgb(var(--accent-400-rgb) / 0.06), transparent 44%)`
-      : `linear-gradient(180deg, ${withAlpha(darkSurface, 0.92)} 0%, ${withAlpha(darkBase, 0.96)} 56%, ${withAlpha(darkSurfaceRaised, 0.9)} 100%), radial-gradient(ellipse at 50% 10%, ${withAlpha(scale[400], 0.07)}, transparent 50%)`
-    : `linear-gradient(180deg, ${withAlpha(scale[100], 0.78)} 0%, ${withAlpha(scale[50], 0.78)} 54%, ${withAlpha(scale[100], 0.84)} 100%), repeating-linear-gradient(112deg, ${withAlpha(scale[700], 0.1)} 0 1px, transparent 1px 24px), repeating-linear-gradient(168deg, ${withAlpha(scale[600], 0.06)} 0 1px, transparent 1px 30px), radial-gradient(ellipse at 50% 14%, rgba(255, 255, 255, 0.58), transparent 42%), linear-gradient(135deg, ${scale[50]} 0%, ${scale[100]} 46%, ${scale[50]} 100%)`;
+      ? `radial-gradient(ellipse 90% 55% at 18% 0%, rgb(var(--accent-400-rgb) / 0.12), transparent 52%), radial-gradient(ellipse 80% 50% at 88% 24%, rgb(var(--accent-300-rgb) / 0.08), transparent 50%), linear-gradient(180deg, rgb(12 12 12 / 0.96) 0%, rgb(8 8 8 / 0.98) 56%, rgb(6 6 6 / 0.98) 100%)`
+      : `radial-gradient(ellipse 95% 60% at 12% -8%, ${withAlpha(scale[400], 0.14)}, transparent 54%), radial-gradient(ellipse 85% 55% at 92% 18%, ${withAlpha(scale[300], 0.1)}, transparent 52%), linear-gradient(180deg, ${withAlpha(darkSurface, 0.92)} 0%, ${withAlpha(darkBase, 0.96)} 56%, ${withAlpha(darkSurfaceRaised, 0.9)} 100%)`
+    : `radial-gradient(ellipse 110% 75% at 8% -12%, ${withAlpha(scale[200], 0.58)}, transparent 52%), radial-gradient(ellipse 95% 65% at 96% 14%, ${withAlpha(scale[300], 0.42)}, transparent 54%), radial-gradient(ellipse 90% 55% at 50% 108%, ${withAlpha(scale[100], 0.72)}, transparent 50%), linear-gradient(165deg, ${scale[50]} 0%, ${withAlpha(scale[100], 0.88)} 36%, #f8fafc 58%, ${scale[50]} 100%)`;
 
   const authGradient = mainGradient;
 
@@ -221,6 +221,21 @@ export function buildAccentCssVariables(
     "--glass-border": isDark
       ? darkBorder
       : withAlpha(scale[200], 0.85),
+    "--glass-surface": isDark
+      ? isBlackDark
+        ? "rgb(18 18 18 / 0.72)"
+        : withAlpha(darkSurfaceRaised, 0.74)
+      : "rgb(var(--accent-50-rgb) / 0.68)",
+    "--glass-surface-strong": isDark
+      ? isBlackDark
+        ? "rgb(24 24 24 / 0.82)"
+        : withAlpha(darkSurface, 0.82)
+      : "rgb(var(--accent-100-rgb) / 0.76)",
+    "--glass-surface-muted": isDark
+      ? "rgb(24 24 24 / 0.58)"
+      : "rgb(var(--accent-100-rgb) / 0.52)",
+    "--glass-chrome-surface": "var(--glass-surface)",
+    "--glass-chrome-border": "var(--glass-border)",
     "--glass-shadow": isDark
       ? "0 20px 54px rgba(0, 0, 0, 0.52)"
       : `0 8px 32px rgba(${glow.r}, ${glow.g}, ${glow.b}, 0.14)`,

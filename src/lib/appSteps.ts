@@ -5,5 +5,6 @@ export type AppStep =
   | "results"
   | "calculators"
   | "history"
+  | "about"
   | "recycle"
   | "settings";

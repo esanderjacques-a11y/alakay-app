@@ -134,22 +134,22 @@ export function readStoredAccent(): AccentColor {
 
 export function readStoredBrightness() {
   const brightness = getSettings().general.brightness;
-  return Math.min(115, Math.max(85, Number(brightness) || 100));
+  return Math.min(100, Math.max(70, Number(brightness) || 100));
 }
 
 export function readStoredSaturation() {
   const saturation = getSettings().general.saturation;
-  return Math.min(130, Math.max(70, Number(saturation) || 100));
+  return Math.min(100, Math.max(70, Number(saturation) || 100));
 }
 
 export function readStoredContrast() {
   const contrast = getSettings().general.contrast;
-  return Math.min(125, Math.max(85, Number(contrast) || 100));
+  return Math.min(100, Math.max(70, Number(contrast) || 100));
 }
 
 export function applyBrightness(brightness: number) {
   if (typeof document === "undefined") return;
-  const nextBrightness = Math.min(115, Math.max(85, Number(brightness) || 100));
+  const nextBrightness = Math.min(100, Math.max(70, Number(brightness) || 100));
   document.documentElement.style.setProperty(
     "--app-brightness",
     String(nextBrightness / 100)
@@ -159,7 +159,7 @@ export function applyBrightness(brightness: number) {
 
 export function applySaturation(saturation: number) {
   if (typeof document === "undefined") return;
-  const nextSaturation = Math.min(130, Math.max(70, Number(saturation) || 100));
+  const nextSaturation = Math.min(100, Math.max(70, Number(saturation) || 100));
   document.documentElement.style.setProperty(
     "--app-saturation",
     String(nextSaturation / 100)
@@ -169,7 +169,7 @@ export function applySaturation(saturation: number) {
 
 export function applyContrast(contrast: number) {
   if (typeof document === "undefined") return;
-  const nextContrast = Math.min(125, Math.max(85, Number(contrast) || 100));
+  const nextContrast = Math.min(100, Math.max(70, Number(contrast) || 100));
   document.documentElement.style.setProperty(
     "--app-contrast",
     String(nextContrast / 100)
@@ -177,8 +177,22 @@ export function applyContrast(contrast: number) {
   document.documentElement.dataset.contrast = String(nextContrast);
 }
 
+export function applyGlassUi(enabled: boolean) {
+  if (typeof document === "undefined") return;
+  document.documentElement.dataset.glassUi = enabled ? "true" : "false";
+  document.documentElement.style.setProperty(
+    "--app-blur",
+    enabled ? "1" : "0"
+  );
+}
+
+export function readStoredGlassUi() {
+  return getSettings().general.glassUi !== false;
+}
+
 export function applyVisualTone() {
   applyBrightness(readStoredBrightness());
   applySaturation(readStoredSaturation());
   applyContrast(readStoredContrast());
+  applyGlassUi(readStoredGlassUi());
 }

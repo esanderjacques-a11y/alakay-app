@@ -7,10 +7,13 @@ import type { Session } from "@supabase/supabase-js";
 import {
   Check,
   ChevronDown,
+  ChevronRight,
+  Globe,
+  Info,
   LogIn,
   LogOut,
-  Menu,
   Moon,
+  MoreVertical,
   RotateCcw,
   Settings,
   Sun,
@@ -40,6 +43,7 @@ type Props = {
   onLogout: () => void;
   onOpenSettings: () => void;
   onOpenRecycleBin: () => void;
+  onOpenAbout: () => void;
   theme: "light" | "dark";
   onToggleTheme: () => void;
 };
@@ -70,6 +74,7 @@ export default function AppHeader({
   onLogout,
   onOpenSettings,
   onOpenRecycleBin,
+  onOpenAbout,
   theme,
   onToggleTheme,
 }: Props) {
@@ -93,6 +98,20 @@ export default function AppHeader({
     const headerElement = headerRef.current;
     if (!headerElement) return;
     const headerNode: HTMLElement = headerElement;
+
+    const syncHeaderHeight = () => {
+      const heightPx = `${headerNode.offsetHeight}px`;
+      document.documentElement.style.setProperty(
+        "--app-header-visible-height",
+        heightPx
+      );
+      document.documentElement.style.setProperty("--app-header-full-height", heightPx);
+    };
+
+    syncHeaderHeight();
+    const resizeObserver = new ResizeObserver(syncHeaderHeight);
+    resizeObserver.observe(headerNode);
+    window.addEventListener("resize", syncHeaderHeight);
 
     let previousScrollY = Math.max(window.scrollY, 0);
     let hiddenOffset = 0;
@@ -118,12 +137,6 @@ export default function AppHeader({
 
       previousScrollY = currentScrollY;
       headerNode.style.transform = `translate3d(0, -${hiddenOffset}px, 0)`;
-      headerNode.style.opacity = hiddenOffset >= headerHeight ? "0.96" : "1";
-    }
-
-    function requestHeaderUpdate() {
-      if (animationFrame) return;
-      animationFrame = window.requestAnimationFrame(updateHeader);
     }
 
     updateHeader();
@@ -134,8 +147,15 @@ export default function AppHeader({
     });
     window.addEventListener("resize", requestHeaderUpdate);
 
+    function requestHeaderUpdate() {
+      if (animationFrame) return;
+      animationFrame = window.requestAnimationFrame(updateHeader);
+    }
+
     return () => {
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", syncHeaderHeight);
       window.removeEventListener("scroll", requestHeaderUpdate);
       document.removeEventListener("scroll", requestHeaderUpdate, {
         capture: true,
@@ -147,45 +167,40 @@ export default function AppHeader({
   return (
     <header
       ref={headerRef}
-      className="app-header fixed inset-x-0 top-0 z-[12000] border-b border-white/55"
+      className="app-header fixed inset-x-0 top-0 z-[12000]"
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+      <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-4 sm:px-5" style={{ height: "3.25rem" }}>
+        {/* Logo + App name */}
         <button
           type="button"
           onClick={onHome}
-          className="touch-target flex min-w-0 items-center gap-3 rounded-2xl pr-2 active:scale-[0.98]"
+          className="touch-target flex min-w-0 items-center gap-2.5 active:scale-[0.97] transition-transform"
         >
           <img
             src="/app-icon.png"
             alt={t.appName}
-            className="app-logo-frame h-10 w-10 shrink-0 object-contain drop-shadow-[0_8px_14px_rgba(21,128,61,0.14)] sm:h-11 sm:w-11"
+            className="app-logo-frame h-7 w-7 shrink-0 object-contain"
           />
-          <span className="hidden min-w-0 text-left sm:block">
-            <span className="block truncate text-lg font-extrabold leading-tight text-green-900">
-              {t.appName.toUpperCase()}
+          <div className="min-w-0 hidden sm:block">
+            <span className="block truncate text-base font-extrabold uppercase tracking-wide leading-tight text-green-900">
+              {t.appName}
             </span>
-            <span className="block truncate text-xs font-medium text-slate-500">
+            <span className="block truncate text-[10px] font-medium text-slate-400 leading-tight">
               {t.shortTagline}
             </span>
+          </div>
+          <span className="sm:hidden text-base font-extrabold uppercase tracking-wide text-green-900">
+            {t.appName}
           </span>
         </button>
 
-        <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            aria-label={t.appSettings}
-            title={t.appSettings}
-            className="touch-target grid h-10 w-10 place-items-center rounded-2xl border border-green-200/80 bg-white/76 text-green-900 shadow-sm shadow-green-900/5 backdrop-blur-md active:scale-[0.98]"
-          >
-            <Settings size={18} />
-          </button>
+        {/* Desktop action buttons */}
+        <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
           <button
             type="button"
             onClick={onToggleTheme}
             aria-label={t.themeToggleDesc}
-            title={theme === "dark" ? t.lightTheme : t.darkTheme}
-            className="touch-target grid h-10 w-10 place-items-center rounded-2xl border border-green-200/80 bg-white/76 text-green-900 shadow-sm shadow-green-900/5 backdrop-blur-md active:scale-[0.98]"
+            className="touch-target h-9 w-9 grid place-items-center rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all"
           >
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
@@ -201,215 +216,219 @@ export default function AppHeader({
             onContinueAsGuest={onContinueAsGuest}
             onLogout={onLogout}
           />
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            aria-label={t.appSettings}
+            className="touch-target h-9 w-9 grid place-items-center rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all"
+          >
+            <Settings size={18} />
+          </button>
         </div>
 
+        {/* Mobile overflow menu button */}
         <button
           type="button"
           onClick={() => setMobileMenuOpen(true)}
-          aria-label={t.appSettings}
-          className="touch-target grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-green-200/80 bg-white/78 text-green-900 shadow-sm shadow-green-900/5 backdrop-blur-md active:scale-[0.98] sm:hidden"
+          aria-label="Menu"
+          className="touch-target h-9 w-9 grid shrink-0 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all sm:hidden"
         >
-          <Menu size={21} />
+          <MoreVertical size={20} />
         </button>
-        </div>
+      </div>
 
+      {/* Mobile side drawer */}
       {mobileMenuPresence.mounted
         ? createPortal(
-        <div className="fixed inset-0 z-[24000] sm:hidden">
-          <button
-            type="button"
-            aria-label={t.close}
-            className={`absolute inset-0 bg-slate-950/30 backdrop-blur-md ${
-              mobileMenuPresence.leaving ? "animate-fade-out" : "animate-fade-in"
-            }`}
-            onClick={closeMobileMenu}
-          />
+          <div className="fixed inset-0 z-[24000] sm:hidden">
+            <button
+              type="button"
+              aria-label={t.close}
+              className={`absolute inset-0 bg-black/30 ${
+                mobileMenuPresence.leaving ? "animate-fade-out" : "animate-fade-in"
+              }`}
+              onClick={closeMobileMenu}
+            />
 
             <section
-              className={`mobile-menu-panel absolute right-0 top-0 flex h-full w-[min(20rem,84vw)] flex-col border-l border-white/70 p-3 shadow-2xl ${
-              mobileMenuPresence.leaving
-                ? "animate-slide-right-out"
-                : "animate-slide-right-in"
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <img
-                  src="/app-icon.png"
-                  alt={t.appName}
-                  className="app-logo-frame h-9 w-9 shrink-0 object-contain"
-                />
-                <div className="min-w-0">
-                  <p className="truncate text-base font-extrabold text-green-950">
-                    {t.appName.toUpperCase()}
-                  </p>
-                  <p className="truncate text-[11px] font-semibold text-slate-500">
-                    {accountLabel}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={closeMobileMenu}
-                aria-label={t.close}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl border border-slate-200 bg-white/72 text-slate-600"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="mt-2 overflow-y-auto pb-4">
-              <div className="border-b border-emerald-900/10 pb-1">
-                <MobileMenuRow
-                  icon={<User size={18} />}
-                  title={accountLabel}
-                  rightIcon={
-                    <ChevronDown
-                      size={16}
-                      className={`transition ${mobileAccountOpen ? "rotate-180" : ""}`}
-                    />
-                  }
-                  onClick={() => setMobileAccountOpen((open) => !open)}
-                />
-
-                {mobileAccountPresence.mounted ? (
-                  <div
-                    className={`pl-8 ${
-                      mobileAccountPresence.leaving
-                        ? "animate-slide-up-out"
-                        : "animate-slide-up-in"
-                    }`}
-                  >
-                    {session?.user && guestMode ? (
-                      <MobileMenuRow
-                        icon={<UserRoundCog size={16} />}
-                        title={t.account}
-                        compact
-                        onClick={() => {
-                          closeMobileMenu();
-                          onUseAccount();
-                        }}
-                      />
-                    ) : null}
-
-                    {!guestMode ? (
-                      <MobileMenuRow
-                        icon={<UserRoundCheck size={16} />}
-                        title={t.continueWithoutAccount}
-                        compact
-                        onClick={() => {
-                          closeMobileMenu();
-                          onContinueAsGuest();
-                        }}
-                      />
-                    ) : null}
-
-                    <MobileMenuRow
-                      icon={session?.user ? <UserPlus size={16} /> : <LogIn size={16} />}
-                      title={t.loginOrCreate}
-                      compact
-                      onClick={() => {
-                        closeMobileMenu();
-                        onSwitchAccount();
-                      }}
-                    />
-
-                    {session?.user ? (
-                      <MobileMenuRow
-                        icon={<LogOut size={16} />}
-                        title={t.logOut}
-                        danger
-                        compact
-                        onClick={() => {
-                          closeMobileMenu();
-                          onLogout();
-                        }}
-                      />
-                    ) : null}
+              className={`mobile-menu-panel absolute right-0 top-0 flex h-full w-[min(18rem,82vw)] flex-col p-0 ${
+                mobileMenuPresence.leaving
+                  ? "animate-slide-right-out"
+                  : "animate-slide-right-in"
+              }`}
+            >
+              {/* Drawer header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-black/6">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <img
+                    src="/app-icon.png"
+                    alt={t.appName}
+                    className="app-logo-frame h-7 w-7 shrink-0 object-contain"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-extrabold uppercase tracking-wide text-green-900">
+                      {t.appName}
+                    </p>
+                    <p className="truncate text-[10px] text-slate-400">
+                      {accountLabel}
+                    </p>
                   </div>
-                ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={closeMobileMenu}
+                  aria-label={t.close}
+                  className="h-8 w-8 grid place-items-center rounded-xl text-slate-500 hover:bg-slate-100"
+                >
+                  <X size={17} />
+                </button>
               </div>
 
-              <div className="pt-2">
-                <p className="px-1 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-800">
-                  {t.appSettings}
-                </p>
-
-                <MobileMenuRow
-                  icon={<Settings size={18} />}
-                  title={t.appSettings}
-                  onClick={() => {
-                    closeMobileMenu();
-                    onOpenSettings();
-                  }}
-                />
-
-                <MobileMenuRow
-                  icon={<LanguageFlag language={language} size="md" />}
-                  title={t.selectLanguage}
-                  rightIcon={
-                    <ChevronDown
-                      size={16}
-                      className={`transition ${mobileLanguageOpen ? "rotate-180" : ""}`}
-                    />
-                  }
-                  onClick={() => setMobileLanguageOpen((open) => !open)}
-                />
-
-                {mobileLanguagePresence.mounted ? (
-                  <div
-                    className={`border-b border-emerald-900/10 py-1 pl-10 ${
-                      mobileLanguagePresence.leaving
-                        ? "animate-slide-up-out"
-                        : "animate-slide-up-in"
-                    }`}
-                  >
-                  {languageOptions.map((item) => (
-                    <button
-                      key={item.code}
-                      type="button"
-                      onClick={() => {
-                        setLanguage(item.code);
-                        closeMobileMenu();
-                      }}
-                      className={`touch-target flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm font-bold transition active:scale-[0.98] ${
-                        language === item.code
-                          ? "text-green-900"
-                          : "text-slate-700 hover:text-green-900"
+              {/* Drawer content */}
+              <div className="flex flex-1 flex-col overflow-y-auto">
+                {/* Account section */}
+                <div className="px-2 pt-2 pb-1">
+                  <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    {t.account}
+                  </p>
+                  <MenuRow
+                    icon={<User size={17} />}
+                    title={accountLabel}
+                    rightIcon={
+                      <ChevronDown
+                        size={15}
+                        className={`transition-transform ${mobileAccountOpen ? "rotate-180" : ""}`}
+                      />
+                    }
+                    onClick={() => setMobileAccountOpen((o) => !o)}
+                  />
+                  {mobileAccountPresence.mounted ? (
+                    <div
+                      className={`ml-10 ${
+                        mobileAccountPresence.leaving
+                          ? "animate-slide-up-out"
+                          : "animate-slide-up-in"
                       }`}
                     >
-                      <LanguageFlag
-                        language={item.code}
-                        size="md"
-                        title={item.fullLabel}
-                      />
-                      <span>{item.fullLabel}</span>
-                      {language === item.code ? (
-                        <Check size={16} className="ml-auto text-emerald-700" />
+                      {session?.user && guestMode ? (
+                        <SubMenuRow
+                          icon={<UserRoundCog size={15} />}
+                          title={t.account}
+                          onClick={() => { closeMobileMenu(); onUseAccount(); }}
+                        />
                       ) : null}
-                    </button>
-                  ))}
-                  </div>
-                ) : null}
+                      {!guestMode ? (
+                        <SubMenuRow
+                          icon={<UserRoundCheck size={15} />}
+                          title={t.continueWithoutAccount}
+                          onClick={() => { closeMobileMenu(); onContinueAsGuest(); }}
+                        />
+                      ) : null}
+                      <SubMenuRow
+                        icon={session?.user ? <UserPlus size={15} /> : <LogIn size={15} />}
+                        title={t.loginOrCreate}
+                        onClick={() => { closeMobileMenu(); onSwitchAccount(); }}
+                      />
+                      {session?.user ? (
+                        <SubMenuRow
+                          icon={<LogOut size={15} />}
+                          title={t.logOut}
+                          danger
+                          onClick={() => { closeMobileMenu(); onLogout(); }}
+                        />
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
 
-                <MobileMenuRow
-                  icon={theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-                  title={t.selectTheme}
-                  onClick={onToggleTheme}
-                />
+                {/* Divider */}
+                <div className="mx-4 my-1 h-px bg-black/6" />
 
-                <MobileMenuRow
-                  icon={<RotateCcw size={18} />}
-                  title={t.recycleBin}
-                  onClick={() => {
-                    closeMobileMenu();
-                    onOpenRecycleBin();
-                  }}
-                />
+                {/* App settings section */}
+                <div className="px-2 py-1">
+                  <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    {t.appSettings}
+                  </p>
+
+                  <MenuRow
+                    icon={<Globe size={17} />}
+                    title={t.selectLanguage}
+                    rightContent={
+                      <div className="flex items-center gap-1.5">
+                        <LanguageFlag language={language} size="sm" />
+                        <ChevronDown
+                          size={15}
+                          className={`transition-transform ${mobileLanguageOpen ? "rotate-180" : ""}`}
+                        />
+                      </div>
+                    }
+                    onClick={() => setMobileLanguageOpen((o) => !o)}
+                  />
+                  {mobileLanguagePresence.mounted ? (
+                    <div
+                      className={`ml-10 ${
+                        mobileLanguagePresence.leaving
+                          ? "animate-slide-up-out"
+                          : "animate-slide-up-in"
+                      }`}
+                    >
+                      {languageOptions.map((item) => (
+                        <button
+                          key={item.code}
+                          type="button"
+                          onClick={() => { setLanguage(item.code); closeMobileMenu(); }}
+                          className={`touch-target flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition active:scale-[0.98] ${
+                            language === item.code
+                              ? "font-bold text-green-800 bg-green-50"
+                              : "font-medium text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          <LanguageFlag language={item.code} size="md" title={item.fullLabel} />
+                          <span>{item.fullLabel}</span>
+                          {language === item.code ? (
+                            <Check size={14} className="ml-auto text-green-700" />
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <MenuRow
+                    icon={theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+                    title={theme === "dark" ? t.lightTheme : t.darkTheme}
+                    onClick={onToggleTheme}
+                  />
+
+                  <MenuRow
+                    icon={<Settings size={17} />}
+                    title={t.appSettings}
+                    rightIcon={<ChevronRight size={15} />}
+                    onClick={() => { closeMobileMenu(); onOpenSettings(); }}
+                  />
+
+                  <MenuRow
+                    icon={<RotateCcw size={17} />}
+                    title={t.recycleBin}
+                    rightIcon={<ChevronRight size={15} />}
+                    onClick={() => { closeMobileMenu(); onOpenRecycleBin(); }}
+                  />
+                </div>
+
+                {/* Divider */}
+                <div className="mx-4 my-1 h-px bg-black/6" />
+
+                {/* About section */}
+                <div className="px-2 py-1">
+                  <MenuRow
+                    icon={<Info size={17} />}
+                    title={t.about}
+                    rightIcon={<ChevronRight size={15} />}
+                    onClick={() => { closeMobileMenu(); onOpenAbout(); }}
+                  />
+                </div>
               </div>
-            </div>
-          </section>
-        </div>,
+            </section>
+          </div>,
           document.body
         )
         : null}
@@ -417,69 +436,59 @@ export default function AppHeader({
   );
 }
 
-function MobileMenuRow({
+function MenuRow({
   icon,
   title,
-  desc,
   rightIcon,
-  danger = false,
-  compact = false,
+  rightContent,
   onClick,
 }: {
   icon: ReactNode;
   title: string;
-  desc?: string;
   rightIcon?: ReactNode;
-  danger?: boolean;
-  compact?: boolean;
+  rightContent?: ReactNode;
   onClick?: () => void;
 }) {
-  const content = (
-    <>
-      <span
-        className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl ${
-          danger ? "text-red-700" : "text-emerald-800"
-        }`}
-      >
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span
-          className={`block truncate text-sm font-semibold ${
-            danger ? "text-red-700" : "text-green-950"
-          }`}
-        >
-          {title}
-        </span>
-        {desc ? (
-          <span className="mt-0.5 block truncate text-[11px] font-medium text-slate-500">
-            {desc}
-          </span>
-        ) : null}
-      </span>
-      {rightIcon ? (
-        <span className="shrink-0 text-emerald-800">{rightIcon}</span>
-      ) : null}
-    </>
-  );
-
-  if (!onClick) {
-    return (
-      <div className={`flex items-center gap-2.5 ${compact ? "py-1.5" : "py-2"}`}>
-        {content}
-      </div>
-    );
-  }
-
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`touch-target flex w-full items-center gap-2.5 border-t border-emerald-900/10 text-left transition active:scale-[0.98] ${
-        compact ? "py-1.5" : "py-2"
+      className="touch-target flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-slate-50 active:scale-[0.98] transition-all"
+    >
+      <span className="text-slate-500 shrink-0">{icon}</span>
+      <span className="flex-1 min-w-0 text-sm font-semibold text-slate-800 truncate">
+        {title}
+      </span>
+      {rightContent ? (
+        <span className="shrink-0 text-slate-400">{rightContent}</span>
+      ) : rightIcon ? (
+        <span className="shrink-0 text-slate-400">{rightIcon}</span>
+      ) : null}
+    </button>
+  );
+}
+
+function SubMenuRow({
+  icon,
+  title,
+  danger = false,
+  onClick,
+}: {
+  icon: ReactNode;
+  title: string;
+  danger?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`touch-target flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left hover:bg-slate-50 active:scale-[0.98] transition-all ${
+        danger ? "text-red-600" : "text-slate-600"
       }`}
     >
-      {content}
+      <span className="shrink-0">{icon}</span>
+      <span className="text-sm font-medium">{title}</span>
     </button>
   );
 }

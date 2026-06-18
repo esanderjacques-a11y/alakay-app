@@ -302,7 +302,7 @@ export default function CustomParameterManager({
 
   return (
     <div className="fixed inset-0 z-[20000] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-md">
-      <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
+      <div className="glass-modal-shell max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-green-900">{l.title}</h2>

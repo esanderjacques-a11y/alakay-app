@@ -260,7 +260,7 @@ export default function AccountSettingsSection({ language, session }: Props) {
 
   if (!session?.user) {
     return (
-      <section className="rounded-2xl border border-white/70 bg-white/55 p-4 text-sm text-slate-600">
+      <section className="border-b border-[rgba(0,0,0,0.06)] py-4 text-sm text-slate-600">
         {text.loginRequired}
       </section>
     );
@@ -268,10 +268,10 @@ export default function AccountSettingsSection({ language, session }: Props) {
 
   if (!editing) {
     return (
-      <section className="rounded-2xl border border-white/70 bg-white/55 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full border border-white/80 bg-white/80 shadow-sm">
+      <section className="settings-account-summary">
+        <div className="flex items-center justify-between gap-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-white/80 bg-white/80 shadow-sm">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : (
@@ -279,10 +279,10 @@ export default function AccountSettingsSection({ language, session }: Props) {
               )}
             </div>
             <div className="min-w-0">
-              <p className="font-extrabold text-green-950">
+              <p className="text-sm font-bold text-[#1c1c1e] dark:text-[#e8e8e8]">
                 {text.accountInformation}
               </p>
-              <p className="truncate text-sm text-slate-600">
+              <p className="truncate text-xs text-slate-500">
                 {fullName || session.user.email}
               </p>
             </div>
@@ -290,7 +290,7 @@ export default function AccountSettingsSection({ language, session }: Props) {
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="shrink-0 rounded-2xl border border-green-200 bg-white/72 px-3 py-2 text-sm font-extrabold text-green-900 shadow-sm hover:bg-green-50"
+            className="shrink-0 rounded-full border border-[rgba(0,0,0,0.08)] bg-white/80 px-3 py-1.5 text-xs font-semibold text-[color:var(--accent-800,#166534)] shadow-sm hover:bg-white"
           >
             {text.manageAccount}
           </button>
@@ -300,7 +300,7 @@ export default function AccountSettingsSection({ language, session }: Props) {
   }
 
   return (
-    <section className="grid gap-4 rounded-2xl border border-white/70 bg-white/55 p-4">
+    <section className="grid gap-4 border-b border-[rgba(0,0,0,0.06)] py-4">
       <button
         type="button"
         onClick={() => setEditing(false)}
@@ -340,7 +340,7 @@ export default function AccountSettingsSection({ language, session }: Props) {
 
       {pendingAvatar ? (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md">
-          <section className="w-full max-w-sm rounded-3xl border border-white/70 bg-white/90 p-4 shadow-2xl">
+          <section className="glass-modal-shell w-full max-w-sm rounded-3xl p-4">
             <p className="text-sm font-extrabold text-green-950">
               {text.cropPhoto}
             </p>

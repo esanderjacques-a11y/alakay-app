@@ -1,21 +1,15 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useId, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import {
-  Check,
-  ChevronDown,
-  Database,
-  FileDown,
-  FlaskConical,
-  Globe2,
   Redo2,
   RotateCcw,
   Save,
-  ScanLine,
   Undo2,
+  ChevronDown,
 } from "lucide-react";
-import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
-import { useDismissible } from "@/hooks/useDismissible";
+import MenuSelect from "@/components/ui/MenuSelect";
 import { buildAccentScale } from "@/lib/accentPalette";
 import type { Session } from "@supabase/supabase-js";
 import {
@@ -38,11 +32,13 @@ import {
   applyAccentColor,
   applyBrightness,
   applyContrast,
+  applyGlassUi,
   applySaturation,
   resolveDarkVariantPreference,
   resolveThemePreference,
 } from "@/lib/uiPreferences";
 import AccountSettingsSection from "@/components/AccountSettingsSection";
+import BackButton from "@/components/ui/BackButton";
 import type { Language } from "@/lib/translations";
 
 type Props = {
@@ -79,6 +75,7 @@ type SettingsText = {
   resetConfirm: string;
   sections: {
     general: string;
+    display: string;
     account: string;
     analysis: string;
     importAi: string;
@@ -93,6 +90,7 @@ type SettingsText = {
     contrast: string;
     appFontSize: string;
     accentColor: string;
+    glassUi: string;
     defaultSampleType: string;
     defaultCrop: string;
     interpretationMethod: string;
@@ -180,6 +178,7 @@ const settingsText: Record<Language, SettingsText> = {
     resetConfirm: "Reset all app settings?",
     sections: {
       general: "General",
+      display: "Display",
       account: "Account",
       analysis: "Analysis",
       importAi: "Import / AI reader",
@@ -194,6 +193,7 @@ const settingsText: Record<Language, SettingsText> = {
       contrast: "Contrast",
       appFontSize: "App size",
       accentColor: "App accent color",
+      glassUi: "Glass blur UI",
       defaultSampleType: "Default sample type",
       defaultCrop: "Default crop",
       interpretationMethod: "Interpretation method",
@@ -279,6 +279,7 @@ const settingsText: Record<Language, SettingsText> = {
     resetConfirm: "¿Restablecer todos los ajustes de la app?",
     sections: {
       general: "General",
+      display: "Pantalla",
       account: "Cuenta",
       analysis: "Análisis",
       importAi: "Importación / lector IA",
@@ -293,6 +294,7 @@ const settingsText: Record<Language, SettingsText> = {
       contrast: "Contraste",
       appFontSize: "Tamaño de la app",
       accentColor: "Color principal de la app",
+      glassUi: "Interfaz con efecto cristal",
       defaultSampleType: "Tipo de muestra predeterminado",
       defaultCrop: "Cultivo predeterminado",
       interpretationMethod: "Método de interpretación",
@@ -378,6 +380,7 @@ const settingsText: Record<Language, SettingsText> = {
     resetConfirm: "Réinitialiser tous les réglages de l’app ?",
     sections: {
       general: "Général",
+      display: "Affichage",
       account: "Compte",
       analysis: "Analyse",
       importAi: "Import / lecture IA",
@@ -392,6 +395,7 @@ const settingsText: Record<Language, SettingsText> = {
       contrast: "Contraste",
       appFontSize: "Taille de l’app",
       accentColor: "Couleur principale de l’app",
+      glassUi: "Interface effet verre",
       defaultSampleType: "Type d’échantillon par défaut",
       defaultCrop: "Culture par défaut",
       interpretationMethod: "Méthode d’interprétation",
@@ -477,6 +481,7 @@ const settingsText: Record<Language, SettingsText> = {
     resetConfirm: "Reyajiste tout paramèt app la?",
     sections: {
       general: "Jeneral",
+      display: "Afichaj",
       account: "Kont",
       analysis: "Analiz",
       importAi: "Enpòte / lekti IA",
@@ -491,6 +496,7 @@ const settingsText: Record<Language, SettingsText> = {
       contrast: "Kontras",
       appFontSize: "Gwosè app la",
       accentColor: "Koulè prensipal app la",
+      glassUi: "Entèfas vitre flou",
       defaultSampleType: "Kalite echantiyon pa defo",
       defaultCrop: "Kilti pa defo",
       interpretationMethod: "Metòd entèpretasyon",
@@ -576,6 +582,7 @@ const settingsText: Record<Language, SettingsText> = {
     resetConfirm: "Redefinir todas as configurações do app?",
     sections: {
       general: "Geral",
+      display: "Exibição",
       account: "Conta",
       analysis: "Análise",
       importAi: "Importação / leitor IA",
@@ -590,6 +597,7 @@ const settingsText: Record<Language, SettingsText> = {
       contrast: "Contraste",
       appFontSize: "Tamanho do app",
       accentColor: "Cor principal do app",
+      glassUi: "Interface com efeito vidro",
       defaultSampleType: "Tipo de amostra padrão",
       defaultCrop: "Cultura padrão",
       interpretationMethod: "Método de interpretação",
@@ -675,6 +683,7 @@ const settingsText: Record<Language, SettingsText> = {
     resetConfirm: "Rudisha mipangilio yote ya app?",
     sections: {
       general: "Jumla",
+      display: "Onyesho",
       account: "Akaunti",
       analysis: "Uchambuzi",
       importAi: "Ingiza / kisomaji cha AI",
@@ -689,6 +698,7 @@ const settingsText: Record<Language, SettingsText> = {
       contrast: "Kontrasti",
       appFontSize: "Ukubwa wa app",
       accentColor: "Rangi kuu ya app",
+      glassUi: "Kiolesura cha kioo chenye ukungu",
       defaultSampleType: "Aina chaguo-msingi ya sampuli",
       defaultCrop: "Zao chaguo-msingi",
       interpretationMethod: "Mbinu ya tafsiri",
@@ -857,6 +867,7 @@ export default function AppSettingsScreen({
   const historyIndexRef = useRef(0);
   const [savedFlash, setSavedFlash] = useState(false);
   const savedTimeout = useRef<number | null>(null);
+  const [canPortalToolbar, setCanPortalToolbar] = useState(false);
 
   const isDirty = useMemo(
     () => !settingsEqual(draftSettings, committedSettings),
@@ -866,20 +877,27 @@ export default function AppSettingsScreen({
   const canRedo = historyIndex < history.length - 1;
 
   useEffect(() => {
+    queueMicrotask(() => setCanPortalToolbar(true));
     return () => {
       if (savedTimeout.current) window.clearTimeout(savedTimeout.current);
     };
   }, []);
 
-  function previewSettings(nextSettings: AppSettings) {
+  function previewSettings(
+    nextSettings: AppSettings,
+    previousSettings: AppSettings = draftSettings
+  ) {
     const resolvedTheme = resolveThemePreference(nextSettings.general.theme);
     const darkVariant = resolveDarkVariantPreference(nextSettings.general.theme);
-    onLanguageChange(nextSettings.general.language);
+    if (nextSettings.general.language !== previousSettings.general.language) {
+      onLanguageChange(nextSettings.general.language);
+    }
     onThemePreferenceChange(nextSettings.general.theme);
     applyAccentColor(nextSettings.general.accentColor, resolvedTheme, darkVariant);
     applyBrightness(nextSettings.general.brightness);
     applySaturation(nextSettings.general.saturation);
     applyContrast(nextSettings.general.contrast);
+    applyGlassUi(nextSettings.general.glassUi);
     onAccentChange?.(nextSettings.general.accentColor);
     onBrightnessChange?.(nextSettings.general.brightness);
     document.documentElement.style.setProperty(
@@ -898,8 +916,9 @@ export default function AppSettingsScreen({
 
   function pushDraft(nextSettings: AppSettings) {
     const snapshot = cloneSettings(nextSettings);
+    const previous = draftSettings;
     setDraftSettings(snapshot);
-    previewSettings(snapshot);
+    previewSettings(snapshot, previous);
 
     setHistory((previous) => {
       const current = previous[historyIndexRef.current];
@@ -933,8 +952,9 @@ export default function AppSettingsScreen({
     historyIndexRef.current = nextIndex;
     setHistoryIndex(nextIndex);
     const snapshot = cloneSettings(history[nextIndex]);
+    const previous = draftSettings;
     setDraftSettings(snapshot);
-    previewSettings(snapshot);
+    previewSettings(snapshot, previous);
   }
 
   function handleRedo() {
@@ -943,8 +963,9 @@ export default function AppSettingsScreen({
     historyIndexRef.current = nextIndex;
     setHistoryIndex(nextIndex);
     const snapshot = cloneSettings(history[nextIndex]);
+    const previous = draftSettings;
     setDraftSettings(snapshot);
-    previewSettings(snapshot);
+    previewSettings(snapshot, previous);
   }
 
   function handleSave() {
@@ -969,90 +990,89 @@ export default function AppSettingsScreen({
   }
 
   return (
-    <section className="mt-4 animate-slide-up">
-      <div className="values-screen-panel rounded-3xl p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+    <section className="animate-slide-up">
+      <div
+        className={`settings-page mx-auto w-full max-w-lg px-0 pt-0 ${
+          isDirty
+            ? "pb-[calc(4.75rem+env(safe-area-inset-bottom))]"
+            : "pb-6"
+        }`}
+      >
+        <div className="settings-page__header mb-2 flex items-center gap-2 pt-1 pb-0.5">
+          <BackButton
+            variant="icon"
+            onClick={() => {
+              if (isDirty) {
+                previewSettings(committedSettings);
+              }
+              onBack();
+            }}
+            label={text.back}
+          />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-bold dark-text-primary">{text.title}</h1>
+            {isDirty ? (
+              <p className="mt-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                {text.unsaved}
+              </p>
+            ) : savedFlash ? (
+              <p className="mt-0.5 text-xs font-semibold text-green-700 dark:text-green-400">
+                {text.saved}
+              </p>
+            ) : null}
+          </div>
+          {isDirty ? (
             <button
               type="button"
-              onClick={() => {
-                if (isDirty) {
-                  previewSettings(committedSettings);
-                }
-                onBack();
-              }}
-              className="rounded-2xl border border-white/70 bg-white/72 px-3 py-2 text-sm font-bold text-green-900 shadow-sm"
+              onClick={handleSave}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-green-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-green-800 active:scale-[0.98]"
             >
-              {text.back}
+              <Save size={15} />
+              <span>{text.save}</span>
             </button>
-            <h1 className="mt-4 text-base font-extrabold uppercase tracking-wide text-green-950 sm:text-lg">
-              {text.title}
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm text-slate-600">
-              {text.subtitle}
-            </p>
-          </div>
-
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-extrabold transition ${
-              savedFlash
-                ? "bg-emerald-100 text-emerald-800 opacity-100"
-                : isDirty
-                  ? "bg-amber-100 text-amber-900 opacity-100"
-                  : "bg-white/60 text-slate-400 opacity-70"
-            }`}
-          >
-            {savedFlash ? text.saved : isDirty ? text.unsaved : text.local}
-          </span>
+          ) : null}
         </div>
 
-        <div className="mt-5 grid gap-4">
-          <SettingsSection icon={<Globe2 size={18} />} title={text.sections.general}>
-            <SettingsMenuSelect
+        <div className="settings-sections">
+          <AccountSettingsSection language={language} session={session} />
+
+          <SettingsSection title={text.sections.general}>
+            <MenuSelect
+              compact
               label={text.labels.language}
               value={draftSettings.general.language}
               options={languageOptions(text)}
               onChange={(value) => changeSetting("general", "language", value)}
             />
-            <SettingsMenuSelect
+            <MenuSelect
+              compact
+              label={text.labels.defaultSampleType}
+              value={draftSettings.general.defaultSampleType}
+              options={sampleTypeOptions(text)}
+              onChange={(value) =>
+                changeSetting("general", "defaultSampleType", value)
+              }
+            />
+            <MenuSelect
+              compact
+              label={text.labels.defaultCrop}
+              value={draftSettings.general.defaultCrop}
+              options={cropOptions(text)}
+              onChange={(value) => changeSetting("general", "defaultCrop", value)}
+            />
+          </SettingsSection>
+
+          <SettingsSection title={text.sections.display ?? "Display"}>
+            <MenuSelect
+              compact
               label={text.labels.theme}
               value={draftSettings.general.theme}
               options={themeOptions(text)}
               onChange={(value) => changeSetting("general", "theme", value)}
             />
-            <RangeField
-              label={text.labels.brightness}
-              value={draftSettings.general.brightness}
-              min={85}
-              max={115}
-              onChange={(value) => changeSetting("general", "brightness", value)}
-            />
-            <RangeField
-              label={text.labels.saturation}
-              value={draftSettings.general.saturation}
-              min={70}
-              max={130}
-              onChange={(value) => changeSetting("general", "saturation", value)}
-            />
-            <RangeField
-              label={text.labels.contrast}
-              value={draftSettings.general.contrast}
-              min={85}
-              max={125}
-              onChange={(value) => changeSetting("general", "contrast", value)}
-            />
-            <RangeField
-              label={text.labels.appFontSize}
-              value={draftSettings.general.appFontSizeDelta}
-              min={-2}
-              max={3}
-              suffix="px"
-              onChange={(value) =>
-                changeSetting("general", "appFontSizeDelta", value)
-              }
-            />
-            <div className="grid gap-2 md:col-span-2">
-              <SelectField
+            <div className="settings-accent-block">
+              <MenuSelect
+                compact
                 label={text.labels.accentColor}
                 value={draftSettings.general.accentColor}
                 options={accentOptions(text)}
@@ -1063,26 +1083,52 @@ export default function AppSettingsScreen({
                 onChange={(value) => changeSetting("general", "accentColor", value)}
               />
             </div>
-            <SelectField
-              label={text.labels.defaultSampleType}
-              value={draftSettings.general.defaultSampleType}
-              options={sampleTypeOptions(text)}
+            <div className="settings-tone-panel">
+              <RangeField
+                inset
+                label={text.labels.brightness}
+                value={draftSettings.general.brightness}
+                min={70}
+                max={100}
+                onChange={(value) => changeSetting("general", "brightness", value)}
+              />
+              <RangeField
+                inset
+                label={text.labels.saturation}
+                value={draftSettings.general.saturation}
+                min={70}
+                max={100}
+                onChange={(value) => changeSetting("general", "saturation", value)}
+              />
+              <RangeField
+                inset
+                label={text.labels.contrast}
+                value={draftSettings.general.contrast}
+                min={70}
+                max={100}
+                onChange={(value) => changeSetting("general", "contrast", value)}
+              />
+            </div>
+            <RangeField
+              label={text.labels.appFontSize}
+              value={draftSettings.general.appFontSizeDelta}
+              min={-2}
+              max={5}
+              suffix="px"
               onChange={(value) =>
-                changeSetting("general", "defaultSampleType", value)
+                changeSetting("general", "appFontSizeDelta", value)
               }
             />
-            <SelectField
-              label={text.labels.defaultCrop}
-              value={draftSettings.general.defaultCrop}
-              options={cropOptions(text)}
-              onChange={(value) => changeSetting("general", "defaultCrop", value)}
+            <SwitchField
+              label={text.labels.glassUi}
+              checked={draftSettings.general.glassUi}
+              onChange={(value) => changeSetting("general", "glassUi", value)}
             />
           </SettingsSection>
 
-          <AccountSettingsSection language={language} session={session} />
-
-          <SettingsSection icon={<FlaskConical size={18} />} title={text.sections.analysis}>
-            <SelectField
+          <SettingsSection title={text.sections.analysis}>
+            <MenuSelect
+              compact
               label={text.labels.interpretationMethod}
               value={draftSettings.analysis.interpretationMethod}
               options={interpretationOptions(text)}
@@ -1090,7 +1136,8 @@ export default function AppSettingsScreen({
                 changeSetting("analysis", "interpretationMethod", value)
               }
             />
-            <SelectField
+            <MenuSelect
+              compact
               label={text.labels.warningSensitivity}
               value={draftSettings.analysis.warningSensitivity}
               options={sensitivityOptions(text)}
@@ -1114,8 +1161,9 @@ export default function AppSettingsScreen({
             />
           </SettingsSection>
 
-          <SettingsSection icon={<ScanLine size={18} />} title={text.sections.importAi}>
-            <SelectField
+          <SettingsSection title={text.sections.importAi}>
+            <MenuSelect
+              compact
               label={text.labels.defaultImportType}
               value={draftSettings.importAi.defaultImportType}
               options={importTypeOptions(text)}
@@ -1123,7 +1171,8 @@ export default function AppSettingsScreen({
                 changeSetting("importAi", "defaultImportType", value)
               }
             />
-            <SelectField
+            <MenuSelect
+              compact
               label={text.labels.aiReader}
               value={draftSettings.importAi.aiReader}
               options={aiReaderOptions(text)}
@@ -1147,8 +1196,9 @@ export default function AppSettingsScreen({
             />
           </SettingsSection>
 
-          <SettingsSection icon={<FileDown size={18} />} title={text.sections.reports}>
-            <SelectField
+          <SettingsSection title={text.sections.reports}>
+            <MenuSelect
+              compact
               label={text.labels.defaultExportFormat}
               value={draftSettings.reports.defaultExportFormat}
               options={exportFormatOptions(text)}
@@ -1212,7 +1262,7 @@ export default function AppSettingsScreen({
             />
           </SettingsSection>
 
-          <SettingsSection icon={<Database size={18} />} title={text.sections.data}>
+          <SettingsSection title={text.sections.data}>
             <SwitchField
               label={text.labels.autoSaveAnalyses}
               checked={draftSettings.data.autoSaveAnalyses}
@@ -1254,23 +1304,28 @@ export default function AppSettingsScreen({
             <button
               type="button"
               onClick={handleReset}
-              className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 text-sm font-extrabold text-red-800 transition hover:bg-red-100"
+              className="settings-reset-btn mt-1 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-xl border border-red-200/90 bg-red-50/80 px-3 py-2 text-sm font-bold text-red-800 transition hover:bg-red-100"
             >
-              <RotateCcw size={16} />
+              <RotateCcw size={15} />
               {text.reset}
             </button>
           </SettingsSection>
         </div>
 
-        <SettingsToolbar
-          text={text}
-          isDirty={isDirty}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          onSave={handleSave}
-        />
+        {canPortalToolbar
+          ? createPortal(
+              <SettingsToolbar
+                text={text}
+                isDirty={isDirty}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+                onSave={handleSave}
+              />,
+              document.body
+            )
+          : null}
       </div>
     </section>
   );
@@ -1297,7 +1352,7 @@ function AccentSwatches({
   onChange: (value: AccentColor) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="settings-accent-swatches">
       {ACCENT_OPTIONS.map((accent) => {
         const scale = buildAccentScale(accent);
         const selected = value === accent;
@@ -1309,11 +1364,7 @@ function AccentSwatches({
             title={accent}
             aria-pressed={selected}
             onClick={() => onChange(accent)}
-            className={`h-9 w-9 rounded-full border-2 shadow-sm transition ${
-              selected
-                ? "border-[color:var(--accent-900)] ring-4 ring-[color:var(--accent-ring)]"
-                : "border-white/80 hover:scale-105"
-            }`}
+            className={`settings-accent-swatch ${selected ? "settings-accent-swatch--selected" : ""}`}
             style={{
               background: `linear-gradient(135deg, ${scale[300]}, ${scale[700]})`,
             }}
@@ -1344,33 +1395,30 @@ function SettingsToolbar({
   if (!isDirty) return null;
 
   return (
-    <div className="sticky bottom-[max(0.25rem,env(safe-area-inset-bottom))] z-[12000] mt-4 rounded-3xl border border-white/70 bg-white/70 p-1.5 shadow-2xl shadow-green-950/16 backdrop-blur-2xl animate-slide-up">
-      <div className="flex items-center justify-end gap-1.5">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onUndo}
-            disabled={!canUndo}
-            title={text.undo}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white/90 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Undo2 size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={onRedo}
-            disabled={!canRedo}
-            title={text.redo}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white/90 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Redo2 size={16} />
-          </button>
-        </div>
-
+    <div className="settings-save-toolbar">
+      <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 py-3">
+        <button
+          type="button"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title={text.undo}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(0,0,0,0.08)] bg-[#f2f2f2] text-[#3c3c43] transition hover:bg-[#e5e5ea] disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <Undo2 size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title={text.redo}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(0,0,0,0.08)] bg-[#f2f2f2] text-[#3c3c43] transition hover:bg-[#e5e5ea] disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <Redo2 size={16} />
+        </button>
         <button
           type="button"
           onClick={onSave}
-          className="inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-green-700 px-3 text-xs font-extrabold text-white shadow-lg shadow-green-900/20 transition hover:bg-green-800 sm:flex-none sm:px-4 sm:text-sm"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-800 active:scale-[0.98]"
         >
           <Save size={16} />
           {text.save}
@@ -1381,139 +1429,37 @@ function SettingsToolbar({
 }
 
 function SettingsSection({
-  icon,
   title,
   children,
+  defaultOpen = false,
 }: {
-  icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
+  defaultOpen?: boolean;
 }) {
-  return (
-    <section className="rounded-2xl border border-white/65 bg-white/58 p-3 shadow-sm backdrop-blur-xl sm:p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="settings-section-icon grid h-9 w-9 place-items-center rounded-2xl">
-          {icon}
-        </span>
-        <h2 className="text-sm font-extrabold uppercase tracking-wide text-green-950">
-          {title}
-        </h2>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">{children}</div>
-    </section>
-  );
-}
-
-function SettingsMenuSelect<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (value: T) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const presence = useAnimatedPresence(open);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const selected = options.find((option) => option.value === value);
-
-  useDismissible(open, () => setOpen(false), menuRef);
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="grid gap-1.5">
-      <span className="text-xs font-extrabold uppercase tracking-wide text-slate-600">
-        {label}
-      </span>
-      <div ref={menuRef} className={`relative ${open ? "z-[12000]" : "z-0"}`}>
-        {presence.mounted ? (
-          <button
-            type="button"
-            aria-label="Close menu"
-            className={`dismiss-backdrop ${presence.leaving ? "animate-fade-out" : "animate-fade-in"}`}
-            onClick={() => setOpen(false)}
-          />
-        ) : null}
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen((previous) => !previous)}
-          className="settings-menu-select-trigger flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl border px-3 text-left text-sm font-bold outline-none transition"
-        >
-          <span className="truncate">{selected?.label ?? ""}</span>
-          <ChevronDown
-            size={18}
-            className={`shrink-0 transition ${open ? "rotate-180" : ""}`}
-            aria-hidden="true"
-          />
-        </button>
-        {presence.mounted ? (
-          <section
-            className={`settings-menu-select-menu absolute inset-x-0 top-full z-[12001] mt-2 overflow-hidden rounded-3xl border p-2 shadow-2xl ${
-              presence.leaving ? "animate-scale-out" : "animate-scale-in"
-            }`}
-          >
-            <div className="max-h-72 overflow-y-auto pr-1">
-              {options.map((option) => {
-                const isSelected = option.value === value;
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => {
-                      onChange(option.value);
-                      setOpen(false);
-                    }}
-                    className={`settings-menu-select-option flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-left text-sm font-semibold transition ${
-                      isSelected ? "settings-menu-select-option-active" : ""
-                    }`}
-                  >
-                    <span className="whitespace-nowrap">{option.label}</span>
-                    {isSelected ? (
-                      <Check size={16} className="shrink-0" aria-hidden="true" />
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function SelectField<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <label className="grid gap-1.5">
-      <span className="text-xs font-extrabold uppercase tracking-wide text-slate-600">
-        {label}
-      </span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-        className="min-h-11 rounded-2xl border border-green-700/18 bg-white/82 px-3 text-sm font-bold text-slate-900 shadow-sm outline-none focus:border-green-700 focus:ring-4 focus:ring-green-700/10"
+    <section className={`settings-section-flat ${open ? "settings-section-flat--open" : ""}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="settings-section__trigger"
+        aria-expanded={open}
       >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+        <span className="settings-section-title">{title}</span>
+        <ChevronDown
+          size={16}
+          className={`settings-section-chevron shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open ? (
+        <div className="settings-section__body">
+          <div className="settings-fields">{children}</div>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -1526,15 +1472,23 @@ function SwitchField({
   checked: boolean;
   onChange: (value: boolean) => void;
 }) {
+  const id = useId();
+
   return (
-    <label className="flex min-h-11 items-center justify-between gap-3 rounded-2xl border border-green-700/12 bg-white/62 px-3 py-2">
-      <span className="text-sm font-bold text-green-950">{label}</span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="h-5 w-5 accent-green-700"
-      />
+    <label className="settings-toggle-row" htmlFor={id}>
+      <span className="settings-toggle-row__label">{label}</span>
+      <span className="settings-toggle">
+        <input
+          id={id}
+          type="checkbox"
+          role="switch"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          className="settings-toggle__input"
+        />
+        <span className="settings-toggle__track" aria-hidden />
+        <span className="settings-toggle__thumb" aria-hidden />
+      </span>
     </label>
   );
 }
@@ -1545,6 +1499,7 @@ function RangeField({
   min,
   max,
   suffix = "%",
+  inset = false,
   onChange,
 }: {
   label: string;
@@ -1552,25 +1507,34 @@ function RangeField({
   min: number;
   max: number;
   suffix?: string;
+  inset?: boolean;
   onChange: (value: number) => void;
 }) {
   return (
-    <label className="grid gap-2 rounded-2xl border border-green-700/12 bg-white/62 px-3 py-2">
-      <span className="flex items-center justify-between gap-3 text-sm font-bold text-green-950">
-        {label}
-        <span className="text-green-700">
+    <div
+      className={`settings-slider-row ${inset ? "settings-slider-row--inset" : ""}`}
+    >
+      <div className="settings-slider-row__head">
+        <span className="settings-slider-row__label">{label}</span>
+        <span className="settings-slider-row__value">
           {value} {suffix}
         </span>
-      </span>
+      </div>
       <input
         type="range"
         min={min}
         max={max}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="accent-green-700"
+        className="settings-range settings-range--compact"
+        aria-label={label}
+        style={
+          {
+            "--range-progress": `${((value - min) / (max - min)) * 100}%`,
+          } as CSSProperties
+        }
       />
-    </label>
+    </div>
   );
 }
 

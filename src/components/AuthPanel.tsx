@@ -377,30 +377,32 @@ export default function AuthPanel({
         ) : null}
       </div>
 
-      {mode === "signup" ? (
-        <div className="auth-mode-tabs mt-7 grid w-full grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => {
-              setMode("login");
-              setMessage("");
-            }}
-            className="touch-target rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-white"
-          >
-            {text.login}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode("signup");
-              setMessage("");
-            }}
-            className="touch-target rounded-xl bg-green-700 px-4 py-3 text-sm font-semibold text-white shadow transition"
-          >
-            {text.createAccount}
-          </button>
-        </div>
-      ) : null}
+      <div className="auth-mode-tabs mt-7 grid w-full grid-cols-2 gap-1 rounded-2xl p-1">
+        <button
+          type="button"
+          onClick={() => {
+            setMode("login");
+            setMessage("");
+          }}
+          className={`auth-mode-tabs__btn touch-target rounded-xl px-4 py-3 text-sm font-semibold ${
+            mode === "login" ? "auth-mode-tabs__btn--active" : ""
+          }`}
+        >
+          {text.login}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMode("signup");
+            setMessage("");
+          }}
+          className={`auth-mode-tabs__btn touch-target rounded-xl px-4 py-3 text-sm font-semibold ${
+            mode === "signup" ? "auth-mode-tabs__btn--active" : ""
+          }`}
+        >
+          {text.createAccount}
+        </button>
+      </div>
 
       <form
         className="auth-form mt-7 grid gap-4"
@@ -414,7 +416,7 @@ export default function AuthPanel({
           <>
             <div className="grid gap-4 md:grid-cols-2">
               <input
-                className="rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
+                className="auth-field"
                 suppressHydrationWarning
                 type="text"
                 placeholder={text.firstName}
@@ -423,7 +425,7 @@ export default function AuthPanel({
               />
 
               <input
-                className="rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
+                className="auth-field"
                 suppressHydrationWarning
                 type="text"
                 placeholder={text.lastName}
@@ -433,7 +435,7 @@ export default function AuthPanel({
             </div>
 
             <input
-              className="rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
+              className="auth-field"
               suppressHydrationWarning
               type="text"
               placeholder={text.middleName}
@@ -442,7 +444,7 @@ export default function AuthPanel({
             />
 
             <select
-              className="rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
+              className="auth-field"
               suppressHydrationWarning
               value={profession}
               onChange={(e) => setProfession(e.target.value)}
@@ -462,7 +464,7 @@ export default function AuthPanel({
                   className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <input
-                  className="w-full rounded-2xl border border-slate-200 bg-white p-3 pl-10 outline-none focus:border-green-600"
+                  className="auth-field pl-10"
                   suppressHydrationWarning
                   list="alakay-auth-countries"
                   value={country}
@@ -477,7 +479,7 @@ export default function AuthPanel({
               </div>
 
               <input
-                className="rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
+                className="auth-field"
                 suppressHydrationWarning
                 type="text"
                 placeholder={text.province}
@@ -488,7 +490,7 @@ export default function AuthPanel({
 
             {country === "Other" && (
               <input
-                className="rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
+                className="auth-field"
                 suppressHydrationWarning
                 type="text"
                 placeholder={text.customCountry}
@@ -500,7 +502,7 @@ export default function AuthPanel({
         )}
 
         <input
-          className="auth-email-field rounded-2xl border border-green-700/35 bg-white/72 p-3 text-slate-900 shadow-sm outline-none placeholder:text-slate-500 focus:border-green-700 focus:bg-white focus:ring-4 focus:ring-green-700/10"
+          className="auth-field auth-field--accent"
           suppressHydrationWarning
           type="text"
           inputMode="email"
@@ -513,7 +515,7 @@ export default function AuthPanel({
 
         <div className="auth-password-field relative">
           <input
-            className="w-full rounded-2xl border border-green-700/35 bg-white/72 p-3 pr-14 text-slate-900 shadow-sm outline-none placeholder:text-slate-500 focus:border-green-700 focus:bg-white focus:ring-4 focus:ring-green-700/10"
+            className="auth-field auth-field--accent pr-14"
             suppressHydrationWarning
             type={showPassword ? "text" : "password"}
             placeholder={text.password}
@@ -544,7 +546,7 @@ export default function AuthPanel({
 
         {mode === "signup" && (
           <>
-            <div className="auth-strength rounded-2xl bg-slate-50 p-4">
+            <div className="auth-panel-muted auth-strength rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-700">
                   {text.passwordStrength}
@@ -572,7 +574,7 @@ export default function AuthPanel({
 
             <div className="relative">
               <input
-                className="w-full rounded-2xl border border-slate-200 p-3 pr-14 outline-none focus:border-green-600"
+                className="auth-field pr-14"
                 suppressHydrationWarning
                 type={showRepeatPassword ? "text" : "password"}
                 placeholder={text.repeatPassword}
@@ -604,7 +606,7 @@ export default function AuthPanel({
               </div>
             )}
 
-            <label className="auth-policy flex gap-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
+            <label className="auth-policy auth-panel-muted flex gap-3 rounded-2xl p-3 text-sm text-slate-700">
               <input
                 suppressHydrationWarning
                 type="checkbox"
@@ -614,7 +616,7 @@ export default function AuthPanel({
               <span>{text.policies}</span>
             </label>
 
-            <label className="auth-policy flex gap-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
+            <label className="auth-policy auth-panel-muted flex gap-3 rounded-2xl p-3 text-sm text-slate-700">
               <input
                 suppressHydrationWarning
                 type="checkbox"
@@ -662,7 +664,7 @@ export default function AuthPanel({
         <button
           type="button"
           onClick={onContinueAsGuest}
-          className="touch-target mt-5 flex w-full items-center justify-center rounded-2xl border border-green-100 bg-white/70 px-5 py-3 text-sm font-bold text-green-800 shadow-sm shadow-green-900/5 transition hover:-translate-y-0.5 hover:bg-green-50 active:scale-[0.98]"
+          className="auth-guest-btn touch-target mt-5 flex w-full items-center justify-center rounded-2xl px-5 py-3 text-sm font-bold text-green-800 shadow-sm shadow-green-900/5 transition hover:-translate-y-0.5 active:scale-[0.98]"
         >
           {text.continueGuest}
         </button>

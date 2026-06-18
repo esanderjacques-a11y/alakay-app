@@ -35,10 +35,14 @@ import ResultsDashboard from "@/components/ResultsDashboard";
 import RecycleBinScreen from "@/components/RecycleBinScreen";
 import CalculatorHub from "@/components/CalculatorHub";
 import AppSettingsScreen from "@/components/AppSettingsScreen";
+import AboutScreen from "@/components/AboutScreen";
 import AppDock from "@/components/ui/AppDock";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import HomeScreen from "@/components/HomeScreen";
+
+import BackButton from "@/components/ui/BackButton";
 import { AppStep } from "@/lib/appSteps";
+import { isAdminEmail } from "@/lib/admin";
 import { exportAnalysisPdf } from "@/lib/pdfReport";
 import { RequestTimeoutError } from "@/lib/fetchWithTimeout";
 import { formatMessage, Language, translations } from "@/lib/translations";
@@ -54,7 +58,12 @@ import {
   resolveThemePreference,
   type AppTheme,
 } from "@/lib/uiPreferences";
-import { getSettings, updateSetting, type AppSettings } from "@/lib/appSettings";
+import {
+  defaultAppSettings,
+  getSettings,
+  updateSetting,
+  type AppSettings,
+} from "@/lib/appSettings";
 import { translateCategory } from "@/lib/categoryLabels";
 import { countries, countryRegions, type CountryRegion } from "@/lib/countries";
 import { supabase } from "@/lib/supabase";
@@ -71,6 +80,13 @@ import {
 import { calculateSoilTexture } from "@/lib/soilTexture";
 import { canConvertLabUnit, convertLabUnit } from "@/lib/unitConversions";
 import type { CalculationOutput } from "@/lib/agronomicCalculators";
+import {
+  GENERAL_CROP_EXTRACTION_OPTIONS,
+  FOLIAR_SKIP_CROP_EXTRACTION_OPTIONS,
+  getDefaultExtractionMethod,
+  resolveInterpretationParameter,
+  type ExtractionMethod,
+} from "@/lib/extractionMethod";
 
 type Crop = {
   crop_id: number;
@@ -589,6 +605,7 @@ const appSteps = new Set<AppStep>([
   "results",
   "calculators",
   "history",
+  "about",
   "recycle",
   "settings",
 ]);
@@ -602,9 +619,9 @@ function readHistoryStep(state: unknown): AppStep | null {
 }
 
 export default function HomePage() {
-  const [language, setLanguage] = useState<Language>(() => readStoredLanguage());
+  const [language, setLanguage] = useState<Language>("en");
   const t = translations[language];
-  const [theme, setTheme] = useState<AppTheme>(() => readStoredTheme());
+  const [theme, setTheme] = useState<AppTheme>("light");
 
   const [currentStep, setCurrentStep] = useState<AppStep>("home");
   const currentStepRef = useRef<AppStep>("home");
@@ -626,12 +643,13 @@ export default function HomePage() {
 
   const [cropId, setCropId] = useState<number | "">("");
   const [sampleType, setSampleType] = useState<"soil" | "foliar">("soil");
+  const [extractionMethod, setExtractionMethod] = useState<ExtractionMethod>("general");
   const [values, setValues] = useState<Record<string, string>>({});
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
   const [selectedUnitDisplayKeys, setSelectedUnitDisplayKeys] = useState<
     Record<string, string>
   >({});
-  const [appSettings, setAppSettings] = useState<AppSettings>(() => getSettings());
+  const [appSettings, setAppSettings] = useState<AppSettings>(defaultAppSettings);
 
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showAllParameters, setShowAllParameters] = useState(true);
@@ -732,6 +750,12 @@ export default function HomePage() {
       ""
     );
   }, [currentStep]);
+
+  useLayoutEffect(() => {
+    setLanguage(readStoredLanguage());
+    setTheme(readStoredTheme());
+    setAppSettings(getSettings());
+  }, []);
 
   useEffect(() => {
     const darkVariant = resolveDarkVariantPreference(appSettings.general.theme);
@@ -1409,6 +1433,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setEditingNextVersionNumber(1);
     setPendingEditableAnalysis(null);
     setShowReportDetails(false);
+    setExtractionMethod("general");
     setCurrentStep("setup");
   }
 
@@ -1445,12 +1470,6 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
   }
 
   function goToValues() {
-    if (!cropId) {
-      setMessage(t.selectCropMessage);
-      setCurrentStep("setup");
-      return;
-    }
-
     setMessage("");
     setCurrentStep("values");
   }
@@ -1543,8 +1562,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setMissingResults([]);
 
     if (!cropId) {
-      setMessage(t.selectCropMessage);
-      setCurrentStep("setup");
+      setMessage(t.selectCropOnValues || t.selectCropMessage);
       return;
     }
 
@@ -1677,15 +1695,36 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         rpcQueue.push(item);
     }
 
+    const parameterCatalog = parameters.map((parameter) => ({
+      parameter_id: parameter.parameter_id,
+      parameter_name: parameter.parameter_name,
+      display_name: parameter.display_name,
+      symbol: parameter.symbol,
+    }));
+
     const rpcOutcomes = await Promise.all(
       rpcQueue.map(async (item) => {
+        const resolved = resolveInterpretationParameter(
+          {
+            parameter_id: item.parameter_id,
+            parameter_name: item.parameter_name,
+            display_name: item.display_name,
+            symbol:
+              parameters.find(
+                (parameter) => parameter.parameter_key === item.parameter_key
+              )?.symbol ?? null,
+          },
+          parameterCatalog,
+          extractionMethod
+        );
+
         const { data, error } = await supabase.rpc("get_range_match", {
-          input_crop_id: cropId,
+          input_crop_id: interpretationCropId,
           input_sample_type: sampleType,
-          input_parameter_id: item.parameter_id,
+          input_parameter_id: resolved.parameter_id,
         });
 
-        return { item, data, error };
+        return { item, data, error, resolved };
       })
     );
 
@@ -2057,7 +2096,21 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
   const selectedCrop = crops.find((crop) => crop.crop_id === cropId);
   const isGeneralCrop = cropId === 999;
+  const showFoliarExtractionPicker = !cropId && sampleType === "foliar";
+  const interpretationCropId = cropId || 999;
+
+  useEffect(() => {
+    if (showFoliarExtractionPicker) {
+      setExtractionMethod(
+        getDefaultExtractionMethod({ isGeneralCrop: true, sampleType })
+      );
+      return;
+    }
+
+    setExtractionMethod("general");
+  }, [showFoliarExtractionPicker, sampleType]);
   const hasAccess = Boolean((session?.user && !showAuthScreen) || guestMode);
+  const isAdmin = isAdminEmail(session?.user?.email);
 
   const displayName = useMemo(() => {
     if (guestMode) return t.guestMode;
@@ -2104,6 +2157,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     onLogout: logout,
     onOpenSettings: () => setCurrentStep("settings"),
     onOpenRecycleBin: () => setCurrentStep("recycle"),
+    onOpenAbout: () => setCurrentStep("about"),
     theme,
     onToggleTheme: () =>
       setTheme((currentTheme) => {
@@ -2122,6 +2176,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
   if (sessionRestoring) {
     return (
       <main className="app-main-gradient flex min-h-screen items-center justify-center px-4 text-slate-900">
+        <div className="app-main-backdrop" aria-hidden="true" />
         <div className="app-boot-spinner" aria-label={t.loadingSavedValues} />
       </main>
     );
@@ -2129,7 +2184,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
   if (!hasAccess) {
     return (
-      <main className="auth-page relative flex min-h-screen items-center justify-center px-4 py-8 text-slate-900">
+      <main className="app-main-gradient auth-page relative flex min-h-screen items-center justify-center px-4 py-8 text-slate-900">
+        <div className="app-main-backdrop" aria-hidden="true" />
         <div className="absolute right-3 top-3 z-10 sm:right-4 sm:top-4">
           <LanguageSwitcher
             language={language}
@@ -2171,20 +2227,29 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
   return (
     <>
-      <AppHeader {...headerProps} />
+      {currentStep !== "about" ? <AppHeader {...headerProps} /> : null}
       <WelcomeGuide open={showWelcomeGuide && Boolean(session?.user) && !guestMode} t={t} onClose={closeWelcomeGuide} />
       <main
-        className={`app-main-gradient px-4 text-slate-900 ${
+        className={`app-main-gradient app-main-shell text-slate-900 ${
           currentStep === "home"
-            ? "h-[100dvh] overflow-hidden pb-[5.25rem] pt-[4.25rem]"
-            : "min-h-screen pb-28 pt-[4.75rem]"
+            ? "app-main-shell--home"
+            : currentStep === "about"
+              ? "app-main-shell--about"
+              : "app-main-shell--default"
         }`}
       >
+        <div className="app-main-backdrop" aria-hidden="true" />
         <LoadingOverlay
           open={isBusy}
           label={loading ? t.interpreting : t.saving}
         />
-        <section className="app-visual-tone mx-auto max-w-6xl">
+        <section
+          className={
+            currentStep === "about"
+              ? "about-route-shell"
+              : "app-visual-tone mx-auto w-full max-w-[min(100%,42rem)] sm:max-w-xl md:max-w-2xl lg:max-w-4xl xl:max-w-[56rem] px-0"
+          }
+        >
         {currentStep === "home" ? (
           <section className="home-screen-wrap">
             <HomeScreen
@@ -2198,7 +2263,6 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               }}
               goResults={() => setCurrentStep("history")}
               goCalculators={() => setCurrentStep("calculators")}
-              goSettings={() => setCurrentStep("settings")}
               hasResultsOrProgress={hasHistoryOrProgress}
             />
           </section>
@@ -2213,6 +2277,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             sampleType={sampleType}
             setSampleType={resetSampleTypeState}
             isGeneralCrop={isGeneralCrop}
+            extractionMethod={extractionMethod}
+            setExtractionMethod={setExtractionMethod}
             message={message}
             showReportDetails={showReportDetails}
             setShowReportDetails={setShowReportDetails}
@@ -2244,6 +2310,9 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             selectedCrop={selectedCrop}
             sampleType={sampleType}
             isGeneralCrop={isGeneralCrop}
+            showFoliarExtractionPicker={showFoliarExtractionPicker}
+            extractionMethod={extractionMethod}
+            setExtractionMethod={setExtractionMethod}
             parameters={parameters}
             totalEnteredValues={totalEnteredValues}
             parameterSearch={parameterSearch}
@@ -2267,6 +2336,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             pendingEditableAnalysis={pendingEditableAnalysis}
             loading={loading}
             cropId={cropId}
+            setCropId={setCropId}
+            crops={crops}
             interpretAnalysis={interpretAnalysis}
             backToSetup={() => setCurrentStep("setup")}
             openImporter={() => {
@@ -2283,9 +2354,9 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             openCustomRangeManager={() => setShowCustomRangeManager(true)}
           />
         ) : currentStep === "results" ? (
-          <section className="mt-6">
+          <section>
             {results.length === 0 ? (
-              <div className="rounded-3xl bg-white p-6 shadow-sm">
+              <div className="glass-panel rounded-3xl p-6">
                 <BackButton
                   onClick={() => setCurrentStep("values")}
                   label={t.goToValues}
@@ -2327,6 +2398,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                   ].filter(Boolean),
                 }}
                 isGeneralCrop={isGeneralCrop}
+                showFoliarExtractionPicker={showFoliarExtractionPicker}
+                extractionMethod={extractionMethod}
                 showHorizontalGraphs={appSettings.reports.includeHorizontalResultGraph}
                 backToValues={() => setCurrentStep("values")}
               />
@@ -2374,6 +2447,15 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             }
             onSettingsChange={setAppSettings}
           />
+        ) : currentStep === "about" ? (
+          <AboutScreen
+            t={t}
+            language={language}
+            session={session}
+            country={finalCountry}
+            isAdmin={isAdmin}
+            onBack={() => setCurrentStep("home")}
+          />
         ) : currentStep === "recycle" ? (
           <RecycleBinScreen
             t={t}
@@ -2387,7 +2469,9 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         ) : null}
       </section>
 
-      {currentStep !== "settings" && currentStep !== "recycle" ? (
+      {currentStep !== "settings" &&
+      currentStep !== "recycle" &&
+      currentStep !== "about" ? (
         <AppDock
           currentStep={currentStep}
           onStepChange={setCurrentStep}
@@ -2477,6 +2561,8 @@ function SetupScreen({
   sampleType,
   setSampleType,
   isGeneralCrop,
+  extractionMethod,
+  setExtractionMethod,
   message,
   showReportDetails,
   setShowReportDetails,
@@ -2510,6 +2596,8 @@ function SetupScreen({
   sampleType: "soil" | "foliar";
   setSampleType: (value: "soil" | "foliar") => void;
   isGeneralCrop: boolean;
+  extractionMethod: ExtractionMethod;
+  setExtractionMethod: (value: ExtractionMethod) => void;
   message: string;
   showReportDetails: boolean;
   setShowReportDetails: (
@@ -2537,7 +2625,7 @@ function SetupScreen({
   goToValues: () => void;
 }) {
   function handleSetupKeyDown(event: React.KeyboardEvent<HTMLElement>) {
-    if (event.key !== "Enter" || !cropId) return;
+    if (event.key !== "Enter") return;
 
     const target = event.target as HTMLElement;
     if (
@@ -2552,124 +2640,134 @@ function SetupScreen({
   }
 
   return (
-    <section className="mt-4 grid gap-3" onKeyDown={handleSetupKeyDown}>
-      <div className="values-screen-panel rounded-3xl p-4 shadow-sm sm:p-5">
-        <BackButton onClick={goHome} label={t.start} />
+    <section onKeyDown={handleSetupKeyDown} className="flex flex-col gap-0 pb-32">
+      {/* Page header */}
+      <div className="flex items-center gap-3 px-1 pb-4 pt-2">
+        <BackButton variant="icon" onClick={goHome} label={t.start} />
+        <h1 className="flex-1 text-lg font-bold dark-text-primary">{t.setupTitle}</h1>
+        {cropId ? (
+          <button
+            type="button"
+            onClick={goToValues}
+            className="inline-flex items-center gap-1.5 rounded-full bg-green-700 px-4 py-2 text-sm font-semibold text-white shadow-sm active:scale-[0.97] hover:bg-green-800"
+          >
+            {t.continueShort}
+            <ArrowRight size={15} />
+          </button>
+        ) : null}
+      </div>
 
-        <h2 className="mt-4 text-lg font-extrabold uppercase tracking-wide text-green-900">
-          {t.setupTitle}
-        </h2>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-[0.75fr_1fr]">
-          <div>
-            <label className="mb-1 block text-sm font-semibold">
-              {t.sampleType}
-            </label>
-
-            <div className="grid grid-cols-2 gap-1 rounded-2xl border border-white/60 bg-white/48 p-1 shadow-sm backdrop-blur-xl">
-              <button
-                type="button"
-                onClick={() => setSampleType("soil")}
-                className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-                  sampleType === "soil"
-                    ? "bg-white/85 text-green-900 shadow-sm ring-1 ring-green-700/15"
-                    : "text-slate-600 hover:bg-white/55"
-                }`}
-              >
-                {t.soil}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSampleType("foliar")}
-                className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-                  sampleType === "foliar"
-                    ? "bg-white/85 text-green-900 shadow-sm ring-1 ring-green-700/15"
-                    : "text-slate-600 hover:bg-white/55"
-                }`}
-              >
-                {t.foliar}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <label className="block text-sm font-semibold">{t.crop}</label>
-
-              {cropId ? (
-                <button
-                  type="button"
-                  onClick={goToValues}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/65 bg-white/70 px-3 text-xs font-extrabold text-green-900 shadow-sm backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"
-                >
-                  {t.continueShort}
-                  <ArrowRight size={15} />
-                </button>
-              ) : null}
-            </div>
-
-            <AppSelect
-              value={cropId}
-              placeholder={t.selectCrop}
-              inlineMenu
-              options={[
-                { label: t.selectCrop, value: "" },
-                ...crops.map((crop) => ({
-                  label: crop.display_name,
-                  value: crop.crop_id,
-                })),
-              ]}
-              onChange={setCropId}
-            />
-
-            {cropsLoading && (
-              <p className="mt-2 text-sm text-slate-500">{t.loadingCrops}</p>
-            )}
-
-            {!cropsLoading && crops.length === 0 && (
-              <div className="mt-3 rounded-2xl bg-red-50 p-3 text-sm text-red-700">
-                <p>{t.noCropsLoaded}</p>
-
-                <button
-                  type="button"
-                  onClick={loadCrops}
-                  className="mt-3 rounded-xl bg-red-100 px-4 py-2 font-semibold text-red-800 hover:bg-red-200"
-                >
-                  {t.reloadCrops}
-                </button>
-              </div>
-            )}
+      {/* Card 1: Sample type + crop */}
+      <div className="calc-surface calc-page p-5 flex flex-col gap-5">
+        {/* Sample type segmented control */}
+        <div>
+          <p className="mb-2.5 text-xs font-semibold text-[#6c6c70]">{t.sampleType}</p>
+          <div className="app-segmented-control">
+            <button
+              type="button"
+              onClick={() => setSampleType("soil")}
+              className={`app-segmented-control__btn ${
+                sampleType === "soil" ? "app-segmented-control__btn--active" : ""
+              }`}
+            >
+              {t.soil}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSampleType("foliar")}
+              className={`app-segmented-control__btn ${
+                sampleType === "foliar" ? "app-segmented-control__btn--active" : ""
+              }`}
+            >
+              {t.foliar}
+            </button>
           </div>
         </div>
 
+        {/* Crop selector */}
+        <div>
+          <p className="mb-2.5 text-xs font-semibold text-[#6c6c70]">{t.crop}
+          </p>
+          <AppSelect
+            value={cropId}
+            placeholder={t.selectCrop}
+            inlineMenu
+            options={[
+              { label: t.selectCrop, value: "" },
+              ...crops.map((crop) => ({
+                label: crop.display_name,
+                value: crop.crop_id,
+              })),
+            ]}
+            onChange={setCropId}
+          />
+
+          {cropsLoading && (
+            <p className="mt-2 text-sm text-[#6c6c70]">{t.loadingCrops}</p>
+          )}
+
+          {!cropsLoading && crops.length === 0 && (
+            <div className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+              <p>{t.noCropsLoaded}</p>
+              <button
+                type="button"
+                onClick={loadCrops}
+                className="mt-2 rounded-xl bg-red-100 px-4 py-2 font-semibold text-red-800 hover:bg-red-200"
+              >
+                {t.reloadCrops}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Extraction method (general crop only) */}
         {isGeneralCrop && (
-          <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900">
-            {t.generalCropWarning}
+          <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-sm text-amber-950">
+            <p className="font-semibold">{t.extractionMethodLabel}</p>
+            <div className="mt-2">
+              <ExtractionMethodChips
+                t={t}
+                value={extractionMethod}
+                onChange={setExtractionMethod}
+                options={GENERAL_CROP_EXTRACTION_OPTIONS}
+              />
+            </div>
+            <p className="mt-2 text-xs opacity-80">{t.generalCropWarning}</p>
           </div>
         )}
 
         {message && (
-          <div className="mt-4 rounded-2xl bg-yellow-50 p-4 text-yellow-900">
+          <div className="rounded-xl bg-yellow-50 p-3 text-sm text-yellow-900">
             {message}
           </div>
         )}
       </div>
 
-      <div className="values-screen-panel rounded-3xl p-3 shadow-sm sm:p-4">
-        <div className="flex justify-start">
-          <button
-            type="button"
-            onClick={() => setShowReportDetails((previous) => !previous)}
-            className="inline-flex items-center gap-2 rounded-2xl border border-white/60 bg-white/45 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur-xl hover:bg-white/70"
-          >
-            <Plus size={16} />
-            {showReportDetails ? t.hideReportDetails : t.additionalInfoRecommended}
-          </button>
-        </div>
+      {/* Card 2: Optional report details */}
+      <div className="mt-4 rounded-2xl settings-section-card overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowReportDetails((previous) => !previous)}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left"
+        >
+          <span className="flex-1">
+            <span className="text-sm font-semibold dark-text-primary">
+              {t.additionalInfoRecommended}
+            </span>
+            {!showReportDetails && (
+              <span className="ml-2 text-xs text-[#6c6c70]">
+                {t.addReportDetailsRecommended}
+              </span>
+            )}
+          </span>
+          <ChevronDown
+            size={17}
+            className={`settings-section-chevron transition-transform duration-200 ${showReportDetails ? "rotate-180" : ""}`}
+          />
+        </button>
 
         {showReportDetails && (
-          <div className="mt-5">
+          <div className="border-t border-[rgba(0,0,0,0.06)] px-4 pb-4 pt-3">
             <ReportDetailsPanel
               analysisName={analysisName}
               setAnalysisName={setAnalysisName}
@@ -2695,18 +2793,22 @@ function SetupScreen({
         )}
       </div>
 
-      {cropId ? (
-        <div className="flex justify-end">
+      {/* Fixed bottom action bar */}
+      <div className="app-fixed-action-bar fixed inset-x-0 z-[11000]">
+        <div className="mx-auto max-w-2xl px-4 py-3">
           <button
             type="button"
             onClick={goToValues}
-            className="touch-target inline-flex items-center gap-2 rounded-2xl border border-white/65 bg-white/72 px-5 py-3 font-extrabold text-green-900 shadow-lg shadow-green-900/10 backdrop-blur-xl hover:bg-white/92 active:scale-[0.98]"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-green-700 px-5 py-3.5 font-semibold text-white shadow-sm active:scale-[0.98] hover:bg-green-800 transition-all"
           >
             {t.continueShort}
             <ArrowRight size={18} />
           </button>
+          {!cropId ? (
+            <p className="mt-2 text-center text-xs text-[#6c6c70]">{t.skipCropHint}</p>
+          ) : null}
         </div>
-      ) : null}
+      </div>
     </section>
   );
 }
@@ -2717,6 +2819,9 @@ function ValuesScreen({
   selectedCrop,
   sampleType,
   isGeneralCrop,
+  showFoliarExtractionPicker,
+  extractionMethod,
+  setExtractionMethod,
   parameters,
   totalEnteredValues,
   parameterSearch,
@@ -2740,6 +2845,8 @@ function ValuesScreen({
   pendingEditableAnalysis,
   loading,
   cropId,
+  setCropId,
+  crops,
   interpretAnalysis,
   backToSetup,
   openImporter,
@@ -2752,6 +2859,9 @@ function ValuesScreen({
   selectedCrop: Crop | undefined;
   sampleType: "soil" | "foliar";
   isGeneralCrop: boolean;
+  showFoliarExtractionPicker: boolean;
+  extractionMethod: ExtractionMethod;
+  setExtractionMethod: (value: ExtractionMethod) => void;
   parameters: Parameter[];
   totalEnteredValues: number;
   parameterSearch: string;
@@ -2775,6 +2885,8 @@ function ValuesScreen({
   pendingEditableAnalysis: EditableAnalysisPayload | null;
   loading: boolean;
   cropId: number | "";
+  setCropId: (value: number | "") => void;
+  crops: Crop[];
   interpretAnalysis: () => void;
   backToSetup: () => void;
   openImporter: () => void;
@@ -2790,7 +2902,7 @@ function ValuesScreen({
   const stickyCustomMenuRef = useRef<HTMLDivElement | null>(null);
   const parameterGridRef = useRef<HTMLDivElement | null>(null);
   const [valueEntryView, setValueEntryView] = useState<ValueEntryView>("cards");
-  const hasVisibleParameters = Boolean(cropId && filteredParameters.length > 0);
+  const hasVisibleParameters = filteredParameters.length > 0;
   const hasEnteredValues = totalEnteredValues > 0;
   const showStickyAddAction = hasVisibleParameters && showParameterActions;
   const showInterpretAction =
@@ -2874,69 +2986,84 @@ function ValuesScreen({
 
   return (
     <section
-      className={`values-screen-panel mt-4 rounded-3xl p-4 shadow-sm md:p-5 ${
-        hasVisibleParameters ? "pb-32" : ""
+      className={`values-screen-panel values-screen-panel--open px-0 pb-4 pt-0 md:px-0 md:pb-5 md:pt-0 ${
+        hasVisibleParameters ? "pb-28" : ""
       }`}
     >
-      <BackButton onClick={backToSetup} label={t.backToSetup} />
-
-      <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h2 className="text-base font-extrabold uppercase tracking-wide text-green-900 sm:text-lg">
-            {t.enterValues}
-          </h2>
-
-          <p className="mt-1 text-sm text-slate-600">
-            {selectedCrop
-              ? `${selectedCrop.display_name} · ${
-                  sampleType === "soil" ? t.soil : t.foliar
-                }`
-              : t.enterValuesHelp}
-          </p>
-
-          {isGeneralCrop && (
-            <p className="mt-2 rounded-xl bg-yellow-50 px-4 py-2 text-sm text-yellow-900">
-              {t.generalReferenceMode}
+      {/* Page header: back, title, enter count badge */}
+      <div className="flex items-center gap-2 px-4 pb-3 pt-2">
+        <BackButton variant="icon" onClick={backToSetup} label={t.backToSetup} />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-bold dark-text-primary">{t.enterValues}</h2>
+          {selectedCrop && (
+            <p className="text-xs text-[#6c6c70] mt-0.5">
+              {selectedCrop.display_name} · {sampleType === "soil" ? t.soil : t.foliar}
             </p>
           )}
         </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-            <div className="flex gap-2">
-              <StatPill label={t.parameters} value={parameters.length} />
-              <StatPill label={t.entered} value={totalEnteredValues} />
-            </div>
-
-            {hasEnteredValues ? (
-              <button
-                type="button"
-                onClick={clearAllValues}
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-red-100 bg-white/64 px-3 text-xs font-extrabold text-red-700 shadow-sm transition hover:bg-red-50"
-              >
-                <Eraser size={15} />
-                {t.clearAllValues}
-              </button>
-            ) : null}
-          </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {totalEnteredValues > 0 && (
+            <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
+              {totalEnteredValues}
+            </span>
+          )}
         </div>
+      </div>
 
-      <div className="relative z-[100] mt-4 rounded-2xl border border-white/65 bg-white/55 p-2 shadow-sm shadow-green-900/5 backdrop-blur-xl animate-slide-up">
-        <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-            <div className="relative">
+      {/* Crop + extraction (when crop skipped or general) */}
+      {!cropId ? (
+        <div className="values-skip-crop-block">
+          <p className="mb-2 text-xs font-semibold text-[#6c6c70]">{t.crop}</p>
+          <AppSelect
+            value={cropId}
+            placeholder={t.selectCrop}
+            inlineMenu
+            options={[
+              { label: t.selectCrop, value: "" },
+              ...crops.map((crop) => ({
+                label: crop.display_name,
+                value: crop.crop_id,
+              })),
+            ]}
+            onChange={setCropId}
+          />
+          <p className="mt-2 text-xs text-[#6c6c70]">{t.selectCropOnValues}</p>
+        </div>
+      ) : null}
+
+      {showFoliarExtractionPicker ? (
+        <div className="values-skip-crop-block">
+          <p className="mb-2 text-xs font-semibold text-[#6c6c70]">{t.extractionMethodLabel}</p>
+          <ExtractionMethodChips
+            t={t}
+            value={extractionMethod}
+            onChange={setExtractionMethod}
+            options={FOLIAR_SKIP_CROP_EXTRACTION_OPTIONS}
+          />
+          <p className="mt-2 text-xs text-[#6c6c70]">{t.foliarExtractionHint}</p>
+        </div>
+      ) : null}
+
+      {/* Extraction method (general crop only) - removed duplicate */}
+
+      {/* Compact toolbar: search + controls */}
+      <div className="values-toolbar px-4">
+        <div className="values-toolbar__row">
+          <div className="relative min-w-0 flex-1">
               <Search
-                size={17}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#aeaeb2]"
               />
               <input
-                className="w-full rounded-2xl border border-green-700/15 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-green-700 focus:ring-4 focus:ring-green-700/10"
+                className="w-full rounded-xl border border-transparent bg-[#f2f2f2] py-2 pl-9 pr-3 text-sm outline-none focus:border-green-600 focus:bg-white focus:ring-0"
                 placeholder={t.searchPlaceholder}
                 value={parameterSearch}
                 onChange={(e) => setParameterSearch(e.target.value)}
               />
             </div>
 
-            <div className="relative shrink-0 sm:w-52">
+            {/* Sort */}
+            <div className="relative shrink-0">
               <AppSelect
                 value={sortMode}
                 placeholder={t.sortByType}
@@ -2953,23 +3080,21 @@ function ValuesScreen({
                 floatingMenu
               />
             </div>
-          </div>
 
-          <div className="flex gap-2 lg:justify-end">
+            {/* Import */}
             <button
               type="button"
               onClick={openImporter}
               title={t.importCsvExcel}
-              className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-green-200 bg-white px-3 text-sm font-semibold text-green-800 transition hover:bg-green-50 lg:flex-none"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[rgba(0,0,0,0.08)] bg-[#f2f2f2] text-[#3c3c43] transition hover:bg-[#e5e5ea] active:scale-95"
             >
               <Upload size={16} />
-              <span className="hidden sm:inline">{t.importCsvExcel}</span>
-              <span className="sm:hidden">{t.importData}</span>
             </button>
 
+            {/* Add custom data */}
             <div
               ref={customMenuRef}
-              className={`relative flex-1 lg:flex-none ${
+              className={`relative shrink-0 ${
                 showCustomDataMenu ? "z-[19000]" : ""
               }`}
             >
@@ -2979,11 +3104,10 @@ function ValuesScreen({
                   setShowStickyCustomDataMenu(false);
                   setShowCustomDataMenu((previous) => !previous);
                 }}
-                title={hasVisibleParameters ? t.addNewParameter : t.addNewParameter}
-                className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/45 bg-white/60 px-3 text-sm font-bold text-green-900 shadow-sm shadow-green-900/10 backdrop-blur-md transition hover:bg-white/85 active:scale-[0.98] lg:w-auto"
+                title={t.addNewParameter}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[rgba(0,0,0,0.08)] bg-[#f2f2f2] text-green-800 transition hover:bg-green-50 active:scale-95"
               >
                 <Plus size={16} />
-                <span>{t.addShort}</span>
               </button>
 
               {showCustomDataMenu && canRenderFloatingActions
@@ -3002,7 +3126,7 @@ function ValuesScreen({
                         setShowCustomDataMenu(false);
                         openCustomParameterModal();
                       }}
-                      className="w-full rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-green-100 hover:bg-green-50"
+                      className="add-data-menu-item w-full px-4 py-3 text-left"
                     >
                       <p className="font-bold text-green-900">
                         {t.addCustomParameter}
@@ -3015,7 +3139,7 @@ function ValuesScreen({
                     <button
                       type="button"
                       onClick={() => openManager("parameters")}
-                      className="mt-2 w-full rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-green-100 hover:bg-green-50"
+                      className="add-data-menu-item mt-2 w-full px-4 py-3 text-left"
                     >
                       <p className="font-bold text-green-900">
                         {t.manageCustomParameters}
@@ -3028,7 +3152,7 @@ function ValuesScreen({
                     <button
                       type="button"
                       onClick={() => openManager("ranges")}
-                      className="mt-2 w-full rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-green-100 hover:bg-green-50"
+                      className="add-data-menu-item mt-2 w-full px-4 py-3 text-left"
                     >
                       <p className="font-bold text-green-900">
                         {t.manageCustomRanges}
@@ -3041,7 +3165,7 @@ function ValuesScreen({
                     <button
                       type="button"
                       onClick={() => setShowCustomDataMenu(false)}
-                      className="mt-2 w-full rounded-2xl bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-600 ring-1 ring-slate-100 hover:bg-slate-100"
+                      className="add-data-menu-item add-data-menu-item--muted mt-2 w-full px-4 py-2 text-sm font-semibold text-slate-600"
                     >
                       {t.close}
                     </button>
@@ -3052,10 +3176,9 @@ function ValuesScreen({
                 : null}
             </div>
           </div>
-        </div>
 
-        <div className="mt-3">
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          {/* Category filter */}
+          <div className="mt-2.5 w-full">
             <ParameterCategoryFilter
               categories={parameterCategories}
               selectedCategory={selectedCategory}
@@ -3066,27 +3189,29 @@ function ValuesScreen({
               language={language}
               allLabel={t.all}
             />
+          </div>
 
-            <div className="inline-flex shrink-0 rounded-2xl border border-white/70 bg-white/58 p-1 shadow-sm">
+          {/* View toggle — own row to avoid overlap */}
+          <div className="mt-2 flex justify-end">
+            <div className="inline-flex shrink-0 rounded-xl bg-[#f2f2f2] p-0.5">
               {(["cards", "table"] as const).map((view) => (
                 <button
                   key={view}
                   type="button"
                   onClick={() => setValueEntryView(view)}
-                  className={`inline-flex min-h-9 items-center gap-2 rounded-xl px-3 text-xs font-extrabold transition ${
+                  className={`inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold transition ${
                     valueEntryView === view
-                      ? "bg-[var(--accent-600)] text-white shadow-sm"
-                      : "text-green-900 hover:bg-white/70"
+                      ? "bg-white text-green-900 shadow-sm"
+                      : "text-[#6c6c70] hover:text-[#3c3c43]"
                   }`}
                   aria-pressed={valueEntryView === view}
                 >
-                  {view === "table" ? <Table2 size={15} /> : <SlidersHorizontal size={15} />}
+                  {view === "table" ? <Table2 size={13} /> : <SlidersHorizontal size={13} />}
                   {view === "table" ? t.tableView : t.cardView}
                 </button>
               ))}
             </div>
           </div>
-        </div>
       </div>
 
       {canRenderFloatingActions
@@ -3132,7 +3257,7 @@ function ValuesScreen({
                                   setShowStickyCustomDataMenu(false);
                                   openCustomParameterModal();
                                 }}
-                                className="w-full rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-green-100 hover:bg-green-50"
+                                className="add-data-menu-item w-full px-4 py-3 text-left"
                               >
                                 <p className="font-bold text-green-900">
                                   {t.addCustomParameter}
@@ -3145,7 +3270,7 @@ function ValuesScreen({
                               <button
                                 type="button"
                                 onClick={() => openManager("parameters")}
-                                className="mt-2 w-full rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-green-100 hover:bg-green-50"
+                                className="add-data-menu-item mt-2 w-full px-4 py-3 text-left"
                               >
                                 <p className="font-bold text-green-900">
                                   {t.manageCustomParameters}
@@ -3158,7 +3283,7 @@ function ValuesScreen({
                               <button
                                 type="button"
                                 onClick={() => openManager("ranges")}
-                                className="mt-2 w-full rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-green-100 hover:bg-green-50"
+                                className="add-data-menu-item mt-2 w-full px-4 py-3 text-left"
                               >
                                 <p className="font-bold text-green-900">
                                   {t.manageCustomRanges}
@@ -3171,7 +3296,7 @@ function ValuesScreen({
                               <button
                                 type="button"
                                 onClick={() => setShowStickyCustomDataMenu(false)}
-                                className="mt-2 w-full rounded-2xl bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-600 ring-1 ring-slate-100 hover:bg-slate-100"
+                                className="add-data-menu-item add-data-menu-item--muted mt-2 w-full px-4 py-2 text-sm font-semibold text-slate-600"
                               >
                                 {t.close}
                               </button>
@@ -3187,18 +3312,21 @@ function ValuesScreen({
               )}
 
               {showInterpretAction && (
-                <div className="fixed inset-x-0 bottom-[5.45rem] z-[14000] px-4 animate-slide-up">
-                  <div className="mx-auto flex max-w-lg rounded-[1.75rem] border border-white/70 bg-white/70 p-1.5 shadow-2xl shadow-green-950/16 backdrop-blur-2xl">
+                <div className="app-fixed-action-bar fixed inset-x-0 z-[14000] animate-slide-up">
+                  <div className="mx-auto max-w-2xl px-4 py-3">
                     <button
                       type="button"
                       onClick={interpretAnalysis}
-                      disabled={loading || !cropId || Boolean(pendingEditableAnalysis)}
-                      className="touch-target group flex w-full items-center justify-center gap-3 rounded-[1.35rem] border border-white/45 bg-white/72 px-6 py-3.5 font-extrabold text-green-900 shadow-lg shadow-green-900/12 backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white/92 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={loading || Boolean(pendingEditableAnalysis)}
+                      className="touch-target flex w-full items-center justify-center gap-2 rounded-2xl bg-green-700 px-5 py-3.5 font-semibold text-white shadow-sm active:scale-[0.98] hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60 transition-all"
                     >
-                      <span className="grid h-8 w-8 place-items-center rounded-full bg-green-600/12 ring-1 ring-green-700/15 transition group-hover:bg-green-600/18">
-                        <FlaskConical size={18} strokeWidth={2.4} />
-                      </span>
+                      <FlaskConical size={18} strokeWidth={2} />
                       {loading ? t.interpreting : t.interpretAnalysis}
+                      {hasEnteredValues && !loading && (
+                        <span className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold">
+                          {totalEnteredValues}
+                        </span>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -3220,7 +3348,7 @@ function ValuesScreen({
         </div>
       )}
 
-      {cropId && filteredParameters.length > 0 && valueEntryView === "table" && (
+      {hasVisibleParameters && valueEntryView === "table" && (
         <div
           ref={parameterGridRef}
           className="relative z-0 mt-4 overflow-hidden rounded-2xl border border-white/65 bg-white/58 shadow-sm backdrop-blur-xl animate-slide-up md:overflow-x-auto"
@@ -3307,7 +3435,7 @@ function ValuesScreen({
                               getUnitOptionKey(unit)
                             );
                           }}
-                          className="min-h-11 w-full min-w-0 rounded-xl border border-green-700/10 bg-white/82 px-2 py-2 text-[11px] font-bold text-green-800 outline-none focus:border-green-700 sm:px-3 sm:text-xs"
+                          className="app-native-select min-h-11 w-full min-w-0 px-2 py-2 text-[11px] sm:px-3 sm:text-xs"
                           title={t.changeUnit}
                         >
                           {parameter.available_units.map((unit) => (
@@ -3349,10 +3477,10 @@ function ValuesScreen({
         </div>
       )}
 
-      {cropId && filteredParameters.length > 0 && valueEntryView === "cards" && (
+      {hasVisibleParameters && valueEntryView === "cards" && (
         <div
           ref={parameterGridRef}
-          className="relative z-0 mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3"
+          className="relative z-0 mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         >
           {filteredParameters.map((parameter, index) => {
             const selectedUnitId =
@@ -3452,7 +3580,7 @@ function ValuesScreen({
                           getUnitOptionKey(unit)
                         );
                       }}
-                      className="absolute right-2 top-1/2 max-w-24 -translate-y-1/2 rounded-xl border border-green-700/10 bg-white/82 px-2 py-1 text-xs font-bold text-green-800 outline-none focus:border-green-700"
+                      className="app-native-select absolute right-2 top-1/2 max-w-24 -translate-y-1/2 px-2 py-1 text-xs"
                       title={t.changeUnit}
                     >
                       {parameter.available_units.map((unit) => (
@@ -3492,7 +3620,7 @@ function ValuesScreen({
         </div>
       )}
 
-      {cropId && filteredParameters.length === 0 && (
+      {!hasVisibleParameters && parameters.length > 0 && (
         <div className="mt-6 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-900">
           {t.noParametersCategory}
         </div>
@@ -3514,22 +3642,9 @@ function ValuesScreen({
   );
 }
 
-function BackButton({ onClick, label }: { onClick: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="touch-target inline-flex items-center gap-2 rounded-2xl border border-white/60 bg-white/50 px-4 py-2 text-sm font-semibold text-slate-700 active:scale-[0.98] hover:bg-white/80"
-    >
-      <ArrowLeft size={16} />
-      {label}
-    </button>
-  );
-}
-
 function StatPill({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl bg-slate-50 px-4 py-2 text-center">
+    <div className="auth-panel-muted rounded-2xl px-4 py-2 text-center">
       <p className="text-lg font-bold text-green-900">{value}</p>
       <p className="text-xs text-slate-500">{label}</p>
     </div>
@@ -3804,7 +3919,7 @@ function AppSelect<T extends string | number>({
   const menu = presence.mounted ? (
     <section
       style={useFloatingMenu && !inlineMenu ? menuStyle : undefined}
-      className={`z-[16000] overflow-hidden rounded-3xl border border-green-100 bg-white p-2 shadow-2xl shadow-green-900/15 ${
+      className={`app-menu-select-menu z-[16000] overflow-hidden p-2 ${
         presence.leaving ? "animate-scale-out" : "animate-scale-in"
       } ${
         useFloatingMenu && !inlineMenu
@@ -3824,7 +3939,7 @@ function AppSelect<T extends string | number>({
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder={placeholder}
-            className="w-full rounded-2xl border border-green-100 bg-white/90 px-3 py-2 pl-9 text-sm font-semibold text-slate-900 outline-none focus:border-green-500"
+            className="w-full rounded-xl border border-transparent bg-[var(--surface-variant,#f2f2f2)] px-3 py-2 pl-9 text-sm font-semibold text-[#1c1c1e] outline-none focus:border-[color:var(--accent-500,#22c55e)] focus:bg-white"
           />
         </div>
       ) : null}
@@ -3840,15 +3955,13 @@ function AppSelect<T extends string | number>({
                 onChange(option.value);
                 setOpen(false);
               }}
-              className={`flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-left text-sm font-semibold transition ${
-                selected
-                  ? "bg-green-50 text-green-900"
-                  : "text-slate-700 hover:bg-green-50/80"
+              className={`app-menu-select-option flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+                selected ? "app-menu-select-option-active" : ""
               }`}
             >
               <span className="whitespace-nowrap">{option.label}</span>
               {selected ? (
-                <Check size={16} className="shrink-0 text-green-700" />
+                <Check size={16} className="shrink-0" aria-hidden="true" />
               ) : null}
             </button>
           );
@@ -3881,21 +3994,18 @@ function AppSelect<T extends string | number>({
       <button
         ref={triggerRef}
         type="button"
+        aria-expanded={open}
         onClick={() => setOpen((previous) => !previous)}
-        className={`flex w-full items-center justify-between gap-2 rounded-2xl border bg-white text-left shadow-sm outline-none transition focus:border-green-700 focus:ring-4 focus:ring-green-700/10 ${
+        className={`app-menu-select-trigger flex w-full items-center justify-between gap-2 text-left outline-none transition ${
           compact
             ? iconOnlyOnMobile
-              ? "px-2.5 py-2.5 text-sm font-semibold sm:px-3.5"
-              : "px-3.5 py-2.5 text-sm font-semibold"
-            : "px-4 py-3 text-base"
-        } ${
-          open
-            ? "border-green-600 ring-4 ring-green-700/10"
-            : "border-green-700/20 hover:border-green-400"
+              ? "min-h-9 rounded-xl px-2.5 text-sm sm:px-3"
+              : "min-h-9 rounded-xl px-3 text-sm"
+            : "min-h-11 rounded-2xl px-3 text-sm"
         }`}
       >
         {icon ? (
-          <span className="grid h-5 w-5 shrink-0 place-items-center text-green-800">
+          <span className="grid h-5 w-5 shrink-0 place-items-center text-[color:var(--accent-700,#15803d)]">
             {icon}
           </span>
         ) : null}
@@ -3905,14 +4015,14 @@ function AppSelect<T extends string | number>({
           } ${
             selectedOption?.value === "" || !selectedOption
               ? "text-slate-400"
-              : "text-slate-900"
+              : "text-[#1c1c1e]"
           }`}
         >
           {selectedOption?.label || placeholder}
         </span>
         <ChevronDown
           size={iconOnlyOnMobile ? 16 : 18}
-          className={`shrink-0 text-green-800 transition ${
+          className={`shrink-0 text-[color:var(--accent-700,#15803d)] transition ${
             iconOnlyOnMobile ? "hidden sm:block" : ""
           } ${open ? "rotate-180" : ""}`}
         />
@@ -4010,6 +4120,53 @@ function buildResultGraphPoint(result: InterpretationResult): ResultGraphPoint {
   };
 }
 
+function extractionMethodLabel(
+  method: ExtractionMethod,
+  t: (typeof translations)[Language]
+) {
+  const labels: Record<ExtractionMethod, string> = {
+    general: t.extractionMethodGeneral,
+    olsen: t.extractionMethodOlsen,
+    mehlich: t.extractionMethodMehlich,
+    bray: t.extractionMethodBray,
+  };
+
+  return labels[method];
+}
+
+function ExtractionMethodChips({
+  t,
+  value,
+  onChange,
+  options = GENERAL_CROP_EXTRACTION_OPTIONS,
+}: {
+  t: (typeof translations)[Language];
+  value: ExtractionMethod;
+  onChange: (value: ExtractionMethod) => void;
+  options?: ExtractionMethod[];
+}) {
+  return (
+    <div
+      className="extraction-method-chips"
+      role="group"
+      aria-label={t.extractionMethodLabel}
+    >
+      {options.map((option) => (
+        <button
+          key={option}
+          type="button"
+          onClick={() => onChange(option)}
+          className={`extraction-method-chip ${
+            value === option ? "is-active" : ""
+          }`}
+        >
+          {extractionMethodLabel(option, t)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ResultsSection({
   results,
   groupedResults,
@@ -4024,6 +4181,8 @@ function ResultsSection({
   isSaved,
   reportMeta,
   isGeneralCrop,
+  showFoliarExtractionPicker,
+  extractionMethod,
   showHorizontalGraphs,
   backToValues,
 }: {
@@ -4050,6 +4209,8 @@ function ResultsSection({
     details?: string[];
   };
   isGeneralCrop: boolean;
+  showFoliarExtractionPicker: boolean;
+  extractionMethod: ExtractionMethod;
   showHorizontalGraphs: boolean;
   backToValues: () => void;
 }) {
@@ -4148,65 +4309,42 @@ function ResultsSection({
 
   return (
     <>
-      <section
-        data-pdf-report="analysis"
-        className="values-screen-panel rounded-3xl p-4 shadow-sm sm:p-5"
-      >
-        <div className="mb-4 flex flex-col gap-3 border-b border-white/55 pb-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <img
-              src="/app-icon.png"
-              alt="Alakay logo"
-              className="app-logo-frame h-16 w-16 rounded-2xl object-cover"
-            />
-
-            <div>
-              <h1 className="text-xl font-extrabold text-green-900">
-                Alakay
-              </h1>
-              <p className="text-sm font-medium text-slate-500">
-                {t.reportSubtitle}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                {t.generatedOn} {new Date().toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-
-          <div className="text-left text-sm text-slate-600 md:text-right">
-            <p className="font-semibold text-slate-800">
-              {t.agronomicSummary}
-            </p>
-            <p>{formatMessage(t.interpretedValuesCount, { count: results.length })}</p>
-          </div>
-        </div>
-
-        <BackButton onClick={backToValues} label={t.goToValues} />
-
-        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-xl font-extrabold text-green-900">
-              {t.analysisSummary}
-            </h2>
-            <p className="mt-1 text-sm text-slate-600">
+      <section data-pdf-report="analysis" className="results-flat-panel pb-28">
+        {/* Page header: back + title + PDF export */}
+        <div className="mb-4 flex items-center gap-3">
+          <BackButton onClick={backToValues} label={t.goToValues} />
+          <div className="min-w-0 flex-1">
+            <h2 className="results-flat-title">{t.analysisSummary}</h2>
+            <p className="results-flat-count">
               {formatMessage(t.interpretedValuesCount, { count: results.length })}
+              {showFoliarExtractionPicker ? (
+                <span className="ml-2 text-amber-600">
+                  · {extractionMethodLabel(extractionMethod, t)}
+                </span>
+              ) : null}
             </p>
           </div>
-
           <button
             type="button"
-            onClick={() => setActiveGroup("all")}
-            className={`rounded-2xl px-4 py-3 text-sm font-bold ${
-              activeGroup === "all"
-                ? "bg-green-700 text-white"
-                : "bg-slate-50 text-slate-700 hover:bg-green-50"
-            }`}
+            onClick={exportToPdf}
+            disabled={exportingPdf || results.length === 0}
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[rgba(0,0,0,0.08)] bg-white px-3 text-xs font-semibold text-[#3c3c43] shadow-sm transition hover:bg-[#f2f2f2] active:scale-95 disabled:opacity-40"
           >
-            {t.allResults} · {results.length}
+            <Download size={14} />
+            {exportingPdf ? "…" : "PDF"}
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
+        {/* Horizontal scrolling filter chips */}
+        <div className="results-flat-filters">
+          <button
+            type="button"
+            onClick={() => setActiveGroup("all")}
+            className={`results-flat-chip ${activeGroup === "all" ? "is-active" : ""}`}
+          >
+            <span className="results-flat-chip-count">{results.length}</span>
+            {t.allResults}
+          </button>
           <SummaryBadge
             label={t.needsAttention}
             count={groupedResults.negative.length}
@@ -4237,43 +4375,29 @@ function ResultsSection({
             active={activeGroup === "neutral"}
             onClick={() => setActiveGroup("neutral")}
           />
+          <SummaryBadge
+            label={t.other}
+            count={groupedResults.other.length}
+            active={activeGroup === "other"}
+            onClick={() => setActiveGroup("other")}
+          />
         </div>
 
-        {isGeneralCrop && (
-          <div className="mt-5 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900">
-            {t.generalCropWarning}
-          </div>
-        )}
-
         {textureSummary && (
-          <div className="mt-4 rounded-2xl border border-white/55 bg-white/52 p-4 text-emerald-950 backdrop-blur-xl">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h3 className="text-lg font-bold">
-                  {t.textureClass}: {textureSummary.className}
-                </h3>
-
-                <p className="mt-1 text-sm text-emerald-900">
-                  {textureSummary.explanation}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="rounded-xl bg-white/70 px-3 py-2">
-                  <p className="font-bold">{textureSummary.sand}%</p>
-                  <p>{t.sand}</p>
-                </div>
-
-                <div className="rounded-xl bg-white/70 px-3 py-2">
-                  <p className="font-bold">{textureSummary.silt}%</p>
-                  <p>{t.silt}</p>
-                </div>
-
-                <div className="rounded-xl bg-white/70 px-3 py-2">
-                  <p className="font-bold">{textureSummary.clay}%</p>
-                  <p>{t.clay}</p>
-                </div>
-              </div>
+          <div className="results-flat-texture">
+            <p className="font-bold">
+              {t.textureClass}: {textureSummary.className}
+            </p>
+            <div className="results-flat-texture-stats">
+              <span>
+                {t.sand}: {textureSummary.sand}%
+              </span>
+              <span>
+                {t.silt}: {textureSummary.silt}%
+              </span>
+              <span>
+                {t.clay}: {textureSummary.clay}%
+              </span>
             </div>
           </div>
         )}
@@ -4282,83 +4406,70 @@ function ResultsSection({
           <ResultsHorizontalGraphs results={visibleResults} t={t} />
         ) : null}
 
-        <div className="mt-4 grid gap-3">
+        <div className="mt-2">
           <ResultGroup
             title={t.needsAttention}
-            description={t.needsAttentionDesc}
             results={visibleGroups.negative}
             t={t}
-            tone="red"
+            tone="negative"
           />
           <ResultGroup
             title={t.warning}
-            description={t.warningDesc}
             results={visibleGroups.warning}
             t={t}
-            tone="yellow"
+            tone="warning"
           />
           <ResultGroup
             title={t.normal}
-            description={t.normalDesc}
             results={visibleGroups.normal}
             t={t}
-            tone="green"
+            tone="normal"
           />
           <ResultGroup
             title={t.positive}
-            description={t.positiveDesc}
             results={visibleGroups.positive}
             t={t}
-            tone="emerald"
+            tone="positive"
           />
           <ResultGroup
             title={t.neutral}
-            description={t.neutralDesc}
             results={visibleGroups.neutral}
             t={t}
-            tone="slate"
+            tone="neutral"
           />
           <ResultGroup
             title={t.other}
-            description={t.otherDesc}
             results={visibleGroups.other}
             t={t}
-            tone="slate"
+            tone="other"
           />
         </div>
       </section>
 
-      <div className="sticky bottom-[max(0.25rem,env(safe-area-inset-bottom))] z-[12000] mt-4 grid gap-2 rounded-3xl border border-white/65 bg-white/68 p-2 shadow-2xl shadow-green-950/12 backdrop-blur-2xl md:grid-cols-2">
-        <button
-          type="button"
-          onClick={exportToPdf}
-          disabled={exportingPdf || results.length === 0}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/45 bg-white/72 px-5 py-3 font-semibold text-green-950 shadow-sm hover:bg-white/92 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Download size={18} />
-          {exportingPdf ? t.exportingPdf : t.exportPdf}
-        </button>
-
-        <button
-          type="button"
-          onClick={saveAnalysis}
-          disabled={saving || results.length === 0 || isSaved}
-          className={`flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-semibold shadow-sm disabled:cursor-not-allowed ${
-            isSaved
-              ? "border border-white/45 bg-white/50 text-slate-400"
-              : "border border-white/45 bg-green-700/88 text-white hover:bg-green-800"
-          }`}
-        >
-          <Save size={18} />
-          {saving ? t.saving : isSaved ? t.analysisSavedState : t.saveAnalysis}
-        </button>
-      </div>
-
       {saveMessage && (
-        <div className="mt-4 rounded-2xl bg-green-50 p-4 text-green-900">
+        <div className="mt-2 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-900">
           {saveMessage}
         </div>
       )}
+
+      {/* Fixed bottom save bar */}
+      <div className="app-fixed-action-bar fixed inset-x-0 z-[12000]">
+        <div className="mx-auto max-w-2xl px-4 py-3">
+          <button
+            type="button"
+            onClick={saveAnalysis}
+            disabled={saving || results.length === 0 || isSaved}
+            className={`flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${
+              isSaved
+                ? "bg-[#f2f2f2] text-[#aeaeb2]"
+                : "bg-green-700 text-white hover:bg-green-800"
+            }`}
+          >
+            <Save size={18} />
+            {saving ? t.saving : isSaved ? t.analysisSavedState : t.saveAnalysis}
+          </button>
+        </div>
+      </div>
 
       {missingResults.length > 0 && (
         <section className="mt-6 rounded-3xl border border-orange-200 bg-orange-50 p-5 shadow-sm">
@@ -4372,7 +4483,7 @@ function ResultsSection({
             {missingResults.map((item) => (
               <div
                 key={item.parameter_key}
-                className="rounded-2xl bg-white p-3 text-sm"
+                className="glass-panel rounded-2xl p-3 text-sm"
               >
                 <strong>{item.display_name || item.parameter_name}</strong>:{" "}
                 {item.value}
@@ -4403,16 +4514,10 @@ function SummaryBadge({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-2xl px-3 py-3 text-center transition ${
-        active
-          ? "bg-green-700 text-white"
-          : disabled
-            ? "cursor-not-allowed bg-slate-50 text-slate-300"
-            : "bg-slate-50 text-slate-700 hover:bg-green-50"
-      }`}
+      className={`results-flat-chip ${active ? "is-active" : ""}`}
     >
-      <p className="text-lg font-bold">{count}</p>
-      <p className="text-xs">{label}</p>
+      <span className="results-flat-chip-count">{count}</span>
+      {label}
     </button>
   );
 }
@@ -4529,7 +4634,7 @@ function WelcomeGuide({
 
   return createPortal(
     <div className="fixed inset-0 z-[24000] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-md">
-      <section className="w-full max-w-lg rounded-3xl border border-white/70 bg-white/90 p-5 shadow-2xl animate-scale-in">
+      <section className="glass-modal-shell w-full max-w-lg rounded-3xl p-5 animate-scale-in">
         <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-emerald-700">
           {t.authWelcome}
         </p>
@@ -4557,7 +4662,7 @@ function WelcomeGuide({
 
 function GuideStep({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3">
+    <div className="auth-panel-muted rounded-2xl p-3">
       <p className="font-bold text-green-950">{title}</p>
       <p className="mt-1 text-sm text-slate-600">{text}</p>
     </div>
@@ -4566,43 +4671,26 @@ function GuideStep({ title, text }: { title: string; text: string }) {
 
 function ResultGroup({
   title,
-  description,
   results,
   t,
   tone,
 }: {
   title: string;
-  description: string;
   results: InterpretationResult[];
   t: (typeof translations)[Language];
-  tone: "red" | "yellow" | "green" | "emerald" | "slate";
+  tone: "negative" | "warning" | "normal" | "positive" | "neutral" | "other";
 }) {
   if (results.length === 0) {
     return null;
   }
 
-  const toneClasses = {
-    red: "border-red-300/80 bg-red-100/78 text-red-950 shadow-red-950/6",
-    yellow: "border-amber-300/80 bg-amber-100/78 text-amber-950 shadow-amber-950/6",
-    green: "border-emerald-300/80 bg-emerald-100/76 text-emerald-950 shadow-emerald-950/6",
-    emerald: "border-teal-300/80 bg-teal-100/76 text-teal-950 shadow-teal-950/6",
-    slate: "border-slate-300/80 bg-slate-100/76 text-slate-950 shadow-slate-950/6",
-  };
-
   return (
-    <section className={`rounded-2xl border p-4 shadow-sm backdrop-blur-xl ${toneClasses[tone]}`}>
-      <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h3 className="text-lg font-bold">{title}</h3>
-          <p className="text-sm opacity-80">{description}</p>
-        </div>
+    <section className={`results-flat-group results-flat-group--${tone}`}>
+      <h3 className="results-flat-group-title">
+        {title} · {results.length}
+      </h3>
 
-        <span className="rounded-full bg-white/70 px-3 py-1 text-sm font-bold">
-          {results.length}
-        </span>
-      </div>
-
-      <div className="mt-4 grid gap-3">
+      <div className="results-flat-rows">
         {results.map((result) => (
           <div
             key={
@@ -4610,45 +4698,21 @@ function ResultGroup({
                 ? `c-${result.custom_parameter_id}`
                 : `p-${result.parameter_id}`
             }
-            className="rounded-2xl bg-white/72 p-4 text-slate-900 shadow-sm backdrop-blur-xl"
+            className="results-flat-row"
           >
-            <div className="flex flex-col justify-between gap-2 md:flex-row">
-              <div>
-                <p className="font-bold">
-                  {result.display_parameter_name || result.parameter_name}
-                  {result.custom_parameter_id ? (
-                    <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800">
-                      {t.customBadge}
-                    </span>
-                  ) : null}
-                </p>
-                <p className="text-sm text-slate-600">
-                  {result.value} {result.unit_symbol}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {t.rangeLabel}: {result.min ?? "—"} - {result.max ?? "—"}{" "}
-                  {result.unit_symbol}
-                </p>
-              </div>
-
-              <div className="text-left md:text-right">
-                <p className={getLevelBadgeClass(result.level_code)}>
-                  {translateLevelCode(result.level_code, t)}
-                </p>
-                <p className="text-sm text-slate-600">
-                  {t.confidence}: {translateConfidence(result.confidence, t)}
-                </p>
-              </div>
-            </div>
-
-            <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
-              {translateAdvice(result, t)}
-            </p>
-
-            <div className="mt-2 text-sm text-slate-600">
-              {t.source}: {translateSourceName(result.source_name, t)}
-              {result.is_proxy ? ` · ${t.proxyRange}` : ""}
-            </div>
+            <span className="results-flat-param">
+              {result.display_parameter_name || result.parameter_name}
+              {result.custom_parameter_id ? ` (${t.customBadge})` : ""}
+            </span>
+            <span className="results-flat-value">
+              {result.value} {result.unit_symbol}
+            </span>
+            <span className="results-flat-range">
+              {result.min ?? "—"}–{result.max ?? "—"}
+            </span>
+            <span className={getLevelBadgeClass(result.level_code)}>
+              {translateLevelCode(result.level_code, t)}
+            </span>
           </div>
         ))}
       </div>

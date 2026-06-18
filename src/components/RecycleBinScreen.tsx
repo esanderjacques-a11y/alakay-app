@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { ArrowLeft, FileText, RefreshCw, RotateCcw, SlidersHorizontal } from "lucide-react";
 
+import BackButton from "@/components/ui/BackButton";
+import { StickyPageTitle } from "@/components/ui/StickyPageTitle";
 import { supabase } from "@/lib/supabase";
 import type { Language, Translation } from "@/lib/translations";
 
@@ -188,25 +190,15 @@ export default function RecycleBinScreen({
   }
 
   return (
-    <section className="mt-6 animate-slide-up">
-      <div className="values-screen-panel rounded-3xl border border-white/70 bg-white/62 p-4 shadow-sm backdrop-blur-xl sm:p-6">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-100 bg-white/70 px-3 py-2 text-sm font-bold text-green-900"
-        >
-          <ArrowLeft size={16} />
-          {t.home}
-        </button>
-
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
+    <section className="animate-slide-up">
+      <div className="values-screen-panel values-screen-panel--open px-4 pb-4 pt-1 sm:px-5 sm:pb-5 sm:pt-1">
+        <StickyPageTitle className="page-title-row items-end sm:items-center">
+          <BackButton variant="icon" onClick={onBack} label={t.home} />
+          <div className="page-title-row__title min-w-0">
             <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-emerald-700">
               {labels.allDeleted}
             </p>
-            <h1 className="mt-1 text-2xl font-extrabold text-green-950">
-              {t.recycleBin}
-            </h1>
+            <h1 className="mt-1 text-2xl font-extrabold text-green-950">{t.recycleBin}</h1>
             <p className="mt-1 max-w-xl text-sm font-medium text-slate-600">
               {t.recycleBinDesc}
             </p>
@@ -214,12 +206,14 @@ export default function RecycleBinScreen({
           <button
             type="button"
             onClick={loadDeletedItems}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-white/70 px-4 py-3 text-sm font-bold text-green-900"
+            className="page-title-row__spacer inline-flex min-w-9 items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-white/70 px-3 py-2 text-sm font-bold text-green-900 sm:min-w-0 sm:px-4 sm:py-3"
+            aria-label={labels.refresh}
+            title={labels.refresh}
           >
             <RefreshCw size={16} />
-            {labels.refresh}
+            <span className="hidden sm:inline">{labels.refresh}</span>
           </button>
-        </div>
+        </StickyPageTitle>
 
         <div className="app-scroll-x mt-5 flex gap-2 pb-1">
           {[

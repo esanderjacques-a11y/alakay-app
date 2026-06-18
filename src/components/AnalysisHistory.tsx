@@ -680,6 +680,9 @@ export default function AnalysisHistory({
   const versionedCount = rootGroups.filter(
     (group) => !group.latest.is_deleted && group.versions.length > 1
   ).length;
+  const deletedCount = rootGroups.filter(
+    (group) => group.latest.is_deleted
+  ).length;
 
   const selectedVersionGroup = versionRootId
     ? rootGroups.find((group) => group.rootId === versionRootId)
@@ -726,13 +729,9 @@ export default function AnalysisHistory({
   }
 
   return (
-    <section className="grid gap-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-extrabold text-green-900 sm:text-lg">{l.title}</h2>
-          <p className="mt-0.5 max-w-2xl text-sm font-medium text-slate-600">{l.desc}</p>
-        </div>
-
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center gap-2 px-1 pb-1">
+        <h2 className="flex-1 text-lg font-bold text-[#1c1c1e]">{l.title}</h2>
         <button
           type="button"
           title={l.refresh}
@@ -744,8 +743,9 @@ export default function AnalysisHistory({
         </button>
       </div>
 
-      <div className="grid items-stretch gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-        <div className="grid gap-2 sm:grid-cols-2 lg:contents">
+      {/* Filter chips + sort */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
           <HistoryFilterButton
             label={l.activeReports}
             value={activeCount}
@@ -758,13 +758,20 @@ export default function AnalysisHistory({
             active={historyFilter === "versions"}
             onClick={() => setHistoryFilter("versions")}
           />
+          <HistoryFilterButton
+            label={l.showDeleted}
+            value={deletedCount}
+            active={historyFilter === "deleted"}
+            onClick={() => setHistoryFilter("deleted")}
+          />
         </div>
-        <div className="history-sort-group">
-          <label className="relative min-w-0 flex-1" title={l.sortBy} aria-label={l.sortBy}>
+
+        <div className="flex shrink-0 gap-1">
+          <label className="relative" title={l.sortBy} aria-label={l.sortBy}>
             <select
               value={sortKey}
               onChange={(event) => setSortKey(event.target.value as HistorySortKey)}
-              className="history-sort-select"
+              className="history-sort-select pr-7"
             >
               <option value="date">{l.date}</option>
               <option value="name">{l.name}</option>
@@ -774,8 +781,8 @@ export default function AnalysisHistory({
             </select>
             <ArrowUpDown
               aria-hidden="true"
-              size={16}
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
+              size={14}
+              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#aeaeb2]"
             />
           </label>
           <button
@@ -834,7 +841,7 @@ export default function AnalysisHistory({
                   );
                 }
               }}
-              className={`history-report-card cursor-pointer rounded-2xl border px-4 py-3 shadow-sm transition ${
+              className={`history-report-card cursor-pointer rounded-xl px-4 py-3 transition ${
                 analysis.is_deleted
                   ? "history-report-card-deleted"
                   : isExpanded
@@ -1002,10 +1009,16 @@ function HistoryFilterButton({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`history-filter-button ${active ? "history-filter-button-active" : ""}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+        active
+          ? "bg-green-700 text-white"
+          : "bg-white text-[#3c3c43] shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+      }`}
     >
-      <span className="block text-xl font-extrabold leading-none">{value}</span>
-      <span className="mt-1 block text-sm font-bold">{label}</span>
+      {label}
+      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+        active ? "bg-white/25" : "bg-[#f2f2f2] text-[#6c6c70]"
+      }`}>{value}</span>
     </button>
   );
 }
@@ -1488,7 +1501,7 @@ function VersionsModal({
 
   return (
     <div className="fixed inset-0 z-[20000] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-md">
-      <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
+      <div className="glass-modal-shell max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-green-900">{l.versions}</h2>

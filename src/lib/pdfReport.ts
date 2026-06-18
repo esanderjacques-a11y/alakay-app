@@ -50,6 +50,18 @@ export type PdfReportOptions = {
   includeCalculationValues?: boolean;
 };
 
+export type PdfReportSectionOptions = {
+  includeLogo: boolean;
+  includeSummary: boolean;
+  includeInterpretation: boolean;
+  includeMissingValues: boolean;
+  includeTexture: boolean;
+  includeCalculations: boolean;
+  includeLabValues: boolean;
+  includeDop: boolean;
+  includeRatios: boolean;
+};
+
 const GROUP_KEYS = [
   "negative",
   "warning",

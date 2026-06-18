@@ -45,6 +45,7 @@ export type AppSettings = {
     accentColor: AccentColor;
     defaultSampleType: DefaultSampleType;
     defaultCrop: DefaultCrop;
+    glassUi: boolean;
   };
   analysis: {
     interpretationMethod: InterpretationMethod;
@@ -89,6 +90,7 @@ export const defaultAppSettings: AppSettings = {
     accentColor: "green",
     defaultSampleType: "soil",
     defaultCrop: "banana",
+    glassUi: true,
   },
   analysis: {
     interpretationMethod: "sufficiency_range",
@@ -214,17 +216,18 @@ function mergeSettings(settings: Partial<AppSettings>): AppSettings {
     Math.max(50, Number(merged.importAi.aiConfidenceThreshold) || 80)
   );
   merged.general.brightness = Math.min(
-    115,
-    Math.max(85, Number(merged.general.brightness) || 100)
+    100,
+    Math.max(70, Number(merged.general.brightness) || 100)
   );
   merged.general.saturation = Math.min(
-    130,
+    100,
     Math.max(70, Number(merged.general.saturation) || 100)
   );
   merged.general.contrast = Math.min(
-    125,
-    Math.max(85, Number(merged.general.contrast) || 100)
+    100,
+    Math.max(70, Number(merged.general.contrast) || 100)
   );
+  merged.general.glassUi = merged.general.glassUi !== false;
   merged.general.appFontSizeDelta = Math.min(
     3,
     Math.max(-2, Number(merged.general.appFontSizeDelta) || 0)

@@ -3,16 +3,15 @@
 import { useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
-  Camera,
   Calculator,
-  FileSpreadsheet,
+  Camera,
+  ChevronRight,
   FileText,
   History,
   Plus,
-  Settings,
   Upload,
+  X,
 } from "lucide-react";
-import GlassPanel from "@/components/ui/GlassPanel";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
 import { useDismissible } from "@/hooks/useDismissible";
 import { Language, translations } from "@/lib/translations";
@@ -25,7 +24,6 @@ type Props = {
   openImporter: (mode?: "scan" | "import") => void;
   goResults: () => void;
   goCalculators: () => void;
-  goSettings: () => void;
   hasResultsOrProgress: boolean;
 };
 
@@ -37,7 +35,6 @@ export default function HomeScreen({
   openImporter,
   goResults,
   goCalculators,
-  goSettings,
   hasResultsOrProgress,
 }: Props) {
   const [showImportMenu, setShowImportMenu] = useState(false);
@@ -46,199 +43,156 @@ export default function HomeScreen({
 
   useDismissible(showImportMenu, () => setShowImportMenu(false), importMenuRef);
 
-  const historyDisabled = !hasResultsOrProgress;
+  const importOptions = [
+    {
+      icon: <FileText size={19} />,
+      label: t.importDocument,
+      sub: t.importDocumentShort,
+      onClick: () => {
+        setShowImportMenu(false);
+        openImporter("import");
+      },
+    },
+    {
+      icon: <Camera size={19} />,
+      label: t.takePhoto,
+      sub: t.takePhotoShort,
+      onClick: () => {
+        setShowImportMenu(false);
+        openImporter("scan");
+      },
+    },
+  ];
 
   return (
-    <section className="w-full animate-slide-up">
-      <GlassPanel className="home-entry-panel mx-auto w-full p-5 sm:p-6 md:p-7">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-base font-extrabold uppercase text-green-900 sm:text-lg md:text-xl">
-            {t.startNewAnalysis}
-          </h2>
+    <section className="home-screen animate-slide-up">
+      <div className="home-screen__inner">
+        <div className="home-screen__hero">
+          <div className="home-hero-cycle">
+            <span>{t.homeHeroCycle1}</span>
+            <span>{t.homeHeroCycle2}</span>
+            <span>{t.homeHeroCycle3}</span>
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={startNewAnalysis}
-          className="touch-target home-primary-action mt-4 sm:mt-5"
-        >
-          <span className="home-primary-icon" aria-hidden>
-            <Plus size={30} strokeWidth={2.4} />
-          </span>
-          <span className="home-primary-copy">
-            <span className="home-primary-title">{t.insertNew}</span>
-            <span className="home-primary-desc">{t.insertNewDesc}</span>
-          </span>
-        </button>
+        <div className="home-action-grid">
+          <button
+            type="button"
+            onClick={startNewAnalysis}
+            className="home-action-tile home-action-tile--primary"
+          >
+            <span className="home-action-tile__icon home-action-tile__icon--primary">
+              <Plus size={20} />
+            </span>
+            <span className="home-action-tile__copy">
+              <span className="home-action-tile__title">{t.insertNew}</span>
+              <span className="home-action-tile__desc">{t.insertNewShort}</span>
+            </span>
+          </button>
 
-        <div className="home-actions-grid mt-4 grid gap-3">
           <div ref={importMenuRef} className="relative min-w-0">
-            {importPresence.mounted ? (
-              <button
-                type="button"
-                aria-label={t.close}
-                className={`dismiss-backdrop home-import-backdrop ${
-                  importPresence.leaving ? "animate-fade-out" : "animate-fade-in"
-                }`}
-                onClick={() => setShowImportMenu(false)}
-              />
-            ) : null}
-
             <button
               type="button"
-              onClick={() => setShowImportMenu((previous) => !previous)}
-              className="touch-target home-secondary-action"
+              onClick={() => setShowImportMenu((prev) => !prev)}
+              className="home-action-tile w-full"
             >
-              <Upload size={20} className="shrink-0" />
-              <span className="home-action-copy">
-                <span className="home-action-title">{t.importData}</span>
-                <span className="home-action-desc">{t.importDataDesc}</span>
+              <span className="home-action-tile__icon">
+                <Upload size={20} />
+              </span>
+              <span className="home-action-tile__copy">
+                <span className="home-action-tile__title">{t.importData}</span>
+                <span className="home-action-tile__desc">{t.importDataShort}</span>
               </span>
             </button>
 
             {importPresence.mounted ? (
-              <section
-                className={`home-import-menu fixed left-1/2 top-1/2 z-[13001] w-[min(92vw,24rem)] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-white p-3 shadow-2xl ${
-                  importPresence.leaving ? "animate-scale-out" : "animate-scale-in"
-                }`}
-              >
+              <>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowImportMenu(false);
-                    openImporter("import");
-                  }}
-                  className="touch-target flex w-full items-start gap-3 rounded-2xl px-4 py-3 text-left hover:bg-green-50"
-                >
-                  <FileSpreadsheet
-                    size={20}
-                    className="mt-0.5 shrink-0 text-green-800"
-                  />
-                  <span>
-                    <p className="font-bold text-green-900">{t.excel}</p>
-                    <p className="mt-1 text-xs text-slate-500">{t.excelDesc}</p>
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowImportMenu(false);
-                    openImporter("import");
-                  }}
-                  className="touch-target mt-2 flex w-full items-start gap-3 rounded-2xl px-4 py-3 text-left hover:bg-green-50"
-                >
-                  <FileText size={20} className="mt-0.5 shrink-0 text-green-800" />
-                  <span>
-                    <p className="font-bold text-green-900">{t.csv}</p>
-                    <p className="mt-1 text-xs text-slate-500">{t.csvDesc}</p>
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowImportMenu(false);
-                    openImporter("import");
-                  }}
-                  className="touch-target mt-2 flex w-full items-start gap-3 rounded-2xl px-4 py-3 text-left hover:bg-green-50"
-                >
-                  <FileText size={20} className="mt-0.5 shrink-0 text-green-800" />
-                  <span>
-                    <p className="font-bold text-green-900">{t.pdf}</p>
-                    <p className="mt-1 text-xs text-slate-500">{t.comingSoonPdf}</p>
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowImportMenu(false);
-                    openImporter("scan");
-                  }}
-                  className="touch-target mt-2 flex w-full items-start gap-3 rounded-2xl px-4 py-3 text-left hover:bg-green-50"
-                >
-                  <Camera size={20} className="mt-0.5 shrink-0 text-green-800" />
-                  <span>
-                    <p className="font-bold text-green-900">{t.photos}</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {t.comingSoonPhotos}
-                    </p>
-                  </span>
-                </button>
-
-                <button
-                  type="button"
+                  aria-label={t.close}
+                  className={`fixed inset-0 z-[13000] bg-black/30 ${
+                    importPresence.leaving ? "animate-fade-out" : "animate-fade-in"
+                  }`}
                   onClick={() => setShowImportMenu(false)}
-                  className="touch-target mt-2 w-full rounded-2xl bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+                />
+                <div
+                  className={`fixed bottom-0 inset-x-0 z-[13001] sm:absolute sm:bottom-auto sm:inset-x-auto sm:left-0 sm:top-full sm:mt-2 sm:w-56 ${
+                    importPresence.leaving ? "animate-scale-out" : "animate-scale-in"
+                  }`}
                 >
-                  {t.close}
-                </button>
-              </section>
+                  <div className="home-import-menu glass-panel-strong mx-2 mb-2 sm:mx-0 sm:mb-0 overflow-hidden rounded-2xl shadow-xl shadow-black/10">
+                    <div className="px-4 py-3 border-b border-black/6 flex items-center justify-between">
+                      <span className="text-sm font-bold text-slate-800">{t.importData}</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowImportMenu(false)}
+                        className="h-7 w-7 grid place-items-center rounded-lg text-slate-400 hover:bg-slate-100"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                    {importOptions.map((opt, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={opt.onClick}
+                        className="touch-target flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-700">
+                          {opt.icon}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="block text-sm font-semibold text-slate-800">
+                            {opt.label}
+                          </span>
+                          <span className="block text-xs text-slate-400">{opt.sub}</span>
+                        </div>
+                        <ChevronRight size={15} className="ml-auto text-slate-300 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
             ) : null}
           </div>
 
           <button
             type="button"
-            onClick={() => openImporter("scan")}
-            className="touch-target home-secondary-action"
-          >
-            <Camera size={20} className="shrink-0" />
-            <span className="home-action-copy">
-              <span className="home-action-title">{t.takePhoto}</span>
-              <span className="home-action-desc">{t.takePhotoDesc}</span>
-            </span>
-          </button>
-
-          <button
-            type="button"
             onClick={goResults}
-            disabled={historyDisabled}
-            className="touch-target home-secondary-action disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!hasResultsOrProgress}
+            className="home-action-tile disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <History size={20} className="shrink-0" />
-            <span className="home-action-copy">
-              <span className="home-action-title">{t.savedReports}</span>
-              <span className="home-action-desc">
-                {session?.user && !guestMode
-                  ? t.openHistoryDesc
-                  : t.loginToViewHistory}
-              </span>
+            <span className="home-action-tile__icon">
+              <History size={20} />
+            </span>
+            <span className="home-action-tile__copy">
+              <span className="home-action-tile__title">{t.savedReports}</span>
+              <span className="home-action-tile__desc">{t.savedReportsShort}</span>
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={goCalculators}
-            className="touch-target home-secondary-action"
-          >
-            <Calculator size={20} className="shrink-0" />
-            <span className="home-action-copy">
-              <span className="home-action-title">{t.calculators}</span>
-              <span className="home-action-desc">{t.calculatorsDesc}</span>
+          <button type="button" onClick={goCalculators} className="home-action-tile">
+            <span className="home-action-tile__icon">
+              <Calculator size={20} />
             </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={goSettings}
-            className="touch-target home-secondary-action"
-          >
-            <Settings size={20} className="shrink-0" />
-            <span className="home-action-copy">
-              <span className="home-action-title">{t.appSettings}</span>
-              <span className="home-action-desc">{t.appSettingsDesc}</span>
+            <span className="home-action-tile__copy">
+              <span className="home-action-tile__title">{t.calculators}</span>
+              <span className="home-action-tile__desc">{t.calculatorsShort}</span>
             </span>
           </button>
         </div>
 
         {!session?.user || guestMode ? (
-          <p className="mt-4 rounded-2xl bg-green-50/80 px-4 py-2.5 text-center text-xs font-medium text-green-900">
-            {t.loginOrGuestShort}
-          </p>
+          <div className="home-flat-guest-note">
+            <span className="text-[12px] font-medium">{t.loginOrGuestShort}</span>
+          </div>
         ) : null}
-      </GlassPanel>
+
+        <div className="home-info-strip">
+          <div className="home-info-strip__dot" />
+          <span className="home-info-strip__text">{t.shortTagline}</span>
+        </div>
+      </div>
     </section>
   );
 }
-

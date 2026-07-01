@@ -8,6 +8,8 @@ import { countries } from "@/lib/countries";
 import { normalizeAuthEmail } from "@/lib/email";
 import { Language, Translation } from "@/lib/translations";
 import { authPanelText } from "@/lib/i18n/componentText";
+import { LAST_CHANGE_DATE_ISO } from "@/lib/appBuildInfo";
+import { formatLastUpdate } from "@/lib/dateLocales";
 
 type AuthPanelText = (typeof authPanelText)[keyof typeof authPanelText];
 
@@ -126,6 +128,10 @@ export default function AuthPanel({
   onResumeSession,
 }: Props) {
   const text = authPanelText[language as keyof typeof authPanelText] || authPanelText.en;
+  const lastUpdateLabel = useMemo(
+    () => formatLastUpdate(text.lastUpdate, LAST_CHANGE_DATE_ISO, language),
+    [text.lastUpdate, language]
+  );
 
   const [mode, setMode] = useState<"login" | "signup">("login");
 
@@ -673,7 +679,7 @@ export default function AuthPanel({
 
       <div className="auth-cycle mt-5 h-5 text-center text-[11px] font-semibold text-green-950/35">
         <span>{text.welcomeCycle}</span>
-        <span>{text.lastUpdate}</span>
+        <span>{lastUpdateLabel}</span>
       </div>
     </>
   );

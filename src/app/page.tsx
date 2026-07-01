@@ -2212,7 +2212,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
   if (!hasAccess) {
     return (
-      <main className="app-main-gradient auth-page flex min-h-screen flex-col text-slate-900">
+      <main className="app-main-gradient auth-page flex flex-col text-slate-900">
         <div className="app-main-backdrop" aria-hidden="true" />
         <header className="auth-top-bar">
           <LanguageSwitcher
@@ -2221,7 +2221,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             compact
           />
         </header>
-        <div className="relative z-[1] flex flex-1 items-center justify-center px-4 py-6 sm:py-8">
+        <div className="auth-page__content relative flex flex-1 items-center justify-center px-4 py-6 sm:py-8">
           <LoadingOverlay
             open={isBusy}
             label={loading ? t.interpreting : t.saving}

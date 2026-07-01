@@ -32,14 +32,20 @@ function readInstallDismissed() {
 
 function syncDisplayMode() {
   const root = document.documentElement;
-  if (window.matchMedia("(display-mode: fullscreen)").matches) {
-    root.dataset.displayMode = "fullscreen";
-    return;
-  }
-  if (window.matchMedia("(display-mode: standalone)").matches) {
+  const standalone = isStandaloneDisplay();
+
+  if (standalone) {
+    root.dataset.standalone = "true";
+    if (window.matchMedia("(display-mode: fullscreen)").matches) {
+      root.dataset.displayMode = "fullscreen";
+      return;
+    }
     root.dataset.displayMode = "standalone";
     return;
   }
+
+  delete root.dataset.standalone;
+
   if (window.matchMedia("(display-mode: minimal-ui)").matches) {
     root.dataset.displayMode = "minimal-ui";
     return;
@@ -105,6 +111,8 @@ export default function MobilePwaBootstrap() {
       if (isStandaloneDisplay()) setShowInstallPrompt(false);
     };
     displayMq.addEventListener("change", onDisplayChange);
+    window.addEventListener("orientationchange", onDisplayChange);
+    window.addEventListener("resize", onDisplayChange);
 
     const onBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
@@ -132,6 +140,8 @@ export default function MobilePwaBootstrap() {
 
     return () => {
       displayMq.removeEventListener("change", onDisplayChange);
+      window.removeEventListener("orientationchange", onDisplayChange);
+      window.removeEventListener("resize", onDisplayChange);
       window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
       window.removeEventListener("appinstalled", onAppInstalled);
       themeObserver.disconnect();

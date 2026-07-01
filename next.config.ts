@@ -1,10 +1,28 @@
 import path from "node:path";
+import { execSync } from "node:child_process";
 import type { NextConfig } from "next";
 
 const appRoot = path.resolve(__dirname);
 
+function resolveLastChangeDate(): string {
+  try {
+    const iso = execSync("git log -1 --format=%cI", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    if (iso) return iso;
+  } catch {
+    /* git unavailable during build */
+  }
+
+  return new Date().toISOString();
+}
+
 const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  env: {
+    NEXT_PUBLIC_LAST_CHANGE_DATE: resolveLastChangeDate(),
+  },
 
   // Parent folder has another package-lock.json; pin the app root so dev/build
   // do not scan the wrong tree.

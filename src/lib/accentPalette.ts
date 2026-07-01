@@ -203,9 +203,9 @@ export function buildAccentCssVariables(
     "--dark-disabled-bg": isBlackDark ? "rgb(0 0 0 / 0.72)" : "rgb(255 255 255 / 0.03)",
     "--auth-card-bg": isDark
       ? isBlackDark
-        ? "linear-gradient(180deg, rgb(8 8 8 / 0.88), rgb(0 0 0 / 0.84))"
-        : `linear-gradient(180deg, ${withAlpha(scale[900], 0.46)}, ${withAlpha(scale[950], 0.52)})`
-      : "linear-gradient(180deg, rgb(255 255 255 / 0.46), rgb(248 252 250 / 0.38))",
+        ? "linear-gradient(180deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.045))"
+        : "linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.09))"
+      : "linear-gradient(180deg, rgb(255 255 255 / 0.34), rgb(255 255 255 / 0.22))",
     "--auth-card-border": isDark
       ? (isBlackDark ? "rgb(255 255 255 / 0.16)" : "rgb(255 255 255 / 0.18)")
       : "rgb(255 255 255 / 0.52)",

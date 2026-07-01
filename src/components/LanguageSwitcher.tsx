@@ -52,7 +52,7 @@ export default function LanguageSwitcher({
         />
       ) : null}
 
-      <div ref={menuRef} className="relative z-[13000]">
+      <div ref={menuRef} className="language-switcher relative z-[13000]">
         <button
           type="button"
           onClick={() => setOpen((previous) => !previous)}
@@ -75,7 +75,7 @@ export default function LanguageSwitcher({
 
         {presence.mounted ? (
           <section
-            className={`absolute right-0 top-full z-[13001] mt-2 rounded-3xl glass-panel-strong shadow-2xl ${
+            className={`language-switcher__menu absolute right-0 top-full z-[13001] mt-2 rounded-3xl glass-panel-strong shadow-2xl ${
               presence.leaving ? "animate-scale-out" : "animate-scale-in"
             } ${
               compact ? "w-48 p-2" : "w-56 p-3"

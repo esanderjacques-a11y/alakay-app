@@ -149,7 +149,7 @@
   valuesGroupKey: "Paramètres clés",
   valuesGroupStandard: "Nutriments et minéraux",
   valuesGroupSecondary: "Autres paramètres",
-  parameterLabel: "Paramètre",
+  parameterLabel: "Paramètres",
   valueLabel: "Valeur",
   clearAllValues: "Effacer les valeurs",
   importCsvExcel: "Importer CSV/Excel",

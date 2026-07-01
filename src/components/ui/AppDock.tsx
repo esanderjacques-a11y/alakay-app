@@ -119,7 +119,7 @@ export default function AppDock({
             transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",
           }}
         >
-          <div className="mx-auto flex max-w-2xl items-stretch justify-around">
+          <div className="app-dock__inner flex items-stretch justify-around">
             {visibleSteps.map((step) => {
               const active = currentStep === step.id;
               const disabled = step.disabled;

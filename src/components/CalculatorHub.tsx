@@ -8,7 +8,6 @@ import {
   Calculator,
   Droplets,
   FlaskConical,
-  Layers3,
   Leaf,
   Percent,
   Sprout,
@@ -95,7 +94,6 @@ type Props = {
 };
 
 type CalculatorKey =
-  | "all"
   | "priority"
   | "ratios"
   | "cic"
@@ -106,11 +104,9 @@ type CalculatorKey =
   | "salinity"
   | "graphs";
 
-
 const CalculatorFieldsLayoutContext = createContext<ViewLayoutMode>("grid");
 
 const tabs: Array<{ key: CalculatorKey; icon: ReactNode }> = [
-  { key: "all", icon: <Layers3 size={17} /> },
   { key: "priority", icon: <Activity size={17} /> },
   { key: "ratios", icon: <Scale size={17} /> },
   { key: "cic", icon: <Percent size={17} /> },
@@ -121,6 +117,14 @@ const tabs: Array<{ key: CalculatorKey; icon: ReactNode }> = [
   { key: "salinity", icon: <Droplets size={17} /> },
   { key: "graphs", icon: <BarChart3 size={17} /> },
 ];
+
+function visibleCalculatorTabs(sampleType: "soil" | "foliar") {
+  return tabs.filter(({ key }) => {
+    if (key === "cic") return sampleType === "soil";
+    if (key === "dop") return sampleType === "foliar";
+    return true;
+  });
+}
 
 const EARTH_DEPTH_OPTIONS = [
   { key: "0-20", depthCm: 20, factor: 1 },
@@ -157,7 +161,12 @@ export default function CalculatorHub({
   const t = calculatorHubText[language] || calculatorHubText.en;
   const defaultCalculatorFilter: CalculatorKey = "priority";
   const [active, setActive] = useState<CalculatorKey>(defaultCalculatorFilter);
-  const [fieldsLayout, setFieldsLayout] = useViewLayoutPreference("calculator-fields");
+  const [browseLayout, setBrowseLayout] = useViewLayoutPreference("calculator-hub");
+  const [fieldsLayout] = useViewLayoutPreference("calculator-fields");
+  const calculatorTabs = useMemo(
+    () => visibleCalculatorTabs(sampleType),
+    [sampleType]
+  );
   const [calculatorOutputs, setCalculatorOutputs] = useState<Record<string, CalculationOutput[]>>({});
   const lab = useMemo(() => buildLabValueIndex(parameters, values, results), [parameters, values, results]);
   const suggestions = getSuggestions(lab, results, t);
@@ -188,7 +197,7 @@ export default function CalculatorHub({
     <section className="animate-slide-up">
       <div className="calculator-hub-panel values-screen-panel--open px-0 pb-6 pt-0">
         {/* Page header */}
-        <div className="flex flex-col gap-2 px-4 pb-4 pt-2">
+        <div className="flex flex-col gap-2 px-4 pb-3 pt-2">
           <div className="flex items-center gap-2 min-w-0">
             <BackButton
               variant="icon"
@@ -204,95 +213,75 @@ export default function CalculatorHub({
             <h1 className="min-w-0 flex-1 truncate text-lg font-bold dark-text-primary">
               {t.title}
             </h1>
-            {goToValues ? (
+            <ViewLayoutToggle
+              value={browseLayout}
+              onChange={setBrowseLayout}
+              listLabel={t.viewLayoutList}
+              gridLabel={t.viewLayoutGrid}
+            />
+          </div>
+          {goToValues ? (
+            <div className="flex justify-end">
               <button
                 type="button"
                 onClick={goToValues}
-                className="shrink-0 rounded-full border border-[rgba(0,0,0,0.08)] bg-green-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-800 transition active:scale-[0.97]"
+                className="text-xs font-semibold text-green-800 underline-offset-2 hover:underline dark:text-green-300"
               >
                 {t.openValues}
               </button>
-            ) : null}
-          </div>
-          {active !== "priority" ? (
-            <div className="flex justify-end">
-              <ViewLayoutToggle
-                value={fieldsLayout}
-                onChange={setFieldsLayout}
-                listLabel={t.viewLayoutList}
-                gridLabel={t.viewLayoutGrid}
-              />
             </div>
           ) : null}
         </div>
 
         <CalculatorFieldsLayoutContext.Provider value={fieldsLayout}>
-        {/* Horizontal scrolling tab pills — segmented style */}
-        <div className="overflow-x-auto scrollbar-none px-4 pb-3">
-          <div className="flex gap-1.5 w-max min-w-full">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActive(tab.key)}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                  active === tab.key
-                    ? "bg-green-700 text-white shadow-sm"
-                    : "glass-chip text-[#3c3c43] shadow-[0_1px_3px_rgba(0,0,0,0.07)]"
-                }`}
+        {browseLayout === "list" ? (
+          <div className="px-4 pb-3">
+            <label className="calculator-hub-picker grid gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                {t.calculatorPickerLabel}
+              </span>
+              <select
+                value={active}
+                onChange={(event) => setActive(event.target.value as CalculatorKey)}
+                className="calc-field-input w-full"
               >
-                {tab.icon}
-                {t[tab.key]}
-              </button>
-            ))}
+                {calculatorTabs.map((tab) => (
+                  <option key={tab.key} value={tab.key}>
+                    {t[tab.key]}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-        </div>
+        ) : (
+          <div className="calculator-hub-tabs overflow-x-auto scrollbar-none px-4 pb-3">
+            <div className="flex w-max min-w-full gap-1.5">
+              {calculatorTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActive(tab.key)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                    active === tab.key
+                      ? "bg-green-700 text-white shadow-sm"
+                      : "glass-chip text-[#3c3c43] shadow-[0_1px_3px_rgba(0,0,0,0.07)]"
+                  }`}
+                >
+                  {tab.icon}
+                  {t[tab.key]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
-        {active === "all" ? (
-          <div className="mt-2 grid gap-6">
-            <PriorityCalculators t={t} suggestions={suggestions} setActive={setActive} />
-            <NutrientGraphs t={t} lab={lab} />
-            <RatioCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("ratios", outputs)} />
-            {sampleType === "soil" ? (
-              <CicCalculator
-                t={t}
-                lab={lab}
-                sampleType={sampleType}
-                onOutputsChange={(outputs) => reportOutputs("cic", outputs)}
-              />
-            ) : null}
-            <FertilizerCalculator
-              t={t}
-              lab={lab}
-              results={results}
-              selectedCropName={selectedCropName}
-              onOutputsChange={(outputs) => reportOutputs("fertilizer", outputs)}
-            />
-            <AmendmentCalculator
-              t={t}
-              lab={lab}
-              sampleType={sampleType}
-              selectedCropName={selectedCropName}
-              onOutputsChange={(outputs) => reportOutputs("amendment", outputs)}
-            />
-            {sampleType === "foliar" ? (
-              <DopCalculator
-                t={t}
-                lab={lab}
-                results={results}
-                onOutputsChange={(outputs) => reportOutputs("dop", outputs)}
-              />
-            ) : (
-              <CalculatorPage>
-                <p className="calc-surface p-4 text-sm font-semibold text-yellow-900">{t.dopFoliarOnly}</p>
-              </CalculatorPage>
-            )}
-            <CropUptakeGuide t={t} language={language} selectedCropName={selectedCropName} />
-            <SalinityCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("salinity", outputs)} />
-          </div>
-        ) : null}
-        {active === "priority" ? (
+        {active === "priority" && browseLayout === "grid" ? (
           <PriorityCalculators t={t} suggestions={suggestions} setActive={setActive} />
+        ) : null}
+        {active === "priority" && browseLayout === "list" ? (
+          <CalculatorPage>
+            <p className="calc-surface p-4 text-sm text-slate-600">{t.calculatorListHint}</p>
+          </CalculatorPage>
         ) : null}
         {active === "ratios" ? <RatioCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("ratios", outputs)} /> : null}
         {active === "cic" ? (

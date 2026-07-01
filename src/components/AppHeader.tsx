@@ -169,27 +169,27 @@ export default function AppHeader({
       ref={headerRef}
       className="app-header fixed inset-x-0 top-0 z-[12000]"
     >
-      <div className="app-header__toolbar mx-auto flex max-w-2xl items-center justify-between gap-2 px-4 sm:px-5">
+      <div className="app-header__toolbar flex items-center justify-between gap-2">
         {/* Logo + App name */}
         <button
           type="button"
           onClick={onHome}
-          className="touch-target flex min-w-0 items-center gap-2.5 active:scale-[0.97] transition-transform"
+          className="touch-target flex min-w-0 items-center justify-start gap-2.5 text-left active:scale-[0.97] transition-transform"
         >
           <img
             src="/app-icon.png"
             alt={t.appName}
             className="app-logo-frame h-7 w-7 shrink-0 object-contain"
           />
-          <div className="min-w-0 hidden sm:block">
-            <span className="block truncate text-base font-extrabold uppercase tracking-wide leading-tight text-green-900">
+          <div className="app-header__brand hidden sm:block">
+            <span className="app-header__brand-name text-base font-extrabold uppercase tracking-wide leading-tight text-green-900">
               {t.appName}
             </span>
-            <span className="block truncate text-[10px] font-medium text-slate-400 leading-tight">
+            <span className="app-header__brand-tagline text-[10px] font-medium text-slate-400 leading-tight">
               {t.shortTagline}
             </span>
           </div>
-          <span className="sm:hidden text-base font-extrabold uppercase tracking-wide text-green-900">
+          <span className="sm:hidden text-left text-base font-extrabold uppercase tracking-wide text-green-900">
             {t.appName}
           </span>
         </button>
@@ -220,9 +220,28 @@ export default function AppHeader({
             type="button"
             onClick={onOpenSettings}
             aria-label={t.appSettings}
+            title={t.appSettings}
             className="touch-target h-9 w-9 grid place-items-center rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all"
           >
             <Settings size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={onOpenRecycleBin}
+            aria-label={t.recycleBin}
+            title={t.recycleBin}
+            className="touch-target h-9 w-9 grid place-items-center rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all"
+          >
+            <RotateCcw size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={onOpenAbout}
+            aria-label={t.about}
+            title={t.about}
+            className="touch-target h-9 w-9 grid place-items-center rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all"
+          >
+            <Info size={18} />
           </button>
         </div>
 

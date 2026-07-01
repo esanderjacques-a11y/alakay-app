@@ -2395,7 +2395,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             open={isBusy}
             label={loading ? t.interpreting : t.saving}
           />
-          <section className="mx-auto w-full max-w-md animate-slide-up lg:max-w-5xl">
+          <section className="app-content-shell w-full animate-slide-up">
             <AuthPanel
               t={t}
               language={language}
@@ -2446,7 +2446,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           className={
             currentStep === "about"
               ? "about-route-shell"
-              : "app-visual-tone mx-auto w-full max-w-[min(100%,42rem)] sm:max-w-xl md:max-w-2xl lg:max-w-4xl xl:max-w-[56rem] px-0"
+              : "app-visual-tone app-content-shell w-full px-0"
           }
         >
         {currentStep === "home" ? (
@@ -2978,7 +2978,7 @@ function SetupScreen({
       </div>
 
       <div className="app-fixed-action-bar fixed inset-x-0 z-[11000]">
-        <div className="mx-auto max-w-2xl px-4 py-3">
+        <div className="app-content-shell px-4 py-3">
           <button
             type="button"
             onClick={goToValues}
@@ -3503,7 +3503,7 @@ function ValuesScreen({
 
               {showInterpretAction && (
                 <div className="app-fixed-action-bar fixed inset-x-0 z-[14000] animate-slide-up">
-                  <div className="mx-auto max-w-2xl px-4 py-3">
+                  <div className="app-content-shell px-4 py-3">
                     <button
                       type="button"
                       onClick={interpretAnalysis}
@@ -4709,7 +4709,7 @@ function ResultsSection({
 
       {/* Fixed bottom save bar */}
       <div className="app-fixed-action-bar fixed inset-x-0 z-[12000]">
-        <div className="mx-auto max-w-2xl px-4 py-3">
+        <div className="app-content-shell px-4 py-3">
           <button
             type="button"
             onClick={saveAnalysis}

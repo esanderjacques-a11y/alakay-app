@@ -1396,7 +1396,7 @@ function SettingsToolbar({
 
   return (
     <div className="settings-save-toolbar">
-      <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 py-3">
+      <div className="app-content-shell flex items-center gap-2 px-4 py-3">
         <button
           type="button"
           onClick={onUndo}

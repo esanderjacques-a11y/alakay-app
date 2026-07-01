@@ -97,6 +97,32 @@ body {
 
 html {
   font-size: var(--app-root-font-size, 16px);
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+html[data-display-mode="standalone"],
+html[data-display-mode="fullscreen"] {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+html[data-display-mode="standalone"] body,
+html[data-display-mode="fullscreen"] body {
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  html {
+    height: 100%;
+    overscroll-behavior: none;
+  }
+
+  body {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
 }
 
 html[data-theme="dark"] {
@@ -6349,6 +6375,104 @@ html[data-theme="dark"] .app-header {
   html[data-theme="dark"] .auth-card {
     backdrop-filter: blur(calc(22px * var(--app-blur, 1))) saturate(1.14);
     -webkit-backdrop-filter: blur(calc(22px * var(--app-blur, 1))) saturate(1.14);
+  }
+
+  .mobile-install-banner {
+    position: fixed;
+    inset-inline: max(0.75rem, env(safe-area-inset-left)) max(0.75rem, env(safe-area-inset-right));
+    bottom: calc(var(--nav-bar-height, 3.75rem) + 0.5rem + env(safe-area-inset-bottom, 0px));
+    z-index: 16000;
+    pointer-events: auto;
+    animation: mobile-install-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .mobile-install-banner__content {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.75rem 0.85rem;
+    border-radius: 1rem;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface-strong);
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(calc(20px * var(--app-blur, 1))) saturate(1.12);
+    -webkit-backdrop-filter: blur(calc(20px * var(--app-blur, 1))) saturate(1.12);
+  }
+
+  .mobile-install-banner__title {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .mobile-install-banner__desc {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: rgb(0 0 0 / 0.62);
+  }
+
+  html[data-theme="dark"] .mobile-install-banner__desc {
+    color: rgb(255 255 255 / 0.68);
+  }
+
+  .mobile-install-banner__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mobile-install-banner__primary,
+  .mobile-install-banner__ios {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0.5rem 0.65rem;
+    border-radius: 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .mobile-install-banner__primary {
+    border: none;
+    color: #fff;
+    background: var(--accent-600, #059669);
+    cursor: pointer;
+  }
+
+  .mobile-install-banner__ios {
+    color: var(--foreground);
+    background: var(--glass-surface-muted);
+    border: 1px solid var(--glass-border);
+  }
+
+  .mobile-install-banner__dismiss {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    background: var(--glass-surface-muted);
+    color: var(--foreground);
+    cursor: pointer;
+  }
+
+  @keyframes mobile-install-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   

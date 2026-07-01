@@ -501,6 +501,12 @@
   adminHide: "Kache",
   adminShow: "Montre",
   adminDelete: "Efase",
+  installAppTitle: "Enstale ALAKAY",
+  installAppDesc:
+    "Ajoute ALAKAY sou ekran prensipal la pou yon eksperyans plen ekran san ba navigatè a.",
+  installAppAction: "Enstale app la",
+  installAppIosHint: "Peze Pataje, apre Ajoute sou Ekran Prensipal",
+  installAppDismiss: "Fèmen mesaj enstalasyon an",
 };
 
 export default ht;

@@ -509,6 +509,12 @@
   adminHide: "Ocultar",
   adminShow: "Mostrar",
   adminDelete: "Eliminar",
+  installAppTitle: "Instalar ALAKAY",
+  installAppDesc:
+    "Añade ALAKAY a la pantalla de inicio para usarla a pantalla completa sin la barra del navegador.",
+  installAppAction: "Instalar app",
+  installAppIosHint: "Toca Compartir y luego Añadir a la pantalla de inicio",
+  installAppDismiss: "Cerrar aviso de instalación",
 };
 
 export default es;

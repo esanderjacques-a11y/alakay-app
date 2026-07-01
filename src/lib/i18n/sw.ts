@@ -282,6 +282,12 @@ const sw = {
   adminShow: "Onyesha",
   adminDelete: "Futa",
   countryOther: "Nyingine",
+  installAppTitle: "Sakinisha ALAKAY",
+  installAppDesc:
+    "Ongeza ALAKAY kwenye skrini ya nyumbani kwa uzoefu wa skrini nzima bila upau wa kivinjari.",
+  installAppAction: "Sakinisha programu",
+  installAppIosHint: "Gusa Shiriki, kisha Ongeza kwenye Skrini ya Nyumbani",
+  installAppDismiss: "Funga kidokezo cha usakinishaji",
 };
 
 export default sw;

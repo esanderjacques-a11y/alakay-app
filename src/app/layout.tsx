@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import MobilePwaBootstrap from "@/components/MobilePwaBootstrap";
 
 export const metadata: Metadata = {
   applicationName: "ALAKAY",
@@ -18,7 +19,13 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "ALAKAY",
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
   },
 };
 
@@ -27,6 +34,11 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#059669" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
+  ],
 };
 
 export default function RootLayout({
@@ -42,6 +54,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col overscroll-none">
+        <MobilePwaBootstrap />
         {children}
       </body>
     </html>

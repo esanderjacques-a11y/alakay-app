@@ -295,6 +295,12 @@ const pt = {
   adminShow: "Mostrar",
   adminDelete: "Excluir",
   countryOther: "Outro",
+  installAppTitle: "Instalar ALAKAY",
+  installAppDesc:
+    "Adicione ALAKAY à tela inicial para uma experiência em tela cheia sem a barra do navegador.",
+  installAppAction: "Instalar app",
+  installAppIosHint: "Toque em Compartilhar e depois Adicionar à Tela de Início",
+  installAppDismiss: "Fechar aviso de instalação",
 };
 
 export default pt;

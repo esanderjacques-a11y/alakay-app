@@ -491,6 +491,12 @@
   adminHide: "Hide",
   adminShow: "Show",
   adminDelete: "Delete",
+  installAppTitle: "Install ALAKAY",
+  installAppDesc:
+    "Add ALAKAY to your home screen for a full-screen app without the browser bar.",
+  installAppAction: "Install app",
+  installAppIosHint: "Tap Share, then Add to Home Screen",
+  installAppDismiss: "Dismiss install prompt",
 };
 
 export default en;

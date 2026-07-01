@@ -2998,19 +2998,19 @@ function ValuesScreen({
       }`}
     >
       {/* Page header: back, title, enter count badge */}
-      <div className="flex items-center gap-2 px-4 pb-3 pt-2">
+      <div className="values-page-header">
         <BackButton variant="icon" onClick={backToSetup} label={t.backToSetup} />
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-bold dark-text-primary">{t.enterValues}</h2>
+          <h2 className="values-page-title">{t.enterValues}</h2>
           {selectedCrop && (
-            <p className="text-xs text-[#6c6c70] mt-0.5">
+            <p className="values-page-subtitle">
               {selectedCrop.display_name} · {sampleType === "soil" ? t.soil : t.foliar}
             </p>
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {totalEnteredValues > 0 && (
-            <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
+            <span className="values-count-badge">
               {totalEnteredValues}
             </span>
           )}
@@ -3020,7 +3020,7 @@ function ValuesScreen({
       {/* Crop + extraction (when crop skipped or general) */}
       {!cropId ? (
         <div className="values-skip-crop-block">
-          <p className="mb-2 text-xs font-semibold text-[#6c6c70]">{t.crop}</p>
+          <p className="values-block-label">{t.crop}</p>
           <AppSelect
             value={cropId}
             placeholder={t.selectCrop}
@@ -3034,20 +3034,20 @@ function ValuesScreen({
             ]}
             onChange={setCropId}
           />
-          <p className="mt-2 text-xs text-[#6c6c70]">{t.selectCropOnValues}</p>
+          <p className="values-block-hint">{t.selectCropOnValues}</p>
         </div>
       ) : null}
 
       {showFoliarExtractionPicker ? (
         <div className="values-skip-crop-block">
-          <p className="mb-2 text-xs font-semibold text-[#6c6c70]">{t.extractionMethodLabel}</p>
+          <p className="values-block-label">{t.extractionMethodLabel}</p>
           <ExtractionMethodChips
             t={t}
             value={extractionMethod}
             onChange={setExtractionMethod}
             options={FOLIAR_SKIP_CROP_EXTRACTION_OPTIONS}
           />
-          <p className="mt-2 text-xs text-[#6c6c70]">{t.foliarExtractionHint}</p>
+          <p className="values-block-hint">{t.foliarExtractionHint}</p>
         </div>
       ) : null}
 
@@ -3057,12 +3057,9 @@ function ValuesScreen({
       <div className="values-toolbar px-4">
         <div className="values-toolbar__row">
           <div className="relative min-w-0 flex-1">
-              <Search
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#aeaeb2]"
-              />
+              <Search size={15} className="values-search-icon" />
               <input
-                className="w-full rounded-xl border border-transparent bg-[#f2f2f2] py-2 pl-9 pr-3 text-sm outline-none focus:border-green-600 focus:bg-white focus:ring-0"
+                className="values-search-input"
                 placeholder={t.searchPlaceholder}
                 value={parameterSearch}
                 onChange={(e) => setParameterSearch(e.target.value)}
@@ -3093,7 +3090,7 @@ function ValuesScreen({
               type="button"
               onClick={openImporter}
               title={t.importCsvExcel}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[rgba(0,0,0,0.08)] bg-[#f2f2f2] text-[#3c3c43] transition hover:bg-[#e5e5ea] active:scale-95"
+              className="values-toolbar-btn"
             >
               <Upload size={16} />
             </button>
@@ -3112,7 +3109,7 @@ function ValuesScreen({
                   setShowCustomDataMenu((previous) => !previous);
                 }}
                 title={t.addNewParameter}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[rgba(0,0,0,0.08)] bg-[#f2f2f2] text-green-800 transition hover:bg-green-50 active:scale-95"
+                className="values-toolbar-btn values-toolbar-btn--accent"
               >
                 <Plus size={16} />
               </button>
@@ -3135,10 +3132,10 @@ function ValuesScreen({
                       }}
                       className="add-data-menu-item w-full px-4 py-3 text-left"
                     >
-                      <p className="font-bold text-green-900">
+                      <p className="add-data-menu-item__title">
                         {t.addCustomParameter}
                       </p>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="add-data-menu-item__desc">
                         {t.addNewParameter}
                       </p>
                     </button>
@@ -3148,10 +3145,10 @@ function ValuesScreen({
                       onClick={() => openManager("parameters")}
                       className="add-data-menu-item mt-2 w-full px-4 py-3 text-left"
                     >
-                      <p className="font-bold text-green-900">
+                      <p className="add-data-menu-item__title">
                         {t.manageCustomParameters}
                       </p>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="add-data-menu-item__desc">
                         {t.manageCustomParametersDesc}
                       </p>
                     </button>
@@ -3161,10 +3158,10 @@ function ValuesScreen({
                       onClick={() => openManager("ranges")}
                       className="add-data-menu-item mt-2 w-full px-4 py-3 text-left"
                     >
-                      <p className="font-bold text-green-900">
+                      <p className="add-data-menu-item__title">
                         {t.manageCustomRanges}
                       </p>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="add-data-menu-item__desc">
                         {t.manageCustomRangesDesc}
                       </p>
                     </button>
@@ -3200,16 +3197,14 @@ function ValuesScreen({
 
           {/* View toggle — own row to avoid overlap */}
           <div className="mt-2 flex justify-end">
-            <div className="inline-flex shrink-0 rounded-xl bg-[#f2f2f2] p-0.5">
+            <div className="values-view-toggle">
               {(["cards", "table"] as const).map((view) => (
                 <button
                   key={view}
                   type="button"
                   onClick={() => setValueEntryView(view)}
-                  className={`inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold transition ${
-                    valueEntryView === view
-                      ? "bg-white text-green-900 shadow-sm"
-                      : "text-[#6c6c70] hover:text-[#3c3c43]"
+                  className={`values-view-toggle__btn ${
+                    valueEntryView === view ? "values-view-toggle__btn--active" : ""
                   }`}
                   aria-pressed={valueEntryView === view}
                 >
@@ -3226,7 +3221,7 @@ function ValuesScreen({
             <>
               {showStickyAddAction && (
                 <div className="fixed right-3 top-[calc(env(safe-area-inset-top,0px)+0.85rem)] z-[16000] animate-float-in sm:right-5 md:right-[max(1.25rem,calc((100vw-72rem)/2+1.25rem))]">
-                  <div className="rounded-full border border-white/70 bg-white/65 p-1.5 shadow-2xl shadow-green-950/16 backdrop-blur-2xl">
+                  <div className="values-sticky-add-shell">
                     <div className="flex justify-end">
                       <div
                         ref={stickyCustomMenuRef}
@@ -3240,11 +3235,11 @@ function ValuesScreen({
                             setShowCustomDataMenu(false);
                             setShowStickyCustomDataMenu((previous) => !previous);
                           }}
-                            className="group inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-white/50 bg-white/72 px-3.5 py-1.5 text-xs font-extrabold text-green-900 shadow-lg shadow-green-900/12 ring-1 ring-white/50 backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white/92 active:scale-[0.98]"
+                          className="values-sticky-add-btn"
                         >
-                            <span className="grid h-6 w-6 place-items-center rounded-full bg-green-600/12 ring-1 ring-green-700/15 transition group-hover:bg-green-600/18">
-                              <Plus size={15} strokeWidth={2.5} />
-                            </span>
+                          <span className="values-sticky-add-btn__icon">
+                            <Plus size={15} strokeWidth={2.5} />
+                          </span>
                           <span>{t.addShort}</span>
                         </button>
 
@@ -3266,10 +3261,10 @@ function ValuesScreen({
                                 }}
                                 className="add-data-menu-item w-full px-4 py-3 text-left"
                               >
-                                <p className="font-bold text-green-900">
+                                <p className="add-data-menu-item__title">
                                   {t.addCustomParameter}
                                 </p>
-                                <p className="mt-1 text-xs text-slate-500">
+                                <p className="add-data-menu-item__desc">
                                   {t.addNewParameter}
                                 </p>
                               </button>
@@ -3279,10 +3274,10 @@ function ValuesScreen({
                                 onClick={() => openManager("parameters")}
                                 className="add-data-menu-item mt-2 w-full px-4 py-3 text-left"
                               >
-                                <p className="font-bold text-green-900">
+                                <p className="add-data-menu-item__title">
                                   {t.manageCustomParameters}
                                 </p>
-                                <p className="mt-1 text-xs text-slate-500">
+                                <p className="add-data-menu-item__desc">
                                   {t.manageCustomParametersDesc}
                                 </p>
                               </button>
@@ -3292,10 +3287,10 @@ function ValuesScreen({
                                 onClick={() => openManager("ranges")}
                                 className="add-data-menu-item mt-2 w-full px-4 py-3 text-left"
                               >
-                                <p className="font-bold text-green-900">
+                                <p className="add-data-menu-item__title">
                                   {t.manageCustomRanges}
                                 </p>
-                                <p className="mt-1 text-xs text-slate-500">
+                                <p className="add-data-menu-item__desc">
                                   {t.manageCustomRangesDesc}
                                 </p>
                               </button>
@@ -3344,13 +3339,13 @@ function ValuesScreen({
         : null}
 
       {message && (
-        <div className="mt-5 rounded-2xl bg-yellow-50 p-4 text-yellow-900">
+        <div className="values-alert values-alert--warning">
           {message}
         </div>
       )}
 
       {pendingEditableAnalysis && (
-        <div className="mt-5 rounded-2xl bg-blue-50 p-4 text-blue-900">
+        <div className="values-alert values-alert--info">
           {t.loadingSavedValues}
         </div>
       )}
@@ -3358,16 +3353,16 @@ function ValuesScreen({
       {hasVisibleParameters && valueEntryView === "table" && (
         <div
           ref={parameterGridRef}
-          className="relative z-0 mt-4 overflow-hidden rounded-2xl border border-white/65 bg-white/58 shadow-sm backdrop-blur-xl animate-slide-up md:overflow-x-auto"
+          className="values-table-shell"
         >
-          <table className="w-full table-fixed border-collapse text-xs sm:text-sm md:min-w-[520px]">
+          <table className="values-table w-full table-fixed border-collapse text-xs sm:text-sm md:min-w-[520px]">
             <colgroup>
               <col className="w-[30%] sm:w-[34%]" />
               <col className="w-[36%] sm:w-[38%]" />
               <col className="w-[34%] sm:w-[28%]" />
             </colgroup>
             <thead>
-              <tr className="border-b border-green-900/10 text-left text-xs font-extrabold uppercase tracking-wide text-slate-500">
+              <tr>
                 <th className="px-2 py-3 sm:px-3">{t.parameterLabel}</th>
                 <th className="px-2 py-3 sm:px-3">{t.valueLabel}</th>
                 <th className="px-2 py-3 sm:px-3">{t.unitLabel}</th>
@@ -3407,16 +3402,15 @@ function ValuesScreen({
                   <tr
                     key={parameter.parameter_key}
                     title={aliasTitle}
-                    className="border-b border-green-900/6 last:border-0"
                   >
                     <td className="px-2 py-2 align-middle sm:px-3">
-                      <div className="truncate font-bold text-slate-900">
+                      <div className="values-table-param">
                         {displayParameterLabel}
                       </div>
                     </td>
                     <td className="px-2 py-2 align-middle sm:px-3">
                       <input
-                        className="min-h-11 w-full min-w-0 rounded-xl border border-green-700/16 bg-white/65 px-2 py-2 text-xs font-semibold outline-none backdrop-blur-md placeholder:text-xs focus:border-green-700/60 focus:bg-white/90 focus:ring-4 focus:ring-green-700/10 sm:px-3 sm:text-sm"
+                        className="values-value-input"
                         type="text"
                         inputMode="decimal"
                         value={values[parameter.parameter_key] || ""}
@@ -3442,7 +3436,7 @@ function ValuesScreen({
                               getUnitOptionKey(unit)
                             );
                           }}
-                          className="app-native-select min-h-11 w-full min-w-0 px-2 py-2 text-[11px] sm:px-3 sm:text-xs"
+                          className="app-native-select min-h-11 w-full min-w-0 px-2 py-2 text-base sm:px-3 sm:text-sm"
                           title={t.changeUnit}
                         >
                           {parameter.available_units.map((unit) => (
@@ -3467,7 +3461,7 @@ function ValuesScreen({
                         </select>
                       ) : (
                         <span
-                          className="inline-flex min-h-11 w-full max-w-full items-center truncate rounded-xl border border-green-700/10 bg-white/55 px-2 py-2 text-[11px] font-bold text-green-800 sm:px-3 sm:text-xs"
+                          className="values-unit-inline"
                           title={selectedUnit?.unit_symbol || parameter.unit_symbol}
                         >
                           {selectedUnit?.display_symbol ||
@@ -3487,7 +3481,7 @@ function ValuesScreen({
       {hasVisibleParameters && valueEntryView === "cards" && (
         <div
           ref={parameterGridRef}
-          className="relative z-0 mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          className="values-cards-grid"
         >
           {filteredParameters.map((parameter, index) => {
             const selectedUnitId =
@@ -3531,28 +3525,26 @@ function ValuesScreen({
                 key={parameter.parameter_key}
                 title={aliasTitle}
                 style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}
-                className={`animate-slide-up rounded-2xl border px-3 py-2.5 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white/72 hover:shadow-md ${
-                  parameter.is_custom
-                    ? "border-green-200/80 bg-green-50/52"
-                    : "border-white/62 bg-white/50"
+                className={`values-param-card ${
+                  parameter.is_custom ? "values-param-card--custom" : ""
                 }`}
               >
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <div>
-                    <label className="text-sm font-bold text-slate-900">
+                    <label className="values-param-label">
                       {displayParameterLabel}
                     </label>
 
                     {showParameterDetails ? (
                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                       {parameter.category && (
-                        <p className="text-xs text-slate-500">
+                        <p className="values-param-meta">
                           {translateCategory(parameter.category, language, translations)}
                         </p>
                       )}
 
                       {parameter.is_custom && (
-                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800">
+                        <span className="values-custom-badge">
                           {t.customBadge}
                         </span>
                       )}
@@ -3561,9 +3553,9 @@ function ValuesScreen({
                   </div>
                 </div>
 
-                <div className="relative">
+                <div className="values-card-input-wrap">
                   <input
-                    className="w-full rounded-2xl border border-green-700/16 bg-white/50 p-2.5 pr-28 text-base font-semibold outline-none backdrop-blur-md focus:border-green-700/60 focus:bg-white/85 focus:ring-4 focus:ring-green-700/10"
+                    className="values-value-input values-value-input--card"
                     type="text"
                     inputMode="decimal"
                     value={values[parameter.parameter_key] || ""}
@@ -3612,7 +3604,7 @@ function ValuesScreen({
                     </select>
                   ) : (
                     <span
-                      className="pointer-events-none absolute right-2 top-1/2 max-w-24 -translate-y-1/2 truncate rounded-xl border border-green-700/10 bg-white/55 px-3 py-1 text-xs font-bold text-green-800"
+                      className="values-unit-static"
                       title={selectedUnit?.unit_symbol || parameter.unit_symbol}
                     >
                       {selectedUnit?.display_symbol ||
@@ -3628,7 +3620,7 @@ function ValuesScreen({
       )}
 
       {!hasVisibleParameters && parameters.length > 0 && (
-        <div className="mt-6 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-900">
+        <div className="values-alert values-alert--warning">
           {t.noParametersCategory}
         </div>
       )}

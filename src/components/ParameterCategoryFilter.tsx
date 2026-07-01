@@ -35,15 +35,9 @@ export default function ParameterCategoryFilter({
             key={category}
             type="button"
             onClick={() => onChange(category)}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
-              category === "All"
-                ? "sticky left-0 z-10 shadow-sm"
-                : ""
-            } ${
-              active
-                ? "bg-green-600 text-white shadow-sm"
-                : "auth-panel-muted text-slate-600 hover:bg-white/48"
-            }`}
+            className={`values-category-chip ${
+              category === "All" ? "values-category-chip--pinned" : ""
+            } ${active ? "values-category-chip--active" : ""}`}
           >
             {labelFor(category)}
           </button>

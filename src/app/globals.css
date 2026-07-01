@@ -226,8 +226,20 @@ textarea {
     will-change: transform, opacity;
     backdrop-filter: blur(calc(18px * var(--app-blur, 1))) saturate(1.1);
     -webkit-backdrop-filter: blur(calc(18px * var(--app-blur, 1))) saturate(1.1);
+    padding-top: constant(safe-area-inset-top);
     padding-top: var(--safe-top);
     padding-inline: max(0px, var(--safe-left)) max(0px, var(--safe-right));
+  }
+
+  .app-header__toolbar {
+    min-height: 3.25rem;
+    height: 3.25rem;
+  }
+
+  .mobile-menu-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 24000;
   }
 
   .mobile-menu-panel {
@@ -237,6 +249,16 @@ textarea {
     backdrop-filter: blur(calc(24px * var(--app-blur, 1))) saturate(1.12);
     -webkit-backdrop-filter: blur(calc(24px * var(--app-blur, 1))) saturate(1.12);
     animation: slide-panel-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+    box-sizing: border-box;
+    padding-top: constant(safe-area-inset-top);
+    padding-top: var(--safe-top);
+    padding-bottom: constant(safe-area-inset-bottom);
+    padding-bottom: var(--safe-bottom);
+    padding-right: max(0px, var(--safe-right));
+  }
+
+  .mobile-menu-panel__header {
+    flex-shrink: 0;
   }
 
   /* Viewport-fixed chrome layer — keeps dock pinned when html has filter */

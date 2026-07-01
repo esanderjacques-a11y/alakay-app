@@ -169,7 +169,7 @@ export default function AppHeader({
       ref={headerRef}
       className="app-header fixed inset-x-0 top-0 z-[12000]"
     >
-      <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-4 sm:px-5" style={{ height: "3.25rem" }}>
+      <div className="app-header__toolbar mx-auto flex max-w-2xl items-center justify-between gap-2 px-4 sm:px-5">
         {/* Logo + App name */}
         <button
           type="button"
@@ -240,7 +240,7 @@ export default function AppHeader({
       {/* Mobile side drawer */}
       {mobileMenuPresence.mounted
         ? createPortal(
-          <div className="fixed inset-0 z-[24000] sm:hidden">
+          <div className="mobile-menu-overlay sm:hidden">
             <button
               type="button"
               aria-label={t.close}
@@ -258,7 +258,7 @@ export default function AppHeader({
               }`}
             >
               {/* Drawer header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-black/6">
+              <div className="mobile-menu-panel__header flex items-center justify-between border-b border-black/6 px-4 py-3">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <img
                     src="/app-icon.png"

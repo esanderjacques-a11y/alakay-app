@@ -111,16 +111,14 @@ export default function AppDock({
 
   return canPortal
     ? createPortal(
-        <div className="app-chrome-layer app-dock-portal-host">
-          <nav
-            aria-label="Main navigation"
-            className="app-dock"
-            style={{
-              paddingBottom: "max(0px, env(safe-area-inset-bottom))",
-              transform: hidden ? "translateY(100%)" : "translateY(0)",
-              transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",
-            }}
-          >
+        <nav
+          aria-label="Main navigation"
+          className="app-dock"
+          style={{
+            transform: hidden ? "translateY(100%)" : "translateY(0)",
+            transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",
+          }}
+        >
           <div className="mx-auto flex max-w-2xl items-stretch justify-around">
             {visibleSteps.map((step) => {
               const active = currentStep === step.id;
@@ -158,8 +156,7 @@ export default function AppDock({
               );
             })}
           </div>
-        </nav>
-        </div>,
+        </nav>,
         document.body
       )
     : null;

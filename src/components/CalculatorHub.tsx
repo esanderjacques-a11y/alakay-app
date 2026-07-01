@@ -162,7 +162,7 @@ export default function CalculatorHub({
   const defaultCalculatorFilter: CalculatorKey = "priority";
   const [active, setActive] = useState<CalculatorKey>(defaultCalculatorFilter);
   const [browseLayout, setBrowseLayout] = useViewLayoutPreference("calculator-hub");
-  const [fieldsLayout] = useViewLayoutPreference("calculator-fields");
+  const fieldsLayout = browseLayout;
   const calculatorTabs = useMemo(
     () => visibleCalculatorTabs(sampleType),
     [sampleType]
@@ -237,7 +237,7 @@ export default function CalculatorHub({
         {browseLayout === "list" ? (
           <div className="px-4 pb-3">
             <label className="calculator-hub-picker grid gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              <span className="calculator-hub-picker__label">
                 {t.calculatorPickerLabel}
               </span>
               <select
@@ -261,10 +261,8 @@ export default function CalculatorHub({
                   key={tab.key}
                   type="button"
                   onClick={() => setActive(tab.key)}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                    active === tab.key
-                      ? "bg-green-700 text-white shadow-sm"
-                      : "glass-chip text-[#3c3c43] shadow-[0_1px_3px_rgba(0,0,0,0.07)]"
+                  className={`calculator-hub-tab ${
+                    active === tab.key ? "calculator-hub-tab--active" : ""
                   }`}
                 >
                   {tab.icon}
@@ -533,7 +531,7 @@ function CicCalculator({
   return (
     <CalculatorPage>
       <div className="calc-page__params calc-surface p-4">
-        <CalculatorFormFields className="calc-form-fields--grid">
+        <CalculatorFormFields>
           <NumberField label={t.cicLabel || "CIC / CICe"} value={cec} onChange={setCec} />
           <NumberField
             label={`${t.cicFieldCa || "Ca"} (${t.current})`}
@@ -883,18 +881,18 @@ function FertilizerPlanCalculator({
     <div className="calc-page space-y-4">
       <div className="fertilizer-plan__params calc-surface p-4">
         {selectedCropName ? (
-          <div className="calc-page__crop mb-4 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5">
-            <Sprout size={16} className="shrink-0 text-green-700" />
+          <div className="calc-page__crop mb-4 flex items-center gap-2 px-3 py-2.5">
+            <Sprout size={16} className="calc-page__crop-icon shrink-0" />
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-green-800/70">
+              <p className="calc-page__crop-label">
                 {t.fertilizerPlanCrop}
               </p>
-              <p className="text-sm font-bold text-green-950">{selectedCropName}</p>
+              <p className="calc-page__crop-name">{selectedCropName}</p>
             </div>
           </div>
         ) : null}
 
-        <CalculatorFormFields className="calc-form-fields--grid">
+        <CalculatorFormFields>
           <SelectField
             label={t.fertilizerPlanMode}
             value={modo}
@@ -915,7 +913,7 @@ function FertilizerPlanCalculator({
         </CalculatorFormFields>
 
         <p className="mt-4 mb-2 text-xs font-semibold text-[#6c6c70]">{t.efficiency}</p>
-        <CalculatorFormFields className="calc-form-fields--grid">
+        <CalculatorFormFields>
           <NumberField label="N (%)" value={effN} onChange={setEffN} preserveCase />
           <NumberField label="P (%)" value={effP} onChange={setEffP} preserveCase />
           <NumberField label="K (%)" value={effK} onChange={setEffK} preserveCase />
@@ -923,7 +921,7 @@ function FertilizerPlanCalculator({
         </CalculatorFormFields>
 
         {modo === "completo" ? (
-          <CalculatorFormFields className="calc-form-fields--grid mt-4">
+          <CalculatorFormFields className="mt-4">
             <SelectField
               label={t.amendmentMaterial}
               value={enmienda}
@@ -933,7 +931,7 @@ function FertilizerPlanCalculator({
             <NumberField label={t.prntPercent} value={prnt} onChange={setPrnt} />
           </CalculatorFormFields>
         ) : (
-          <CalculatorFormFields className="calc-form-fields--grid mt-4">
+          <CalculatorFormFields className="mt-4">
             <NumberField
               label={t.fertilizerPlanDemandN}
               value={manualN}
@@ -1312,7 +1310,7 @@ function DopCalculator({
   return (
     <CalculatorPage>
       <div className="calc-page__params calc-surface p-4">
-        <CalculatorFormFields className="calc-form-fields--grid">
+        <CalculatorFormFields>
           <NumberField
             label={`${t.optimum} (${t.current})`}
             value={fallbackOptimum}
@@ -1644,7 +1642,7 @@ function SalinityCalculator({
   return (
     <CalculatorPage>
       <div className="calc-page__params calc-surface p-4">
-          <CalculatorFormFields className="calc-form-fields--grid">
+          <CalculatorFormFields>
             <NumberField label={t.ecw} value={ecw} onChange={setEcw} />
             <NumberField label={t.eceTarget} value={eceTarget} onChange={setEceTarget} />
             <NumberField label={t.psiTarget} value={psiTarget} onChange={setPsiTarget} />
@@ -1868,7 +1866,7 @@ function CalculatorPanel({
   return (
     <>
       <div className="calc-page__params calc-surface p-4">
-        <CalculatorFormFields className="calc-form-fields--grid">{fields}</CalculatorFormFields>
+        <CalculatorFormFields>{fields}</CalculatorFormFields>
       </div>
       <OutputCard t={t} output={output} title={t.result} />
     </>
@@ -1883,11 +1881,10 @@ function CalculatorFormFields({
   className?: string;
 }) {
   const layout = useContext(CalculatorFieldsLayoutContext);
-  const layoutColumns = layout === "grid" ? "grid-cols-2" : "grid-cols-1";
 
   return (
     <div
-      className={`calc-form-fields calc-form-fields--${layout} grid gap-3 ${layoutColumns}${className ? ` ${className}` : ""}`}
+      className={`calc-form-fields calc-form-fields--${layout}${className ? ` ${className}` : ""}`}
     >
       {children}
     </div>
@@ -2151,7 +2148,7 @@ function NumberField({
 
   return (
     <label
-      className={`grid gap-1 text-sm font-bold text-green-950${preserveCase ? " calc-field-label--element" : ""}`}
+      className={`calc-field-label grid gap-1${preserveCase ? " calc-field-label--element" : ""}`}
     >
       {label}
       <input
@@ -2204,7 +2201,7 @@ function SelectField({
 }) {
   return (
     <label
-      className={`grid gap-1 text-sm font-bold text-green-950${fullWidth ? " col-span-full" : ""}`}
+      className={`calc-field-label grid gap-1${fullWidth ? " col-span-full" : ""}`}
     >
       {label}
       <select

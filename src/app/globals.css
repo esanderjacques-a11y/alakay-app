@@ -2139,26 +2139,29 @@ html[data-theme="dark"] .app-header {
     width: 100%;
     appearance: none;
     border-radius: 0.75rem;
-    border: none;
-    background-color: var(--surface-variant, #f2f2f2);
+    border: 1px solid var(--glass-border);
+    background-color: var(--glass-surface-muted);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236c6c70' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.65rem center;
     background-size: 1rem;
-    color: #1c1c1e;
+    color: var(--foreground);
     font-size: 0.875rem;
     font-weight: 600;
     outline: none;
     padding: 0.5rem 2rem 0.5rem 0.75rem;
-    box-shadow: none;
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
+    -webkit-backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
   }
 
   .app-native-select:focus-visible,
   .history-sort-select:focus-visible,
   select.calc-field-input:focus-visible {
-    outline: 2px solid var(--accent-500, #22c55e);
-    outline-offset: 2px;
-    background-color: var(--surface, #ffffff);
+    border-color: rgb(var(--accent-600-rgb, 22 163 74) / 0.45);
+    background-color: var(--glass-surface-strong);
+    box-shadow: 0 0 0 4px rgb(var(--accent-700-rgb, 21 128 61) / 0.1);
+    outline: none;
   }
 
   .settings-switch {
@@ -2420,12 +2423,14 @@ html[data-theme="dark"] .app-header {
     display: inline-flex;
     align-items: center;
     border-radius: 9999px;
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    background: rgba(248, 250, 252, 0.94);
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface-muted);
     padding: 0.125rem 0.5rem;
     font-size: 0.6875rem;
     font-weight: 700;
-    color: #475569;
+    color: #6c6c70;
+    backdrop-filter: blur(calc(10px * var(--app-blur, 1))) saturate(1.04);
+    -webkit-backdrop-filter: blur(calc(10px * var(--app-blur, 1))) saturate(1.04);
   }
 
   .calc-uptake-pill {
@@ -2433,24 +2438,28 @@ html[data-theme="dark"] .app-header {
     align-items: center;
     border-radius: 9999px;
     border: 1px solid rgb(var(--accent-300-rgb, 134 239 172) / 0.36);
-    background: rgb(var(--accent-100-rgb, 220 252 231) / 0.86);
+    background: var(--glass-surface-muted);
     padding: 0.125rem 0.5rem;
     font-size: 0.6875rem;
     font-weight: 700;
     color: var(--accent-800, #166534);
+    backdrop-filter: blur(calc(10px * var(--app-blur, 1))) saturate(1.04);
+    -webkit-backdrop-filter: blur(calc(10px * var(--app-blur, 1))) saturate(1.04);
   }
 
   .calc-value-pill {
     display: inline-flex;
     align-items: center;
     border-radius: 9999px;
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface-strong);
     padding: 0.125rem 0.375rem;
     font-size: 0.6875rem;
     font-weight: 800;
-    color: #475569;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    color: #6c6c70;
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(calc(10px * var(--app-blur, 1))) saturate(1.04);
+    -webkit-backdrop-filter: blur(calc(10px * var(--app-blur, 1))) saturate(1.04);
   }
 
   .preview-filter-chip-idle {
@@ -2530,32 +2539,37 @@ html[data-theme="dark"] .app-header {
   .calc-field-input {
     min-height: 2.75rem;
     width: 100%;
-    border-radius: 1rem;
-    border: 1px solid rgb(var(--accent-200-rgb, 187 247 208) / 0.55);
-    background: transparent;
+    border-radius: 0.75rem;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface-muted);
     padding: 0 0.75rem;
     font-size: 0.875rem;
     font-weight: 600;
-    color: #0f172a;
+    color: var(--foreground);
     outline: none;
+    backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
+    -webkit-backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
     transition:
-      border-color 0.18s ease,
-      box-shadow 0.18s ease;
+      border-color 0.15s ease,
+      background 0.15s ease,
+      box-shadow 0.15s ease;
   }
 
   .calc-field-input:focus-visible {
-    border-color: rgb(var(--accent-500-rgb, 34 197 94) / 0.72);
-    box-shadow: 0 0 0 3px rgb(var(--accent-200-rgb, 187 247 208) / 0.45);
+    border-color: rgb(var(--accent-600-rgb, 22 163 74) / 0.45);
+    background: var(--glass-surface-strong);
+    box-shadow: 0 0 0 4px rgb(var(--accent-700-rgb, 21 128 61) / 0.1);
   }
 
   html[data-theme="dark"] .calc-field-input {
-    border-color: rgb(var(--accent-400-rgb) / 0.22);
-    color: #f8fafc;
+    border-color: var(--glass-border);
+    color: var(--foreground);
   }
 
   html[data-theme="dark"] .calc-field-input:focus-visible {
-    border-color: rgb(var(--accent-300-rgb, 110 231 183) / 0.56);
-    box-shadow: 0 0 0 3px rgb(var(--accent-400-rgb, 94 234 212) / 0.18);
+    border-color: rgb(var(--accent-400-rgb) / 0.42);
+    background: var(--glass-surface);
+    box-shadow: 0 0 0 4px rgb(var(--accent-400-rgb) / 0.14);
   }
 
   .calc-expand-divider {
@@ -2679,9 +2693,12 @@ html[data-theme="dark"] .app-header {
     width: 2.25rem;
     height: 2.25rem;
     border-radius: 0.75rem;
-    background: rgb(var(--accent-100-rgb, 220 252 231));
+    border: 1px solid rgb(255 255 255 / 0.5);
+    background: rgb(255 255 255 / 0.38);
     color: var(--accent-700, #15803d);
     flex-shrink: 0;
+    backdrop-filter: blur(calc(12px * var(--app-blur, 1)));
+    -webkit-backdrop-filter: blur(calc(12px * var(--app-blur, 1)));
   }
 
   .calculator-action-card__copy {
@@ -2909,6 +2926,143 @@ html[data-theme="dark"] .app-header {
     flex-wrap: wrap;
   }
 
+  .calculator-hub-tab {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface-muted);
+    padding: 0.375rem 0.875rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c6c70;
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
+    -webkit-backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
+    transition:
+      background 0.15s ease,
+      color 0.15s ease,
+      transform 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .calculator-hub-tab:hover {
+    background: var(--glass-surface-strong);
+    color: #3c3c43;
+  }
+
+  .calculator-hub-tab:active {
+    transform: scale(0.97);
+  }
+
+  .calculator-hub-tab--active {
+    border-color: transparent;
+    background: var(--accent-600, #16a34a);
+    color: #ffffff;
+    box-shadow: var(--card-shadow);
+  }
+
+  .calculator-hub-tab--active:hover {
+    background: var(--accent-700, #15803d);
+    color: #ffffff;
+  }
+
+  html[data-theme="dark"] .calculator-hub-tab {
+    color: rgb(255 255 255 / 0.58);
+  }
+
+  html[data-theme="dark"] .calculator-hub-tab:hover {
+    color: rgb(255 255 255 / 0.86);
+  }
+
+  .calculator-hub-picker__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c6c70;
+  }
+
+  html[data-theme="dark"] .calculator-hub-picker__label {
+    color: rgb(255 255 255 / 0.48);
+  }
+
+  .view-layout-toggle {
+    display: inline-flex;
+    flex-shrink: 0;
+    gap: 2px;
+    border-radius: 0.75rem;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface-muted);
+    padding: 2px;
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
+    -webkit-backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
+  }
+
+  .view-layout-toggle__btn {
+    display: inline-flex;
+    min-height: 2.25rem;
+    min-width: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border-radius: 0.5rem;
+    padding: 0 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: #6c6c70;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .view-layout-toggle__btn:hover {
+    color: #3c3c43;
+    background: rgb(255 255 255 / 0.28);
+  }
+
+  .view-layout-toggle__btn--active {
+    background: var(--glass-surface-strong);
+    color: var(--accent-900, #14532d);
+    box-shadow: var(--card-shadow);
+  }
+
+  .view-layout-toggle__label {
+    display: none;
+  }
+
+  @media (min-width: 640px) {
+    .view-layout-toggle__btn {
+      min-height: 2.25rem;
+      min-width: auto;
+      padding-inline: 0.75rem;
+    }
+
+    .view-layout-toggle__label {
+      display: inline;
+    }
+  }
+
+  html[data-theme="dark"] .view-layout-toggle__btn {
+    color: rgb(255 255 255 / 0.5);
+  }
+
+  html[data-theme="dark"] .view-layout-toggle__btn:hover {
+    color: rgb(255 255 255 / 0.78);
+    background: rgb(255 255 255 / 0.06);
+  }
+
+  html[data-theme="dark"] .view-layout-toggle__btn--active {
+    color: var(--accent-300, #86efac);
+  }
+
+  .values-toolbar__view-toggle.view-layout-toggle .view-layout-toggle__btn {
+    min-height: 1.75rem;
+    min-width: 1.75rem;
+  }
+
   .calc-relation-chip {
     border-radius: 9999px;
     border: 1px solid var(--glass-border);
@@ -2962,9 +3116,9 @@ html[data-theme="dark"] .app-header {
 
   .calc-cic-ratio-highlight {
     padding: 0.7rem 0.8rem;
-    border-color: rgb(var(--accent-300-rgb, 134 239 172) / 0.55);
-    background:
-      linear-gradient(165deg, rgb(255 255 255 / 0.55) 0%, rgb(var(--accent-50-rgb, 240 253 244) / 0.65) 100%);
+    border-color: rgb(var(--accent-300-rgb, 134 239 172) / 0.42);
+    background: var(--glass-surface);
+    box-shadow: var(--card-shadow);
   }
 
   .calc-cic-result__head {
@@ -3912,12 +4066,16 @@ html[data-theme="dark"] .app-header {
   }
 
   /* Calculator pages — shared compact form + result cards */
+  .calc-field-label {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+
   .calc-page .calc-field-input {
     min-height: 2.5rem;
     border-radius: 0.75rem;
-    background: var(--surface-variant, #f2f2f2);
-    border-color: transparent;
-    font-size: 0.9rem;
+    font-size: 0.875rem;
   }
 
   .calc-page label {
@@ -3927,22 +4085,67 @@ html[data-theme="dark"] .app-header {
     text-transform: none;
   }
 
-  html[data-theme="dark"] .calc-page label {
+  html[data-theme="dark"] .calc-page label,
+  html[data-theme="dark"] .calc-field-label {
     color: rgba(232, 232, 232, 0.65);
   }
 
-  html[data-theme="dark"] .calc-page .calc-field-input {
-    background: rgba(255, 255, 255, 0.06);
+  .calc-page__crop {
+    border-radius: 0.875rem;
+    border: 1px solid rgb(var(--accent-300-rgb, 134 239 172) / 0.32);
+    background: var(--glass-surface-muted);
+    backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
+    -webkit-backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
+  }
+
+  .calc-page__crop-icon {
+    color: var(--accent-700, #15803d);
+  }
+
+  .calc-page__crop-label {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--accent-800-rgb, 22 101 52) / 0.62);
+  }
+
+  .calc-page__crop-name {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--accent-900, #14532d);
+  }
+
+  html[data-theme="dark"] .calc-page__crop {
+    border-color: rgb(var(--accent-400-rgb) / 0.24);
+    background: var(--glass-surface-muted);
+  }
+
+  html[data-theme="dark"] .calc-page__crop-icon {
+    color: var(--accent-400, #4ade80);
+  }
+
+  html[data-theme="dark"] .calc-page__crop-label {
+    color: rgb(var(--accent-300-rgb, 134 239 172) / 0.72);
+  }
+
+  html[data-theme="dark"] .calc-page__crop-name {
+    color: #ecfdf5;
   }
 
   .calc-result-card--active {
-    background: linear-gradient(135deg, rgba(220, 252, 231, 0.9), rgba(187, 247, 208, 0.5));
-    border: 1px solid rgba(21, 128, 61, 0.12);
+    border: 1px solid rgb(var(--accent-400-rgb, 74 222 128) / 0.28);
+    background: var(--glass-surface);
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(calc(14px * var(--app-blur, 1))) saturate(1.08);
+    -webkit-backdrop-filter: blur(calc(14px * var(--app-blur, 1))) saturate(1.08);
   }
 
   .calc-result-card--muted {
-    background: var(--surface-variant, #f2f2f2);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    background: var(--glass-surface-muted);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
+    -webkit-backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
   }
 
   .calc-result-card--muted p {
@@ -3950,8 +4153,8 @@ html[data-theme="dark"] .app-header {
   }
 
   html[data-theme="dark"] .calc-result-card--active {
-    background: rgb(var(--accent-900-rgb, 20 83 45) / 0.35);
-    border-color: rgb(var(--accent-400-rgb) / 0.2);
+    border-color: rgb(var(--accent-400-rgb) / 0.24);
+    background: var(--glass-surface);
   }
 
   html[data-theme="dark"] .calc-result-card--active .text-green-950 {
@@ -3959,12 +4162,8 @@ html[data-theme="dark"] .app-header {
   }
 
   html[data-theme="dark"] .calc-result-card--muted {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.08);
-  }
-
-  html[data-theme="dark"] .calc-page__crop {
-    background: rgb(var(--accent-900-rgb, 20 83 45) / 0.35);
+    background: var(--glass-surface-muted);
+    border-color: var(--glass-border);
   }
 
   html[data-theme="dark"] .calc-page__crop .text-green-950 {
@@ -3973,13 +4172,18 @@ html[data-theme="dark"] .app-header {
 
   /* Legacy aliases */
   .fertilizer-dose-card--active {
-    background: linear-gradient(135deg, rgba(220, 252, 231, 0.9), rgba(187, 247, 208, 0.5));
-    border: 1px solid rgba(21, 128, 61, 0.12);
+    border: 1px solid rgb(var(--accent-400-rgb, 74 222 128) / 0.28);
+    background: var(--glass-surface);
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(calc(14px * var(--app-blur, 1))) saturate(1.08);
+    -webkit-backdrop-filter: blur(calc(14px * var(--app-blur, 1))) saturate(1.08);
   }
 
   .fertilizer-dose-card--nf {
-    background: var(--surface-variant, #f2f2f2);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    background: var(--glass-surface-muted);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
+    -webkit-backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
   }
 
   .fertilizer-dose-card--nf p {
@@ -5742,18 +5946,9 @@ html[data-theme="dark"] .app-header {
     flex-shrink: 0;
   }
 
-  .values-toolbar__view-toggle .view-layout-toggle {
-    border-color: var(--glass-border);
-    background: var(--glass-surface-muted);
-    backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
-    -webkit-backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
-  }
-
-  .values-toolbar__view-toggle .view-layout-toggle button {
+  .values-toolbar__view-toggle.view-layout-toggle .view-layout-toggle__btn {
     min-height: 1.75rem;
     min-width: 1.75rem;
-    font-size: 0.6875rem;
-    font-weight: 600;
   }
 
   .values-skip-crop-block {

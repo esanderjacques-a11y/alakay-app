@@ -30,7 +30,7 @@ export function ViewLayoutToggle({
 
   return (
     <div
-      className={`view-layout-toggle inline-flex shrink-0 rounded-xl border border-white/70 bg-white/58 p-0.5 shadow-sm ${className}`}
+      className={`view-layout-toggle ${className}`.trim()}
       role="group"
       aria-label={`${listLabel} / ${gridLabel}`}
     >
@@ -39,16 +39,14 @@ export function ViewLayoutToggle({
           key={mode}
           type="button"
           onClick={() => onChange(mode)}
-          className={`inline-flex min-h-9 min-w-9 items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-extrabold transition sm:px-3 ${
-            value === mode
-              ? "bg-[var(--accent-600)] text-white shadow-sm"
-              : "text-green-900 hover:bg-white/70"
+          className={`view-layout-toggle__btn ${
+            value === mode ? "view-layout-toggle__btn--active" : ""
           }`}
           aria-pressed={value === mode}
           title={label}
         >
           {icon}
-          <span className="hidden sm:inline">{label}</span>
+          <span className="view-layout-toggle__label">{label}</span>
         </button>
       ))}
     </div>

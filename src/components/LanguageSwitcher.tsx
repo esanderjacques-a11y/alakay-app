@@ -59,7 +59,7 @@ export default function LanguageSwitcher({
           aria-label={t.languageLabel}
           aria-expanded={open}
           title={current.fullLabel}
-          className={`touch-target flex items-center border border-green-200/80 bg-white/90 shadow-sm active:scale-[0.98] ${
+          className={`touch-target glass-chip flex items-center active:scale-[0.98] ${
             compact
               ? "min-h-8 gap-1 rounded-xl px-2 py-1.5"
               : "gap-1.5 rounded-2xl px-2.5 py-2"

@@ -39,6 +39,7 @@ type PreviewGroupKey =
   | "neutral";
 import { Language, Translation } from "@/lib/translations";
 import { analysisHistoryText } from "@/lib/i18n/componentText";
+import BackButton from "@/components/ui/BackButton";
 
 export type EditableAnalysisPayload = {
   analysisId: number;
@@ -806,7 +807,7 @@ export default function AnalysisHistory({
       )}
 
       {(loading || editingLoading) && (
-        <div className="rounded-2xl bg-slate-50 p-4 text-slate-700">
+        <div className="calc-surface-muted rounded-2xl p-4 glass-text-muted">
           {l.loading}
         </div>
       )}
@@ -1012,7 +1013,7 @@ function HistoryFilterButton({
       className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
         active
           ? "bg-green-700 text-white"
-          : "bg-white text-[#3c3c43] shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+          : "glass-chip text-[#3c3c43] shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
       }`}
     >
       {label}
@@ -1042,8 +1043,8 @@ function IconButton({
       : tone === "green"
         ? "border-green-200 text-green-800 hover:bg-green-50"
         : tone === "mutedRed"
-          ? "border-slate-200 text-slate-400 opacity-70 hover:border-red-200 hover:bg-red-50 hover:text-red-700 hover:opacity-100"
-          : "border-slate-200 text-slate-700 hover:bg-slate-50";
+          ? "glass-icon-btn border-slate-200 text-slate-400 opacity-70 hover:border-red-200 hover:bg-red-50 hover:text-red-700 hover:opacity-100"
+          : "glass-icon-btn glass-icon-btn--accent";
 
   return (
     <button
@@ -1052,7 +1053,7 @@ function IconButton({
       aria-label={title}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border bg-white ${toneClass} disabled:cursor-not-allowed disabled:opacity-40`}
+      className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${toneClass} disabled:cursor-not-allowed disabled:opacity-40`}
     >
       {children}
     </button>
@@ -1082,7 +1083,7 @@ function ActionButton({
       className={`inline-flex h-10 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
         primary
           ? "border-green-700 bg-green-700 text-white hover:bg-green-800"
-          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          : "glass-btn-secondary"
       }`}
     >
       {children}
@@ -1308,21 +1309,15 @@ function ReportPreviewModal({
 
   return (
     <section className="animate-slide-up">
-      <div className="values-screen-panel flex max-h-[calc(100dvh-7.5rem)] w-full flex-col overflow-hidden rounded-3xl border border-white/65 bg-white/72 shadow-xl backdrop-blur-2xl">
-        <header className="shrink-0 border-b border-white/65 bg-white/55 px-4 py-3 backdrop-blur-xl sm:px-5">
+      <div className="values-screen-panel flex max-h-[calc(100dvh-7.5rem)] w-full flex-col overflow-hidden rounded-3xl">
+        <header className="values-screen-panel__header shrink-0 px-4 py-3 sm:px-5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <button
-                type="button"
-                onClick={onClose}
-                className="mb-2 inline-flex min-h-9 items-center rounded-2xl border border-white/70 bg-white/72 px-3 text-sm font-bold text-green-900 shadow-sm transition hover:bg-white/90 active:scale-[0.98]"
-              >
-                {l.back}
-              </button>
-              <h2 className="truncate text-lg font-extrabold text-green-900 sm:text-xl">
+              <BackButton onClick={onClose} label={l.back} className="mb-2" />
+              <h2 className="dark-text-primary truncate text-lg font-extrabold sm:text-xl">
                 {getAnalysisTitle(analysis)}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="glass-text-muted text-xs">
                 {getVersionLabel(analysis, language)} ·{" "}
                 {getSampleTypeCode(analysis) === "soil" ? l.soil : l.foliar}
                 {metaItems.length > 0
@@ -1362,7 +1357,7 @@ function ReportPreviewModal({
             </div>
           ) : (
             <>
-              <section className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+              <section className="calc-surface-muted mx-auto w-full max-w-3xl rounded-2xl p-3">
                 <div>
                   <h3 className="text-sm font-bold text-green-900">{l.analysisSummary}</h3>
                   <p className="text-xs text-slate-600">
@@ -1411,14 +1406,14 @@ function ReportPreviewModal({
                 )}
               </section>
 
-              <details className="preview-details-panel mx-auto mt-4 w-full max-w-5xl rounded-2xl border border-slate-200 p-3">
+              <details className="preview-details-panel mx-auto mt-4 w-full max-w-5xl rounded-2xl p-3">
                 <summary className="cursor-pointer text-sm font-bold text-green-900">
                   {l.viewFullTable}
                 </summary>
 
-                <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
-                  <table className="preview-table-wrap w-full min-w-[720px] border-collapse text-xs sm:text-sm">
-                    <thead className="bg-slate-50 text-left text-slate-600">
+                <div className="preview-table-wrap mt-3 overflow-x-auto rounded-xl">
+                  <table className="w-full min-w-[720px] border-collapse text-xs sm:text-sm">
+                    <thead className="glass-section-muted text-left glass-text-muted">
                       <tr>
                         <th className="border-b border-slate-200 p-2.5">Parameter</th>
                         <th className="border-b border-slate-200 p-2.5">Value</th>

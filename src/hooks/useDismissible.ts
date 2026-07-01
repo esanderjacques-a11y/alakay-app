@@ -6,14 +6,20 @@ import { useEffect } from "react";
 export function useDismissible(
   open: boolean,
   onClose: () => void,
-  containerRef: React.RefObject<HTMLElement | null>
+  containerRef: React.RefObject<HTMLElement | null>,
+  additionalRefs: React.RefObject<HTMLElement | null>[] = []
 ) {
   useEffect(() => {
     if (!open) return;
 
     function isOutside(target: EventTarget | null) {
-      if (!target || !containerRef.current) return false;
-      return !containerRef.current.contains(target as Node);
+      if (!target) return true;
+      const node = target as Node;
+      if (containerRef.current?.contains(node)) return false;
+      for (const ref of additionalRefs) {
+        if (ref.current?.contains(node)) return false;
+      }
+      return true;
     }
 
     function onPointerDown(event: PointerEvent) {
@@ -40,5 +46,5 @@ export function useDismissible(
       document.removeEventListener("touchstart", onTouchStart, true);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, onClose, containerRef]);
+  }, [open, onClose, containerRef, additionalRefs]);
 }

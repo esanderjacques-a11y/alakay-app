@@ -1,5 +1,6 @@
 export type AppStep =
   | "home"
+  | "import"
   | "setup"
   | "values"
   | "results"

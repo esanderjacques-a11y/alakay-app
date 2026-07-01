@@ -18,6 +18,7 @@ import {
   Save,
   Search,
   SlidersHorizontal,
+  Sprout,
   Table2,
   Upload,
 } from "lucide-react";
@@ -39,6 +40,7 @@ import AboutScreen from "@/components/AboutScreen";
 import AppDock from "@/components/ui/AppDock";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import HomeScreen from "@/components/HomeScreen";
+import ImportDataScreen from "@/components/ImportDataScreen";
 
 import BackButton from "@/components/ui/BackButton";
 import { AppStep } from "@/lib/appSteps";
@@ -223,6 +225,35 @@ function normalizeForMatching(value: string | null | undefined) {
   return normalizeParameterText(value)
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function getTodayIsoDate() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  const local = new Date(now.getTime() - offset * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+function buildSetupCropOptions(
+  crops: Crop[],
+  generalCropLabel: string
+): { label: string; value: number }[] {
+  const sorted = [...crops].sort((a, b) => {
+    if (a.crop_id === 999) return -1;
+    if (b.crop_id === 999) return 1;
+    return a.display_name.localeCompare(b.display_name);
+  });
+
+  const options = sorted.map((crop) => ({
+    label: crop.crop_id === 999 ? generalCropLabel : crop.display_name,
+    value: crop.crop_id,
+  }));
+
+  if (!options.some((option) => option.value === 999)) {
+    options.unshift({ label: generalCropLabel, value: 999 });
+  }
+
+  return options;
 }
 
 function getParameterFilterGroup(
@@ -600,6 +631,7 @@ function translateAdvice(
 
 const appSteps = new Set<AppStep>([
   "home",
+  "import",
   "setup",
   "values",
   "results",
@@ -641,7 +673,7 @@ export default function HomePage() {
     "soil" | "foliar"
   >("soil");
 
-  const [cropId, setCropId] = useState<number | "">("");
+  const [cropId, setCropId] = useState<number | "">(999);
   const [sampleType, setSampleType] = useState<"soil" | "foliar">("soil");
   const [extractionMethod, setExtractionMethod] = useState<ExtractionMethod>("general");
   const [values, setValues] = useState<Record<string, string>>({});
@@ -656,7 +688,6 @@ export default function HomePage() {
   const [parameterSearch, setParameterSearch] = useState("");
   const [sortMode, setSortMode] = useState<"name" | "type">("type");
 
-  const [showReportDetails, setShowReportDetails] = useState(false);
   const [showCustomParameterModal, setShowCustomParameterModal] =
     useState(false);
   const [customParameterDraft, setCustomParameterDraft] = useState<{
@@ -1400,13 +1431,10 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       if (matchedCrop) setCropId(matchedCrop.crop_id);
     }
 
-    if (metadata.labName || metadata.farmName || metadata.lotName || metadata.reportDate) {
-      setShowReportDetails(true);
-    }
   }
 
   function resetAnalysis() {
-    setCropId("");
+    setCropId(999);
     setSampleType("soil");
     setValues({});
     setSelectedUnits({});
@@ -1432,7 +1460,6 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setEditingRootAnalysisId(null);
     setEditingNextVersionNumber(1);
     setPendingEditableAnalysis(null);
-    setShowReportDetails(false);
     setExtractionMethod("general");
     setCurrentStep("setup");
   }
@@ -1464,12 +1491,13 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       })
     );
 
-    setShowReportDetails(true);
+
     setCurrentStep("values");
     setSampleType(payload.sampleType);
   }
 
   function goToValues() {
+    setSamplingDate((current) => current || getTodayIsoDate());
     setMessage("");
     setCurrentStep("values");
   }
@@ -1908,7 +1936,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         analysis_name:
           analysisName.trim() ||
           `${sampleType} analysis - ${new Date().toLocaleDateString()}`,
-        sampling_date: samplingDate || null,
+        sampling_date: samplingDate || getTodayIsoDate(),
         report_date: reportDate || null,
         country: finalCountry || null,
         province_state: provinceState.trim() || null,
@@ -2184,20 +2212,21 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
   if (!hasAccess) {
     return (
-      <main className="app-main-gradient auth-page relative flex min-h-screen items-center justify-center px-4 py-8 text-slate-900">
+      <main className="app-main-gradient auth-page flex min-h-screen flex-col text-slate-900">
         <div className="app-main-backdrop" aria-hidden="true" />
-        <div className="absolute right-3 top-3 z-10 sm:right-4 sm:top-4">
+        <header className="auth-top-bar">
           <LanguageSwitcher
             language={language}
             onChange={changeLanguage}
             compact
           />
-        </div>
+        </header>
+        <div className="relative z-[1] flex flex-1 items-center justify-center px-4 py-6 sm:py-8">
           <LoadingOverlay
             open={isBusy}
             label={loading ? t.interpreting : t.saving}
           />
-          <section className="w-full max-w-md animate-slide-up lg:max-w-5xl">
+          <section className="mx-auto w-full max-w-md animate-slide-up lg:max-w-5xl">
             <AuthPanel
               t={t}
               language={language}
@@ -2221,7 +2250,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               }}
             />
           </section>
-        </main>
+        </div>
+      </main>
     );
   }
 
@@ -2256,16 +2286,28 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               t={t}
               session={session}
               guestMode={guestMode}
+              displayName={displayName}
+              isReturningUser={Boolean(session?.user && !guestMode)}
               startNewAnalysis={resetAnalysis}
-              openImporter={(mode = "import") => {
-                setLabValueImporterMode(mode);
-                setShowLabValueImporter(true);
-              }}
+              goImport={() => setCurrentStep("import")}
               goResults={() => setCurrentStep("history")}
               goCalculators={() => setCurrentStep("calculators")}
               hasResultsOrProgress={hasHistoryOrProgress}
             />
           </section>
+        ) : currentStep === "import" ? (
+          <ImportDataScreen
+            t={t}
+            onBack={() => setCurrentStep("home")}
+            onImportDocument={() => {
+              setLabValueImporterMode("import");
+              setShowLabValueImporter(true);
+            }}
+            onTakePhoto={() => {
+              setLabValueImporterMode("scan");
+              setShowLabValueImporter(true);
+            }}
+          />
         ) : currentStep === "setup" ? (
           <SetupScreen
             t={t}
@@ -2280,12 +2322,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             extractionMethod={extractionMethod}
             setExtractionMethod={setExtractionMethod}
             message={message}
-            showReportDetails={showReportDetails}
-            setShowReportDetails={setShowReportDetails}
             analysisName={analysisName}
             setAnalysisName={setAnalysisName}
-            labName={labName}
-            setLabName={setLabName}
             farmName={farmName}
             setFarmName={setFarmName}
             lotName={lotName}
@@ -2298,8 +2336,6 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             setProvinceState={setProvinceState}
             samplingDate={samplingDate}
             setSamplingDate={setSamplingDate}
-            reportDate={reportDate}
-            setReportDate={setReportDate}
             goHome={() => setCurrentStep("home")}
             goToValues={goToValues}
           />
@@ -2471,7 +2507,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
       {currentStep !== "settings" &&
       currentStep !== "recycle" &&
-      currentStep !== "about" ? (
+      currentStep !== "about" &&
+      currentStep !== "import" ? (
         <AppDock
           currentStep={currentStep}
           onStepChange={setCurrentStep}
@@ -2564,12 +2601,8 @@ function SetupScreen({
   extractionMethod,
   setExtractionMethod,
   message,
-  showReportDetails,
-  setShowReportDetails,
   analysisName,
   setAnalysisName,
-  labName,
-  setLabName,
   farmName,
   setFarmName,
   lotName,
@@ -2582,8 +2615,6 @@ function SetupScreen({
   setProvinceState,
   samplingDate,
   setSamplingDate,
-  reportDate,
-  setReportDate,
   goHome,
   goToValues,
 }: {
@@ -2599,14 +2630,8 @@ function SetupScreen({
   extractionMethod: ExtractionMethod;
   setExtractionMethod: (value: ExtractionMethod) => void;
   message: string;
-  showReportDetails: boolean;
-  setShowReportDetails: (
-    value: boolean | ((previous: boolean) => boolean)
-  ) => void;
   analysisName: string;
   setAnalysisName: (value: string) => void;
-  labName: string;
-  setLabName: (value: string) => void;
   farmName: string;
   setFarmName: (value: string) => void;
   lotName: string;
@@ -2619,11 +2644,12 @@ function SetupScreen({
   setProvinceState: (value: string) => void;
   samplingDate: string;
   setSamplingDate: (value: string) => void;
-  reportDate: string;
-  setReportDate: (value: string) => void;
   goHome: () => void;
   goToValues: () => void;
 }) {
+  const cropOptions = buildSetupCropOptions(crops, t.generalCropOther);
+  const [additionalInfoOpen, setAdditionalInfoOpen] = useState(false);
+
   function handleSetupKeyDown(event: React.KeyboardEvent<HTMLElement>) {
     if (event.key !== "Enter") return;
 
@@ -2639,30 +2665,30 @@ function SetupScreen({
     goToValues();
   }
 
+  function handleSkipCrop() {
+    setCropId(999);
+    if (!samplingDate) setSamplingDate(getTodayIsoDate());
+    goToValues();
+  }
+
   return (
-    <section onKeyDown={handleSetupKeyDown} className="flex flex-col gap-0 pb-32">
-      {/* Page header */}
-      <div className="flex items-center gap-3 px-1 pb-4 pt-2">
+    <section onKeyDown={handleSetupKeyDown} className="flex flex-col gap-4 pb-32">
+      <div className="flex items-center gap-3 px-1 pb-1 pt-2">
         <BackButton variant="icon" onClick={goHome} label={t.start} />
         <h1 className="flex-1 text-lg font-bold dark-text-primary">{t.setupTitle}</h1>
-        {cropId ? (
-          <button
-            type="button"
-            onClick={goToValues}
-            className="inline-flex items-center gap-1.5 rounded-full bg-green-700 px-4 py-2 text-sm font-semibold text-white shadow-sm active:scale-[0.97] hover:bg-green-800"
-          >
-            {t.continueShort}
-            <ArrowRight size={15} />
-          </button>
-        ) : null}
+        <button
+          type="button"
+          onClick={goToValues}
+          className="inline-flex items-center gap-1.5 rounded-full bg-green-700 px-4 py-2 text-sm font-semibold text-white shadow-sm active:scale-[0.97] hover:bg-green-800"
+        >
+          {t.continueShort}
+          <ArrowRight size={15} />
+        </button>
       </div>
 
-      {/* Card 1: Sample type + crop */}
-      <div className="calc-surface calc-page p-5 flex flex-col gap-5">
-        {/* Sample type segmented control */}
-        <div>
-          <p className="mb-2.5 text-xs font-semibold text-[#6c6c70]">{t.sampleType}</p>
-          <div className="app-segmented-control">
+      <div className="calc-surface calc-page px-4 py-1">
+        <SetupInlineField label={t.sampleType}>
+          <div className="setup-segmented-inline app-segmented-control">
             <button
               type="button"
               onClick={() => setSampleType("soil")}
@@ -2682,131 +2708,112 @@ function SetupScreen({
               {t.foliar}
             </button>
           </div>
-        </div>
+        </SetupInlineField>
 
-        {/* Crop selector */}
-        <div>
-          <p className="mb-2.5 text-xs font-semibold text-[#6c6c70]">{t.crop}
-          </p>
+        <SetupInlineField label={t.crop}>
           <AppSelect
             value={cropId}
-            placeholder={t.selectCrop}
-            inlineMenu
-            options={[
-              { label: t.selectCrop, value: "" },
-              ...crops.map((crop) => ({
-                label: crop.display_name,
-                value: crop.crop_id,
-              })),
-            ]}
+            placeholder={t.generalCropOther}
+            compact
+            floatingMenu
+            icon={<Sprout size={18} />}
+            options={cropOptions}
             onChange={setCropId}
           />
+        </SetupInlineField>
 
-          {cropsLoading && (
-            <p className="mt-2 text-sm text-[#6c6c70]">{t.loadingCrops}</p>
-          )}
+        {isGeneralCrop ? (
+          <>
+            <SetupInlineField label={t.extractionMethodLabel}>
+              <div className="setup-extraction-inline">
+                <ExtractionMethodChips
+                  t={t}
+                  value={extractionMethod}
+                  onChange={setExtractionMethod}
+                  options={GENERAL_CROP_EXTRACTION_OPTIONS}
+                />
+              </div>
+            </SetupInlineField>
+            <p className="setup-inline-hint">{t.generalCropWarning}</p>
+          </>
+        ) : null}
 
-          {!cropsLoading && crops.length === 0 && (
-            <div className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">
-              <p>{t.noCropsLoaded}</p>
-              <button
-                type="button"
-                onClick={loadCrops}
-                className="mt-2 rounded-xl bg-red-100 px-4 py-2 font-semibold text-red-800 hover:bg-red-200"
-              >
-                {t.reloadCrops}
-              </button>
-            </div>
-          )}
+        <div className="setup-skip-row">
+          <button type="button" onClick={handleSkipCrop} className="setup-skip-btn">
+            {t.skip}
+          </button>
         </div>
 
-        {/* Extraction method (general crop only) */}
-        {isGeneralCrop && (
-          <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-sm text-amber-950">
-            <p className="font-semibold">{t.extractionMethodLabel}</p>
-            <div className="mt-2">
-              <ExtractionMethodChips
-                t={t}
-                value={extractionMethod}
-                onChange={setExtractionMethod}
-                options={GENERAL_CROP_EXTRACTION_OPTIONS}
-              />
-            </div>
-            <p className="mt-2 text-xs opacity-80">{t.generalCropWarning}</p>
+        {cropsLoading && (
+          <p className="px-0 py-2 text-sm text-[#6c6c70]">{t.loadingCrops}</p>
+        )}
+
+        {!cropsLoading && crops.length === 0 && (
+          <div className="my-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+            <p>{t.noCropsLoaded}</p>
+            <button
+              type="button"
+              onClick={loadCrops}
+              className="mt-2 rounded-xl bg-red-100 px-4 py-2 font-semibold text-red-800 hover:bg-red-200"
+            >
+              {t.reloadCrops}
+            </button>
           </div>
         )}
 
         {message && (
-          <div className="rounded-xl bg-yellow-50 p-3 text-sm text-yellow-900">
+          <div className="my-2 rounded-xl bg-yellow-50 p-3 text-sm text-yellow-900">
             {message}
           </div>
         )}
       </div>
 
-      {/* Card 2: Optional report details */}
-      <div className="mt-4 rounded-2xl settings-section-card overflow-hidden">
+      <div className="calc-surface calc-page px-4 py-1">
         <button
           type="button"
-          onClick={() => setShowReportDetails((previous) => !previous)}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left"
+          onClick={() => setAdditionalInfoOpen((previous) => !previous)}
+          className="setup-section-toggle"
+          aria-expanded={additionalInfoOpen}
         >
-          <span className="flex-1">
-            <span className="text-sm font-semibold dark-text-primary">
-              {t.additionalInfoRecommended}
-            </span>
-            {!showReportDetails && (
-              <span className="ml-2 text-xs text-[#6c6c70]">
-                {t.addReportDetailsRecommended}
-              </span>
-            )}
-          </span>
+          <span className="setup-section-heading">{t.additionalInfo}</span>
           <ChevronDown
             size={17}
-            className={`settings-section-chevron transition-transform duration-200 ${showReportDetails ? "rotate-180" : ""}`}
+            className={`settings-section-chevron transition-transform duration-200 ${additionalInfoOpen ? "rotate-180" : ""}`}
+            aria-hidden
           />
         </button>
 
-        {showReportDetails && (
-          <div className="border-t border-[rgba(0,0,0,0.06)] px-4 pb-4 pt-3">
-            <ReportDetailsPanel
-              analysisName={analysisName}
-              setAnalysisName={setAnalysisName}
-              labName={labName}
-              setLabName={setLabName}
-              farmName={farmName}
-              setFarmName={setFarmName}
-              lotName={lotName}
-              setLotName={setLotName}
-              country={country}
-              setCountry={setCountry}
-              customCountry={customCountry}
-              setCustomCountry={setCustomCountry}
-              provinceState={provinceState}
-              setProvinceState={setProvinceState}
-              samplingDate={samplingDate}
-              setSamplingDate={setSamplingDate}
-              reportDate={reportDate}
-              setReportDate={setReportDate}
-              t={t}
-            />
-          </div>
-        )}
+        {additionalInfoOpen ? (
+          <ReportDetailsPanel
+            analysisName={analysisName}
+            setAnalysisName={setAnalysisName}
+            farmName={farmName}
+            setFarmName={setFarmName}
+            lotName={lotName}
+            setLotName={setLotName}
+            country={country}
+            setCountry={setCountry}
+            customCountry={customCountry}
+            setCustomCountry={setCustomCountry}
+            provinceState={provinceState}
+            setProvinceState={setProvinceState}
+            samplingDate={samplingDate}
+            setSamplingDate={setSamplingDate}
+            t={t}
+          />
+        ) : null}
       </div>
 
-      {/* Fixed bottom action bar */}
       <div className="app-fixed-action-bar fixed inset-x-0 z-[11000]">
         <div className="mx-auto max-w-2xl px-4 py-3">
           <button
             type="button"
             onClick={goToValues}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-green-700 px-5 py-3.5 font-semibold text-white shadow-sm active:scale-[0.98] hover:bg-green-800 transition-all"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-green-700 px-5 py-3.5 font-semibold text-white shadow-sm transition-all active:scale-[0.98] hover:bg-green-800"
           >
             {t.continueShort}
             <ArrowRight size={18} />
           </button>
-          {!cropId ? (
-            <p className="mt-2 text-center text-xs text-[#6c6c70]">{t.skipCropHint}</p>
-          ) : null}
         </div>
       </div>
     </section>
@@ -3654,8 +3661,6 @@ function StatPill({ label, value }: { label: string; value: number }) {
 function ReportDetailsPanel({
   analysisName,
   setAnalysisName,
-  labName,
-  setLabName,
   farmName,
   setFarmName,
   lotName,
@@ -3668,14 +3673,10 @@ function ReportDetailsPanel({
   setProvinceState,
   samplingDate,
   setSamplingDate,
-  reportDate,
-  setReportDate,
   t,
 }: {
   analysisName: string;
   setAnalysisName: (value: string) => void;
-  labName: string;
-  setLabName: (value: string) => void;
   farmName: string;
   setFarmName: (value: string) => void;
   lotName: string;
@@ -3688,8 +3689,6 @@ function ReportDetailsPanel({
   setProvinceState: (value: string) => void;
   samplingDate: string;
   setSamplingDate: (value: string) => void;
-  reportDate: string;
-  setReportDate: (value: string) => void;
   t: (typeof translations)[Language];
 }) {
   const [countryRegion, setCountryRegion] = useState<CountryRegion | "">("");
@@ -3697,48 +3696,43 @@ function ReportDetailsPanel({
     ? countryRegions.find((group) => group.region === countryRegion)?.countries || []
     : countries;
 
+  const countryOptions = filteredCountries.map((item) => ({
+    label: item === "Other" ? t.countryOther : item,
+    value: item,
+  }));
+
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Field label={t.analysisName}>
+    <>
+      <SetupInlineField label={t.analysisName}>
         <input
-          className="w-full rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
-          placeholder={t.analysisName}
+          className="setup-inline-input"
           value={analysisName}
           onChange={(e) => setAnalysisName(e.target.value)}
         />
-      </Field>
+      </SetupInlineField>
 
-      <Field label={t.labName}>
+      <SetupInlineField label={t.farmName}>
         <input
-          className="w-full rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
-          placeholder={t.labName}
-          value={labName}
-          onChange={(e) => setLabName(e.target.value)}
-        />
-      </Field>
-
-      <Field label={t.farmName}>
-        <input
-          className="w-full rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
-          placeholder={t.farmName}
+          className="setup-inline-input"
           value={farmName}
           onChange={(e) => setFarmName(e.target.value)}
         />
-      </Field>
+      </SetupInlineField>
 
-      <Field label={t.lotName}>
+      <SetupInlineField label={t.lotName}>
         <input
-          className="w-full rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
-          placeholder={t.lotName}
+          className="setup-inline-input"
           value={lotName}
           onChange={(e) => setLotName(e.target.value)}
         />
-      </Field>
+      </SetupInlineField>
 
-      <Field label={t.region}>
+      <SetupInlineField label={t.region}>
         <AppSelect
           value={countryRegion}
           placeholder={t.allRegions}
+          compact
+          floatingMenu
           options={[
             { label: t.allRegions, value: "" },
             ...countryRegions.map((group) => ({
@@ -3759,73 +3753,55 @@ function ReportDetailsPanel({
             }
           }}
         />
-      </Field>
+      </SetupInlineField>
 
-      <Field label={t.country}>
+      <SetupInlineField label={t.country}>
         <AppSelect
           value={country}
           placeholder={t.selectCountry}
+          compact
+          floatingMenu
           searchable
           options={[
             { label: t.selectCountry, value: "" },
-            ...filteredCountries.map((item) => ({ label: item, value: item })),
+            ...countryOptions,
           ]}
           onChange={setCountry}
         />
-      </Field>
+      </SetupInlineField>
 
-      <Field label={t.provinceState}>
+      <SetupInlineField label={t.provinceState}>
         <input
-          className="w-full rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
-          placeholder={t.provinceState}
+          className="setup-inline-input"
           value={provinceState}
           onChange={(e) => setProvinceState(e.target.value)}
         />
-      </Field>
+      </SetupInlineField>
 
       {country === "Other" && (
-        <Field label={t.typeCountry}>
+        <SetupInlineField label={t.typeCountry}>
           <input
-            className="w-full rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
+            className="setup-inline-input"
             placeholder={t.typeCountry}
             value={customCountry}
             onChange={(e) => setCustomCountry(e.target.value)}
           />
-        </Field>
+        </SetupInlineField>
       )}
 
-      <div className="md:col-span-2">
-        <details className="rounded-2xl bg-slate-50 p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-slate-700">
-            {t.optionalDates}
-          </summary>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <Field label={t.samplingDate}>
-              <input
-                className="w-full rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
-                type="date"
-                value={samplingDate}
-                onChange={(e) => setSamplingDate(e.target.value)}
-              />
-            </Field>
-
-            <Field label={t.reportDate}>
-              <input
-                className="w-full rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
-                type="date"
-                value={reportDate}
-                onChange={(e) => setReportDate(e.target.value)}
-              />
-            </Field>
-          </div>
-        </details>
-      </div>
-    </div>
+      <SetupInlineField label={t.date}>
+        <input
+          className="setup-inline-input"
+          type="date"
+          value={samplingDate}
+          onChange={(e) => setSamplingDate(e.target.value)}
+        />
+      </SetupInlineField>
+    </>
   );
 }
 
-function Field({
+function SetupInlineField({
   label,
   children,
 }: {
@@ -3833,10 +3809,10 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="grid gap-1">
-      <span className="text-sm font-semibold text-slate-700">{label}</span>
-      {children}
-    </label>
+    <div className="setup-inline-row">
+      <span className="setup-inline-row__label">{label}</span>
+      <div className="setup-inline-row__control">{children}</div>
+    </div>
   );
 }
 
@@ -3867,105 +3843,158 @@ function AppSelect<T extends string | number>({
   const [searchTerm, setSearchTerm] = useState("");
   const presence = useAnimatedPresence(open);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuPanelRef = useRef<HTMLElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const [menuOpensAbove, setMenuOpensAbove] = useState(false);
+  const [menuListMaxHeight, setMenuListMaxHeight] = useState("min(20rem, 55vh)");
   const selectedOption = options.find((option) => option.value === value);
   const visibleOptions = searchable
     ? options.filter((option) => {
-        if (option.value === "") return true;
+        if (option.value === "") return searchTerm.trim() === "";
+        if (!searchTerm.trim()) return true;
         return option.label.toLowerCase().includes(searchTerm.trim().toLowerCase());
       })
     : options;
   const useFloatingMenu = floatingMenu || iconOnlyOnMobile;
+  const dismissRefs = useMemo(
+    () => (useFloatingMenu ? [menuPanelRef] : []),
+    [useFloatingMenu]
+  );
 
-  useDismissible(open, () => setOpen(false), menuRef);
+  useDismissible(open, () => setOpen(false), menuRef, dismissRefs);
 
   useEffect(() => {
     if (!open) setSearchTerm("");
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !searchable) return;
+    searchInputRef.current?.focus();
+  }, [open, searchable]);
+
   useLayoutEffect(() => {
-    if (!open || !useFloatingMenu || !triggerRef.current) return;
+    if (!open) return;
 
     function updateMenuPosition() {
-      const rect = triggerRef.current?.getBoundingClientRect();
+      const anchor = searchable ? searchInputRef.current : triggerRef.current;
+      const rect = anchor?.getBoundingClientRect();
       if (!rect) return;
 
-      const width = Math.max(rect.width, 220);
-      const left = Math.min(
-        Math.max(12, rect.left),
-        window.innerWidth - width - 12
+      const gap = 8;
+      const viewportPadding = 12;
+      const menuHeight = menuPanelRef.current?.offsetHeight ?? 280;
+      const spaceBelow = window.innerHeight - rect.bottom - gap - viewportPadding;
+      const spaceAbove = rect.top - gap - viewportPadding;
+      const opensAbove =
+        spaceBelow < Math.min(menuHeight, 180) && spaceAbove > spaceBelow;
+      const available = opensAbove ? spaceAbove : spaceBelow;
+      const maxHeight = Math.max(
+        100,
+        Math.min(available, Math.round(window.innerHeight * 0.55))
       );
 
-      setMenuStyle({
-        position: "fixed",
-        top: rect.bottom + 8,
-        left,
-        width,
-        zIndex: 16000,
-      });
+      setMenuOpensAbove(opensAbove);
+      setMenuListMaxHeight(`${maxHeight}px`);
+
+      if (!useFloatingMenu || inlineMenu) return;
+
+      const width = Math.max(rect.width, searchable ? 280 : 220);
+      const left = Math.min(
+        Math.max(viewportPadding, rect.left),
+        window.innerWidth - width - viewportPadding
+      );
+
+      if (opensAbove) {
+        setMenuStyle({
+          position: "fixed",
+          bottom: window.innerHeight - rect.top + gap,
+          top: "auto",
+          left,
+          width,
+          zIndex: 16000,
+        });
+      } else {
+        setMenuStyle({
+          position: "fixed",
+          top: rect.bottom + gap,
+          bottom: "auto",
+          left,
+          width,
+          zIndex: 16000,
+        });
+      }
     }
 
     updateMenuPosition();
+    const raf = requestAnimationFrame(updateMenuPosition);
     window.addEventListener("resize", updateMenuPosition);
     window.addEventListener("scroll", updateMenuPosition, true);
 
     return () => {
+      cancelAnimationFrame(raf);
       window.removeEventListener("resize", updateMenuPosition);
       window.removeEventListener("scroll", updateMenuPosition, true);
     };
-  }, [open, useFloatingMenu]);
+  }, [
+    open,
+    useFloatingMenu,
+    inlineMenu,
+    searchable,
+    visibleOptions.length,
+    searchTerm,
+  ]);
 
   const menu = presence.mounted ? (
     <section
+      ref={menuPanelRef}
       style={useFloatingMenu && !inlineMenu ? menuStyle : undefined}
       className={`app-menu-select-menu z-[16000] overflow-hidden p-2 ${
         presence.leaving ? "animate-scale-out" : "animate-scale-in"
       } ${
         useFloatingMenu && !inlineMenu
-          ? ""
+          ? menuOpensAbove
+            ? "app-menu-select-menu--floating-above"
+            : ""
           : inlineMenu
             ? "relative mt-2"
-            : "absolute inset-x-0 top-full mt-2"
+            : menuOpensAbove
+              ? "app-menu-select-menu--flip-above"
+              : "absolute inset-x-0 top-full mt-2"
       }`}
     >
-      {searchable ? (
-        <div className="relative mb-1">
-          <Search
-            size={16}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-          />
-          <input
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder={placeholder}
-            className="w-full rounded-xl border border-transparent bg-[var(--surface-variant,#f2f2f2)] px-3 py-2 pl-9 text-sm font-semibold text-[#1c1c1e] outline-none focus:border-[color:var(--accent-500,#22c55e)] focus:bg-white"
-          />
-        </div>
-      ) : null}
-      <div className="max-h-72 overflow-y-auto pr-1">
-        {visibleOptions.map((option) => {
-          const selected = option.value === value;
+      <div
+        className="overflow-y-auto pr-1"
+        style={{ maxHeight: menuListMaxHeight }}
+      >
+        {visibleOptions.length > 0 ? (
+          visibleOptions.map((option) => {
+            const selected = option.value === value;
 
-          return (
-            <button
-              key={`${option.value}`}
-              type="button"
-              onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-              }}
-              className={`app-menu-select-option flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
-                selected ? "app-menu-select-option-active" : ""
-              }`}
-            >
-              <span className="whitespace-nowrap">{option.label}</span>
-              {selected ? (
-                <Check size={16} className="shrink-0" aria-hidden="true" />
-              ) : null}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={`${option.value}`}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className={`app-menu-select-option flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+                  selected ? "app-menu-select-option-active" : ""
+                }`}
+              >
+                <span className="min-w-0 text-left">{option.label}</span>
+                {selected ? (
+                  <Check size={16} className="shrink-0" aria-hidden="true" />
+                ) : null}
+              </button>
+            );
+          })
+        ) : (
+          <p className="px-3 py-2 text-sm font-medium text-slate-500">No matches</p>
+        )}
       </div>
     </section>
   ) : null;
@@ -3991,42 +4020,93 @@ function AppSelect<T extends string | number>({
             document.body
           )
         : null}
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((previous) => !previous)}
-        className={`app-menu-select-trigger flex w-full items-center justify-between gap-2 text-left outline-none transition ${
-          compact
-            ? iconOnlyOnMobile
+      {searchable ? (
+        <div
+          className={`app-menu-select-trigger flex w-full items-center gap-1.5 text-left outline-none transition ${
+            compact
               ? "min-h-9 rounded-xl px-2.5 text-sm sm:px-3"
-              : "min-h-9 rounded-xl px-3 text-sm"
-            : "min-h-11 rounded-2xl px-3 text-sm"
-        }`}
-      >
-        {icon ? (
-          <span className="grid h-5 w-5 shrink-0 place-items-center text-[color:var(--accent-700,#15803d)]">
-            {icon}
-          </span>
-        ) : null}
-        <span
-          className={`truncate ${
-            iconOnlyOnMobile ? "sr-only sm:not-sr-only sm:block" : ""
-          } ${
-            selectedOption?.value === "" || !selectedOption
-              ? "text-slate-400"
-              : "text-[#1c1c1e]"
+              : "min-h-11 rounded-2xl px-3 text-sm"
           }`}
         >
-          {selectedOption?.label || placeholder}
-        </span>
-        <ChevronDown
-          size={iconOnlyOnMobile ? 16 : 18}
-          className={`shrink-0 text-[color:var(--accent-700,#15803d)] transition ${
-            iconOnlyOnMobile ? "hidden sm:block" : ""
-          } ${open ? "rotate-180" : ""}`}
-        />
-      </button>
+          <Search
+            size={16}
+            className="shrink-0 text-[color:var(--accent-700,#15803d)]"
+            aria-hidden="true"
+          />
+          <input
+            ref={searchInputRef}
+            type="text"
+            inputMode="search"
+            autoComplete="off"
+            spellCheck={false}
+            role="combobox"
+            aria-expanded={open}
+            aria-autocomplete="list"
+            value={
+              open
+                ? searchTerm
+                : selectedOption?.value
+                  ? selectedOption.label
+                  : ""
+            }
+            placeholder={placeholder}
+            onChange={(event) => {
+              setSearchTerm(event.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            className="app-menu-select-combobox-input min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#1c1c1e] outline-none placeholder:font-medium placeholder:text-slate-400"
+          />
+          <button
+            type="button"
+            aria-label={open ? "Close menu" : "Open menu"}
+            onClick={() => setOpen((previous) => !previous)}
+            className="shrink-0"
+          >
+            <ChevronDown
+              size={compact ? 16 : 18}
+              className={`text-[color:var(--accent-700,#15803d)] transition ${open ? "rotate-180" : ""}`}
+            />
+          </button>
+        </div>
+      ) : (
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((previous) => !previous)}
+          className={`app-menu-select-trigger flex w-full items-center justify-between gap-2 text-left outline-none transition ${
+            compact
+              ? iconOnlyOnMobile
+                ? "min-h-9 rounded-xl px-2.5 text-sm sm:px-3"
+                : "min-h-9 rounded-xl px-3 text-sm"
+              : "min-h-11 rounded-2xl px-3 text-sm"
+          }`}
+        >
+          {icon ? (
+            <span className="grid h-5 w-5 shrink-0 place-items-center text-[color:var(--accent-700,#15803d)]">
+              {icon}
+            </span>
+          ) : null}
+          <span
+            className={`truncate ${
+              iconOnlyOnMobile ? "sr-only sm:not-sr-only sm:block" : ""
+            } ${
+              selectedOption?.value === "" || !selectedOption
+                ? "text-slate-400"
+                : "text-[#1c1c1e]"
+            }`}
+          >
+            {selectedOption?.label || placeholder}
+          </span>
+          <ChevronDown
+            size={iconOnlyOnMobile ? 16 : 18}
+            className={`shrink-0 text-[color:var(--accent-700,#15803d)] transition ${
+              iconOnlyOnMobile ? "hidden sm:block" : ""
+            } ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      )}
 
       {useFloatingMenu && !inlineMenu
         ? presence.mounted

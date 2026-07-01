@@ -238,7 +238,7 @@ export default function CalculatorHub({
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   active === tab.key
                     ? "bg-green-700 text-white shadow-sm"
-                    : "bg-white text-[#3c3c43] shadow-[0_1px_3px_rgba(0,0,0,0.07)] hover:bg-[#f5f5f5]"
+                    : "glass-chip text-[#3c3c43] shadow-[0_1px_3px_rgba(0,0,0,0.07)]"
                 }`}
               >
                 {tab.icon}
@@ -1843,7 +1843,7 @@ function PieGraph({ nutrients }: { nutrients: CalculatorValue[] }) {
   });
 
   return (
-    <div className="grid gap-4 rounded-2xl border border-white/70 bg-white/72 p-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
+    <div className="calc-surface grid gap-4 rounded-2xl p-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
       <div
         className="mx-auto h-56 w-56 rounded-full shadow-inner"
         style={{
@@ -1852,7 +1852,7 @@ function PieGraph({ nutrients }: { nutrients: CalculatorValue[] }) {
       />
       <div className="grid gap-2 sm:grid-cols-2">
         {slices.map(({ item, color, percent }) => (
-          <div key={item.key} className="flex items-center gap-2 rounded-xl bg-white/62 px-3 py-2">
+          <div key={item.key} className="calc-surface-inner flex items-center gap-2 px-3 py-2">
             <span className="h-3 w-3 rounded-full" style={{ background: color }} />
             <span className="min-w-0 flex-1 truncate text-sm font-bold text-green-950">
               {item.label}

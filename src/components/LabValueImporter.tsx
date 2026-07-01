@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
-  Image as ImageIcon,
   Loader2,
   RefreshCcw,
   ScanLine,
@@ -2144,18 +2143,18 @@ export default function LabValueImporter({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-base font-extrabold uppercase tracking-[0.04em] text-green-950 sm:text-lg">
+            <h2 className="dark-text-primary text-base font-extrabold uppercase tracking-[0.04em] sm:text-lg">
               {title}
             </h2>
             {!hasPreview ? (
-              <p className="mt-0.5 text-sm text-slate-600">{subtitle}</p>
+              <p className="glass-text-muted mt-0.5 text-sm">{subtitle}</p>
             ) : null}
           </div>
 
           <button
             type="button"
             onClick={closeModal}
-            className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:bg-slate-50"
+            className="glass-icon-btn rounded-xl p-2"
             aria-label="Close"
           >
             <X size={17} />
@@ -2191,14 +2190,6 @@ export default function LabValueImporter({
                     <ScanLine size={17} />
                     Capture and analyze
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => photoInputRef.current?.click()}
-                    className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    <ImageIcon size={16} />
-                    Choose from gallery
-                  </button>
                 </div>
 
                 {!cameraError ? (
@@ -2227,7 +2218,7 @@ export default function LabValueImporter({
                   <button
                     type="button"
                     onClick={loadLastImport}
-                    className="inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 hover:bg-white"
+                    className="inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-xl glass-btn-secondary px-3 text-sm font-semibold"
                   >
                     <RefreshCcw size={15} />
                     Resume last import
@@ -2261,10 +2252,10 @@ export default function LabValueImporter({
         ) : null}
 
         {(showTextPanel || showScanTextPanel) && !hasPreview ? (
-          <section className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
-            <p className="text-sm font-bold text-green-950">Detected text</p>
+          <section className="glass-section-muted mt-3 rounded-2xl p-3">
+            <p className="dark-text-primary text-sm font-bold">Detected text</p>
             <textarea
-              className="mt-2 min-h-28 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-green-600 focus:ring-2 focus:ring-green-700/10"
+              className="auth-field mt-2 min-h-28 text-sm"
               value={documentText}
               onChange={(event) => {
                 setDocumentText(event.target.value);
@@ -2283,7 +2274,7 @@ export default function LabValueImporter({
               <button
                 type="button"
                 onClick={resetImporter}
-                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                className="glass-btn-secondary inline-flex min-h-10 items-center justify-center rounded-xl px-3 text-sm font-semibold"
               >
                 Reset
               </button>
@@ -2308,10 +2299,10 @@ export default function LabValueImporter({
           <section className="mt-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <h3 className="text-lg font-extrabold text-green-950">
+                <h3 className="dark-text-primary text-lg font-extrabold">
                   Review before importing
                 </h3>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="glass-text-muted mt-1 text-sm">
                   Keep the checked rows, fix anything uncertain, then import.
                 </p>
               </div>
@@ -2327,7 +2318,7 @@ export default function LabValueImporter({
                 <button
                   type="button"
                   onClick={() => selectAllMatchedRows(false)}
-                  className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                  className="glass-btn-secondary rounded-2xl px-4 py-3 text-sm font-bold"
                 >
                   Clear
                 </button>
@@ -2382,9 +2373,9 @@ export default function LabValueImporter({
               </div>
             ) : null}
 
-            <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
-              <table className="w-full min-w-[1040px] border-collapse bg-white text-sm">
-                <thead className="bg-slate-50 text-left text-slate-600">
+            <div className="mt-4 overflow-x-auto rounded-2xl preview-table-wrap">
+              <table className="w-full min-w-[1040px] border-collapse text-sm">
+                <thead className="glass-section-muted text-left glass-text-muted">
                   <tr>
                     <th className="border-b border-slate-200 p-3">Import</th>
                     <th className="border-b border-slate-200 p-3">Sample / lot</th>
@@ -2422,7 +2413,7 @@ export default function LabValueImporter({
                         </td>
                         <td className="border-b border-slate-100 p-3">
                           <input
-                            className="w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-green-600"
+                            className="calc-field-input w-full rounded-xl p-2"
                             value={row.sampleName || ""}
                             placeholder="Optional"
                             onChange={(event) =>
@@ -2440,7 +2431,7 @@ export default function LabValueImporter({
                         </td>
                         <td className="border-b border-slate-100 p-3">
                           <select
-                            className="w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-green-600"
+                            className="calc-field-input w-full rounded-xl p-2"
                             value={row.matchedParameterKey || ""}
                             onChange={(event) =>
                               updateRowParameter(row.id, event.target.value)
@@ -2481,7 +2472,7 @@ export default function LabValueImporter({
                           <input
                             type="text"
                             inputMode="decimal"
-                            className="w-full rounded-xl border border-slate-200 bg-white p-2 font-bold text-slate-900 outline-none focus:border-green-600"
+                            className="calc-field-input w-full rounded-xl p-2 font-bold"
                             value={row.value}
                             placeholder="-"
                             onChange={(event) =>
@@ -2497,7 +2488,7 @@ export default function LabValueImporter({
                           {matchedParameter ? (
                             <div className="grid gap-1">
                             <select
-                              className="w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-green-600"
+                              className="calc-field-input w-full rounded-xl p-2"
                               value={row.selectedUnitDisplayKey || ""}
                               onChange={(event) =>
                                 updateRowUnit(row.id, event.target.value)
@@ -2567,10 +2558,10 @@ function ImportStat({
   value: number;
 }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-4">
-      <div className="flex items-center gap-2 text-slate-600">{icon}</div>
-      <p className="mt-2 text-2xl font-extrabold text-green-950">{value}</p>
-      <p className="text-sm text-slate-500">{label}</p>
+    <div className="calc-surface-inner rounded-2xl p-4">
+      <div className="glass-text-muted flex items-center gap-2">{icon}</div>
+      <p className="dark-text-primary mt-2 text-2xl font-extrabold">{value}</p>
+      <p className="glass-text-muted text-sm">{label}</p>
     </div>
   );
 }

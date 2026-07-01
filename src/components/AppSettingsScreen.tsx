@@ -1402,7 +1402,7 @@ function SettingsToolbar({
           onClick={onUndo}
           disabled={!canUndo}
           title={text.undo}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(0,0,0,0.08)] bg-[#f2f2f2] text-[#3c3c43] transition hover:bg-[#e5e5ea] disabled:cursor-not-allowed disabled:opacity-35"
+          className="glass-icon-btn inline-flex h-10 w-10 items-center justify-center rounded-xl disabled:cursor-not-allowed disabled:opacity-35"
         >
           <Undo2 size={16} />
         </button>
@@ -1411,7 +1411,7 @@ function SettingsToolbar({
           onClick={onRedo}
           disabled={!canRedo}
           title={text.redo}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(0,0,0,0.08)] bg-[#f2f2f2] text-[#3c3c43] transition hover:bg-[#e5e5ea] disabled:cursor-not-allowed disabled:opacity-35"
+          className="glass-icon-btn inline-flex h-10 w-10 items-center justify-center rounded-xl disabled:cursor-not-allowed disabled:opacity-35"
         >
           <Redo2 size={16} />
         </button>

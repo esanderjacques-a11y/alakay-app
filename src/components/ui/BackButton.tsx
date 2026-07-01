@@ -15,8 +15,7 @@ export default function BackButton({
   variant = "labeled",
   className = "",
 }: BackButtonProps) {
-  const base =
-    "page-back-btn touch-target border border-white/60 bg-white/50 text-slate-700 active:scale-[0.98] hover:bg-white/80";
+  const base = "page-back-btn touch-target active:scale-[0.98]";
 
   if (variant === "icon") {
     return (

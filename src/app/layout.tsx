@@ -3,8 +3,8 @@ import "./globals.css";
 import MobilePwaBootstrap from "@/components/MobilePwaBootstrap";
 
 export const metadata: Metadata = {
-  applicationName: "ALAKAY",
-  title: "ALAKAY - Soil & foliar interpretation",
+  applicationName: "CULTOSOL",
+  title: "CULTOSOL - Soil & foliar interpretation",
   description: "Interpret soil and foliar lab results for small producers.",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "ALAKAY",
+    title: "CULTOSOL",
     statusBarStyle: "black-translucent",
   },
   formatDetection: {

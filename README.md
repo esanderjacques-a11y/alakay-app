@@ -1,6 +1,6 @@
-# ALAKAY
+# CULTOSOL
 
-ALAKAY is a Next.js app for soil and foliar lab analysis interpretation.
+CULTOSOL is a Next.js app for soil and foliar lab analysis interpretation.
 
 ## Local Development
 

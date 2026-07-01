@@ -8,9 +8,9 @@ export type { AccentColor } from "@/lib/appSettings";
 export type AppTheme = "light" | "dark";
 export type DarkVariant = "classic" | "black";
 
-const LANGUAGE_KEY = "alakay-language";
-const THEME_KEY = "alakay-theme";
-const THEME_VARIANT_KEY = "alakay-theme-variant";
+const LANGUAGE_KEY = "cultosol-language";
+const THEME_KEY = "cultosol-theme";
+const THEME_VARIANT_KEY = "cultosol-theme-variant";
 
 export function resolveThemePreference(
   preference: AppThemePreference

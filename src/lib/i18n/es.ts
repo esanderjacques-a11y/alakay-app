@@ -1,5 +1,5 @@
 ﻿const es = {
-  appName: "Alakay",
+  appName: "Cultosol",
   account: "Cuenta",
   tagline:
     "Herramienta de interpretación de análisis de suelo y foliar para pequeños productores.",
@@ -189,7 +189,7 @@
 
   noRangeFound: "No se encontró rango",
   noRangeFoundDesc:
-    "Estos valores fueron ingresados, pero Alakay no encontró un rango de interpretación.",
+    "Estos valores fueron ingresados, pero Cultosol no encontró un rango de interpretación.",
   source: "Fuente",
   confidence: "Confianza",
   proxyRange: "Rango proxy",
@@ -332,7 +332,7 @@
   categoryBiological: "Biológico",
   countryOther: "Otro",
   languageLabel: "Idioma",
-  authWelcome: "Bienvenido a Alakay",
+  authWelcome: "Bienvenido a Cultosol",
   authWelcomeDesc: "¡Interpretar análisis de laboratorio nunca fue tan fácil!",
 
   guestMode: "Modo invitado",
@@ -429,9 +429,9 @@
     "No hay análisis en progreso. Inicie uno nuevo o importe valores primero.",
 
   about: "Acerca de",
-  aboutTitle: "Acerca de Alakay",
+  aboutTitle: "Acerca de Cultosol",
   aboutIntro:
-    "Alakay ayuda a pequeños productores a convertir resultados de laboratorio de suelo y foliar en orientación práctica para el campo, con confianza para buscar apoyo experto cuando sea necesario.",
+    "Cultosol ayuda a pequeños productores a convertir resultados de laboratorio de suelo y foliar en orientación práctica para el campo, con confianza para buscar apoyo experto cuando sea necesario.",
   aboutMissionLabel: "Misión",
   aboutMission:
     "Ayudar a pequeños productores a convertir resultados de laboratorio de suelo y foliar en orientación clara y práctica para el campo.",
@@ -442,7 +442,7 @@
   aboutPhoneCr: "Costa Rica",
   aboutPhoneHt: "Haití",
   aboutDisclaimerShort:
-    "Alakay apoya sus decisiones—no reemplaza el asesoramiento agronómico profesional.",
+    "Cultosol apoya sus decisiones—no reemplaza el asesoramiento agronómico profesional.",
   aboutAddRequest: "Agregar una solicitud",
   aboutDonate: "Donar",
   aboutDonateSoon: "Enlace de PayPal próximamente.",
@@ -452,7 +452,7 @@
   aboutDeveloperTitle: "Ingeniero Agrónomo y Analista de Datos",
   feedbackTab: "Comentarios",
   feedbackDesc:
-    "Comparte tu experiencia con Alakay. Tu comentario puede aparecer en la sección de impacto.",
+    "Comparte tu experiencia con Cultosol. Tu comentario puede aparecer en la sección de impacto.",
   feedbackRating: "Calificación",
   feedbackMessage: "Tu comentario",
   feedbackPlaceholder: "¿Qué te ayudó? ¿Qué debemos mejorar?",
@@ -463,7 +463,7 @@
   feedbackRecent: "Comentarios recientes",
   feedbackAnonymous: "Anónimo",
   impactTab: "Impacto",
-  impactDesc: "Vea cómo se usa Alakay en el mundo.",
+  impactDesc: "Vea cómo se usa Cultosol en el mundo.",
   impactUnavailable: "Los datos de impacto no están disponibles.",
   impactError: "No se pudieron cargar los datos de impacto.",
   impactEmpty: "Aún no hay datos de impacto.",
@@ -474,7 +474,7 @@
   impactTopRegions: "Principales regiones",
   featureRequest: "Solicitar una función",
   featureRequestDesc:
-    "Comparte una idea o mejora. Tu mensaje se envía directamente al equipo de Alakay.",
+    "Comparte una idea o mejora. Tu mensaje se envía directamente al equipo de Cultosol.",
   featureRequestName: "Tu nombre (opcional)",
   featureRequestEmail: "Tu correo (opcional, para seguimiento)",
   featureRequestSubject: "Asunto",
@@ -509,9 +509,9 @@
   adminHide: "Ocultar",
   adminShow: "Mostrar",
   adminDelete: "Eliminar",
-  installAppTitle: "Instalar ALAKAY",
+  installAppTitle: "Instalar CULTOSOL",
   installAppDesc:
-    "Añade ALAKAY a la pantalla de inicio para usarla a pantalla completa sin la barra del navegador.",
+    "Añade CULTOSOL a la pantalla de inicio para usarla a pantalla completa sin la barra del navegador.",
   installAppAction: "Instalar app",
   installAppIosHint: "Toca Compartir y luego Añadir a la pantalla de inicio",
   installAppDismiss: "Cerrar aviso de instalación",

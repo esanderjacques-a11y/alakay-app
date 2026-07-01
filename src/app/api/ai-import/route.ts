@@ -119,7 +119,7 @@ function normalizeLanguage(value: FormDataEntryValue | null) {
 function buildAiImportInstructionsForLanguage(language: string) {
   const languageName = LANGUAGE_NAMES[language] || LANGUAGE_NAMES.en;
   return [
-    "Read this soil or foliar lab report for ALAKAY.",
+    "Read this soil or foliar lab report for CULTOSOL.",
     "Return strict JSON only. Do not include markdown.",
     `Use ${languageName} for parameter names when writing rows.parameter. Keep names short and lab-style.`,
     "Return rows.symbol separately with the exact detected symbol when available (for example K, Ca, Mg, Na, Fe, Zn, Cu, B, pH, EC, CEC, CIC, CICE).",
@@ -168,7 +168,7 @@ async function requestAiImport(
       text: {
         format: {
           type: "json_schema",
-          name: "alakay_lab_import",
+          name: "cultosol_lab_import",
           strict: true,
           schema: {
             type: "object",

@@ -14,7 +14,7 @@ type Props = {
   session: Session | null;
 };
 
-const AVATAR_STORAGE_PREFIX = "alakay_profile_avatar_";
+const AVATAR_STORAGE_PREFIX = "cultosol_profile_avatar_";
 
 type CropSettings = {
   zoom: number;

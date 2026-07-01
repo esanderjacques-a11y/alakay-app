@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
-const AVATAR_STORAGE_PREFIX = "alakay_profile_avatar_";
+const AVATAR_STORAGE_PREFIX = "cultosol_profile_avatar_";
 
 function getAvatarStorageKey(userId: string) {
   return `${AVATAR_STORAGE_PREFIX}${userId}`;

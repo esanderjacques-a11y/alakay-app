@@ -1,5 +1,5 @@
 ﻿const ht = {
-  appName: "Alakay",
+  appName: "Cultosol",
   account: "Kont",
   tagline: "Zouti pou entèprete analiz tè ak analiz fèy pou ti pwodikt lokal yo.",
   shortTagline: "Entèpretasyon tè ak fèy",
@@ -183,7 +183,7 @@
 
   noRangeFound: "Pa jwenn okenn entèval",
   noRangeFoundDesc:
-    "Valè sa yo te antre, men Alakay pa jwenn entèval entèpretasyon pou yo.",
+    "Valè sa yo te antre, men Cultosol pa jwenn entèval entèpretasyon pou yo.",
   source: "Sous",
   confidence: "Nivo konfyans",
   proxyRange: "entèval ki pre",
@@ -325,7 +325,7 @@
   categoryBiological: "Biyolojik",
   countryOther: "Lòt",
   languageLabel: "Lang",
-  authWelcome: "Byenveni nan Alakay",
+  authWelcome: "Byenveni nan Cultosol",
   authWelcomeDesc:
     "Konprann analiz laboratwa w la t janm fasil nan nivo sa!",
 
@@ -423,9 +423,9 @@
     "Pa gen analiz an kou. Kòmanse yon nouvo analiz oswa enpòte valè anvan.",
 
   about: "Sou",
-  aboutTitle: "Sou Alakay",
+  aboutTitle: "Sou Cultosol",
   aboutIntro:
-    "Alakay ede ti pwodiktè yo tounen rezilta laboratwa tè ak fèy yo an konsèy pratik pou teren an, ak konfyans pou chèche sipò ekspè lè sa nesesè.",
+    "Cultosol ede ti pwodiktè yo tounen rezilta laboratwa tè ak fèy yo an konsèy pratik pou teren an, ak konfyans pou chèche sipò ekspè lè sa nesesè.",
   aboutMissionLabel: "Misyon",
   aboutMission:
     "Ede ti pwodiktè yo transfòme rezilta laboratwa tè ak fèy yo an konsèy klè ak pratik pou jaden.",
@@ -436,7 +436,7 @@
   aboutPhoneCr: "Costa Rica",
   aboutPhoneHt: "Ayiti",
   aboutDisclaimerShort:
-    "Alakay sipòte desizyon ou yo—li pa ranplase konsèy agwonòm pwofesyonèl.",
+    "Cultosol sipòte desizyon ou yo—li pa ranplase konsèy agwonòm pwofesyonèl.",
   aboutAddRequest: "Ajoute yon demann",
   aboutDonate: "Don",
   aboutDonateSoon: "Lyen PayPal ap vini byento.",
@@ -445,7 +445,7 @@
   aboutCreatorCountry: "Ayiti",
   aboutDeveloperTitle: "Enjenyè agwonòm ak analis done",
   feedbackTab: "Kòmantè",
-  feedbackDesc: "Pataje eksperyans ou ak Alakay.",
+  feedbackDesc: "Pataje eksperyans ou ak Cultosol.",
   feedbackRating: "Nòt",
   feedbackMessage: "Kòmantè ou",
   feedbackPlaceholder: "Kisa ki te ede w? Kisa nou dwe amelyore?",
@@ -456,7 +456,7 @@
   feedbackRecent: "Kòmantè resan",
   feedbackAnonymous: "Anonim",
   impactTab: "Enpak",
-  impactDesc: "Gade kijan Alakay itilize nan mond lan.",
+  impactDesc: "Gade kijan Cultosol itilize nan mond lan.",
   impactUnavailable: "Done enpak pa disponib.",
   impactError: "Pa t kapab chaje done enpak yo.",
   impactEmpty: "Poko gen done enpak.",
@@ -466,7 +466,7 @@
   impactMapTitle: "Analiz pa peyi",
   impactTopRegions: "Pi gwo rejyon yo",
   featureRequest: "Mande yon fonksyonalite",
-  featureRequestDesc: "Pataje yon ide oswa amelyorasyon ak ekip Alakay la.",
+  featureRequestDesc: "Pataje yon ide oswa amelyorasyon ak ekip Cultosol la.",
   featureRequestName: "Non ou (opsyonèl)",
   featureRequestEmail: "Imèl ou (opsyonèl)",
   featureRequestSubject: "Sijè",
@@ -501,9 +501,9 @@
   adminHide: "Kache",
   adminShow: "Montre",
   adminDelete: "Efase",
-  installAppTitle: "Enstale ALAKAY",
+  installAppTitle: "Enstale CULTOSOL",
   installAppDesc:
-    "Ajoute ALAKAY sou ekran prensipal la pou yon eksperyans plen ekran san ba navigatè a.",
+    "Ajoute CULTOSOL sou ekran prensipal la pou yon eksperyans plen ekran san ba navigatè a.",
   installAppAction: "Enstale app la",
   installAppIosHint: "Peze Pataje, apre Ajoute sou Ekran Prensipal",
   installAppDismiss: "Fèmen mesaj enstalasyon an",

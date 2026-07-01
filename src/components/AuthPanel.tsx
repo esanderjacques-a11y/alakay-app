@@ -472,12 +472,12 @@ export default function AuthPanel({
                 <input
                   className="auth-field pl-10"
                   suppressHydrationWarning
-                  list="alakay-auth-countries"
+                  list="cultosol-auth-countries"
                   value={country}
                   onChange={(e) => setCountry(e.target.value)}
                   placeholder={text.country}
                 />
-                <datalist id="alakay-auth-countries">
+                <datalist id="cultosol-auth-countries">
                   {countries.map((item) => (
                     <option key={item} value={item} />
                   ))}

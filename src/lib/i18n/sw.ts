@@ -30,7 +30,7 @@ const sw = {
   saveAnalysis: "Hifadhi uchambuzi",
   languageLabel: "Lugha",
   guestMode: "Hali ya mgeni",
-  authWelcome: "Karibu Alakay",
+  authWelcome: "Karibu Cultosol",
   authWelcomeDesc: "Kutafsiri vipimo vya maabara sasa ni rahisi zaidi!",
   appSettings: "Mipangilio ya app",
   appSettingsDesc: "Badilisha matumizi ya app na dhibiti zana za data.",
@@ -68,9 +68,9 @@ const sw = {
   extractionMethodBray: "Bray",
   extractionMethodActive: "Viwango vya P: {method}",
   aboutIntro:
-    "Alakay inawasaidia wazalishaji wadogo kubadilisha matokeo ya maabara ya udongo na majani kuwa mwongozo wa vitendo shambani.",
+    "Cultosol inawasaidia wazalishaji wadogo kubadilisha matokeo ya maabara ya udongo na majani kuwa mwongozo wa vitendo shambani.",
   aboutDisclaimerShort:
-    "Alakay inasaidia maamuzi yako—haibadilishi ushauri wa kitaalamu wa kilimo.",
+    "Cultosol inasaidia maamuzi yako—haibadilishi ushauri wa kitaalamu wa kilimo.",
   importDataDesc:
     "Ingiza hati (Excel, CSV, PDF, TXT) au piga picha ya ripoti yako.",
   takePhotoDesc: "Fungua kamera na piga picha ya ripoti yako ya maabara.",
@@ -205,7 +205,7 @@ const sw = {
   logOut: "Toka",
 
   about: "Kuhusu",
-  aboutTitle: "Kuhusu Alakay",
+  aboutTitle: "Kuhusu Cultosol",
   aboutMissionLabel: "Dhamira",
   aboutMission:
     "Kusaidia wazalishaji wadogo kubadilisha matokeo ya maabara ya udongo na majani kuwa mwongozo wazi kwa shamba.",
@@ -216,7 +216,7 @@ const sw = {
   aboutPhoneCr: "Costa Rica",
   aboutPhoneHt: "Haiti",
   aboutDisclaimer:
-    "Alakay inasaidia maamuzi yako—haibadilishi ushauri wa kitaalamu wa kilimo.",
+    "Cultosol inasaidia maamuzi yako—haibadilishi ushauri wa kitaalamu wa kilimo.",
   aboutAddRequest: "Ongeza ombi",
   aboutDonate: "Changia",
   aboutDonateSoon: "Kiungo cha PayPal kinakuja hivi karibuni.",
@@ -225,7 +225,7 @@ const sw = {
   aboutCreatorCountry: "Haiti",
   aboutDeveloperTitle: "Mhandisi wa Kilimo na Mchambuzi wa Data",
   feedbackTab: "Maoni",
-  feedbackDesc: "Shiriki uzoefu wako na Alakay.",
+  feedbackDesc: "Shiriki uzoefu wako na Cultosol.",
   feedbackRating: "Ukadiriaji",
   feedbackMessage: "Maoni yako",
   feedbackPlaceholder: "Nini kikusaidia? Tunapaswa kuboresha nini?",
@@ -236,7 +236,7 @@ const sw = {
   feedbackRecent: "Maoni ya hivi karibuni",
   feedbackAnonymous: "Haijulikani",
   impactTab: "Athari",
-  impactDesc: "Ona jinsi Alakay inavyotumika duniani.",
+  impactDesc: "Ona jinsi Cultosol inavyotumika duniani.",
   impactUnavailable: "Data ya athari haipatikani.",
   impactError: "Haikuwezekana kupakia data ya athari.",
   impactEmpty: "Bado hakuna data ya athari.",
@@ -246,7 +246,7 @@ const sw = {
   impactMapTitle: "Uchambuzi kwa nchi",
   impactTopRegions: "Mikoa kuu",
   featureRequest: "Ombi la kipengele",
-  featureRequestDesc: "Shiriki wazo au uboreshaji na timu ya Alakay.",
+  featureRequestDesc: "Shiriki wazo au uboreshaji na timu ya Cultosol.",
   featureRequestName: "Jina lako (hiari)",
   featureRequestEmail: "Barua pepe yako (hiari)",
   featureRequestSubject: "Mada",
@@ -282,9 +282,9 @@ const sw = {
   adminShow: "Onyesha",
   adminDelete: "Futa",
   countryOther: "Nyingine",
-  installAppTitle: "Sakinisha ALAKAY",
+  installAppTitle: "Sakinisha CULTOSOL",
   installAppDesc:
-    "Ongeza ALAKAY kwenye skrini ya nyumbani kwa uzoefu wa skrini nzima bila upau wa kivinjari.",
+    "Ongeza CULTOSOL kwenye skrini ya nyumbani kwa uzoefu wa skrini nzima bila upau wa kivinjari.",
   installAppAction: "Sakinisha programu",
   installAppIosHint: "Gusa Shiriki, kisha Ongeza kwenye Skrini ya Nyumbani",
   installAppDismiss: "Funga kidokezo cha usakinishaji",

@@ -288,6 +288,27 @@ function getUnitOptionKey(unit: {
   return `${unit.unit_id}::${unit.display_symbol || unit.unit_symbol}`;
 }
 
+function dedupeUnitOptions<
+  T extends {
+    unit_id: number;
+    unit_symbol: string;
+    display_symbol: string;
+    canonical_symbol?: string;
+  },
+>(options: T[]) {
+  const seen = new Set<string>();
+  const result: T[] = [];
+
+  for (const option of options) {
+    const key = getUnitOptionKey(option);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(option);
+  }
+
+  return result;
+}
+
 function getUnitSymbolForConversion(unit: {
   unit_symbol: string;
   display_symbol: string;
@@ -644,7 +665,7 @@ const appSteps = new Set<AppStep>([
 
 function readHistoryStep(state: unknown): AppStep | null {
   if (!state || typeof state !== "object") return null;
-  const step = (state as { alakayStep?: unknown }).alakayStep;
+  const step = (state as { cultosolStep?: unknown }).cultosolStep;
   return typeof step === "string" && appSteps.has(step as AppStep)
     ? (step as AppStep)
     : null;
@@ -747,7 +768,7 @@ export default function HomePage() {
     const currentState = window.history.state;
     if (!readHistoryStep(currentState)) {
       window.history.replaceState(
-        { ...currentState, alakayStep: currentStepRef.current },
+        { ...currentState, cultosolStep: currentStepRef.current },
         ""
       );
     }
@@ -777,7 +798,7 @@ export default function HomePage() {
 
     if (readHistoryStep(window.history.state) === currentStep) return;
     window.history.pushState(
-      { ...window.history.state, alakayStep: currentStep },
+      { ...window.history.state, cultosolStep: currentStep },
       ""
     );
   }, [currentStep]);
@@ -807,7 +828,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!session?.user || guestMode) return;
-    const key = `alakay-welcome-seen-${session.user.id}`;
+    const key = `cultosol-welcome-seen-${session.user.id}`;
     if (window.localStorage.getItem(key)) return;
     const frame = window.requestAnimationFrame(() => setShowWelcomeGuide(true));
     return () => window.cancelAnimationFrame(frame);
@@ -815,7 +836,7 @@ export default function HomePage() {
 
   function closeWelcomeGuide() {
     if (session?.user) {
-      window.localStorage.setItem(`alakay-welcome-seen-${session.user.id}`, "1");
+      window.localStorage.setItem(`cultosol-welcome-seen-${session.user.id}`, "1");
     }
     setShowWelcomeGuide(false);
   }
@@ -1100,40 +1121,57 @@ export default function HomePage() {
       preferredUnitId = baseUnitId,
       preferredUnitSymbol = baseUnitSymbol
     ) {
-      const options = initialOptions.map((option) => ({
-        ...option,
-        display_symbol: getFriendlyUnitSymbol(option.display_symbol || option.unit_symbol),
-        canonical_symbol: option.unit_symbol,
-      }));
-      const seen = new Set(options.map((option) => getUnitOptionKey(option)));
+      type UnitOption = {
+        unit_id: number;
+        unit_symbol: string;
+        display_symbol: string;
+        canonical_symbol: string;
+      };
+
+      const options: UnitOption[] = [];
+      const seen = new Set<string>();
+
+      function addOption(option: {
+        unit_id: number;
+        unit_symbol: string;
+        display_symbol: string;
+        canonical_symbol?: string;
+      }) {
+        const normalized: UnitOption = {
+          unit_id: option.unit_id,
+          unit_symbol: option.unit_symbol,
+          display_symbol: getFriendlyUnitSymbol(
+            option.display_symbol || option.unit_symbol
+          ),
+          canonical_symbol: option.canonical_symbol ?? option.unit_symbol,
+        };
+        const key = getUnitOptionKey(normalized);
+        if (seen.has(key)) return;
+        seen.add(key);
+        options.push(normalized);
+      }
+
+      for (const option of initialOptions) {
+        addOption({ ...option, canonical_symbol: option.unit_symbol });
+      }
 
       if (preferredUnitId && preferredUnitSymbol) {
-        const preferredOption = {
+        addOption({
           unit_id: preferredUnitId,
           unit_symbol: preferredUnitSymbol,
-          display_symbol: getFriendlyUnitSymbol(preferredUnitSymbol),
+          display_symbol: preferredUnitSymbol,
           canonical_symbol: preferredUnitSymbol,
-        };
-        const key = getUnitOptionKey(preferredOption);
-        if (!seen.has(key)) {
-          options.push(preferredOption);
-          seen.add(key);
-        }
+        });
       }
 
       for (const candidate of allUnits) {
         if (!canConvertLabUnit(baseUnitSymbol, candidate.unit_symbol)) continue;
-        const option = {
+        addOption({
           unit_id: candidate.unit_id,
           unit_symbol: candidate.unit_symbol,
-          display_symbol: getFriendlyUnitSymbol(candidate.unit_symbol),
+          display_symbol: candidate.unit_symbol,
           canonical_symbol: candidate.unit_symbol,
-        };
-        const key = getUnitOptionKey(option);
-        if (!seen.has(key)) {
-          options.push(option);
-          seen.add(key);
-        }
+        });
       }
 
       options.sort((left, right) => {
@@ -3439,7 +3477,7 @@ function ValuesScreen({
                           className="app-native-select min-h-11 w-full min-w-0 px-2 py-2 text-base sm:px-3 sm:text-sm"
                           title={t.changeUnit}
                         >
-                          {parameter.available_units.map((unit) => (
+                          {dedupeUnitOptions(parameter.available_units).map((unit) => (
                             (() => {
                               const canConvert =
                                 !selectedUnit ||
@@ -3582,7 +3620,7 @@ function ValuesScreen({
                       className="app-native-select absolute right-2 top-1/2 max-w-24 -translate-y-1/2 px-2 py-1 text-xs"
                       title={t.changeUnit}
                     >
-                      {parameter.available_units.map((unit) => (
+                      {dedupeUnitOptions(parameter.available_units).map((unit) => (
                         (() => {
                           const canConvert =
                             !selectedUnit ||

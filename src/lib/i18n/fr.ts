@@ -1,5 +1,5 @@
 ﻿const fr = {
-  appName: "Alakay",
+  appName: "Cultosol",
   account: "Compte",
   tagline:
     "Outil d'interprétation des analyses de sol et foliaires pour les petits producteurs.",
@@ -190,7 +190,7 @@
 
   noRangeFound: "Aucune plage trouvée",
   noRangeFoundDesc:
-    "Ces valeurs ont été saisies, mais Alakay n'a pas trouvé de plage d'interprétation.",
+    "Ces valeurs ont été saisies, mais Cultosol n'a pas trouvé de plage d'interprétation.",
   source: "Source",
   confidence: "Confiance",
   proxyRange: "Plage proxy",
@@ -336,7 +336,7 @@
   categoryBiological: "Biologique",
   countryOther: "Autre",
   languageLabel: "Langue",
-  authWelcome: "Bienvenue sur Alakay",
+  authWelcome: "Bienvenue sur Cultosol",
   authWelcomeDesc:
     "Interpréter les analyses de laboratoire n'a jamais été aussi facile !",
 
@@ -436,9 +436,9 @@
     "Aucune analyse en cours. Démarrez une nouvelle analyse ou importez des valeurs.",
 
   about: "À propos",
-  aboutTitle: "À propos d'Alakay",
+  aboutTitle: "À propos de Cultosol",
   aboutIntro:
-    "Alakay aide les petits producteurs à transformer les résultats de laboratoire sol et foliaire en conseils pratiques pour le terrain, avec la confiance de chercher un appui expert quand c'est nécessaire.",
+    "Cultosol aide les petits producteurs à transformer les résultats de laboratoire sol et foliaire en conseils pratiques pour le terrain, avec la confiance de chercher un appui expert quand c'est nécessaire.",
   aboutMissionLabel: "Mission",
   aboutMission:
     "Aider les petits producteurs à transformer les résultats de laboratoire du sol et du feuillage en conseils clairs et pratiques pour le terrain.",
@@ -449,7 +449,7 @@
   aboutPhoneCr: "Costa Rica",
   aboutPhoneHt: "Haïti",
   aboutDisclaimerShort:
-    "Alakay soutient vos décisions—il ne remplace pas les conseils agronomiques professionnels.",
+    "Cultosol soutient vos décisions—il ne remplace pas les conseils agronomiques professionnels.",
   aboutAddRequest: "Ajouter une demande",
   aboutDonate: "Faire un don",
   aboutDonateSoon: "Lien PayPal bientôt disponible.",
@@ -458,7 +458,7 @@
   aboutCreatorCountry: "Haïti",
   aboutDeveloperTitle: "Ingénieur agronome et analyste de données",
   feedbackTab: "Commentaires",
-  feedbackDesc: "Partagez votre expérience avec Alakay.",
+  feedbackDesc: "Partagez votre expérience avec Cultosol.",
   feedbackRating: "Note",
   feedbackMessage: "Votre commentaire",
   feedbackPlaceholder: "Qu'est-ce qui vous a aidé ? Que devrions-nous améliorer ?",
@@ -469,7 +469,7 @@
   feedbackRecent: "Commentaires récents",
   feedbackAnonymous: "Anonyme",
   impactTab: "Impact",
-  impactDesc: "Découvrez comment Alakay est utilisé dans le monde.",
+  impactDesc: "Découvrez comment Cultosol est utilisé dans le monde.",
   impactUnavailable: "Données d'impact indisponibles.",
   impactError: "Impossible de charger les données d'impact.",
   impactEmpty: "Pas encore de données d'impact.",
@@ -479,7 +479,7 @@
   impactMapTitle: "Analyses par pays",
   impactTopRegions: "Principales régions",
   featureRequest: "Demande de fonctionnalité",
-  featureRequestDesc: "Partagez une idée ou une amélioration avec l'équipe Alakay.",
+  featureRequestDesc: "Partagez une idée ou une amélioration avec l'équipe Cultosol.",
   featureRequestName: "Votre nom (optionnel)",
   featureRequestEmail: "Votre e-mail (optionnel)",
   featureRequestSubject: "Sujet",
@@ -514,9 +514,9 @@
   adminHide: "Masquer",
   adminShow: "Afficher",
   adminDelete: "Supprimer",
-  installAppTitle: "Installer ALAKAY",
+  installAppTitle: "Installer CULTOSOL",
   installAppDesc:
-    "Ajoutez ALAKAY à l'écran d'accueil pour une expérience plein écran sans barre du navigateur.",
+    "Ajoutez CULTOSOL à l'écran d'accueil pour une expérience plein écran sans barre du navigateur.",
   installAppAction: "Installer l'app",
   installAppIosHint: "Appuyez sur Partager, puis Sur l'écran d'accueil",
   installAppDismiss: "Fermer l'invite d'installation",

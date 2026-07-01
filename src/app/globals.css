@@ -9,8 +9,8 @@
   --surface: #ffffff;
   --surface-variant: #f7f7f7;
   --surface-container: #efefef;
-  --alakay-green: #15803d;
-  --alakay-green-dark: #166534;
+  --cultosol-green: #15803d;
+  --cultosol-green-dark: #166534;
   --glass-bg: #ffffff;
   --glass-border: rgb(255 255 255 / 0.42);
   --glass-surface: rgb(255 255 255 / 0.68);
@@ -176,8 +176,8 @@ html[data-theme="dark"]:not([data-dark-variant="black"]) {
   --surface-variant: #242424;
   --surface-container: #1a1a1a;
   --foreground: #e8e8e8;
-  --alakay-green: var(--accent-400, #4ade80);
-  --alakay-green-dark: var(--accent-200, #bbf7d0);
+  --cultosol-green: var(--accent-400, #4ade80);
+  --cultosol-green-dark: var(--accent-200, #bbf7d0);
   --glass-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
 }
@@ -194,8 +194,8 @@ html[data-theme="dark"][data-dark-variant="black"] {
   --surface-variant: #101010;
   --surface-container: #0a0a0a;
   --foreground: #f2f2f2;
-  --alakay-green: var(--accent-400, #4ade80);
-  --alakay-green-dark: var(--accent-300, #86efac);
+  --cultosol-green: var(--accent-400, #4ade80);
+  --cultosol-green-dark: var(--accent-300, #86efac);
   --glass-shadow: 0 4px 20px rgba(0, 0, 0, 0.65);
   --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.35);
   --dark-panel-bg: rgb(0 0 0 / 0.78);
@@ -342,6 +342,7 @@ textarea {
 
   .app-logo-frame {
     border-radius: 9999px;
+    background: transparent;
     transition:
       background 0.22s ease,
       box-shadow 0.22s ease,
@@ -1748,13 +1749,13 @@ html[data-theme="dark"] .app-header {
   }
 
   .settings-section-icon {
-    background: var(--alakay-green-dark, #15803d);
+    background: var(--cultosol-green-dark, #15803d);
     color: #ffffff;
     box-shadow: 0 8px 20px rgba(21, 128, 61, 0.18);
   }
 
   html[data-theme="dark"] .settings-section-icon {
-    background: var(--alakay-green);
+    background: var(--cultosol-green);
     color: #042f1a;
     box-shadow: 0 10px 24px rgba(2, 6, 23, 0.28);
   }
@@ -3118,7 +3119,7 @@ html[data-theme="dark"] .app-header {
     place-items: center;
     align-self: center;
     border-radius: 9999px;
-    background: var(--alakay-green-dark);
+    background: var(--cultosol-green-dark);
     color: #ffffff;
     box-shadow: 0 10px 24px rgba(21, 128, 61, 0.22);
     transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);

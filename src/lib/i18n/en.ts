@@ -1,5 +1,5 @@
 ﻿const en = {
-  appName: "Alakay",
+  appName: "Cultosol",
   account: "Account",
   tagline: "Soil and foliar analysis interpretation tool for small producers.",
   shortTagline: "Soil & foliar interpretation",
@@ -175,7 +175,7 @@
 
   noRangeFound: "No range found",
   noRangeFoundDesc:
-    "These values were entered, but Alakay did not find a matching interpretation range.",
+    "These values were entered, but Cultosol did not find a matching interpretation range.",
   source: "Source",
   confidence: "Confidence",
   proxyRange: "Proxy range",
@@ -315,7 +315,7 @@
   categoryBiological: "Biological",
   countryOther: "Other",
   languageLabel: "Language",
-  authWelcome: "Welcome to Alakay",
+  authWelcome: "Welcome to Cultosol",
   authWelcomeDesc: "Interpret lab test has never been so easy!",
 
   guestMode: "Guest mode",
@@ -411,9 +411,9 @@
     "No in-progress analysis yet. Start a new analysis or import lab values first.",
 
   about: "About",
-  aboutTitle: "About Alakay",
+  aboutTitle: "About Cultosol",
   aboutIntro:
-    "Alakay helps small producers turn soil and foliar lab results into practical field guidance—with confidence to seek expert support when needed.",
+    "Cultosol helps small producers turn soil and foliar lab results into practical field guidance—with confidence to seek expert support when needed.",
   aboutMissionLabel: "Mission",
   aboutMission:
     "Help small producers turn soil and foliar lab results into clear, practical guidance for the field.",
@@ -424,7 +424,7 @@
   aboutPhoneCr: "Costa Rica",
   aboutPhoneHt: "Haiti",
   aboutDisclaimerShort:
-    "Alakay supports your decisions—it does not replace professional agronomic advice.",
+    "Cultosol supports your decisions—it does not replace professional agronomic advice.",
   aboutAddRequest: "Add a request",
   aboutDonate: "Donate",
   aboutDonateSoon: "PayPal link coming soon.",
@@ -434,7 +434,7 @@
   aboutDeveloperTitle: "Agricultural Engineer and Data Analyst",
   feedbackTab: "Feedback",
   feedbackDesc:
-    "Share your experience with Alakay. Your comment may appear in our impact section.",
+    "Share your experience with Cultosol. Your comment may appear in our impact section.",
   feedbackRating: "Rating",
   feedbackMessage: "Your feedback",
   feedbackPlaceholder: "What helped you? What should we improve?",
@@ -445,7 +445,7 @@
   feedbackRecent: "Recent comments",
   feedbackAnonymous: "Anonymous",
   impactTab: "Impact",
-  impactDesc: "See how Alakay is used around the world.",
+  impactDesc: "See how Cultosol is used around the world.",
   impactUnavailable: "Impact data is unavailable right now.",
   impactError: "Could not load impact data.",
   impactEmpty: "No impact data yet.",
@@ -456,7 +456,7 @@
   impactTopRegions: "Top regions",
   featureRequest: "Feature request",
   featureRequestDesc:
-    "Share an idea or improvement. Your message is sent directly to the Alakay team.",
+    "Share an idea or improvement. Your message is sent directly to the Cultosol team.",
   featureRequestName: "Your name (optional)",
   featureRequestEmail: "Your email (optional, for follow-up)",
   featureRequestSubject: "Subject",
@@ -491,9 +491,9 @@
   adminHide: "Hide",
   adminShow: "Show",
   adminDelete: "Delete",
-  installAppTitle: "Install ALAKAY",
+  installAppTitle: "Install CULTOSOL",
   installAppDesc:
-    "Add ALAKAY to your home screen for a full-screen app without the browser bar.",
+    "Add CULTOSOL to your home screen for a full-screen app without the browser bar.",
   installAppAction: "Install app",
   installAppIosHint: "Tap Share, then Add to Home Screen",
   installAppDismiss: "Dismiss install prompt",

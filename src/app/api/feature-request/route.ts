@@ -54,10 +54,10 @@ export async function POST(request: Request) {
 
     const fromEmail =
       process.env.FEATURE_REQUEST_FROM_EMAIL?.trim() ||
-      "Alakay App <onboarding@resend.dev>";
+      "Cultosol App <onboarding@resend.dev>";
 
     const text = [
-      "New feature request from Alakay App",
+      "New feature request from Cultosol App",
       "",
       `Subject: ${subject}`,
       name ? `Name: ${name}` : null,
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         from: fromEmail,
         to: [ADMIN_EMAIL],
-        subject: `[Alakay Feature] ${subject}`,
+        subject: `[Cultosol Feature] ${subject}`,
         text,
         ...(email ? { reply_to: email } : {}),
       }),

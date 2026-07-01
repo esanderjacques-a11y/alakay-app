@@ -1,4 +1,4 @@
-const CACHE_VERSION = "alakay-pwa-v1";
+const CACHE_VERSION = "cultosol-pwa-v1";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());

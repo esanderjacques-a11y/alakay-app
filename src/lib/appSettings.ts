@@ -1,6 +1,6 @@
 import type { Language } from "@/lib/translations";
 
-export const APP_SETTINGS_STORAGE_KEY = "alakay_app_settings";
+export const APP_SETTINGS_STORAGE_KEY = "cultosol_app_settings";
 
 export type AppThemePreference = "system" | "light" | "dark" | "dark_black";
 export type AccentColor =

@@ -6,12 +6,12 @@
  * - Future: `useViewLayoutPreference('values-entry')` on the Values page
  *   with `<ViewLayoutToggle value={layout} onChange={setLayout} />`
  *
- * Storage key: `alakay-view-layout-<scope>`
+ * Storage key: `cultosol-view-layout-<scope>`
  */
 
 export type ViewLayoutMode = "list" | "grid";
 
-const STORAGE_PREFIX = "alakay-view-layout-";
+const STORAGE_PREFIX = "cultosol-view-layout-";
 
 export function viewLayoutStorageKey(scope: string) {
   return `${STORAGE_PREFIX}${scope}`;

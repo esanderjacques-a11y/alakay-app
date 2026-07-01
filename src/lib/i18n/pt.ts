@@ -31,7 +31,7 @@ const pt = {
   exportPdf: "Exportar PDF",
   languageLabel: "Idioma",
   guestMode: "Modo convidado",
-  authWelcome: "Bem-vindo ao Alakay",
+  authWelcome: "Bem-vindo ao Cultosol",
   authWelcomeDesc: "Interpretar análises laboratoriais nunca foi tão fácil!",
   appSettings: "Configurações do app",
   appSettingsDesc: "Ajuste a experiência do app e gerencie ferramentas avançadas de dados.",
@@ -70,9 +70,9 @@ const pt = {
   extractionMethodBray: "Bray",
   extractionMethodActive: "Faixas de P: {method}",
   aboutIntro:
-    "O Alakay ajuda pequenos produtores a transformar resultados de laboratório de solo e foliar em orientação prática para o campo.",
+    "O Cultosol ajuda pequenos produtores a transformar resultados de laboratório de solo e foliar em orientação prática para o campo.",
   aboutDisclaimerShort:
-    "O Alakay apoia suas decisões—não substitui o aconselhamento agronômico profissional.",
+    "O Cultosol apoia suas decisões—não substitui o aconselhamento agronômico profissional.",
   importDataDesc:
     "Importe documentos (Excel, CSV, PDF, TXT) ou tire uma foto do seu relatório.",
   takePhotoDesc: "Abra a câmera e fotografe seu relatório de laboratório.",
@@ -218,7 +218,7 @@ const pt = {
   logOut: "Sair",
 
   about: "Sobre",
-  aboutTitle: "Sobre o Alakay",
+  aboutTitle: "Sobre o Cultosol",
   aboutMissionLabel: "Missão",
   aboutMission:
     "Ajudar pequenos produtores a transformar resultados de laboratório de solo e foliar em orientação clara e prática para o campo.",
@@ -229,7 +229,7 @@ const pt = {
   aboutPhoneCr: "Costa Rica",
   aboutPhoneHt: "Haiti",
   aboutDisclaimer:
-    "O Alakay apoia suas decisões—não substitui o aconselhamento agronômico profissional. Se não tiver certeza de como interpretar ou agir sobre seus resultados, consulte um agrônomo qualificado.",
+    "O Cultosol apoia suas decisões—não substitui o aconselhamento agronômico profissional. Se não tiver certeza de como interpretar ou agir sobre seus resultados, consulte um agrônomo qualificado.",
   aboutAddRequest: "Adicionar solicitação",
   aboutDonate: "Doar",
   aboutDonateSoon: "Link do PayPal em breve.",
@@ -238,7 +238,7 @@ const pt = {
   aboutCreatorCountry: "Haiti",
   aboutDeveloperTitle: "Engenheiro Agrônomo e Analista de Dados",
   feedbackTab: "Feedback",
-  feedbackDesc: "Compartilhe sua experiência com o Alakay.",
+  feedbackDesc: "Compartilhe sua experiência com o Cultosol.",
   feedbackRating: "Avaliação",
   feedbackMessage: "Seu feedback",
   feedbackPlaceholder: "O que ajudou? O que devemos melhorar?",
@@ -249,7 +249,7 @@ const pt = {
   feedbackRecent: "Comentários recentes",
   feedbackAnonymous: "Anônimo",
   impactTab: "Impacto",
-  impactDesc: "Veja como o Alakay é usado no mundo.",
+  impactDesc: "Veja como o Cultosol é usado no mundo.",
   impactUnavailable: "Dados de impacto indisponíveis.",
   impactError: "Não foi possível carregar os dados de impacto.",
   impactEmpty: "Ainda não há dados de impacto.",
@@ -259,7 +259,7 @@ const pt = {
   impactMapTitle: "Análises por país",
   impactTopRegions: "Principais regiões",
   featureRequest: "Solicitar recurso",
-  featureRequestDesc: "Compartilhe uma ideia ou melhoria com a equipe Alakay.",
+  featureRequestDesc: "Compartilhe uma ideia ou melhoria com a equipe Cultosol.",
   featureRequestName: "Seu nome (opcional)",
   featureRequestEmail: "Seu e-mail (opcional)",
   featureRequestSubject: "Assunto",
@@ -295,9 +295,9 @@ const pt = {
   adminShow: "Mostrar",
   adminDelete: "Excluir",
   countryOther: "Outro",
-  installAppTitle: "Instalar ALAKAY",
+  installAppTitle: "Instalar CULTOSOL",
   installAppDesc:
-    "Adicione ALAKAY à tela inicial para uma experiência em tela cheia sem a barra do navegador.",
+    "Adicione CULTOSOL à tela inicial para uma experiência em tela cheia sem a barra do navegador.",
   installAppAction: "Instalar app",
   installAppIosHint: "Toque em Compartilhar e depois Adicionar à Tela de Início",
   installAppDismiss: "Fechar aviso de instalação",

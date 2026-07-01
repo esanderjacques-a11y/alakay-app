@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "ALAKAY - Soil & foliar interpretation",
-    short_name: "ALAKAY",
+    name: "CULTOSOL - Soil & foliar interpretation",
+    short_name: "CULTOSOL",
     description: "Interpret soil and foliar lab results.",
     start_url: "/",
     scope: "/",

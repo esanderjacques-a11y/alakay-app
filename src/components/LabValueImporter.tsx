@@ -170,7 +170,7 @@ type Props = {
   ) => void;
 };
 
-const IMPORT_MEMORY_KEY = "alakay_import_memory";
+const IMPORT_MEMORY_KEY = "cultosol_import_memory";
 
 function normalizeText(value: string) {
   return value
@@ -2133,7 +2133,7 @@ export default function LabValueImporter({
   const modalWidth = hasPreview ? "max-w-6xl" : "max-w-md";
   const title = isScanMode ? "Take picture" : "Import document";
   const subtitle = isScanMode
-    ? "Photograph your lab report. Alakay finds the values automatically."
+    ? "Photograph your lab report. Cultosol finds the values automatically."
     : "Upload Excel, CSV, PDF, or TXT.";
 
   return (

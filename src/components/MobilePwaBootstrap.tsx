@@ -5,7 +5,7 @@ import { Download, Share, X } from "lucide-react";
 import { readStoredLanguage } from "@/lib/uiPreferences";
 import { translations } from "@/lib/translations";
 
-const INSTALL_DISMISS_KEY = "alakay_install_prompt_dismissed";
+const INSTALL_DISMISS_KEY = "cultosol_install_prompt_dismissed";
 
 function isStandaloneDisplay() {
   if (typeof window === "undefined") return false;

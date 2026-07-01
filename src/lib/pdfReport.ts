@@ -167,7 +167,7 @@ export async function exportAnalysisPdf(options: {
     locale,
     reportMeta,
     reportOptions,
-    fileName = "alakay-analysis-report.pdf",
+    fileName = "cultosol-analysis-report.pdf",
   } = options;
 
   const exportOptions: Required<PdfReportOptions> = {

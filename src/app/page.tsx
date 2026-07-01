@@ -19,7 +19,6 @@ import {
   Search,
   SlidersHorizontal,
   Sprout,
-  Table2,
   Upload,
 } from "lucide-react";
 
@@ -32,6 +31,7 @@ import CustomRangeManager from "@/components/CustomRangeManager";
 import LabValueImporter from "@/components/LabValueImporter";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ParameterCategoryFilter from "@/components/ParameterCategoryFilter";
+import ValuesDisplayMenu from "@/components/ValuesDisplayMenu";
 import ResultsDashboard from "@/components/ResultsDashboard";
 import RecycleBinScreen from "@/components/RecycleBinScreen";
 import CalculatorHub from "@/components/CalculatorHub";
@@ -43,11 +43,13 @@ import HomeScreen from "@/components/HomeScreen";
 import ImportDataScreen from "@/components/ImportDataScreen";
 
 import BackButton from "@/components/ui/BackButton";
+import { ViewLayoutToggle } from "@/components/ui/ViewLayoutToggle";
 import { AppStep } from "@/lib/appSteps";
 import { isAdminEmail } from "@/lib/admin";
 import { exportAnalysisPdf } from "@/lib/pdfReport";
 import { RequestTimeoutError } from "@/lib/fetchWithTimeout";
 import { formatMessage, Language, translations } from "@/lib/translations";
+import { calculatorHubText } from "@/lib/i18n/componentText";
 import {
   applyAccentColor,
   applyTheme,
@@ -317,36 +319,6 @@ function getUnitSymbolForConversion(unit: {
   return unit.canonical_symbol || unit.unit_symbol || unit.display_symbol;
 }
 
-function getPreferredUnitDisplayKey(
-  parameter: Parameter,
-  selectedUnitId: number,
-  currentDisplayKey?: string
-) {
-  const currentOption = currentDisplayKey
-    ? parameter.available_units.find(
-        (unit) => getUnitOptionKey(unit) === currentDisplayKey
-      )
-    : null;
-
-  if (currentOption && currentOption.unit_id !== parameter.unit_id) {
-    return currentDisplayKey || getUnitOptionKey(currentOption);
-  }
-
-  const preferredDisplay = getFriendlyUnitSymbol(
-    parameter.unit_symbol || currentOption?.unit_symbol || ""
-  );
-  const preferredOption =
-    parameter.available_units.find(
-      (unit) =>
-        unit.unit_id === selectedUnitId &&
-        (unit.display_symbol || unit.unit_symbol) === preferredDisplay
-    ) ||
-    parameter.available_units.find((unit) => unit.unit_id === selectedUnitId) ||
-    parameter.available_units[0];
-
-  return preferredOption ? getUnitOptionKey(preferredOption) : "";
-}
-
 function getFriendlyUnitSymbol(unitSymbol: string) {
   const rawUnitSymbol = String(unitSymbol || "").trim();
 
@@ -367,17 +339,80 @@ function getFriendlyUnitSymbol(unitSymbol: string) {
   const friendlySymbols: Record<string, string> = {
     "dag/kg": "%",
     "dagkg-1": "%",
+    "g/100g": "%",
+    "percent": "%",
     "ug/g": "mg/kg",
     "µg/g": "mg/kg",
+    "ppm": "mg/kg",
+    "cmolc/kg": "cmol(+)/kg",
+    "cmol/kg": "cmol(+)/kg",
+    "cmol(+)kg-1": "cmol(+)/kg",
+    "cmolckg-1": "cmol(+)/kg",
+    "cmolkg-1": "cmol(+)/kg",
+    "meq/100g": "cmol(+)/kg",
+    "meq100g-1": "cmol(+)/kg",
+    "meq/100g-1": "cmol(+)/kg",
     "mmhos/cm": "dS/m",
     "mmhoscm-1": "dS/m",
     "mmho/cm": "dS/m",
     "mmhocm-1": "dS/m",
-    "meq100g-1": "meq/100g",
-    "meq/100g-1": "meq/100g",
   };
 
   return friendlySymbols[compact] || unitSymbol;
+}
+
+function getPreferredUnitDisplayKey(
+  parameter: Parameter,
+  selectedUnitId: number,
+  currentDisplayKey?: string
+) {
+  if (currentDisplayKey) {
+    const currentOption = parameter.available_units.find(
+      (unit) => getUnitOptionKey(unit) === currentDisplayKey
+    );
+    if (currentOption) return currentDisplayKey;
+  }
+
+  const preferredDisplay = getFriendlyUnitSymbol(parameter.unit_symbol);
+
+  const selectedOption =
+    parameter.available_units.find(
+      (unit) =>
+        unit.unit_id === selectedUnitId &&
+        normalizeUnitSymbol(unit.display_symbol || unit.unit_symbol) ===
+          normalizeUnitSymbol(preferredDisplay)
+    ) ||
+    parameter.available_units.find(
+      (unit) =>
+        unit.unit_id === selectedUnitId &&
+        (unit.unit_symbol === parameter.unit_symbol ||
+          unit.display_symbol === parameter.unit_symbol)
+    ) ||
+    parameter.available_units.find((unit) => unit.unit_id === selectedUnitId) ||
+    parameter.available_units.find((unit) => unit.unit_id === parameter.unit_id) ||
+    parameter.available_units[0];
+
+  return selectedOption ? getUnitOptionKey(selectedOption) : "";
+}
+
+function resolveParameterUnitState(
+  parameter: Parameter,
+  selectedUnits: Record<string, number>,
+  selectedUnitDisplayKeys: Record<string, string>
+) {
+  const selectedUnitId =
+    selectedUnits[parameter.parameter_key] || parameter.unit_id;
+  const selectedUnit =
+    parameter.available_units.find((unit) => unit.unit_id === selectedUnitId) ||
+    parameter.available_units[0];
+  const selectedUnitDisplayKey =
+    getPreferredUnitDisplayKey(
+      parameter,
+      selectedUnitId,
+      selectedUnitDisplayKeys[parameter.parameter_key]
+    ) || (selectedUnit ? getUnitOptionKey(selectedUnit) : "");
+
+  return { selectedUnitId, selectedUnit, selectedUnitDisplayKey };
 }
 
 function normalizeUnitSymbol(unitSymbol: string) {
@@ -415,15 +450,74 @@ function getPreferredFoliarUnitSymbol(parameter: {
   return null;
 }
 
+function getPreferredSoilUnitSymbol(parameter: {
+  parameter_name: string;
+  symbol: string | null;
+  category: string | null;
+}) {
+  const symbol = String(parameter.symbol || "").trim().toLowerCase();
+  const name = parameter.parameter_name.toLowerCase();
+  const category = String(parameter.category || "").toLowerCase();
+
+  if (
+    category.includes("physical") ||
+    /\b(organic matter|materia organica|matiere organique|matye oganik)\b/.test(
+      name
+    ) ||
+    /\b(base saturation|saturacion de bases|saturation en bases|saturacao de bases)\b/.test(
+      name
+    )
+  ) {
+    return "%";
+  }
+
+  if (
+    /\b(cec|cic|cice|cation exchange|intercambio cationico|capacidad de intercambio)\b/.test(
+      name
+    ) ||
+    /\b(exchangeable acidity|acidez intercambiable|acidite echangeable|h\+al)\b/.test(
+      name
+    ) ||
+    ["k", "ca", "mg", "na"].includes(symbol)
+  ) {
+    return "cmol(+)/kg";
+  }
+
+  if (
+    category.includes("micro") ||
+    category.includes("toxic") ||
+    /\b(phosphorus|fosforo|phosphore|phosphate|fosfato|nitrate|nitrato|nitrogen|nitrogeno|ammonium|amonio|sulfur|sulphur|azufre|soufre|zinc|iron|hierro|manganese|manganeso|copper|cobre|boron|boro|aluminum|aluminium|aluminio|molybdenum|molibdeno|chloride|cloruro)\b/.test(
+      name
+    ) ||
+    ["p", "s", "n", "no3", "nh4", "b", "cu", "fe", "mn", "zn", "mo", "cl", "al"].includes(
+      symbol
+    )
+  ) {
+    return "mg/kg";
+  }
+
+  return null;
+}
+
 function findUnitBySymbol(
   units: Array<{ unit_id: number; unit_symbol: string }>,
   unitSymbol: string | null
 ) {
   if (!unitSymbol) return null;
-  const normalizedSymbol = normalizeUnitSymbol(unitSymbol);
+  const preferredDisplay = getFriendlyUnitSymbol(unitSymbol);
+  const normalizedSymbol = normalizeUnitSymbol(preferredDisplay);
+
+  const exactMatch = units.find(
+    (unit) =>
+      unit.unit_symbol === preferredDisplay ||
+      getFriendlyUnitSymbol(unit.unit_symbol) === preferredDisplay
+  );
+  if (exactMatch) return exactMatch;
+
   return (
-    units.find((unit) => normalizeUnitSymbol(unit.unit_symbol) === normalizedSymbol) ||
-    null
+    units.find(
+      (unit) => normalizeUnitSymbol(unit.unit_symbol) === normalizedSymbol
+    ) || null
   );
 }
 
@@ -491,6 +585,42 @@ function getParameterSortRank(parameter: Parameter) {
   }
 
   return getParameterFilterGroup(parameter) === "Physical" ? 350 : 260;
+}
+
+type ParameterPriorityTier = "key" | "standard" | "secondary";
+
+function getParameterPriorityTier(parameter: Parameter): ParameterPriorityTier {
+  const rank = getParameterSortRank(parameter);
+  if (rank < 100) return "key";
+  if (rank < 300) return "standard";
+  return "secondary";
+}
+
+function formatParameterEntryLabel(
+  parameter: Parameter,
+  showSymbolsOnly: boolean
+) {
+  if (showSymbolsOnly && parameter.symbol?.trim()) {
+    return { primary: parameter.symbol.trim() };
+  }
+
+  const primary = parameter.display_name;
+  const symbol = parameter.symbol?.trim();
+  const secondary =
+    symbol && symbol.toLowerCase() !== primary.trim().toLowerCase()
+      ? symbol
+      : undefined;
+
+  return { primary, secondary };
+}
+
+function priorityTierLabel(
+  tier: ParameterPriorityTier,
+  t: (typeof translations)[Language]
+) {
+  if (tier === "key") return t.valuesGroupKey;
+  if (tier === "standard") return t.valuesGroupStandard;
+  return t.valuesGroupSecondary;
 }
 
 function translateLevelCode(
@@ -1190,11 +1320,12 @@ export default function HomePage() {
 
       const databaseUnitId = unitData?.unit_id ?? row.default_unit_id;
       const databaseUnitSymbol = unitData?.unit_symbol ?? "";
-      const foliarPreferredUnit = sampleType === "foliar"
-        ? findUnitBySymbol(allUnits, getPreferredFoliarUnitSymbol(row))
-        : null;
-      const unitId = foliarPreferredUnit?.unit_id ?? databaseUnitId;
-      const unitSymbol = foliarPreferredUnit?.unit_symbol ?? databaseUnitSymbol;
+      const preferredUnit =
+        sampleType === "foliar"
+          ? findUnitBySymbol(allUnits, getPreferredFoliarUnitSymbol(row))
+          : findUnitBySymbol(allUnits, getPreferredSoilUnitSymbol(row));
+      const unitId = preferredUnit?.unit_id ?? databaseUnitId;
+      const unitSymbol = preferredUnit?.unit_symbol ?? databaseUnitSymbol;
 
       return {
         parameter_key: `p-${row.parameter_id}`,
@@ -1268,11 +1399,11 @@ export default function HomePage() {
 
     for (const parameter of formattedParameters) {
       defaultSelectedUnits[parameter.parameter_key] = parameter.unit_id;
-      const defaultUnit = parameter.available_units[0];
-      if (defaultUnit) {
-        defaultSelectedUnitDisplayKeys[parameter.parameter_key] =
-          getUnitOptionKey(defaultUnit);
-      }
+      defaultSelectedUnitDisplayKeys[parameter.parameter_key] =
+        getPreferredUnitDisplayKey(parameter, parameter.unit_id) ||
+        (parameter.available_units[0]
+          ? getUnitOptionKey(parameter.available_units[0])
+          : "");
     }
 
     const sampleTypeChanged = parametersSampleType !== column;
@@ -2403,6 +2534,10 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             selectedUnitDisplayKeys={selectedUnitDisplayKeys}
             showParameterDetails={appSettings.data.showParameterDetails}
             showParameterSymbolsOnly={appSettings.data.showParameterSymbolsOnly}
+            onShowParameterSymbolsOnlyChange={(value) => {
+              updateSetting("data", "showParameterSymbolsOnly", value);
+              setAppSettings(getSettings());
+            }}
             updateValue={updateValue}
             updateUnit={updateUnit}
             clearAllValues={clearAllValues}
@@ -2883,6 +3018,7 @@ function ValuesScreen({
   selectedUnitDisplayKeys,
   showParameterDetails,
   showParameterSymbolsOnly,
+  onShowParameterSymbolsOnlyChange,
   updateValue,
   updateUnit,
   clearAllValues,
@@ -2923,6 +3059,7 @@ function ValuesScreen({
   selectedUnitDisplayKeys: Record<string, string>;
   showParameterDetails: boolean;
   showParameterSymbolsOnly: boolean;
+  onShowParameterSymbolsOnlyChange: (value: boolean) => void;
   updateValue: (parameterKey: string, newValue: string) => void;
   updateUnit: (parameterKey: string, unitId: number, displayKey?: string) => void;
   clearAllValues: () => void;
@@ -2949,6 +3086,34 @@ function ValuesScreen({
   const [valueEntryView, setValueEntryView] = useState<ValueEntryView>("cards");
   const hasVisibleParameters = filteredParameters.length > 0;
   const hasEnteredValues = totalEnteredValues > 0;
+  const valuesChrome = calculatorHubText[language];
+  const parameterGroups = useMemo(() => {
+    if (sortMode !== "type") {
+      return [
+        {
+          tier: null as ParameterPriorityTier | null,
+          items: filteredParameters,
+        },
+      ];
+    }
+
+    const groups: Array<{
+      tier: ParameterPriorityTier;
+      items: Parameter[];
+    }> = [];
+
+    for (const parameter of filteredParameters) {
+      const tier = getParameterPriorityTier(parameter);
+      const last = groups[groups.length - 1];
+      if (!last || last.tier !== tier) {
+        groups.push({ tier, items: [parameter] });
+      } else {
+        last.items.push(parameter);
+      }
+    }
+
+    return groups;
+  }, [filteredParameters, sortMode]);
   const showStickyAddAction = hasVisibleParameters && showParameterActions;
   const showInterpretAction =
     hasVisibleParameters &&
@@ -3104,25 +3269,6 @@ function ValuesScreen({
               />
             </div>
 
-            {/* Sort */}
-            <div className="relative shrink-0">
-              <AppSelect
-                value={sortMode}
-                placeholder={t.sortByType}
-                options={[
-                  { label: t.sortByType, value: "type" },
-                  { label: t.sortByName, value: "name" },
-                ]}
-                onChange={(value) =>
-                  setSortMode((value || "type") as "name" | "type")
-                }
-                compact
-                icon={<SlidersHorizontal size={16} />}
-                iconOnlyOnMobile
-                floatingMenu
-              />
-            </div>
-
             {/* Import */}
             <button
               type="button"
@@ -3219,8 +3365,17 @@ function ValuesScreen({
             </div>
           </div>
 
-          {/* Category filter */}
-          <div className="mt-2.5 w-full">
+          <div className="values-toolbar__filters">
+            <ViewLayoutToggle
+              value={valueEntryView === "cards" ? "grid" : "list"}
+              onChange={(mode) =>
+                setValueEntryView(mode === "grid" ? "cards" : "table")
+              }
+              listLabel={valuesChrome.viewLayoutList}
+              gridLabel={valuesChrome.viewLayoutGrid}
+              className="values-toolbar__view-toggle"
+            />
+
             <ParameterCategoryFilter
               categories={parameterCategories}
               selectedCategory={selectedCategory}
@@ -3230,27 +3385,22 @@ function ValuesScreen({
               }}
               language={language}
               allLabel={t.all}
+              compact
+              className="values-toolbar__categories min-w-0 flex-1"
             />
-          </div>
 
-          {/* View toggle — own row to avoid overlap */}
-          <div className="mt-2 flex justify-end">
-            <div className="values-view-toggle">
-              {(["cards", "table"] as const).map((view) => (
-                <button
-                  key={view}
-                  type="button"
-                  onClick={() => setValueEntryView(view)}
-                  className={`values-view-toggle__btn ${
-                    valueEntryView === view ? "values-view-toggle__btn--active" : ""
-                  }`}
-                  aria-pressed={valueEntryView === view}
-                >
-                  {view === "table" ? <Table2 size={13} /> : <SlidersHorizontal size={13} />}
-                  {view === "table" ? t.tableView : t.cardView}
-                </button>
-              ))}
-            </div>
+            <ValuesDisplayMenu
+              sortMode={sortMode}
+              onSortModeChange={setSortMode}
+              showSymbolsOnly={showParameterSymbolsOnly}
+              onShowSymbolsOnlyChange={onShowParameterSymbolsOnlyChange}
+              labels={{
+                sortByType: t.sortByType,
+                sortByName: t.sortByName,
+                showSymbolsOnly: t.showSymbolsOnlyMenu,
+                menuLabel: t.valuesDisplayMenu,
+              }}
+            />
           </div>
       </div>
 
@@ -3389,39 +3539,26 @@ function ValuesScreen({
       )}
 
       {hasVisibleParameters && valueEntryView === "table" && (
-        <div
-          ref={parameterGridRef}
-          className="values-table-shell"
-        >
-          <table className="values-table w-full table-fixed border-collapse text-xs sm:text-sm md:min-w-[520px]">
-            <colgroup>
-              <col className="w-[30%] sm:w-[34%]" />
-              <col className="w-[36%] sm:w-[38%]" />
-              <col className="w-[34%] sm:w-[28%]" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th className="px-2 py-3 sm:px-3">{t.parameterLabel}</th>
-                <th className="px-2 py-3 sm:px-3">{t.valueLabel}</th>
-                <th className="px-2 py-3 sm:px-3">{t.unitLabel}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredParameters.map((parameter) => {
-                const selectedUnitId =
-                  selectedUnits[parameter.parameter_key] || parameter.unit_id;
-                const selectedUnit =
-                  parameter.available_units.find(
-                    (unit) => unit.unit_id === selectedUnitId
-                  ) || parameter.available_units[0];
-                const selectedUnitDisplayKey =
-                  getPreferredUnitDisplayKey(
+        <div ref={parameterGridRef} className="values-entry-list">
+          {parameterGroups.map((group) => (
+            <section key={group.tier ?? "all"} className="values-entry-group">
+              {group.tier && sortMode === "type" ? (
+                <h3 className="values-entry-group__title">
+                  {priorityTierLabel(group.tier, t)}
+                </h3>
+              ) : null}
+              {group.items.map((parameter) => {
+                const { selectedUnit, selectedUnitDisplayKey } =
+                  resolveParameterUnitState(
                     parameter,
-                    selectedUnitId,
-                    selectedUnitDisplayKeys[parameter.parameter_key]
-                  ) || (selectedUnit ? getUnitOptionKey(selectedUnit) : "");
-                const displayParameterLabel =
-                  parameter.symbol?.trim() || parameter.display_name;
+                    selectedUnits,
+                    selectedUnitDisplayKeys
+                  );
+                const tier = getParameterPriorityTier(parameter);
+                const label = formatParameterEntryLabel(
+                  parameter,
+                  showParameterSymbolsOnly
+                );
                 const aliasTitle = [
                   `${t.aliasLabel}: ${parameter.display_name}`,
                   parameter.parameter_name !== parameter.display_name
@@ -3437,28 +3574,47 @@ function ValuesScreen({
                   .join("\n");
 
                 return (
-                  <tr
+                  <article
                     key={parameter.parameter_key}
                     title={aliasTitle}
+                    className={`values-entry-row values-entry-row--${tier}${
+                      parameter.is_custom ? " values-entry-row--custom" : ""
+                    }`}
                   >
-                    <td className="px-2 py-2 align-middle sm:px-3">
-                      <div className="values-table-param">
-                        {displayParameterLabel}
+                    <div className="values-entry-row__head">
+                      <div className="values-entry-row__name">
+                        <span className="values-entry-row__primary">
+                          {label.primary}
+                        </span>
+                        {label.secondary ? (
+                          <span className="values-entry-row__symbol">
+                            {label.secondary}
+                          </span>
+                        ) : null}
                       </div>
-                    </td>
-                    <td className="px-2 py-2 align-middle sm:px-3">
+                      {showParameterDetails && parameter.category ? (
+                        <p className="values-entry-row__meta">
+                          {translateCategory(
+                            parameter.category,
+                            language,
+                            translations,
+                            { compact: true }
+                          )}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="values-entry-row__fields">
                       <input
-                        className="values-value-input"
+                        className="values-value-input values-value-input--entry"
                         type="text"
                         inputMode="decimal"
                         value={values[parameter.parameter_key] || ""}
-                        onChange={(e) =>
-                          updateValue(parameter.parameter_key, e.target.value)
+                        onChange={(event) =>
+                          updateValue(parameter.parameter_key, event.target.value)
                         }
                         placeholder={t.valuePlaceholder}
+                        aria-label={`${label.primary} ${t.valueLabel}`}
                       />
-                    </td>
-                    <td className="px-2 py-2 align-middle sm:px-3">
                       {parameter.available_units.length > 1 ? (
                         <select
                           value={selectedUnitDisplayKey}
@@ -3474,33 +3630,163 @@ function ValuesScreen({
                               getUnitOptionKey(unit)
                             );
                           }}
-                          className="app-native-select min-h-11 w-full min-w-0 px-2 py-2 text-base sm:px-3 sm:text-sm"
+                          className="app-native-select values-unit-inline min-h-11 w-full min-w-0 px-2 py-2 text-base sm:px-3 sm:text-sm"
                           title={t.changeUnit}
+                          aria-label={`${label.primary} ${t.unitLabel}`}
                         >
-                          {dedupeUnitOptions(parameter.available_units).map((unit) => (
-                            (() => {
-                              const canConvert =
-                                !selectedUnit ||
-                                canConvertLabUnit(
-                                  getUnitSymbolForConversion(selectedUnit),
-                                  getUnitSymbolForConversion(unit)
-                                );
-                              return (
-                            <option
-                              key={getUnitOptionKey(unit)}
-                              value={getUnitOptionKey(unit)}
-                              disabled={!canConvert}
-                            >
-                              {unit.display_symbol || unit.unit_symbol}
-                            </option>
+                          {parameter.available_units.map((unit) => {
+                            const canConvert =
+                              !selectedUnit ||
+                              canConvertLabUnit(
+                                getUnitSymbolForConversion(selectedUnit),
+                                getUnitSymbolForConversion(unit)
                               );
-                            })()
-                          ))}
+                            return (
+                              <option
+                                key={getUnitOptionKey(unit)}
+                                value={getUnitOptionKey(unit)}
+                                disabled={!canConvert}
+                              >
+                                {unit.display_symbol || unit.unit_symbol}
+                              </option>
+                            );
+                          })}
                         </select>
                       ) : (
                         <span
                           className="values-unit-inline"
-                          title={selectedUnit?.unit_symbol || parameter.unit_symbol}
+                          title={
+                            selectedUnit?.unit_symbol || parameter.unit_symbol
+                          }
+                        >
+                          {selectedUnit?.display_symbol ||
+                            selectedUnit?.unit_symbol ||
+                            parameter.unit_symbol}
+                        </span>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          ))}
+        </div>
+      )}
+
+      {hasVisibleParameters && valueEntryView === "cards" && (
+        <div ref={parameterGridRef} className="values-table-shell">
+          <table className="values-table w-full table-fixed border-collapse text-xs sm:text-sm md:min-w-[520px]">
+            <colgroup>
+              <col className="values-table-col values-table-col--param" />
+              <col className="values-table-col values-table-col--value" />
+              <col className="values-table-col values-table-col--unit" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="values-table-cell values-table-cell--param px-2 py-3 sm:px-3">
+                  {t.parameterLabel}
+                </th>
+                <th className="values-table-cell values-table-cell--value px-2 py-3 sm:px-3">
+                  {t.valueLabel}
+                </th>
+                <th className="values-table-cell values-table-cell--unit px-1.5 py-3 sm:px-2">
+                  {t.unitLabel}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredParameters.map((parameter) => {
+                const { selectedUnit, selectedUnitDisplayKey } =
+                  resolveParameterUnitState(
+                    parameter,
+                    selectedUnits,
+                    selectedUnitDisplayKeys
+                  );
+                const label = formatParameterEntryLabel(
+                  parameter,
+                  showParameterSymbolsOnly
+                );
+                const displayParameterLabel = label.secondary
+                  ? `${label.primary} (${label.secondary})`
+                  : label.primary;
+                const aliasTitle = [
+                  `${t.aliasLabel}: ${parameter.display_name}`,
+                  parameter.parameter_name !== parameter.display_name
+                    ? `${t.originalName}: ${parameter.parameter_name}`
+                    : "",
+                  `${t.unitLabel}: ${
+                    selectedUnit?.display_symbol ||
+                    selectedUnit?.unit_symbol ||
+                    parameter.unit_symbol
+                  }`,
+                ]
+                  .filter(Boolean)
+                  .join("\n");
+
+                return (
+                  <tr key={parameter.parameter_key} title={aliasTitle}>
+                    <td className="values-table-cell values-table-cell--param px-2 py-2 align-middle sm:px-3">
+                      <div className="values-table-param">
+                        {displayParameterLabel}
+                      </div>
+                    </td>
+                    <td className="values-table-cell values-table-cell--value px-2 py-2 align-middle sm:px-3">
+                      <input
+                        className="values-value-input"
+                        type="text"
+                        inputMode="decimal"
+                        value={values[parameter.parameter_key] || ""}
+                        onChange={(event) =>
+                          updateValue(parameter.parameter_key, event.target.value)
+                        }
+                        placeholder={t.valuePlaceholder}
+                        aria-label={`${displayParameterLabel} ${t.valueLabel}`}
+                      />
+                    </td>
+                    <td className="values-table-cell values-table-cell--unit px-1.5 py-2 align-middle sm:px-2">
+                      {parameter.available_units.length > 1 ? (
+                        <select
+                          value={selectedUnitDisplayKey}
+                          onChange={(event) => {
+                            const unit = parameter.available_units.find(
+                              (option) =>
+                                getUnitOptionKey(option) === event.target.value
+                            );
+                            if (!unit) return;
+                            updateUnit(
+                              parameter.parameter_key,
+                              unit.unit_id,
+                              getUnitOptionKey(unit)
+                            );
+                          }}
+                          className="app-native-select values-table-unit-select min-h-10 w-full min-w-0 px-1.5 py-1.5 text-xs sm:min-h-11 sm:px-2 sm:py-2 sm:text-sm"
+                          title={t.changeUnit}
+                          aria-label={`${displayParameterLabel} ${t.unitLabel}`}
+                        >
+                          {parameter.available_units.map((unit) => {
+                            const canConvert =
+                              !selectedUnit ||
+                              canConvertLabUnit(
+                                getUnitSymbolForConversion(selectedUnit),
+                                getUnitSymbolForConversion(unit)
+                              );
+                            return (
+                              <option
+                                key={getUnitOptionKey(unit)}
+                                value={getUnitOptionKey(unit)}
+                                disabled={!canConvert}
+                              >
+                                {unit.display_symbol || unit.unit_symbol}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      ) : (
+                        <span
+                          className="values-unit-inline"
+                          title={
+                            selectedUnit?.unit_symbol || parameter.unit_symbol
+                          }
                         >
                           {selectedUnit?.display_symbol ||
                             selectedUnit?.unit_symbol ||
@@ -3513,147 +3799,6 @@ function ValuesScreen({
               })}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {hasVisibleParameters && valueEntryView === "cards" && (
-        <div
-          ref={parameterGridRef}
-          className="values-cards-grid"
-        >
-          {filteredParameters.map((parameter, index) => {
-            const selectedUnitId =
-              selectedUnits[parameter.parameter_key] || parameter.unit_id;
-
-            const selectedUnit =
-              parameter.available_units.find(
-                (unit) => unit.unit_id === selectedUnitId
-              ) || parameter.available_units[0];
-            const selectedUnitDisplayKey =
-              getPreferredUnitDisplayKey(
-                parameter,
-                selectedUnitId,
-                selectedUnitDisplayKeys[parameter.parameter_key]
-              ) || (selectedUnit ? getUnitOptionKey(selectedUnit) : "");
-            const displayParameterLabel =
-              showParameterSymbolsOnly && parameter.symbol
-                ? parameter.symbol
-                : `${parameter.display_name}${
-                    parameter.symbol && !showParameterSymbolsOnly
-                      ? ` (${parameter.symbol})`
-                      : ""
-                  }`;
-
-            const aliasTitle = [
-              `${t.aliasLabel}: ${parameter.display_name}`,
-              parameter.parameter_name !== parameter.display_name
-                ? `${t.originalName}: ${parameter.parameter_name}`
-                : "",
-              `${t.unitLabel}: ${
-                selectedUnit?.display_symbol ||
-                selectedUnit?.unit_symbol ||
-                parameter.unit_symbol
-              }`,
-            ]
-              .filter(Boolean)
-              .join("\n");
-
-            return (
-              <div
-                key={parameter.parameter_key}
-                title={aliasTitle}
-                style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}
-                className={`values-param-card ${
-                  parameter.is_custom ? "values-param-card--custom" : ""
-                }`}
-              >
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <div>
-                    <label className="values-param-label">
-                      {displayParameterLabel}
-                    </label>
-
-                    {showParameterDetails ? (
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                      {parameter.category && (
-                        <p className="values-param-meta">
-                          {translateCategory(parameter.category, language, translations)}
-                        </p>
-                      )}
-
-                      {parameter.is_custom && (
-                        <span className="values-custom-badge">
-                          {t.customBadge}
-                        </span>
-                      )}
-                    </div>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="values-card-input-wrap">
-                  <input
-                    className="values-value-input values-value-input--card"
-                    type="text"
-                    inputMode="decimal"
-                    value={values[parameter.parameter_key] || ""}
-                    onChange={(e) =>
-                      updateValue(parameter.parameter_key, e.target.value)
-                    }
-                    placeholder={t.valuePlaceholder}
-                  />
-
-                  {parameter.available_units.length > 1 ? (
-                    <select
-                      value={selectedUnitDisplayKey}
-                      onChange={(event) => {
-                        const unit = parameter.available_units.find(
-                          (option) => getUnitOptionKey(option) === event.target.value
-                        );
-                        if (!unit) return;
-                        updateUnit(
-                          parameter.parameter_key,
-                          unit.unit_id,
-                          getUnitOptionKey(unit)
-                        );
-                      }}
-                      className="app-native-select absolute right-2 top-1/2 max-w-24 -translate-y-1/2 px-2 py-1 text-xs"
-                      title={t.changeUnit}
-                    >
-                      {dedupeUnitOptions(parameter.available_units).map((unit) => (
-                        (() => {
-                          const canConvert =
-                            !selectedUnit ||
-                            canConvertLabUnit(
-                              getUnitSymbolForConversion(selectedUnit),
-                              getUnitSymbolForConversion(unit)
-                            );
-                          return (
-                            <option
-                              key={getUnitOptionKey(unit)}
-                              value={getUnitOptionKey(unit)}
-                              disabled={!canConvert}
-                            >
-                              {unit.display_symbol || unit.unit_symbol}
-                            </option>
-                          );
-                        })()
-                      ))}
-                    </select>
-                  ) : (
-                    <span
-                      className="values-unit-static"
-                      title={selectedUnit?.unit_symbol || parameter.unit_symbol}
-                    >
-                      {selectedUnit?.display_symbol ||
-                        selectedUnit?.unit_symbol ||
-                        parameter.unit_symbol}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
         </div>
       )}
 

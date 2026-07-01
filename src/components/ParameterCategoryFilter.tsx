@@ -10,6 +10,8 @@ type Props = {
   onChange: (category: string) => void;
   language: Language;
   allLabel: string;
+  compact?: boolean;
+  className?: string;
 };
 
 export default function ParameterCategoryFilter({
@@ -18,16 +20,18 @@ export default function ParameterCategoryFilter({
   onChange,
   language,
   allLabel,
+  compact = false,
+  className = "",
 }: Props) {
   const items = ["All", ...categories];
 
   function labelFor(category: string) {
     if (category === "All") return allLabel;
-    return translateCategory(category, language, translations);
+    return translateCategory(category, language, translations, { compact });
   }
 
   return (
-    <div className="app-scroll-x flex gap-1.5 pb-1">
+    <div className={`app-scroll-x flex gap-1.5 ${className}`}>
       {items.map((category) => {
         const active = selectedCategory === category;
         return (

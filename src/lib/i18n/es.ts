@@ -395,6 +395,8 @@
     chemical: "Químico",
     physical: "Físico",
     biological: "Biológico",
+    identitySection: "Detalles del parámetro",
+    rangeSection: "Rango de interpretación (opcional)",
   },
 
   step1Title: "1. Configuracion",

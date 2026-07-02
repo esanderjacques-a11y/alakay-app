@@ -1040,7 +1040,18 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanCrop: "Crop",
     fertilizerPlanSummary: "Dose summary",
     fertilizerPlanConclusions: "Interpretation",
+    fertilizerPlanStepsTitle: "Calculation steps",
+    fertilizerPlanViewSteps: "View calculation steps",
+    close: "Close",
     amendmentMaterial: "Amendment",
+    encaladoNoAcidityNoDeficit:
+      "No exchangeable acidity or Ca saturation deficit — the Ca saturation lime method does not apply.",
+    encaladoCaDeficitNoAcidity:
+      "Ca deficit without exchangeable acidity — use gypsum or another Ca source; saturation-based liming does not apply.",
+    encaladoAcidityCaAdequate:
+      "Exchangeable acidity is present, but Ca saturation is {sat}% (target {target}%). Correct acidity with the amendment calculator (pH / base saturation).",
+    encaladoInsufficientData:
+      "Enter Ca and exchangeable cations (Mg, K, acidity) in Values to evaluate Ca saturation liming.",
     phAmendSectionMethod: "1. Method",
     phAmendSectionMaterial: "2. Amendment material",
     phAmendSectionInputs: "Inputs",
@@ -1315,7 +1326,18 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanCrop: "Cultivo",
     fertilizerPlanSummary: "Resumen de dosis",
     fertilizerPlanConclusions: "Interpretación",
+    fertilizerPlanStepsTitle: "Pasos del cálculo",
+    fertilizerPlanViewSteps: "Ver pasos del cálculo",
+    close: "Cerrar",
     amendmentMaterial: "Enmienda",
+    encaladoNoAcidityNoDeficit:
+      "Sin acidez intercambiable ni déficit de saturación de Ca — no aplica el método de encalado por saturación.",
+    encaladoCaDeficitNoAcidity:
+      "Hay déficit de Ca, pero sin acidez intercambiable: use yeso u otra fuente de Ca; el encalado por saturación no aplica.",
+    encaladoAcidityCaAdequate:
+      "Hay acidez intercambiable, pero la saturación de Ca es {sat}% (meta {target}%). Corrija la acidez con la calculadora de enmiendas (pH / saturación de bases).",
+    encaladoInsufficientData:
+      "Ingrese Ca y cationes intercambiables (Mg, K, acidez) en Valores para evaluar el encalado por saturación de Ca.",
     phAmendSectionMethod: "1. Método",
     phAmendSectionMaterial: "2. Material enmienda",
     phAmendSectionInputs: "Entradas",
@@ -1590,7 +1612,18 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanCrop: "Culture",
     fertilizerPlanSummary: "Résumé des doses",
     fertilizerPlanConclusions: "Interprétation",
+    fertilizerPlanStepsTitle: "Étapes du calcul",
+    fertilizerPlanViewSteps: "Voir les étapes du calcul",
+    close: "Fermer",
     amendmentMaterial: "Amendement",
+    encaladoNoAcidityNoDeficit:
+      "Pas d'acidité échangeable ni de déficit de saturation en Ca — la chaux par saturation ne s'applique pas.",
+    encaladoCaDeficitNoAcidity:
+      "Déficit de Ca sans acidité échangeable — utilisez du gypse ou une autre source de Ca ; le chaulage par saturation ne s'applique pas.",
+    encaladoAcidityCaAdequate:
+      "Acidité échangeable présente, mais saturation en Ca à {sat}% (objectif {target}%). Corrigez l'acidité avec le calculateur d'amendements (pH / saturation en bases).",
+    encaladoInsufficientData:
+      "Saisissez Ca et les cations échangeables (Mg, K, acidité) dans Valeurs pour évaluer le chaulage par saturation de Ca.",
     phAmendSectionMethod: "1. Méthode",
     phAmendSectionMaterial: "2. Matériau amendement",
     phAmendSectionInputs: "Entrées",
@@ -1865,7 +1898,18 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanCrop: "Kilti",
     fertilizerPlanSummary: "Rezime dòz",
     fertilizerPlanConclusions: "Entèpretasyon",
+    fertilizerPlanStepsTitle: "Etap kalkil yo",
+    fertilizerPlanViewSteps: "Gade etap kalkil yo",
+    close: "Fèmen",
     amendmentMaterial: "Amandman",
+    encaladoNoAcidityNoDeficit:
+      "Pa gen acidite echanjabl ni defisi saturasyon Ca — metòd chok pa aplike.",
+    encaladoCaDeficitNoAcidity:
+      "Defisi Ca san acidite echanjabl — itilize jips oswa yon lòt sous Ca ; chok pa aplike.",
+    encaladoAcidityCaAdequate:
+      "Gen acidite echanjabl, men saturasyon Ca se {sat}% (objektif {target}%). Korije acidite a ak kalkilatris amandman (pH / saturasyon baz).",
+    encaladoInsufficientData:
+      "Antre Ca ak kation echanjabl (Mg, K, acidite) nan Valè pou evalye chok pa saturasyon Ca.",
     phAmendSectionMethod: "1. Metòd",
     phAmendSectionMaterial: "2. Materyèl amandman",
     phAmendSectionInputs: "Antre",
@@ -2137,7 +2181,18 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanCrop: "Cultura",
     fertilizerPlanSummary: "Resumo de doses",
     fertilizerPlanConclusions: "Interpretação",
+    fertilizerPlanStepsTitle: "Etapas do cálculo",
+    fertilizerPlanViewSteps: "Ver etapas do cálculo",
+    close: "Fechar",
     amendmentMaterial: "Corretivo",
+    encaladoNoAcidityNoDeficit:
+      "Sem acidez trocável nem déficit de saturação de Ca — o método de calagem por saturação não se aplica.",
+    encaladoCaDeficitNoAcidity:
+      "Déficit de Ca sem acidez trocável — use gesso ou outra fonte de Ca; a calagem por saturação não se aplica.",
+    encaladoAcidityCaAdequate:
+      "Há acidez trocável, mas a saturação de Ca é {sat}% (meta {target}%). Corrija a acidez com a calculadora de corretivos (pH / saturação de bases).",
+    encaladoInsufficientData:
+      "Informe Ca e cátions trocáveis (Mg, K, acidez) em Valores para avaliar a calagem por saturação de Ca.",
     phAmendSectionMethod: "1. Método",
     phAmendSectionMaterial: "2. Material corretivo",
     phAmendSectionInputs: "Entradas",
@@ -2410,7 +2465,18 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanCrop: "Zao",
     fertilizerPlanSummary: "Muhtasari wa dozi",
     fertilizerPlanConclusions: "Tafsiri",
+    fertilizerPlanStepsTitle: "Hatua za hesabu",
+    fertilizerPlanViewSteps: "Angalia hatua za hesabu",
+    close: "Funga",
     amendmentMaterial: "Marekebisho",
+    encaladoNoAcidityNoDeficit:
+      "Hakuna asidi inayoweza kubadilishwa wala upungufu wa Ca — mbinu ya chokaa kwa kueneza haitekelezeki.",
+    encaladoCaDeficitNoAcidity:
+      "Upungufu wa Ca bila asidi inayoweza kubadilishwa — tumia gypsum au chanzo kingine cha Ca; chokaa kwa kueneza haitekelezeki.",
+    encaladoAcidityCaAdequate:
+      "Kuna asidi inayoweza kubadilishwa, lakini kueneza kwa Ca ni {sat}% (lengo {target}%). Rekebisha asidi kwa kikokotoo cha marekebisho (pH / kueneza kwa besi).",
+    encaladoInsufficientData:
+      "Weka Ca na kationi zinazoweza kubadilishwa (Mg, K, asidi) katika Thamani ili kutathmini chokaa kwa kueneza kwa Ca.",
     phAmendSectionMethod: "1. Njia",
     phAmendSectionMaterial: "2. Nyenzo ya marekebisho",
     phAmendSectionInputs: "Ingizo",

@@ -92,7 +92,9 @@ export type FertilityPlanResult = {
   doses: FertilityDoseResult[];
   /** SUE302 §1.4–1.5: Ca saturation + lime only when acidity and Ca deficit coexist. */
   encaladoEligible: boolean;
-  encaladoNote: string;
+  encaladoCanEvaluate: boolean;
+  encaladoNoteKey: EncaladoReasonKey;
+  encaladoNoteValues?: { sat?: number; target?: number };
   encalado?: {
     caoRequerido: number;
     dosisTeorica: number;
@@ -128,12 +130,49 @@ function interpretVPercent(vPercent: number): { label: string; interpretation: s
   return { label: "Adecuado", interpretation: "Saturación de bases dentro del rango adecuado (Tabla N.° 2)." };
 }
 
+export type EncaladoReasonKey =
+  | "encaladoEligible"
+  | "encaladoNoAcidityNoDeficit"
+  | "encaladoCaDeficitNoAcidity"
+  | "encaladoAcidityCaAdequate"
+  | "encaladoInsufficientData"
+  | "encaladoSoloDosis";
+
 export type EncaladoEligibility = {
   eligible: boolean;
+  canEvaluate: boolean;
   hasAcidity: boolean;
   hasCaSaturationDeficit: boolean;
-  reason: string;
+  reasonKey: EncaladoReasonKey;
+  satCaPercent?: number;
+  caTargetPercent: number;
 };
+
+function encaladoConclusionText(
+  eligibility: EncaladoEligibility,
+  encaladoDose?: number
+): string {
+  if (encaladoDose && encaladoDose > 0) {
+    return `Encalado estimado: ${encaladoDose} kg/ha.`;
+  }
+  if (eligibility.eligible) {
+    return "Sin déficit de Ca intercambiable para encalado por saturación.";
+  }
+  const notes: Record<EncaladoReasonKey, string> = {
+    encaladoEligible:
+      "Acidez intercambiable y déficit de saturación de Ca — aplica el cálculo de encalado (SUE302 §1.4–1.5).",
+    encaladoNoAcidityNoDeficit:
+      "Sin acidez intercambiable ni déficit de saturación de Ca — no aplica el método de encalado por saturación.",
+    encaladoCaDeficitNoAcidity:
+      "Hay déficit de Ca, pero sin acidez intercambiable: use yeso u otra fuente de Ca; el encalado por saturación no aplica.",
+    encaladoAcidityCaAdequate:
+      "Hay acidez, pero la saturación de Ca ya alcanza la meta — corrija la acidez con la calculadora de enmiendas (pH / saturación de bases).",
+    encaladoInsufficientData:
+      "Ingrese Ca y cationes intercambiables (Mg, K, acidez) en Valores para evaluar el encalado por saturación de Ca.",
+    encaladoSoloDosis: "Modo solo dosis — sin cálculo de encalado por saturación de Ca.",
+  };
+  return notes[eligibility.reasonKey];
+}
 
 /** SUE302 §1.4: Ca saturation lime method only when exchangeable acidity and Ca target deficit coexist. */
 export function evaluateEncaladoEligibility(
@@ -142,6 +181,20 @@ export function evaluateEncaladoEligibility(
   ca: number,
   cice: number
 ): EncaladoEligibility {
+  const caTargetPercent = CIC_ADEQUATE_SATURATION.ca.target;
+  const canEvaluate = ca > 0 && cice > 0;
+
+  if (!canEvaluate) {
+    return {
+      eligible: false,
+      canEvaluate: false,
+      hasAcidity: false,
+      hasCaSaturationDeficit: false,
+      reasonKey: "encaladoInsufficientData",
+      caTargetPercent,
+    };
+  }
+
   const acidity = num(input.acidezExtraible);
   const ph = input.ph;
   const acidityRow = table1.find((row) => row.parameter === "acidez_extraible");
@@ -154,32 +207,34 @@ export function evaluateEncaladoEligibility(
     (ph !== undefined && Number.isFinite(ph) && ph < phMin) ||
     (cice > 0 && acidity > 0 && (acidity / cice) * 100 > 5);
 
-  const satCaActual = cice > 0 ? (ca / cice) * 100 : 0;
-  const caObjetivo = cice * (CIC_ADEQUATE_SATURATION.ca.target / 100);
+  const satCaActual = (ca / cice) * 100;
+  const caObjetivo = cice * (caTargetPercent / 100);
   const deficitCa = Math.max(0, caObjetivo - ca);
   const hasCaSaturationDeficit =
-    cice > 0 &&
-    ca > 0 &&
-    (satCaActual < CIC_ADEQUATE_SATURATION.ca.min || deficitCa > 0.001);
+    satCaActual < CIC_ADEQUATE_SATURATION.ca.min || deficitCa > 0.001;
 
   const eligible = hasAcidity && hasCaSaturationDeficit;
 
-  let reason: string;
+  let reasonKey: EncaladoReasonKey;
   if (eligible) {
-    reason =
-      "Acidez intercambiable y déficit de saturación de Ca — aplica el cálculo de encalado (SUE302 §1.4–1.5).";
+    reasonKey = "encaladoEligible";
   } else if (!hasAcidity && !hasCaSaturationDeficit) {
-    reason =
-      "Sin acidez intercambiable ni déficit de saturación de Ca — no aplica el método de encalado por saturación.";
+    reasonKey = "encaladoNoAcidityNoDeficit";
   } else if (!hasAcidity) {
-    reason =
-      "Hay déficit de Ca, pero sin acidez intercambiable: use yeso u otra fuente de Ca; el encalado por saturación no aplica.";
+    reasonKey = "encaladoCaDeficitNoAcidity";
   } else {
-    reason =
-      "Hay acidez, pero la saturación de Ca ya alcanza la meta — corrija la acidez con la calculadora de enmiendas (pH / saturación de bases).";
+    reasonKey = "encaladoAcidityCaAdequate";
   }
 
-  return { eligible, hasAcidity, hasCaSaturationDeficit, reason };
+  return {
+    eligible,
+    canEvaluate: true,
+    hasAcidity,
+    hasCaSaturationDeficit,
+    reasonKey,
+    satCaPercent: round(satCaActual, 1),
+    caTargetPercent,
+  };
 }
 
 function buildDiagnosticSection(
@@ -444,7 +499,7 @@ export function buildSoilFertilityPlan(
       id: "requerimiento_ca",
       title: "Requerimiento de calcio",
       tableRef: "Tabla N.° 2",
-      summary: encaladoEligibility.reason,
+      summary: encaladoConclusionText(encaladoEligibility),
       steps: [
         {
           label: "Saturación actual de Ca",
@@ -478,7 +533,7 @@ export function buildSoilFertilityPlan(
             ? deficitCa > 0
               ? "Se requiere corrección de Ca / encalado (SUE302 §1.4)."
               : "Sin déficit de Ca intercambiable."
-            : encaladoEligibility.reason,
+            : encaladoConclusionText(encaladoEligibility),
         },
       ],
     });
@@ -753,9 +808,11 @@ export function buildSoilFertilityPlan(
       ? evaluateEncaladoEligibility(input, table1, ca, ciceForEncalado)
       : {
           eligible: false,
+          canEvaluate: false,
           hasAcidity: false,
           hasCaSaturationDeficit: false,
-          reason: "Modo solo dosis — sin cálculo de encalado por saturación de Ca.",
+          reasonKey: "encaladoSoloDosis" as const,
+          caTargetPercent: CIC_ADEQUATE_SATURATION.ca.target,
         };
 
   if (input.modo === "completo" && ca > 0 && encaladoEligibility.eligible) {
@@ -848,9 +905,7 @@ export function buildSoilFertilityPlan(
       : "No se requieren dosis positivas de N, P₂O₅, K₂O ni MgO con los datos actuales.",
     encalado && encalado.dosisAjustada > 0
       ? `Encalado estimado: ${encalado.dosisAjustada} kg/ha (${encalado.recomendacion}).`
-      : encaladoEligibility.eligible
-        ? "Sin déficit de Ca intercambiable para encalado por saturación."
-        : encaladoEligibility.reason,
+      : encaladoConclusionText(encaladoEligibility, encalado?.dosisAjustada),
   ];
 
   return {
@@ -859,7 +914,15 @@ export function buildSoilFertilityPlan(
     sections,
     doses,
     encaladoEligible: encaladoEligibility.eligible,
-    encaladoNote: encaladoEligibility.reason,
+    encaladoCanEvaluate: encaladoEligibility.canEvaluate,
+    encaladoNoteKey: encaladoEligibility.reasonKey,
+    encaladoNoteValues:
+      encaladoEligibility.satCaPercent !== undefined
+        ? {
+            sat: encaladoEligibility.satCaPercent,
+            target: encaladoEligibility.caTargetPercent,
+          }
+        : undefined,
     encalado,
     conclusiones,
   };

@@ -378,6 +378,8 @@
     chemical: "Chemical",
     physical: "Physical",
     biological: "Biological",
+    identitySection: "Parameter details",
+    rangeSection: "Interpretation range (optional)",
   },
 
   step1Title: "1. Setup",

@@ -37,8 +37,11 @@ import { getUptakeProfileForCrop } from "@/lib/i18n/uptakeProfiles";
 import {
   buildSoilFertilityPlan,
   fertilityPlanToCalculationOutputs,
+  type FertilityCalcStep,
   type FertilityPlanMode,
+  type FertilityPlanResult,
 } from "@/lib/soilFertilityPlan";
+import AppModal from "@/components/AppModal";
 import { useSoilFertilityReference } from "@/lib/soilFertilityData";
 import {
   IRRIGATION_SYSTEM_OPTIONS,
@@ -887,6 +890,51 @@ function CicResultCard({
   );
 }
 
+function formatEncaladoHint(plan: FertilityPlanResult, t: Record<string, string>) {
+  if (plan.encaladoEligible) return null;
+  const template = t[plan.encaladoNoteKey];
+  if (!template) return null;
+  return formatMessage(template, {
+    sat: plan.encaladoNoteValues?.sat ?? "—",
+    target: plan.encaladoNoteValues?.target ?? "—",
+  });
+}
+
+function FertilizerDoseStepRow({
+  t,
+  step,
+}: {
+  t: Record<string, string>;
+  step: FertilityCalcStep;
+}) {
+  const resultDisplay = step.unit
+    ? `${step.result} ${step.unit}`.trim()
+    : step.result;
+
+  return (
+    <article className="fertilizer-plan__step">
+      <p className="fertilizer-plan__step-label">{step.label}</p>
+      <p className="fertilizer-plan__step-formula">{step.formula}</p>
+      {step.substitution ? (
+        <p className="fertilizer-plan__step-meta">
+          <span className="fertilizer-plan__step-meta-key">{t.substitution}</span>
+          <span className="fertilizer-plan__step-meta-value">{step.substitution}</span>
+        </p>
+      ) : null}
+      <p className="fertilizer-plan__step-meta">
+        <span className="fertilizer-plan__step-meta-key">{t.result}</span>
+        <span className="fertilizer-plan__step-result">{resultDisplay}</span>
+      </p>
+      {step.tableRef ? (
+        <p className="fertilizer-plan__step-ref">{step.tableRef}</p>
+      ) : null}
+      {step.interpretation ? (
+        <p className="fertilizer-plan__step-note">{step.interpretation}</p>
+      ) : null}
+    </article>
+  );
+}
+
 function FertilizerPlanCalculator({
   t,
   lab,
@@ -915,6 +963,9 @@ function FertilizerPlanCalculator({
   const [manualP2o5, setManualP2o5] = useState(0);
   const [manualK2o, setManualK2o] = useState(0);
   const [manualMgo, setManualMgo] = useState(0);
+  const [selectedDoseNutrient, setSelectedDoseNutrient] = useState<string | null>(
+    null
+  );
 
   const plan = useMemo(
     () =>
@@ -991,6 +1042,13 @@ function FertilizerPlanCalculator({
     onOutputsChange?.(outputs);
   }, [onOutputsChange, outputs]);
 
+  useEffect(() => {
+    setSelectedDoseNutrient(null);
+  }, [plan]);
+
+  const selectedDose =
+    plan?.doses.find((dose) => dose.nutrient === selectedDoseNutrient) ?? null;
+
   return (
     <div className="calc-page space-y-4">
       <div className="fertilizer-plan__params calc-surface p-4">
@@ -1066,11 +1124,14 @@ function FertilizerPlanCalculator({
               />
               <NumberField label={t.prntPercent} value={prnt} onChange={setPrnt} />
             </CalculatorFormFields>
-          ) : (
-            <p className="mt-4 rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
-              {plan.encaladoNote}
-            </p>
-          )
+          ) : (() => {
+              const encaladoHint = formatEncaladoHint(plan, t);
+              return encaladoHint ? (
+                <p className="fertilizer-plan__encalado-hint mt-4" role="status">
+                  {encaladoHint}
+                </p>
+              ) : null;
+            })()
         ) : modo === "solo_dosis" ? (
           <CalculatorFormFields className="mt-4">
             <NumberField
@@ -1104,26 +1165,60 @@ function FertilizerPlanCalculator({
               {t.fertilizerPlanSummary}
             </h3>
             <div className="mt-3 grid grid-cols-2 gap-2.5">
-              {plan.doses.map((dose) => (
-                <div
-                  key={dose.nutrient}
-                  className={`calc-result-card rounded-xl px-3 py-3 ${
-                    dose.notRequired ? "calc-result-card--muted" : "calc-result-card--active"
-                  }`}
-                >
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-                    {dose.nutrient}
-                  </p>
-                  <p className="mt-1 text-2xl font-extrabold leading-none text-green-950">
-                    {dose.notRequired ? "NF" : dose.dosis}
-                    {!dose.notRequired ? (
-                      <span className="ml-1 text-xs font-semibold">{dose.unit}</span>
-                    ) : null}
-                  </p>
-                </div>
-              ))}
+              {plan.doses.map((dose) => {
+                const isSelected = selectedDoseNutrient === dose.nutrient;
+                return (
+                  <button
+                    key={dose.nutrient}
+                    type="button"
+                    aria-expanded={isSelected}
+                    aria-label={`${dose.nutrient} — ${t.fertilizerPlanViewSteps}`}
+                    onClick={() =>
+                      setSelectedDoseNutrient((current) =>
+                        current === dose.nutrient ? null : dose.nutrient
+                      )
+                    }
+                    className={`calc-result-card calc-result-card--clickable rounded-xl px-3 py-3 text-left ${
+                      dose.notRequired
+                        ? "calc-result-card--muted"
+                        : "calc-result-card--active"
+                    }${isSelected ? " calc-result-card--selected" : ""}`}
+                  >
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                      {dose.nutrient}
+                    </p>
+                    <p className="mt-1 text-2xl font-extrabold leading-none text-green-950">
+                      {dose.notRequired ? "NF" : dose.dosis}
+                      {!dose.notRequired ? (
+                        <span className="ml-1 text-xs font-semibold">{dose.unit}</span>
+                      ) : null}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
           </div>
+
+          {selectedDose ? (
+            <AppModal
+              open
+              onClose={() => setSelectedDoseNutrient(null)}
+              title={`${selectedDose.nutrient} — ${t.fertilizerPlanStepsTitle}`}
+              description={`${t.efficiency} ${Math.round(selectedDose.eficiencia * 100)}%`}
+              closeLabel={t.close}
+              size="md"
+            >
+              <div className="fertilizer-plan__steps">
+                {selectedDose.steps.map((step) => (
+                  <FertilizerDoseStepRow
+                    key={`${selectedDose.nutrient}-${step.label}`}
+                    t={t}
+                    step={step}
+                  />
+                ))}
+              </div>
+            </AppModal>
+          ) : null}
 
           {plan.conclusiones.length > 0 ? (
             <div className="fertilizer-plan__interpretation calc-surface p-4">

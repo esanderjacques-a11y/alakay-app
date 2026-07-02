@@ -259,109 +259,130 @@ export default function CustomParameterModal({
             disabled={saving}
             className="app-modal-btn app-modal-btn--primary"
           >
-            <PlusCircle size={18} />
+            <PlusCircle size={18} aria-hidden />
             {saving ? l.saving : l.save}
           </button>
         </>
       }
     >
-      <div className="app-modal-fields app-modal-fields--single">
-        <label className="app-modal-field app-modal-field--wide">
-          <span className="app-modal-label">{l.name}</span>
-          <input
-            className="calc-field-input"
-            value={parameterName}
-            onChange={(event) => setParameterName(event.target.value)}
-            placeholder={l.parameterPlaceholder}
-          />
-        </label>
+      <form
+        className="app-modal-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void saveCustomParameter();
+        }}
+      >
+        <section className="app-modal-section">
+          <h3 className="app-modal-section__title">{l.identitySection}</h3>
+          <div className="app-modal-fields app-modal-fields--flush">
+            <label className="app-modal-field app-modal-field--wide">
+              <span className="app-modal-label">{l.name}</span>
+              <input
+                className="calc-field-input"
+                value={parameterName}
+                onChange={(event) => setParameterName(event.target.value)}
+                placeholder={l.parameterPlaceholder}
+                autoComplete="off"
+              />
+            </label>
 
-        <label className="app-modal-field">
-          <span className="app-modal-label">{l.symbol}</span>
-          <input
-            className="calc-field-input"
-            value={symbol}
-            onChange={(event) => setSymbol(event.target.value)}
-            placeholder={l.symbolPlaceholder}
-          />
-        </label>
+            <div className="app-modal-field-pair app-modal-field--wide">
+              <label className="app-modal-field">
+                <span className="app-modal-label">{l.symbol}</span>
+                <input
+                  className="calc-field-input"
+                  value={symbol}
+                  onChange={(event) => setSymbol(event.target.value)}
+                  placeholder={l.symbolPlaceholder}
+                  autoComplete="off"
+                />
+              </label>
 
-        <label className="app-modal-field">
-          <span className="app-modal-label">{l.category}</span>
-          <select
-            className="app-native-select"
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-          >
-            <option value="Custom">{appText.categoryCustom}</option>
-            <option value="Chemical">{l.chemical}</option>
-            <option value="Physical">{l.physical}</option>
-            <option value="Biological">{l.biological}</option>
-            <option value="Other">{appText.categoryOther}</option>
-          </select>
-        </label>
+              <label className="app-modal-field">
+                <span className="app-modal-label">{l.category}</span>
+                <select
+                  className="app-native-select"
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                >
+                  <option value="Custom">{appText.categoryCustom}</option>
+                  <option value="Chemical">{l.chemical}</option>
+                  <option value="Physical">{l.physical}</option>
+                  <option value="Biological">{l.biological}</option>
+                  <option value="Other">{appText.categoryOther}</option>
+                </select>
+              </label>
+            </div>
 
-        <label className="app-modal-field app-modal-field--wide">
-          <span className="app-modal-label">{l.unit}</span>
-          <select
-            className="app-native-select"
-            value={unitId}
-            onChange={(event) =>
-              setUnitId(event.target.value ? Number(event.target.value) : "")
-            }
-          >
-            <option value="">{l.selectUnit}</option>
-            {units.map((unit) => (
-              <option key={unit.unit_id} value={unit.unit_id}>
-                {unit.unit_symbol}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+            <label className="app-modal-field app-modal-field--wide">
+              <span className="app-modal-label">{l.unit}</span>
+              <select
+                className="app-native-select"
+                value={unitId}
+                onChange={(event) =>
+                  setUnitId(event.target.value ? Number(event.target.value) : "")
+                }
+              >
+                <option value="">{l.selectUnit}</option>
+                {units.map((unit) => (
+                  <option key={unit.unit_id} value={unit.unit_id}>
+                    {unit.unit_symbol}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </section>
 
-      <div className="app-modal-hint mt-4">{l.rangeInfo}</div>
+        <section className="app-modal-section">
+          <h3 className="app-modal-section__title">{l.rangeSection}</h3>
+          <p className="app-modal-section__desc">{l.rangeInfo}</p>
+          <div className="app-modal-fields app-modal-fields--flush">
+            <div className="app-modal-field-pair app-modal-field--wide">
+              <label className="app-modal-field">
+                <span className="app-modal-label">{l.min}</span>
+                <input
+                  type="number"
+                  step="any"
+                  inputMode="decimal"
+                  className="calc-field-input"
+                  value={minValue}
+                  onChange={(event) => setMinValue(event.target.value)}
+                />
+              </label>
 
-      <div className="app-modal-fields mt-4">
-        <label className="app-modal-field">
-          <span className="app-modal-label">{l.min}</span>
-          <input
-            type="number"
-            step="any"
-            className="calc-field-input"
-            value={minValue}
-            onChange={(event) => setMinValue(event.target.value)}
-          />
-        </label>
+              <label className="app-modal-field">
+                <span className="app-modal-label">{l.max}</span>
+                <input
+                  type="number"
+                  step="any"
+                  inputMode="decimal"
+                  className="calc-field-input"
+                  value={maxValue}
+                  onChange={(event) => setMaxValue(event.target.value)}
+                />
+              </label>
+            </div>
 
-        <label className="app-modal-field">
-          <span className="app-modal-label">{l.max}</span>
-          <input
-            type="number"
-            step="any"
-            className="calc-field-input"
-            value={maxValue}
-            onChange={(event) => setMaxValue(event.target.value)}
-          />
-        </label>
+            <label className="app-modal-field app-modal-field--wide">
+              <span className="app-modal-label">{l.note}</span>
+              <textarea
+                className="calc-field-input app-modal-textarea"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder={l.notePlaceholder}
+                rows={3}
+              />
+            </label>
+          </div>
+        </section>
 
-        <label className="app-modal-field app-modal-field--wide">
-          <span className="app-modal-label">{l.note}</span>
-          <textarea
-            className="calc-field-input min-h-24"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder={l.notePlaceholder}
-          />
-        </label>
-      </div>
-
-      {message ? (
-        <div className="app-modal-message app-modal-message--warn mt-4">
-          {message}
-        </div>
-      ) : null}
+        {message ? (
+          <div className="app-modal-message app-modal-message--warn" role="alert">
+            {message}
+          </div>
+        ) : null}
+      </form>
     </AppModal>
   );
 }
-

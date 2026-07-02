@@ -401,6 +401,8 @@
     chemical: "Chimique",
     physical: "Physique",
     biological: "Biologique",
+    identitySection: "Détails du paramètre",
+    rangeSection: "Plage d'interprétation (optionnel)",
   },
 
   step1Title: "1. Configuration",

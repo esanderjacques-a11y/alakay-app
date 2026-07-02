@@ -389,6 +389,8 @@
     chemical: "Chimik",
     physical: "Fizik",
     biological: "Biyolojik",
+    identitySection: "Detay paramèt la",
+    rangeSection: "Entèval entèpretasyon (opsyonèl)",
   },
 
   step1Title: "1. Konfigirasyon",

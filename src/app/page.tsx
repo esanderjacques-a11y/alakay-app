@@ -3683,13 +3683,13 @@ function ValuesScreen({
             </colgroup>
             <thead>
               <tr>
-                <th className="values-table-cell values-table-cell--param px-2 py-3 sm:px-3">
+                <th className="values-table-cell values-table-cell--param px-2 py-2 sm:px-3">
                   {t.parameterLabel}
                 </th>
-                <th className="values-table-cell values-table-cell--value px-2 py-3 sm:px-3">
+                <th className="values-table-cell values-table-cell--value px-2 py-2 sm:px-3">
                   {t.valueLabel}
                 </th>
-                <th className="values-table-cell values-table-cell--unit px-1.5 py-3 sm:px-2">
+                <th className="values-table-cell values-table-cell--unit px-1.5 py-2 sm:px-2">
                   {t.unitLabel}
                 </th>
               </tr>
@@ -3725,12 +3725,12 @@ function ValuesScreen({
 
                 return (
                   <tr key={parameter.parameter_key} title={aliasTitle}>
-                    <td className="values-table-cell values-table-cell--param px-2 py-2 align-middle sm:px-3">
+                    <td className="values-table-cell values-table-cell--param px-2 py-1.5 align-middle sm:px-3">
                       <div className="values-table-param">
                         {displayParameterLabel}
                       </div>
                     </td>
-                    <td className="values-table-cell values-table-cell--value px-2 py-2 align-middle sm:px-3">
+                    <td className="values-table-cell values-table-cell--value px-2 py-1.5 align-middle sm:px-3">
                       <input
                         className="values-value-input"
                         type="text"
@@ -3743,7 +3743,7 @@ function ValuesScreen({
                         aria-label={`${displayParameterLabel} ${t.valueLabel}`}
                       />
                     </td>
-                    <td className="values-table-cell values-table-cell--unit px-1.5 py-2 align-middle sm:px-2">
+                    <td className="values-table-cell values-table-cell--unit px-1.5 py-1.5 align-middle sm:px-2">
                       {parameter.available_units.length > 1 ? (
                         <select
                           value={selectedUnitDisplayKey}
@@ -3759,7 +3759,7 @@ function ValuesScreen({
                               getUnitOptionKey(unit)
                             );
                           }}
-                          className="app-native-select values-table-unit-select min-h-10 w-full min-w-0 px-1.5 py-1.5 text-xs sm:min-h-11 sm:px-2 sm:py-2 sm:text-sm"
+                          className="app-native-select values-table-unit-select w-full min-w-0"
                           title={t.changeUnit}
                           aria-label={`${displayParameterLabel} ${t.unitLabel}`}
                         >

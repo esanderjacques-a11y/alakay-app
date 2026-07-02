@@ -8,8 +8,11 @@ import {
   Save,
   Undo2,
   ChevronDown,
+  Download,
+  Loader2,
 } from "lucide-react";
 import MenuSelect from "@/components/ui/MenuSelect";
+import { exportMethodologyPdf } from "@/lib/methodologyReport";
 import { buildAccentScale } from "@/lib/accentPalette";
 import type { Session } from "@supabase/supabase-js";
 import {
@@ -81,6 +84,7 @@ type SettingsText = {
     importAi: string;
     reports: string;
     data: string;
+    resources: string;
   };
   labels: {
     language: string;
@@ -115,7 +119,11 @@ type SettingsText = {
     permanentDeleteTime: string;
     showParameterDetails: string;
     showParameterSymbolsOnly: string;
+    downloadMethodology: string;
   };
+  resourcesDesc: string;
+  methodologyDesc: string;
+  methodologyGenerating: string;
   options: {
     english: string;
     spanish: string;
@@ -184,6 +192,7 @@ const settingsText: Record<Language, SettingsText> = {
       importAi: "Import / AI reader",
       reports: "Reports",
       data: "Data",
+      resources: "Resources",
     },
     labels: {
       language: "Language",
@@ -218,7 +227,12 @@ const settingsText: Record<Language, SettingsText> = {
       permanentDeleteTime: "Permanent delete time (max 30 days)",
       showParameterDetails: "Show parameter details in value entry",
       showParameterSymbolsOnly: "Show symbols only in value entry",
+      downloadMethodology: "Download calculator methodology (PDF)",
     },
+    resourcesDesc: "Reference material you can download and keep offline.",
+    methodologyDesc:
+      "A bilingual (Spanish/English) document with every formula, calculation step, and reference table used across the Calculator module, with citations.",
+    methodologyGenerating: "Generating…",
     options: {
       english: "English",
       spanish: "Spanish",
@@ -285,6 +299,7 @@ const settingsText: Record<Language, SettingsText> = {
       importAi: "Importación / lector IA",
       reports: "Reportes",
       data: "Datos",
+      resources: "Recursos",
     },
     labels: {
       language: "Idioma",
@@ -319,7 +334,12 @@ const settingsText: Record<Language, SettingsText> = {
       permanentDeleteTime: "Eliminación permanente (máx. 30 días)",
       showParameterDetails: "Mostrar detalles del parámetro al ingresar valores",
       showParameterSymbolsOnly: "Mostrar solo símbolos al ingresar valores",
+      downloadMethodology: "Descargar metodología de la calculadora (PDF)",
     },
+    resourcesDesc: "Material de referencia que puedes descargar y conservar sin conexión.",
+    methodologyDesc:
+      "Un documento bilingüe (español/inglés) con todas las fórmulas, pasos de cálculo y tablas de referencia usadas en el módulo de calculadora, con citas.",
+    methodologyGenerating: "Generando…",
     options: {
       english: "Inglés",
       spanish: "Español",
@@ -386,6 +406,7 @@ const settingsText: Record<Language, SettingsText> = {
       importAi: "Import / lecture IA",
       reports: "Rapports",
       data: "Données",
+      resources: "Ressources",
     },
     labels: {
       language: "Langue",
@@ -420,7 +441,12 @@ const settingsText: Record<Language, SettingsText> = {
       permanentDeleteTime: "Suppression définitive (max. 30 jours)",
       showParameterDetails: "Afficher les détails des paramètres dans la saisie",
       showParameterSymbolsOnly: "Afficher seulement les symboles dans la saisie",
+      downloadMethodology: "Télécharger la méthodologie de la calculatrice (PDF)",
     },
+    resourcesDesc: "Documents de référence que vous pouvez télécharger et conserver hors ligne.",
+    methodologyDesc:
+      "Un document bilingue (espagnol/anglais) avec toutes les formules, étapes de calcul et tableaux de référence utilisés dans le module de calculatrice, avec citations.",
+    methodologyGenerating: "Génération…",
     options: {
       english: "Anglais",
       spanish: "Espagnol",
@@ -487,6 +513,7 @@ const settingsText: Record<Language, SettingsText> = {
       importAi: "Enpòte / lekti IA",
       reports: "Rapò",
       data: "Done",
+      resources: "Resous",
     },
     labels: {
       language: "Lang",
@@ -521,7 +548,12 @@ const settingsText: Record<Language, SettingsText> = {
       permanentDeleteTime: "Efasman pou tout tan (maks. 30 jou)",
       showParameterDetails: "Montre detay paramèt yo lè w ap antre valè",
       showParameterSymbolsOnly: "Montre senbòl sèlman lè w ap antre valè",
+      downloadMethodology: "Telechaje metodoloji kalkilatè a (PDF)",
     },
+    resourcesDesc: "Materyèl referans ou ka telechaje epi konsève san koneksyon.",
+    methodologyDesc:
+      "Yon dokiman bileng (Panyòl/Anglè) ak tout fòmil, etap kalkil, ak tablo referans yo itilize nan modil Kalkilatè a, ak sitasyon yo.",
+    methodologyGenerating: "Ap jenere…",
     options: {
       english: "Anglè",
       spanish: "Espanyòl",
@@ -588,6 +620,7 @@ const settingsText: Record<Language, SettingsText> = {
       importAi: "Importação / leitor IA",
       reports: "Relatórios",
       data: "Dados",
+      resources: "Recursos",
     },
     labels: {
       language: "Idioma",
@@ -622,7 +655,12 @@ const settingsText: Record<Language, SettingsText> = {
       permanentDeleteTime: "Exclusão permanente (máx. 30 dias)",
       showParameterDetails: "Mostrar detalhes dos parâmetros ao inserir valores",
       showParameterSymbolsOnly: "Mostrar apenas símbolos ao inserir valores",
+      downloadMethodology: "Baixar metodologia da calculadora (PDF)",
     },
+    resourcesDesc: "Material de referência que você pode baixar e manter offline.",
+    methodologyDesc:
+      "Um documento bilíngue (espanhol/inglês) com todas as fórmulas, etapas de cálculo e tabelas de referência usadas no módulo de calculadora, com citações.",
+    methodologyGenerating: "Gerando…",
     options: {
       english: "Inglês",
       spanish: "Espanhol",
@@ -689,6 +727,7 @@ const settingsText: Record<Language, SettingsText> = {
       importAi: "Ingiza / kisomaji cha AI",
       reports: "Ripoti",
       data: "Data",
+      resources: "Rasilimali",
     },
     labels: {
       language: "Lugha",
@@ -723,7 +762,12 @@ const settingsText: Record<Language, SettingsText> = {
       permanentDeleteTime: "Kufuta kabisa (kiwango cha juu siku 30)",
       showParameterDetails: "Onyesha maelezo ya vigezo wakati wa kuingiza thamani",
       showParameterSymbolsOnly: "Onyesha alama pekee wakati wa kuingiza thamani",
+      downloadMethodology: "Pakua mbinu za kikokotoo (PDF)",
     },
+    resourcesDesc: "Nyenzo za marejeleo unazoweza kupakua na kuzitunza bila mtandao.",
+    methodologyDesc:
+      "Hati ya lugha mbili (Kihispania/Kiingereza) yenye fomula zote, hatua za hesabu, na majedwali ya marejeleo yanayotumika katika moduli ya Kikokotoo, pamoja na vyanzo.",
+    methodologyGenerating: "Inatengeneza…",
     options: {
       english: "Kiingereza",
       spanish: "Kihispania",
@@ -868,6 +912,7 @@ export default function AppSettingsScreen({
   const [savedFlash, setSavedFlash] = useState(false);
   const savedTimeout = useRef<number | null>(null);
   const [canPortalToolbar, setCanPortalToolbar] = useState(false);
+  const [downloadingMethodology, setDownloadingMethodology] = useState(false);
 
   const isDirty = useMemo(
     () => !settingsEqual(draftSettings, committedSettings),
@@ -975,6 +1020,18 @@ export default function AppSettingsScreen({
     setCommittedSettings(snapshot);
     previewSettings(snapshot);
     showSavedFlash();
+  }
+
+  async function handleDownloadMethodology() {
+    if (downloadingMethodology) return;
+    setDownloadingMethodology(true);
+    try {
+      await exportMethodologyPdf();
+    } catch (error) {
+      console.warn("Failed to generate methodology PDF:", error);
+    } finally {
+      setDownloadingMethodology(false);
+    }
   }
 
   function handleReset() {
@@ -1309,6 +1366,28 @@ export default function AppSettingsScreen({
               <RotateCcw size={15} />
               {text.reset}
             </button>
+          </SettingsSection>
+
+          <SettingsSection title={text.sections.resources}>
+            <p className="settings-resources-desc text-xs leading-relaxed text-[#6c6c70] dark:text-white/50">
+              {text.resourcesDesc}
+            </p>
+            <div className="settings-resource-card">
+              <p className="settings-resource-card__desc">{text.methodologyDesc}</p>
+              <button
+                type="button"
+                onClick={handleDownloadMethodology}
+                disabled={downloadingMethodology}
+                className="settings-resource-card__btn"
+              >
+                {downloadingMethodology ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Download size={15} />
+                )}
+                <span>{downloadingMethodology ? text.methodologyGenerating : text.labels.downloadMethodology}</span>
+              </button>
+            </div>
           </SettingsSection>
         </div>
 

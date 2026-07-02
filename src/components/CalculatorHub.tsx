@@ -23,16 +23,16 @@ import {
   calculatePorosity,
   calculatePsi,
   calculateSar,
-  calculateSoilAmendment,
   calculateTotalWaterFromLeaching,
   type AreaUnit,
   type CalculationOutput,
   type CalculatorValue,
   type FertilizerMode,
-  type LimeMethod,
 } from "@/lib/agronomicCalculators";
+import PhAmendmentCalculator from "@/components/PhAmendmentCalculator";
 import type { Language } from "@/lib/translations";
 import { calculatorHubText } from "@/lib/i18n/componentText";
+import { formatMessage } from "@/lib/i18n/format";
 import { getUptakeProfileForCrop } from "@/lib/i18n/uptakeProfiles";
 import {
   buildSoilFertilityPlan,
@@ -40,7 +40,16 @@ import {
   type FertilityPlanMode,
 } from "@/lib/soilFertilityPlan";
 import { useSoilFertilityReference } from "@/lib/soilFertilityData";
-import { TABLE_12_AMENDMENTS, type AmendmentMaterialKey } from "@/lib/soilFertilityTables";
+import {
+  IRRIGATION_SYSTEM_OPTIONS,
+  irrigationEfficiencyDefaults,
+  TABLE_12_AMENDMENTS,
+  type AmendmentMaterialKey,
+  type CicRatioRangeTable,
+  type CicSaturationBandTable,
+  type Extractant,
+  type IrrigationSystem,
+} from "@/lib/soilFertilityTables";
 import {
   buildBaseSaturationOutputs,
   calculateBaseSaturation,
@@ -49,7 +58,6 @@ import {
   type BaseSaturationResult,
 } from "@/lib/baseSaturation";
 import {
-  CIC_RATIO_RANGES,
   interpretCationRatio,
   interpretCationSaturation,
   ratioBandLabelKey,
@@ -126,26 +134,14 @@ function visibleCalculatorTabs(sampleType: "soil" | "foliar") {
   });
 }
 
-const EARTH_DEPTH_OPTIONS = [
-  { key: "0-20", depthCm: 20, factor: 1 },
-  { key: "20-30", depthCm: 30, factor: 1.5 },
-] as const;
+/** "Guided" mode: recommended calculation order, mirroring the SUE302 methodology
+ * (diagnóstico → corrección → plan nutricional), one calculator screen at a time. */
+type HubMode = "guided" | "explorer";
 
-type EarthDepthOption = (typeof EARTH_DEPTH_OPTIONS)[number]["key"];
-
-function getEarthDepthOptionLabel(
-  option: (typeof EARTH_DEPTH_OPTIONS)[number],
-  t: Record<string, string>
-) {
-  return `${option.key} cm (${t.incorporationFactorShort || "f"} = ${option.factor})`;
-}
-
-function getEarthDepthOption(value: EarthDepthOption) {
-  return (
-    EARTH_DEPTH_OPTIONS.find((option) => option.key === value) ||
-    EARTH_DEPTH_OPTIONS[0]
-  );
-}
+const GUIDED_STEPS: Record<"soil" | "foliar", CalculatorKey[]> = {
+  soil: ["cic", "amendment", "fertilizer", "salinity"],
+  foliar: ["dop", "ratios", "fertilizer", "uptake"],
+};
 
 export default function CalculatorHub({
   language,
@@ -167,6 +163,29 @@ export default function CalculatorHub({
     () => visibleCalculatorTabs(sampleType),
     [sampleType]
   );
+  const [hubMode, setHubMode] = useState<HubMode>("explorer");
+  const guidedSteps = useMemo(() => {
+    const visibleKeys = new Set(calculatorTabs.map((tab) => tab.key));
+    return GUIDED_STEPS[sampleType].filter((key) => visibleKeys.has(key));
+  }, [sampleType, calculatorTabs]);
+  const [guidedIndex, setGuidedIndex] = useState(0);
+
+  function switchHubMode(mode: HubMode) {
+    setHubMode(mode);
+    if (mode === "guided" && guidedSteps.length > 0) {
+      setGuidedIndex(0);
+      setActive(guidedSteps[0]);
+    } else if (mode === "explorer") {
+      setActive(defaultCalculatorFilter);
+    }
+  }
+
+  function goToGuidedStep(index: number) {
+    if (index < 0 || index >= guidedSteps.length) return;
+    setGuidedIndex(index);
+    setActive(guidedSteps[index]);
+  }
+
   const [calculatorOutputs, setCalculatorOutputs] = useState<Record<string, CalculationOutput[]>>({});
   const lab = useMemo(() => buildLabValueIndex(parameters, values, results), [parameters, values, results]);
   const suggestions = getSuggestions(lab, results, t);
@@ -220,21 +239,84 @@ export default function CalculatorHub({
               gridLabel={t.viewLayoutGrid}
             />
           </div>
-          {goToValues ? (
-            <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-2">
+            <div className="hub-mode-toggle inline-flex shrink-0" role="tablist" aria-label={t.hubModeLabel}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={hubMode === "guided"}
+                onClick={() => switchHubMode("guided")}
+                className={`hub-mode-toggle__btn ${hubMode === "guided" ? "hub-mode-toggle__btn--active" : ""}`}
+              >
+                {t.hubModeGuided}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={hubMode === "explorer"}
+                onClick={() => switchHubMode("explorer")}
+                className={`hub-mode-toggle__btn ${hubMode === "explorer" ? "hub-mode-toggle__btn--active" : ""}`}
+              >
+                {t.hubModeExplorer}
+              </button>
+            </div>
+            {goToValues ? (
               <button
                 type="button"
                 onClick={goToValues}
-                className="text-xs font-semibold text-green-800 underline-offset-2 hover:underline dark:text-green-300"
+                className="shrink-0 text-xs font-semibold text-green-800 underline-offset-2 hover:underline dark:text-green-300"
               >
                 {t.openValues}
               </button>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
+          <p className="hub-mode-hint text-xs text-slate-500 dark:text-slate-400">
+            {hubMode === "guided" ? t.hubModeGuidedHint : t.hubModeExplorerHint}
+          </p>
         </div>
 
         <CalculatorFieldsLayoutContext.Provider value={fieldsLayout}>
-        {browseLayout === "list" ? (
+        {hubMode === "guided" && guidedSteps.length > 0 ? (
+          <div className="calc-guided-stepper px-4 pb-3">
+            <div className="calc-guided-stepper__track">
+              {guidedSteps.map((key, index) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => goToGuidedStep(index)}
+                  className={`calc-guided-stepper__step ${
+                    index === guidedIndex ? "calc-guided-stepper__step--active" : ""
+                  } ${index < guidedIndex ? "calc-guided-stepper__step--done" : ""}`}
+                >
+                  <span className="calc-guided-stepper__index">{index + 1}</span>
+                  <span className="calc-guided-stepper__label">{t[key]}</span>
+                </button>
+              ))}
+            </div>
+            <div className="calc-guided-stepper__nav mt-2 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => goToGuidedStep(guidedIndex - 1)}
+                disabled={guidedIndex === 0}
+                className="calc-guided-stepper__nav-btn"
+              >
+                {t.hubModePrevStep}
+              </button>
+              <span className="text-xs font-semibold text-slate-500">
+                {formatMessage(t.hubModeStepOf, { current: guidedIndex + 1, total: guidedSteps.length })}
+              </span>
+              <button
+                type="button"
+                onClick={() => goToGuidedStep(guidedIndex + 1)}
+                disabled={guidedIndex >= guidedSteps.length - 1}
+                className="calc-guided-stepper__nav-btn"
+              >
+                {t.hubModeNextStep}
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {hubMode === "explorer" && browseLayout === "list" ? (
           <div className="px-4 pb-3">
             <label className="calculator-hub-picker grid gap-1">
               <span className="calculator-hub-picker__label">
@@ -253,7 +335,8 @@ export default function CalculatorHub({
               </select>
             </label>
           </div>
-        ) : (
+        ) : null}
+        {hubMode === "explorer" && browseLayout !== "list" ? (
           <div className="calculator-hub-tabs overflow-x-auto scrollbar-none px-4 pb-3">
             <div className="flex w-max min-w-full gap-1.5">
               {calculatorTabs.map((tab) => (
@@ -271,7 +354,7 @@ export default function CalculatorHub({
               ))}
             </div>
           </div>
-        )}
+        ) : null}
 
         {active === "priority" && browseLayout === "grid" ? (
           <PriorityCalculators t={t} suggestions={suggestions} setActive={setActive} />
@@ -300,10 +383,9 @@ export default function CalculatorHub({
           />
         ) : null}
         {active === "amendment" ? (
-          <AmendmentCalculator
+          <PhAmendmentCalculator
             t={t}
             lab={lab}
-            sampleType={sampleType}
             selectedCropName={selectedCropName}
             onOutputsChange={(outputs) => reportOutputs("amendment", outputs)}
           />
@@ -450,6 +532,7 @@ function CicCalculator({
   sampleType: "soil" | "foliar";
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
 }) {
+  const { reference } = useSoilFertilityReference();
   const [cec, setCec] = useState(lab.get("cec")?.value || 0);
   const [ca, setCa] = useState(lab.get("calcium")?.value || 0);
   const [mg, setMg] = useState(lab.get("magnesium")?.value || 0);
@@ -524,7 +607,11 @@ function CicCalculator({
           key: relationFilter,
           label: relationOptions.find(([key]) => key === relationFilter)?.[1] || relationFilter,
           value: baseResult.relations[relationFilter],
-          interpretation: interpretCationRatio(relationFilter, baseResult.relations[relationFilter]),
+          interpretation: interpretCationRatio(
+            relationFilter,
+            baseResult.relations[relationFilter],
+            reference.cicRatioRanges
+          ),
         }
       : null;
 
@@ -581,10 +668,18 @@ function CicCalculator({
         </div>
       </div>
 
-      {selectedRatio ? <CicRatioHighlightCard ratio={selectedRatio} t={t} /> : null}
+      {selectedRatio ? (
+        <CicRatioHighlightCard ratio={selectedRatio} t={t} ranges={reference.cicRatioRanges} />
+      ) : null}
 
       {baseResult ? (
-        <CicResultsPanel baseResult={baseResult} relationFilter={relationFilter} t={t} />
+        <CicResultsPanel
+          baseResult={baseResult}
+          relationFilter={relationFilter}
+          t={t}
+          bands={reference.cicSaturationBands}
+          ranges={reference.cicRatioRanges}
+        />
       ) : (
         <p className="calc-cic-result calc-cic-result--empty calc-surface p-4 text-sm text-slate-600">
           {t.noData}
@@ -614,6 +709,7 @@ function CicCalculator({
 function CicRatioHighlightCard({
   ratio,
   t,
+  ranges,
 }: {
   ratio: {
     key: Exclude<BaseRelationKey, "all">;
@@ -622,8 +718,9 @@ function CicRatioHighlightCard({
     interpretation: ReturnType<typeof interpretCationRatio>;
   };
   t: Record<string, string>;
+  ranges: CicRatioRangeTable;
 }) {
-  const range = CIC_RATIO_RANGES[ratio.key];
+  const range = ranges[ratio.key];
   const bandKey = ratioBandLabelKey(ratio.interpretation.band);
   const message = t[ratio.interpretation.messageKey] || ratio.interpretation.messageKey;
 
@@ -652,10 +749,14 @@ function CicResultsPanel({
   baseResult,
   relationFilter,
   t,
+  bands,
+  ranges,
 }: {
   baseResult: BaseSaturationResult;
   relationFilter: BaseRelationKey;
   t: Record<string, string>;
+  bands: CicSaturationBandTable;
+  ranges: CicRatioRangeTable;
 }) {
   const layout = useContext(CalculatorFieldsLayoutContext);
   const saturationRows: Array<{
@@ -707,7 +808,7 @@ function CicResultsPanel({
           );
         }
 
-        const sat = interpretCationSaturation(row.cation!, row.value);
+        const sat = interpretCationSaturation(row.cation!, row.value, bands);
         const bandForUi: CicRatioBand =
           sat.band === "adequate"
             ? "optimal"
@@ -733,7 +834,7 @@ function CicResultsPanel({
         ? relationRows.map(([key, label]) => {
             const value = baseResult.relations[key];
             if (value === null) return null;
-            const interpretation = interpretCationRatio(key, value);
+            const interpretation = interpretCationRatio(key, value, ranges);
             return (
               <CicResultCard
                 key={key}
@@ -799,13 +900,15 @@ function FertilizerPlanCalculator({
 }) {
   const { reference } = useSoilFertilityReference();
   const [modo, setModo] = useState<FertilityPlanMode>("completo");
+  const [extractant, setExtractant] = useState<Extractant>("olsen_kcl");
   const [rendimiento, setRendimiento] = useState(4);
   const [depth, setDepth] = useState(30);
   const [bulkDensity, setBulkDensity] = useState(lab.get("bulk_density")?.value || 1);
-  const [effN, setEffN] = useState(60);
-  const [effP, setEffP] = useState(30);
-  const [effK, setEffK] = useState(70);
-  const [effMg, setEffMg] = useState(70);
+  const [irrigationSystem, setIrrigationSystem] = useState<IrrigationSystem>("aspersion_pivote");
+  const [effN, setEffN] = useState(() => irrigationEfficiencyDefaults("aspersion_pivote").n);
+  const [effP, setEffP] = useState(() => irrigationEfficiencyDefaults("aspersion_pivote").p);
+  const [effK, setEffK] = useState(() => irrigationEfficiencyDefaults("aspersion_pivote").k);
+  const [effMg, setEffMg] = useState(() => irrigationEfficiencyDefaults("aspersion_pivote").mg);
   const [prnt, setPrnt] = useState(95);
   const [enmienda, setEnmienda] = useState<AmendmentMaterialKey>("cal_agricola");
   const [manualN, setManualN] = useState(0);
@@ -818,6 +921,7 @@ function FertilizerPlanCalculator({
       buildSoilFertilityPlan(
         {
           modo,
+          extractant,
           cultivo: selectedCropName,
           rendimientoObjetivo: rendimiento,
           profundidadMuestreo_cm: depth,
@@ -829,6 +933,7 @@ function FertilizerPlanCalculator({
           Mg: lab.get("magnesium")?.value,
           Na: lab.get("sodium")?.value,
           P: lab.get("phosphorus")?.value,
+          S: lab.get("sulfur")?.value,
           Fe: lab.get("iron")?.value,
           Cu: lab.get("copper")?.value,
           Zn: lab.get("zinc")?.value,
@@ -849,6 +954,7 @@ function FertilizerPlanCalculator({
       ),
     [
       modo,
+      extractant,
       selectedCropName,
       rendimiento,
       depth,
@@ -867,6 +973,14 @@ function FertilizerPlanCalculator({
       reference,
     ]
   );
+
+  useEffect(() => {
+    const defaults = irrigationEfficiencyDefaults(irrigationSystem, reference.irrigationEfficiency);
+    setEffN(defaults.n);
+    setEffP(defaults.p);
+    setEffK(defaults.k);
+    setEffMg(defaults.mg);
+  }, [irrigationSystem, reference.irrigationEfficiency]);
 
   const outputs = useMemo(
     () => (plan ? fertilityPlanToCalculationOutputs(plan) : []),
@@ -903,6 +1017,18 @@ function FertilizerPlanCalculator({
               ["solo_dosis", t.fertilizerPlanModeDose],
             ]}
           />
+          {modo === "completo" ? (
+            <SelectField
+              label={t.extractantLabel}
+              value={extractant}
+              onChange={(value) => setExtractant(value as Extractant)}
+              fullWidth
+              options={[
+                ["olsen_kcl", t.extractantOlsenKcl],
+                ["mehlich3", t.extractantMehlich3],
+              ]}
+            />
+          ) : null}
           <NumberField
             label={t.fertilizerPlanYield}
             value={rendimiento}
@@ -913,6 +1039,15 @@ function FertilizerPlanCalculator({
         </CalculatorFormFields>
 
         <p className="mt-4 mb-2 text-xs font-semibold text-[#6c6c70]">{t.efficiency}</p>
+        <div className="calc-irrigation-picker mb-3">
+          <SelectField
+            label={t.irrigationSystemLabel}
+            value={irrigationSystem}
+            onChange={(value) => setIrrigationSystem(value as IrrigationSystem)}
+            fullWidth
+            options={IRRIGATION_SYSTEM_OPTIONS.map((system) => [system, t[`irrigation_${system}`] || system])}
+          />
+        </div>
         <CalculatorFormFields>
           <NumberField label="N (%)" value={effN} onChange={setEffN} preserveCase />
           <NumberField label="P (%)" value={effP} onChange={setEffP} preserveCase />
@@ -1025,7 +1160,12 @@ function FertilizerSingleCalculator({
   const [areaUnit, setAreaUnit] = useState<AreaUnit>("ha");
   const [efficiency, setEfficiency] = useState(85);
   const [mode, setMode] = useState<FertilizerMode>("element");
-  const current = lab.get(element)?.value || 0;
+  const [current, setCurrent] = useState(() => lab.get("nitrogen")?.value || 0);
+
+  useEffect(() => {
+    setCurrent(lab.get(element)?.value || 0);
+  }, [element, lab]);
+
   const output = calculateFertilizerRequirement({
     current,
     target,
@@ -1060,7 +1200,7 @@ function FertilizerSingleCalculator({
               ["sulfur", "S"],
             ]}
           />
-          <NumberField label={t.current} value={current} readOnly />
+          <NumberField label={t.current} value={current} onChange={setCurrent} />
           <NumberField label={t.target} value={target} onChange={setTarget} />
           <NumberField label={t.nutrientGrade} value={grade} onChange={setGrade} />
           <NumberField label={t.efficiency} value={efficiency} onChange={setEfficiency} />
@@ -1127,157 +1267,6 @@ function FertilizerCalculator({
       ) : (
         <FertilizerSingleCalculator t={t} lab={lab} onOutputsChange={onOutputsChange} />
       )}
-    </CalculatorPage>
-  );
-}
-
-function AmendmentCalculator({
-  t,
-  lab,
-  sampleType,
-  selectedCropName,
-  onOutputsChange,
-}: {
-  t: Record<string, string>;
-  lab: Map<string, CalculatorValue>;
-  sampleType: "soil" | "foliar";
-  selectedCropName?: string | null;
-  onOutputsChange?: (outputs: CalculationOutput[]) => void;
-}) {
-  const cropSuggestedV2 = suggestEarthBaseSaturationTarget(selectedCropName);
-  const earthAvailable = sampleType === "soil" || hasSoilLabValues(lab);
-  const [method, setMethod] = useState<LimeMethod>("earth_practical");
-  const [targetPh, setTargetPh] = useState(6.2);
-  const [acidity, setAcidity] = useState(lab.get("exchangeable_acidity")?.value || 0);
-  const [baseSaturationCurrent, setBaseSaturationCurrent] = useState(
-    lab.get("base_saturation")?.value || 50
-  );
-  const [baseSaturationTarget, setBaseSaturationTarget] = useState(cropSuggestedV2);
-  const [effectiveCec, setEffectiveCec] = useState(lab.get("cec")?.value || 10);
-  const [earthDepthOption, setEarthDepthOption] = useState<EarthDepthOption>("0-20");
-  const [incorporationFactor, setIncorporationFactor] = useState(1);
-  const [rndt, setRndt] = useState(90);
-  const [bulkDensity, setBulkDensity] = useState(lab.get("bulk_density")?.value || 1.25);
-  const [depth, setDepth] = useState(20);
-  const [area, setArea] = useState(1);
-  const [areaUnit, setAreaUnit] = useState<AreaUnit>("ha");
-
-  useEffect(() => {
-    if (!earthAvailable && method === "earth_practical") {
-      setMethod("target_ph");
-    }
-  }, [earthAvailable, method]);
-
-  useEffect(() => {
-    setBaseSaturationTarget(cropSuggestedV2);
-  }, [cropSuggestedV2]);
-
-  function handleEarthDepthChange(value: string) {
-    const next = getEarthDepthOption(value as EarthDepthOption);
-    setEarthDepthOption(next.key);
-    setDepth(next.depthCm);
-    setIncorporationFactor(next.factor);
-  }
-
-  const output = calculateSoilAmendment({
-    method,
-    material: method === "target_ph" ? "calcitic_lime" : "dolomitic_lime",
-    currentPh: lab.get("ph")?.value,
-    targetPh,
-    exchangeableAcidity: acidity,
-    baseSaturationCurrent,
-    baseSaturationTarget,
-    effectiveCec,
-    incorporationFactor,
-    rndtPercent: rndt,
-    bulkDensity,
-    depthCm: depth,
-    area,
-    areaUnit,
-  });
-
-  useEffect(() => {
-    onOutputsChange?.(output ? [output] : []);
-  }, [onOutputsChange, output]);
-
-  return (
-    <CalculatorPage>
-      <CalculatorPanel
-        t={t}
-        output={output}
-        fields={
-          <>
-            <SelectField
-              label={t.limeMethod}
-              value={method}
-              onChange={(value) => setMethod(value as LimeMethod)}
-              fullWidth
-              options={[
-                ...(earthAvailable ? ([["earth_practical", t.earthPractical]] as Array<[string, string]>) : []),
-                ["target_ph", t.targetPh],
-                ["exchangeable_acidity", t.acidity],
-                ["buffer_index", t.buffer],
-              ]}
-            />
-          {!earthAvailable ? (
-            <p className="text-xs font-semibold text-yellow-900 sm:col-span-2">
-              {t.earthSoilOnly || "The base-saturation method is available only for soil lab tests."}
-            </p>
-          ) : null}
-          {method === "earth_practical" ? (
-            <>
-              <NumberField
-                label={t.baseSaturationCurrent || "Current base saturation V1 (%)"}
-                value={baseSaturationCurrent}
-                onChange={setBaseSaturationCurrent}
-              />
-              <NumberField
-                label={t.baseSaturationTarget || "Target base saturation V2 (%)"}
-                value={baseSaturationTarget}
-                onChange={setBaseSaturationTarget}
-              />
-              <p className="text-xs font-semibold text-slate-600 sm:col-span-2">
-                {`${t.v2SuggestedByCrop || "V2 suggested by selected crop"}: ${cropSuggestedV2}%`}
-              </p>
-              <NumberField
-                label={t.effectiveCec || "Effective CEC (CICE)"}
-                value={effectiveCec}
-                onChange={setEffectiveCec}
-              />
-              <NumberField label={t.prntPercent || "PRNT (%)"} value={rndt} onChange={setRndt} />
-              <SelectField
-                label={t.incorporationDepth || "Incorporation depth"}
-                value={earthDepthOption}
-                onChange={handleEarthDepthChange}
-                options={EARTH_DEPTH_OPTIONS.map((option) => [
-                  option.key,
-                  getEarthDepthOptionLabel(option, t),
-                ])}
-              />
-              <NumberField
-                label={t.incorporationFactor || "Incorporation factor (f)"}
-                value={incorporationFactor}
-                onChange={setIncorporationFactor}
-              />
-              <p className="text-xs font-semibold text-slate-600 sm:col-span-2">
-                {t.incorporationDepthNote ||
-                  "The selected depth sets f automatically; adjust f only if your local recommendation uses another incorporation factor."}
-              </p>
-            </>
-          ) : (
-            <>
-              <NumberField label="pH" value={lab.get("ph")?.value || 0} readOnly />
-              <NumberField label={t.target} value={targetPh} onChange={setTargetPh} />
-              <NumberField label={t.acidity} value={acidity} onChange={setAcidity} />
-              <NumberField label={t.rndt} value={rndt} onChange={setRndt} />
-              <NumberField label={t.bulkDensity} value={bulkDensity} onChange={setBulkDensity} />
-              <NumberField label={t.depth} value={depth} onChange={setDepth} />
-            </>
-          )}
-          <AreaFields t={t} area={area} setArea={setArea} areaUnit={areaUnit} setAreaUnit={setAreaUnit} />
-        </>
-      }
-      />
     </CalculatorPage>
   );
 }
@@ -2055,6 +2044,7 @@ function translateCalculatorText(value: string, t: Record<string, string>) {
     "Gypsum (mg/100 g)": t.gypsumMgTitle,
     "Gypsum (kg/t)": t.gypsumKgTitle,
     "Lime requirement": t.limeRequirementTitle,
+    "Elemental sulfur requirement": t.phAmendSulfurRequirement,
     "Lime or amendment": t.amendmentRequirementTitle,
     "Estimate lime or gypsum need using pH, acidity, RNDT, depth, and density.":
       t.amendmentRequirementDesc,
@@ -2236,25 +2226,6 @@ function AreaFields({
   );
 }
 
-function suggestEarthBaseSaturationTarget(cropName?: string | null) {
-  const normalizedCrop = normalizeName(cropName || "");
-  if (!normalizedCrop) return 70;
-
-  const rules: Array<{ pattern: RegExp; value: number }> = [
-    { pattern: /\b(arroz|rice|trigo|wheat|pasto|pasture|forage|pineapple|pina|piña)\b/, value: 50 },
-    { pattern: /\b(soya|soja|soybean|cana|caña|sugarcane|algodon|algodao|cotton|frijol|frejol|bean)\b/, value: 60 },
-    { pattern: /\b(banano|banana|platano|plantain|aguacate|avocado)\b/, value: 65 },
-    { pattern: /\b(maiz|maize|corn|citricos|citrus|cafe|coffee|guayaba|guava|higo|fig|durazno|peach)\b/, value: 70 },
-    { pattern: /\b(tomate|tomato|pepino|cucumber|pimiento|pepper|brocoli|broccoli|cebolla|onion|rabano|radish|hortaliza|vegetable|mango|papaya|maracuya|passion fruit|uva|uvas|grape)\b/, value: 80 },
-  ];
-
-  for (const rule of rules) {
-    if (rule.pattern.test(normalizedCrop)) return rule.value;
-  }
-
-  return 70;
-}
-
 function buildLabValueIndex(
   parameters: ParameterLite[],
   values: Record<string, string>,
@@ -2308,6 +2279,7 @@ function addKnownValue(
     ["bulk_density", /\b(bulk density|densidad aparente|da)\b/],
     ["cec", /\b(cec|cice|cic|ctc|cation exchange capacity|capacidad de intercambio cationico)\b/],
     ["base_saturation", /\b(base saturation|saturacion de bases|saturacao de bases|v%|sb)\b/],
+    ["aluminum", /\b(al|aluminum|aluminium|aluminio)\b/],
   ] as const;
 
   for (const [key, pattern] of keys) {
@@ -2315,19 +2287,6 @@ function addKnownValue(
       map.set(key, { key, label: symbol || label, value, unit });
     }
   }
-}
-
-function hasSoilLabValues(lab: Map<string, CalculatorValue>) {
-  const soilKeys = [
-    "cec",
-    "base_saturation",
-    "ph",
-    "exchangeable_acidity",
-    "calcium",
-    "magnesium",
-  ] as const;
-
-  return soilKeys.some((key) => lab.has(key));
 }
 
 function getSuggestions(

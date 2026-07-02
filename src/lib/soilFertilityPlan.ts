@@ -7,9 +7,11 @@ import {
   DEFAULT_SOIL_FERTILITY_REFERENCE,
   matchCropExtraction,
   type AmendmentMaterialKey,
+  type Extractant,
   type NutrientClass,
   type SoilFertilityReference,
   type Table1Parameter,
+  type Table1Row,
 } from "@/lib/soilFertilityTables";
 
 export type FertilityPlanMode = "completo" | "solo_dosis";
@@ -17,6 +19,8 @@ export type FertilityPlanMode = "completo" | "solo_dosis";
 export type FertilityPlanInput = {
   modo: FertilityPlanMode;
   cultivo?: string | null;
+  /** Extractante de laboratorio usado (Tabla N.° 1). Por defecto Olsen Modificado/KCl 1N. */
+  extractant?: Extractant;
   rendimientoObjetivo: number;
   profundidadMuestreo_cm: number;
   densidadAparente_g_cm3: number;
@@ -27,6 +31,7 @@ export type FertilityPlanInput = {
   Mg?: number;
   Na?: number;
   P?: number;
+  S?: number;
   Fe?: number;
   Cu?: number;
   Zn?: number;
@@ -120,21 +125,26 @@ function interpretVPercent(vPercent: number): { label: string; interpretation: s
   return { label: "Adecuado", interpretation: "Saturación de bases dentro del rango adecuado (Tabla N.° 2)." };
 }
 
-function buildDiagnosticSection(input: FertilityPlanInput, refs: SoilFertilityReference): FertilityPlanSection {
+function buildDiagnosticSection(
+  input: FertilityPlanInput,
+  table1: Table1Row[]
+): FertilityPlanSection {
   const values: Partial<Record<Table1Parameter, number>> = {
     ph: input.ph,
     acidez_extraible: input.acidezExtraible,
     k: input.K,
     ca: input.Ca,
     mg: input.Mg,
+    na: input.Na,
     p: input.P,
+    s: input.S,
     fe: input.Fe,
     cu: input.Cu,
     zn: input.Zn,
     mn: input.Mn,
   };
 
-  const steps: FertilityCalcStep[] = refs.nutrientInterpretation.map((row) => {
+  const steps: FertilityCalcStep[] = table1.map((row) => {
     const value = num(values[row.parameter]);
     const classification = classifyTable1(value, row);
     return {
@@ -208,11 +218,13 @@ export function buildSoilFertilityPlan(
 
   const crop = matchCropExtraction(input.cultivo, refs);
   const yieldTarget = Math.max(0, num(input.rendimientoObjetivo));
+  const extractant = input.extractant || "olsen_kcl";
+  const table1 = refs.nutrientInterpretationByExtractant[extractant] || refs.nutrientInterpretation;
 
   const sections: FertilityPlanSection[] = [];
 
   if (input.modo === "completo") {
-    sections.push(buildDiagnosticSection(input, refs));
+    sections.push(buildDiagnosticSection(input, table1));
     sections.push(buildSoilMassSection(depthCm, bulkDensity));
 
     const sb = ca + mg + k + na;
@@ -684,8 +696,8 @@ export function buildSoilFertilityPlan(
     const dosisTeorica = material.caoPercent > 0 ? caoRequerido / (material.caoPercent / 100) : 0;
     const dosisAjustada = dosisTeorica / (prnt / 100);
 
-    const caRow = refs.nutrientInterpretation.find((r) => r.parameter === "ca");
-    const mgRow = refs.nutrientInterpretation.find((r) => r.parameter === "mg");
+    const caRow = table1.find((r) => r.parameter === "ca");
+    const mgRow = table1.find((r) => r.parameter === "mg");
     const caClass = caRow ? classifyTable1(ca, caRow) : "bajo";
     const mgClass = mgRow ? classifyTable1(mg, mgRow) : "bajo";
     let recomendacion = material.label;

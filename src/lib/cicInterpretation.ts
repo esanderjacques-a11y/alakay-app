@@ -7,18 +7,25 @@
  *
  * K/Na and Ca/Na are not in Tabla N.° 3; thresholds follow the same
  * deficiency-risk logic as Ca/K (Tabla N.° 3) combined with Na % bands (Tabla N.° 2).
+ *
+ * Bands and ratio ranges default to the hardcoded Tabla N.° 2 / N.° 3 values but can
+ * be overridden with data fetched from `sf_cic_saturation_band` / `sf_cic_ratio_range`
+ * (see soilFertilityData.ts) so edits made in Supabase propagate without a code change.
  */
 
 import type { BaseRelationKey } from "@/lib/baseSaturation";
+import {
+  TABLE_2_ADEQUATE_SATURATION,
+  TABLE_2_CIC_SATURATION_BANDS,
+  TABLE_3_CIC_RATIO_RANGES,
+  type CicCation,
+  type CicRatioRangeTable,
+  type CicSaturationBand,
+  type CicSaturationBandRow,
+  type CicSaturationBandTable,
+} from "@/lib/soilFertilityTables";
 
-export type CicSaturationBand =
-  | "very_low"
-  | "low"
-  | "moderately_low"
-  | "adequate"
-  | "moderately_high"
-  | "high"
-  | "very_high";
+export type { CicSaturationBand };
 
 export type CicRatioBand = "low" | "optimal" | "high" | "unknown";
 
@@ -34,100 +41,13 @@ export type CicRatioInterpretation = {
   messageKey: string;
 };
 
-type SaturationBandRow = {
-  band: CicSaturationBand;
-  min?: number;
-  max?: number;
-  rangeLabel: string;
-};
-
 /** Tabla N.° 2 — adequate (Adecuado) columns used as primary targets elsewhere. */
-export const CIC_ADEQUATE_SATURATION = {
-  ca: { min: 61, max: 75, target: 68 },
-  mg: { min: 11, max: 15, target: 13 },
-  k: { min: 3.1, max: 4, target: 3.55 },
-  na: { min: 3.1, max: 5, target: 4 },
-  totalBases: { min: 75, max: 80, target: 77.5 },
-} as const;
+export const CIC_ADEQUATE_SATURATION = TABLE_2_ADEQUATE_SATURATION;
 
-const K_BANDS: SaturationBandRow[] = [
-  { band: "very_low", min: 0, max: 1, rangeLabel: "<1%" },
-  { band: "low", min: 1.01, max: 2, rangeLabel: "1.1–2%" },
-  { band: "moderately_low", min: 2.01, max: 3, rangeLabel: "2.1–3%" },
-  { band: "adequate", min: 3.01, max: 4, rangeLabel: "3.1–4%" },
-  { band: "moderately_high", min: 4.01, max: 6, rangeLabel: "4.1–6%" },
-  { band: "high", min: 6.01, max: 10, rangeLabel: "6.1–10%" },
-  { band: "very_high", min: 10.01, max: Infinity, rangeLabel: ">10%" },
-];
+/** Tabla N.° 3 optimal ranges and deficiency-risk thresholds (hardcoded fallback). */
+export const CIC_RATIO_RANGES = TABLE_3_CIC_RATIO_RANGES;
 
-const CA_BANDS: SaturationBandRow[] = [
-  { band: "very_low", min: 0, max: 25, rangeLabel: "<25%" },
-  { band: "low", min: 25.01, max: 40, rangeLabel: "26–40%" },
-  { band: "moderately_low", min: 40.01, max: 60, rangeLabel: "41–60%" },
-  { band: "adequate", min: 60.01, max: 75, rangeLabel: "61–75%" },
-  { band: "moderately_high", min: 75.01, max: 80, rangeLabel: "76–80%" },
-  { band: "high", min: 80.01, max: 85, rangeLabel: "81–85%" },
-  { band: "very_high", min: 85.01, max: Infinity, rangeLabel: ">85%" },
-];
-
-const MG_BANDS: SaturationBandRow[] = [
-  { band: "very_low", min: 0, max: 3, rangeLabel: "<3%" },
-  { band: "low", min: 3.01, max: 5, rangeLabel: "4–5%" },
-  { band: "moderately_low", min: 5.01, max: 10, rangeLabel: "6–10%" },
-  { band: "adequate", min: 10.01, max: 15, rangeLabel: "11–15%" },
-  { band: "moderately_high", min: 15.01, max: 20, rangeLabel: "16–20%" },
-  { band: "high", min: 20.01, max: 30, rangeLabel: "21–30%" },
-  { band: "very_high", min: 30.01, max: Infinity, rangeLabel: ">30%" },
-];
-
-const NA_BANDS: SaturationBandRow[] = [
-  { band: "very_low", min: 0, max: 1, rangeLabel: "<1%" },
-  { band: "low", min: 1.01, max: 2, rangeLabel: "1–2%" },
-  { band: "moderately_low", min: 2.01, max: 3, rangeLabel: "2.1–3%" },
-  { band: "adequate", min: 3.01, max: 5, rangeLabel: "3.1–5%" },
-  { band: "moderately_high", min: 5.01, max: 10, rangeLabel: "5.1–10%" },
-  { band: "high", min: 10.01, max: 20, rangeLabel: "10.1–20%" },
-  { band: "very_high", min: 20.01, max: Infinity, rangeLabel: ">20%" },
-];
-
-/** Tabla N.° 3 optimal ranges and deficiency-risk thresholds. */
-export const CIC_RATIO_RANGES: Record<
-  Exclude<BaseRelationKey, "all">,
-  { optimalMin: number; optimalMax: number; lowMessageKey: string; highMessageKey: string }
-> = {
-  ca_mg: {
-    optimalMin: 3,
-    optimalMax: 5,
-    lowMessageKey: "cicRatioCaMgLow",
-    highMessageKey: "cicRatioCaMgHigh",
-  },
-  ca_k: {
-    optimalMin: 9,
-    optimalMax: 25,
-    lowMessageKey: "cicRatioCaKLow",
-    highMessageKey: "cicRatioCaKHigh",
-  },
-  mg_k: {
-    optimalMin: 2,
-    optimalMax: 7,
-    lowMessageKey: "cicRatioMgKLow",
-    highMessageKey: "cicRatioMgKHigh",
-  },
-  k_na: {
-    optimalMin: 1,
-    optimalMax: 15,
-    lowMessageKey: "cicRatioKNaLow",
-    highMessageKey: "cicRatioKNaHigh",
-  },
-  ca_na: {
-    optimalMin: 9,
-    optimalMax: 25,
-    lowMessageKey: "cicRatioCaNaLow",
-    highMessageKey: "cicRatioCaNaHigh",
-  },
-};
-
-function matchSaturationBand(value: number, bands: SaturationBandRow[]): CicSaturationInterpretation {
+function matchSaturationBand(value: number, bands: CicSaturationBandRow[]): CicSaturationInterpretation {
   const ordered = [...bands].sort((a, b) => (a.min ?? -Infinity) - (b.min ?? -Infinity));
   for (const row of ordered) {
     const min = row.min ?? -Infinity;
@@ -141,18 +61,19 @@ function matchSaturationBand(value: number, bands: SaturationBandRow[]): CicSatu
 }
 
 export function interpretCationSaturation(
-  cation: "ca" | "mg" | "k" | "na",
-  percent: number
+  cation: CicCation,
+  percent: number,
+  bands: CicSaturationBandTable = TABLE_2_CIC_SATURATION_BANDS
 ): CicSaturationInterpretation {
-  const table = { ca: CA_BANDS, mg: MG_BANDS, k: K_BANDS, na: NA_BANDS }[cation];
-  return matchSaturationBand(percent, table);
+  return matchSaturationBand(percent, bands[cation]);
 }
 
 export function interpretCationRatio(
   relation: Exclude<BaseRelationKey, "all">,
-  value: number | null
+  value: number | null,
+  ranges: CicRatioRangeTable = TABLE_3_CIC_RATIO_RANGES
 ): CicRatioInterpretation {
-  const config = CIC_RATIO_RANGES[relation];
+  const config = ranges[relation];
   if (value === null || !Number.isFinite(value)) {
     return {
       band: "unknown",

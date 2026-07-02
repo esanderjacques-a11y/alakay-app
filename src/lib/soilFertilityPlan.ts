@@ -90,6 +90,9 @@ export type FertilityPlanResult = {
   cultivo: string;
   sections: FertilityPlanSection[];
   doses: FertilityDoseResult[];
+  /** SUE302 §1.4–1.5: Ca saturation + lime only when acidity and Ca deficit coexist. */
+  encaladoEligible: boolean;
+  encaladoNote: string;
   encalado?: {
     caoRequerido: number;
     dosisTeorica: number;
@@ -123,6 +126,60 @@ function interpretVPercent(vPercent: number): { label: string; interpretation: s
     return { label: "Alto", interpretation: "Saturación de bases alta — revisar antes de fertilizar." };
   }
   return { label: "Adecuado", interpretation: "Saturación de bases dentro del rango adecuado (Tabla N.° 2)." };
+}
+
+export type EncaladoEligibility = {
+  eligible: boolean;
+  hasAcidity: boolean;
+  hasCaSaturationDeficit: boolean;
+  reason: string;
+};
+
+/** SUE302 §1.4: Ca saturation lime method only when exchangeable acidity and Ca target deficit coexist. */
+export function evaluateEncaladoEligibility(
+  input: FertilityPlanInput,
+  table1: Table1Row[],
+  ca: number,
+  cice: number
+): EncaladoEligibility {
+  const acidity = num(input.acidezExtraible);
+  const ph = input.ph;
+  const acidityRow = table1.find((row) => row.parameter === "acidez_extraible");
+  const phRow = table1.find((row) => row.parameter === "ph");
+  const acidityLimit = acidityRow?.adequateMax ?? 0.5;
+  const phMin = phRow?.adequateMin ?? 5.5;
+
+  const hasAcidity =
+    acidity > acidityLimit ||
+    (ph !== undefined && Number.isFinite(ph) && ph < phMin) ||
+    (cice > 0 && acidity > 0 && (acidity / cice) * 100 > 5);
+
+  const satCaActual = cice > 0 ? (ca / cice) * 100 : 0;
+  const caObjetivo = cice * (CIC_ADEQUATE_SATURATION.ca.target / 100);
+  const deficitCa = Math.max(0, caObjetivo - ca);
+  const hasCaSaturationDeficit =
+    cice > 0 &&
+    ca > 0 &&
+    (satCaActual < CIC_ADEQUATE_SATURATION.ca.min || deficitCa > 0.001);
+
+  const eligible = hasAcidity && hasCaSaturationDeficit;
+
+  let reason: string;
+  if (eligible) {
+    reason =
+      "Acidez intercambiable y déficit de saturación de Ca — aplica el cálculo de encalado (SUE302 §1.4–1.5).";
+  } else if (!hasAcidity && !hasCaSaturationDeficit) {
+    reason =
+      "Sin acidez intercambiable ni déficit de saturación de Ca — no aplica el método de encalado por saturación.";
+  } else if (!hasAcidity) {
+    reason =
+      "Hay déficit de Ca, pero sin acidez intercambiable: use yeso u otra fuente de Ca; el encalado por saturación no aplica.";
+  } else {
+    reason =
+      "Hay acidez, pero la saturación de Ca ya alcanza la meta — corrija la acidez con la calculadora de enmiendas (pH / saturación de bases).";
+  }
+
+  return { eligible, hasAcidity, hasCaSaturationDeficit, reason };
 }
 
 function buildDiagnosticSection(
@@ -381,11 +438,13 @@ export function buildSoilFertilityPlan(
     const satCaObjetivo = CIC_ADEQUATE_SATURATION.ca.target;
     const caObjetivo = cice * (satCaObjetivo / 100);
     const deficitCa = Math.max(0, caObjetivo - ca);
+    const encaladoEligibility = evaluateEncaladoEligibility(input, table1, ca, cice);
 
     sections.push({
       id: "requerimiento_ca",
       title: "Requerimiento de calcio",
       tableRef: "Tabla N.° 2",
+      summary: encaladoEligibility.reason,
       steps: [
         {
           label: "Saturación actual de Ca",
@@ -404,8 +463,8 @@ export function buildSoilFertilityPlan(
         },
         {
           label: "Ca objetivo",
-          formula: "Ca objetivo = CICe × 0.68",
-          substitution: `${round(cice, 2)} × 0.68`,
+          formula: "Ca objetivo = CICe × (SatCa objetivo / 100)",
+          substitution: `${round(cice, 2)} × ${satCaObjetivo / 100}`,
           result: String(round(caObjetivo, 2)),
           unit: "cmol(+)/kg",
         },
@@ -415,7 +474,11 @@ export function buildSoilFertilityPlan(
           substitution: `${round(caObjetivo, 2)} − ${round(ca, 2)}`,
           result: String(round(deficitCa, 2)),
           unit: "cmol(+)/kg",
-          interpretation: deficitCa > 0 ? "Se requiere corrección de Ca / encalado." : "No hay déficit de Ca intercambiable.",
+          interpretation: encaladoEligibility.eligible
+            ? deficitCa > 0
+              ? "Se requiere corrección de Ca / encalado (SUE302 §1.4)."
+              : "Sin déficit de Ca intercambiable."
+            : encaladoEligibility.reason,
         },
       ],
     });
@@ -684,85 +747,98 @@ export function buildSoilFertilityPlan(
   });
 
   let encalado: FertilityPlanResult["encalado"];
-  if (input.modo === "completo" && ca > 0) {
-    const cice = ca + mg + k + na + acidity;
-    const caObjetivo = cice * (CIC_ADEQUATE_SATURATION.ca.target / 100);
+  const ciceForEncalado = ca + mg + k + na + acidity;
+  const encaladoEligibility =
+    input.modo === "completo"
+      ? evaluateEncaladoEligibility(input, table1, ca, ciceForEncalado)
+      : {
+          eligible: false,
+          hasAcidity: false,
+          hasCaSaturationDeficit: false,
+          reason: "Modo solo dosis — sin cálculo de encalado por saturación de Ca.",
+        };
+
+  if (input.modo === "completo" && ca > 0 && encaladoEligibility.eligible) {
+    const caObjetivo = ciceForEncalado * (CIC_ADEQUATE_SATURATION.ca.target / 100);
     const deficitCaCmol = Math.max(0, caObjetivo - ca);
-    const caKgHa = cmolToKgHa({ cation: "ca", cmolKg: deficitCaCmol, soilMassKgHa: massKgHa }).kgHa;
-    const caoRequerido = caKgHa * refs.oxideFactors.caToCao;
-    const materialKey = input.enmiendaSeleccionada || "cal_agricola";
-    const material = refs.amendments[materialKey];
-    const prnt = Math.max(1, num(input.PRNT, 95));
-    const dosisTeorica = material.caoPercent > 0 ? caoRequerido / (material.caoPercent / 100) : 0;
-    const dosisAjustada = dosisTeorica / (prnt / 100);
+    if (deficitCaCmol > 0.001) {
+      const caKgHa = cmolToKgHa({ cation: "ca", cmolKg: deficitCaCmol, soilMassKgHa: massKgHa }).kgHa;
+      const caoRequerido = caKgHa * refs.oxideFactors.caToCao;
+      const materialKey = input.enmiendaSeleccionada || "cal_agricola";
+      const material = refs.amendments[materialKey];
+      const prnt = Math.max(1, num(input.PRNT, 95));
+      const dosisTeorica = material.caoPercent > 0 ? caoRequerido / (material.caoPercent / 100) : 0;
+      const dosisAjustada = dosisTeorica / (prnt / 100);
 
-    const caRow = table1.find((r) => r.parameter === "ca");
-    const mgRow = table1.find((r) => r.parameter === "mg");
-    const caClass = caRow ? classifyTable1(ca, caRow) : "bajo";
-    const mgClass = mgRow ? classifyTable1(mg, mgRow) : "bajo";
-    let recomendacion = material.label;
-    let motivo = `Enmienda seleccionada: ${material.label}.`;
-    if (caClass === "bajo" && mgClass !== "bajo") {
-      recomendacion = "Cal agrícola o yeso";
-      motivo = "Ca bajo y Mg adecuado — cal agrícola para elevar pH y Ca; yeso si se requiere Ca sin elevar pH.";
-    } else if (caClass === "bajo" && mgClass === "bajo") {
-      recomendacion = "Dolomita";
-      motivo = "Ca y Mg bajos — dolomita aporta CaO y MgO simultáneamente.";
+      const caRow = table1.find((r) => r.parameter === "ca");
+      const mgRow = table1.find((r) => r.parameter === "mg");
+      const caClass = caRow ? classifyTable1(ca, caRow) : "bajo";
+      const mgClass = mgRow ? classifyTable1(mg, mgRow) : "bajo";
+      let recomendacion = material.label;
+      let motivo = `Enmienda seleccionada: ${material.label}.`;
+      if (caClass === "bajo" && mgClass !== "bajo") {
+        recomendacion = "Cal agrícola o yeso";
+        motivo = "Ca bajo y Mg adecuado — cal agrícola para elevar pH y Ca; yeso si se requiere Ca sin elevar pH.";
+      } else if (caClass === "bajo" && mgClass === "bajo") {
+        recomendacion = "Dolomita";
+        motivo = "Ca y Mg bajos — dolomita aporta CaO y MgO simultáneamente.";
+      }
+
+      encalado = {
+        caoRequerido: round(caoRequerido, 2),
+        dosisTeorica: round(dosisTeorica, 2),
+        dosisAjustada: round(dosisAjustada, 2),
+        material: materialKey,
+        recomendacion,
+        steps: [
+          {
+            label: "CaO requerido",
+            formula: "CaO = Ca requerido (kg/ha) × 1.40",
+            substitution: `${round(caKgHa, 2)} × 1.40`,
+            result: String(round(caoRequerido, 2)),
+            unit: "kg CaO/ha",
+            tableRef: "Tabla N.° 4",
+          },
+          {
+            label: "Dosis teórica",
+            formula: "Dosis = CaO requerido / (%CaO/100)",
+            substitution: `${round(caoRequerido, 2)} / ${material.caoPercent}%`,
+            result: String(round(dosisTeorica, 2)),
+            unit: "kg/ha",
+          },
+          {
+            label: "Dosis ajustada PRNT",
+            formula: "Dosis ajustada = Dosis / (PRNT/100)",
+            substitution: `${round(dosisTeorica, 2)} / (${prnt}/100)`,
+            result: String(round(dosisAjustada, 2)),
+            unit: "kg/ha",
+          },
+          {
+            label: "Dosis ajustada",
+            formula: "t/ha = kg/ha / 1 000",
+            substitution: `${round(dosisAjustada, 2)} / 1 000`,
+            result: String(round(dosisAjustada / 1000, 3)),
+            unit: "t/ha",
+          },
+          {
+            label: "Recomendación de enmienda",
+            formula: "Criterio Ca/Mg (Tabla N.° 1)",
+            substitution: `Ca: ${classifyLabel(caClass)}, Mg: ${classifyLabel(mgClass)}`,
+            result: recomendacion,
+            unit: "",
+            interpretation: motivo,
+          },
+        ],
+      };
+
+      sections.push({
+        id: "encalado",
+        title: "Requerimiento de encalado",
+        tableRef: "SUE302 §1.4–1.5",
+        summary: `${round(dosisAjustada, 2)} kg/ha · ${round(dosisAjustada / 1000, 3)} t/ha`,
+        steps: encalado.steps,
+      });
     }
-
-    encalado = {
-      caoRequerido: round(caoRequerido, 2),
-      dosisTeorica: round(dosisTeorica, 2),
-      dosisAjustada: round(dosisAjustada, 2),
-      material: materialKey,
-      recomendacion,
-      steps: [
-        {
-          label: "CaO requerido",
-          formula: "CaO = Ca requerido (kg/ha) × 1.40",
-          substitution: `${round(caKgHa, 2)} × 1.40`,
-          result: String(round(caoRequerido, 2)),
-          unit: "kg CaO/ha",
-          tableRef: "Tabla N.° 4",
-        },
-        {
-          label: "Dosis teórica",
-          formula: "Dosis = CaO requerido / (%CaO/100)",
-          substitution: `${round(caoRequerido, 2)} / ${material.caoPercent}%`,
-          result: String(round(dosisTeorica, 2)),
-          unit: "kg/ha",
-        },
-        {
-          label: "Dosis ajustada PRNT",
-          formula: "Dosis ajustada = Dosis / (PRNT/100)",
-          substitution: `${round(dosisTeorica, 2)} / (${prnt}/100)`,
-          result: String(round(dosisAjustada, 2)),
-          unit: "kg/ha",
-        },
-        {
-          label: "Dosis ajustada",
-          formula: "t/ha = kg/ha / 1 000",
-          substitution: `${round(dosisAjustada, 2)} / 1 000`,
-          result: String(round(dosisAjustada / 1000, 3)),
-          unit: "t/ha",
-        },
-        {
-          label: "Recomendación de enmienda",
-          formula: "Criterio Ca/Mg (Tabla N.° 1)",
-          substitution: `Ca: ${classifyLabel(caClass)}, Mg: ${classifyLabel(mgClass)}`,
-          result: recomendacion,
-          unit: "",
-          interpretation: motivo,
-        },
-      ],
-    };
-
-    sections.push({
-      id: "encalado",
-      title: "Requerimiento de encalado",
-      steps: encalado.steps,
-      summary: `${round(dosisAjustada, 2)} kg/ha · ${round(dosisAjustada / 1000, 3)} t/ha`,
-    });
   }
 
   const conclusiones = [
@@ -772,7 +848,9 @@ export function buildSoilFertilityPlan(
       : "No se requieren dosis positivas de N, P₂O₅, K₂O ni MgO con los datos actuales.",
     encalado && encalado.dosisAjustada > 0
       ? `Encalado estimado: ${encalado.dosisAjustada} kg/ha (${encalado.recomendacion}).`
-      : "Sin requerimiento de encalado con los datos actuales.",
+      : encaladoEligibility.eligible
+        ? "Sin déficit de Ca intercambiable para encalado por saturación."
+        : encaladoEligibility.reason,
   ];
 
   return {
@@ -780,6 +858,8 @@ export function buildSoilFertilityPlan(
     cultivo: crop.label,
     sections,
     doses,
+    encaladoEligible: encaladoEligibility.eligible,
+    encaladoNote: encaladoEligibility.reason,
     encalado,
     conclusiones,
   };

@@ -1055,17 +1055,23 @@ function FertilizerPlanCalculator({
           <NumberField label="Mg (%)" value={effMg} onChange={setEffMg} preserveCase />
         </CalculatorFormFields>
 
-        {modo === "completo" ? (
-          <CalculatorFormFields className="mt-4">
-            <SelectField
-              label={t.amendmentMaterial}
-              value={enmienda}
-              onChange={(value) => setEnmienda(value as AmendmentMaterialKey)}
-              options={Object.values(TABLE_12_AMENDMENTS).map((item) => [item.key, item.label])}
-            />
-            <NumberField label={t.prntPercent} value={prnt} onChange={setPrnt} />
-          </CalculatorFormFields>
-        ) : (
+        {modo === "completo" && plan ? (
+          plan.encaladoEligible ? (
+            <CalculatorFormFields className="mt-4">
+              <SelectField
+                label={t.amendmentMaterial}
+                value={enmienda}
+                onChange={(value) => setEnmienda(value as AmendmentMaterialKey)}
+                options={Object.values(TABLE_12_AMENDMENTS).map((item) => [item.key, item.label])}
+              />
+              <NumberField label={t.prntPercent} value={prnt} onChange={setPrnt} />
+            </CalculatorFormFields>
+          ) : (
+            <p className="mt-4 rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
+              {plan.encaladoNote}
+            </p>
+          )
+        ) : modo === "solo_dosis" ? (
           <CalculatorFormFields className="mt-4">
             <NumberField
               label={t.fertilizerPlanDemandN}
@@ -1088,7 +1094,7 @@ function FertilizerPlanCalculator({
               onChange={setManualMgo}
             />
           </CalculatorFormFields>
-        )}
+        ) : null}
       </div>
 
       {plan ? (

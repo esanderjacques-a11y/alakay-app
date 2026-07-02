@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Edit3, PlusCircle, RefreshCw, Trash2, X } from "lucide-react";
+import { Edit3, PlusCircle, RefreshCw, Trash2 } from "lucide-react";
 
+import AppModal from "@/components/AppModal";
 import { supabase } from "@/lib/supabase";
 import { Language } from "@/lib/translations";
 import { customRangeManagerText } from "@/lib/i18n/componentText";
@@ -569,354 +570,310 @@ export default function CustomRangeManager({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[20000] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-md">
-      <div className="glass-modal-shell max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-green-900">{l.title}</h2>
-            <p className="mt-1 text-sm text-slate-600">{l.desc}</p>
-          </div>
+    <AppModal
+      open={open}
+      onClose={closeModal}
+      title={l.title}
+      description={l.desc}
+      size="xl"
+      closeLabel={l.cancel}
+    >
+      {loading ? (
+        <div className="app-modal-message app-modal-message--info">
+          {l.loading}
+        </div>
+      ) : null}
 
+      <section className="app-modal-section mt-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="app-modal-section__title">
+              {editingRangeId ? l.editRange : l.addNew}
+            </h3>
+            <p className="app-modal-section__desc">{l.checkedFirst}</p>
+          </div>
           <button
             type="button"
-            onClick={closeModal}
-            className="rounded-2xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+            onClick={resetForm}
+            className="app-modal-btn app-modal-btn--ghost app-modal-btn--sm"
           >
-            <X size={18} />
+            {l.cancel}
           </button>
         </div>
 
-        {loading && (
-          <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-slate-700">
-            {l.loading}
-          </div>
-        )}
-
-        <section className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-green-900">
-                {editingRangeId ? l.editRange : l.addNew}
-              </h3>
-              <p className="mt-1 text-sm text-slate-600">{l.checkedFirst}</p>
-            </div>
-
-            <button
-              type="button"
-              onClick={resetForm}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        <div className="app-modal-fields">
+          <label className="app-modal-field">
+            <span className="app-modal-label">{l.parameterType}</span>
+            <select
+              className="app-native-select"
+              value={parameterType}
+              onChange={(event) => {
+                setParameterType(event.target.value as "official" | "custom");
+                setSelectedParameterId("");
+                setUnitId("");
+              }}
             >
-              {l.cancel}
-            </button>
-          </div>
+              <option value="official">{l.official}</option>
+              <option value="custom">{l.custom}</option>
+            </select>
+          </label>
 
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <label className="grid gap-1">
-              <span className="text-sm font-semibold text-slate-700">
-                {l.parameterType}
-              </span>
-              <select
-                className="rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
-                value={parameterType}
-                onChange={(event) => {
-                  setParameterType(event.target.value as "official" | "custom");
-                  setSelectedParameterId("");
-                  setUnitId("");
-                }}
-              >
-                <option value="official">{l.official}</option>
-                <option value="custom">{l.custom}</option>
-              </select>
-            </label>
+          <label className="app-modal-field">
+            <span className="app-modal-label">{l.parameter}</span>
+            <select
+              className="app-native-select"
+              value={selectedParameterId}
+              onChange={(event) =>
+                selectParameter(
+                  event.target.value ? Number(event.target.value) : ""
+                )
+              }
+            >
+              <option value="">{l.selectParameter}</option>
+              {parameterOptions.map((parameter) => (
+                <option key={parameter.id} value={parameter.id}>
+                  {parameter.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
-            <label className="grid gap-1">
-              <span className="text-sm font-semibold text-slate-700">
-                {l.parameter}
-              </span>
+          <label className="app-modal-field">
+            <span className="app-modal-label">{l.cropScope}</span>
+            <select
+              className="app-native-select"
+              value={cropScope}
+              onChange={(event) =>
+                selectCropScope(
+                  event.target.value as "general" | "current" | "specific"
+                )
+              }
+            >
+              <option value="general">{l.generalRange}</option>
+              <option value="current" disabled={!currentCropId}>
+                {l.currentCrop}
+              </option>
+              <option value="specific">{l.specificCrop}</option>
+            </select>
+          </label>
+
+          {cropScope === "specific" ? (
+            <label className="app-modal-field">
+              <span className="app-modal-label">{l.crop}</span>
               <select
-                className="rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
-                value={selectedParameterId}
+                className="app-native-select"
+                value={selectedCropId}
                 onChange={(event) =>
-                  selectParameter(event.target.value ? Number(event.target.value) : "")
-                }
-              >
-                <option value="">{l.selectParameter}</option>
-                {parameterOptions.map((parameter) => (
-                  <option key={parameter.id} value={parameter.id}>
-                    {parameter.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="grid gap-1">
-              <span className="text-sm font-semibold text-slate-700">
-                {l.cropScope}
-              </span>
-              <select
-                className="rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
-                value={cropScope}
-                onChange={(event) =>
-                  selectCropScope(
-                    event.target.value as "general" | "current" | "specific"
+                  setSelectedCropId(
+                    event.target.value ? Number(event.target.value) : ""
                   )
                 }
               >
-                <option value="general">{l.generalRange}</option>
-                <option value="current" disabled={!currentCropId}>
-                  {l.currentCrop}
-                </option>
-                <option value="specific">{l.specificCrop}</option>
-              </select>
-            </label>
-
-            {cropScope === "specific" && (
-              <label className="grid gap-1">
-                <span className="text-sm font-semibold text-slate-700">
-                  {l.crop}
-                </span>
-                <select
-                  className="rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
-                  value={selectedCropId}
-                  onChange={(event) =>
-                    setSelectedCropId(
-                      event.target.value ? Number(event.target.value) : ""
-                    )
-                  }
-                >
-                  <option value="">{l.selectCrop}</option>
-                  {crops.map((crop) => (
-                    <option key={crop.crop_id} value={crop.crop_id}>
-                      {crop.crop_name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-
-            <label className="grid gap-1">
-              <span className="text-sm font-semibold text-slate-700">
-                {l.unit}
-              </span>
-              <select
-                className="rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
-                value={unitId}
-                onChange={(event) =>
-                  setUnitId(event.target.value ? Number(event.target.value) : "")
-                }
-              >
-                <option value="">{l.selectUnit}</option>
-                {units.map((unit) => (
-                  <option key={unit.unit_id} value={unit.unit_id}>
-                    {unit.unit_symbol}
+                <option value="">{l.selectCrop}</option>
+                {crops.map((crop) => (
+                  <option key={crop.crop_id} value={crop.crop_id}>
+                    {crop.crop_name}
                   </option>
                 ))}
               </select>
             </label>
+          ) : null}
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="grid gap-1">
-                <span className="text-sm font-semibold text-slate-700">
-                  {l.min}
-                </span>
-                <input
-                  type="number"
-                  step="any"
-                  className="rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
-                  value={minValue}
-                  onChange={(event) => setMinValue(event.target.value)}
-                />
-              </label>
+          <label className="app-modal-field">
+            <span className="app-modal-label">{l.unit}</span>
+            <select
+              className="app-native-select"
+              value={unitId}
+              onChange={(event) =>
+                setUnitId(event.target.value ? Number(event.target.value) : "")
+              }
+            >
+              <option value="">{l.selectUnit}</option>
+              {units.map((unit) => (
+                <option key={unit.unit_id} value={unit.unit_id}>
+                  {unit.unit_symbol}
+                </option>
+              ))}
+            </select>
+          </label>
 
-              <label className="grid gap-1">
-                <span className="text-sm font-semibold text-slate-700">
-                  {l.max}
-                </span>
-                <input
-                  type="number"
-                  step="any"
-                  className="rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
-                  value={maxValue}
-                  onChange={(event) => setMaxValue(event.target.value)}
-                />
-              </label>
-            </div>
+          <label className="app-modal-field">
+            <span className="app-modal-label">{l.min}</span>
+            <input
+              type="number"
+              step="any"
+              className="calc-field-input"
+              value={minValue}
+              onChange={(event) => setMinValue(event.target.value)}
+            />
+          </label>
 
-            <label className="grid gap-1 md:col-span-2">
-              <span className="text-sm font-semibold text-slate-700">
-                {l.note}
-              </span>
-              <textarea
-                className="min-h-24 rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder="Example: This range is based on my local reference."
-              />
-            </label>
+          <label className="app-modal-field">
+            <span className="app-modal-label">{l.max}</span>
+            <input
+              type="number"
+              step="any"
+              className="calc-field-input"
+              value={maxValue}
+              onChange={(event) => setMaxValue(event.target.value)}
+            />
+          </label>
 
-            <label className="grid gap-1 md:col-span-2">
-              <span className="text-sm font-semibold text-slate-700">
-                {l.source}
-              </span>
+          <label className="app-modal-field app-modal-field--wide">
+            <span className="app-modal-label">{l.note}</span>
+            <textarea
+              className="calc-field-input min-h-24"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="Example: This range is based on my local reference."
+            />
+          </label>
+
+          <label className="app-modal-field app-modal-field--wide">
+            <span className="app-modal-label">{l.source}</span>
+            <input
+              className="calc-field-input"
+              value={sourceName}
+              onChange={(event) => setSourceName(event.target.value)}
+            />
+          </label>
+        </div>
+
+        <button
+          type="button"
+          onClick={saveRange}
+          disabled={saving}
+          className="app-modal-btn app-modal-btn--primary mt-4 w-full sm:w-auto"
+        >
+          <PlusCircle size={18} />
+          {saving ? l.saving : editingRangeId ? l.update : l.save}
+        </button>
+      </section>
+
+      {message ? (
+        <div className="app-modal-message app-modal-message--warn mt-3">
+          {message}
+        </div>
+      ) : null}
+
+      <section className="app-modal-section mt-3">
+        <div className="app-modal-toolbar">
+          <p className="app-modal-toolbar__meta">
+            {visibleRanges.length} range(s)
+          </p>
+          <div className="app-modal-toolbar__actions">
+            <label className="app-modal-chip-toggle">
               <input
-                className="rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
-                value={sourceName}
-                onChange={(event) => setSourceName(event.target.value)}
+                type="checkbox"
+                checked={showDeleted}
+                onChange={(event) => setShowDeleted(event.target.checked)}
               />
+              {l.showDeleted}
             </label>
+            <button
+              type="button"
+              onClick={loadInitialData}
+              className="app-modal-btn app-modal-btn--ghost app-modal-btn--sm"
+            >
+              <RefreshCw size={16} />
+              {l.refresh}
+            </button>
           </div>
+        </div>
 
-          <button
-            type="button"
-            onClick={saveRange}
-            disabled={saving}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-700 px-5 py-3 font-semibold text-white hover:bg-green-800 disabled:opacity-60 md:w-auto"
-          >
-            <PlusCircle size={18} />
-            {saving ? l.saving : editingRangeId ? l.update : l.save}
-          </button>
-        </section>
-
-        {message && (
-          <div className="mt-5 rounded-2xl bg-yellow-50 p-4 text-sm text-yellow-900">
-            {message}
+        {visibleRanges.length === 0 ? (
+          <div className="app-modal-message app-modal-message--warn">
+            {l.noRanges}
           </div>
-        )}
-
-        <section className="mt-6">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-green-900">
-                {l.existingRanges}
-              </h3>
-              <p className="mt-1 text-sm text-slate-600">
-                {visibleRanges.length} range(s)
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2 md:flex-row">
-              <label className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={showDeleted}
-                  onChange={(event) => setShowDeleted(event.target.checked)}
-                />
-                {l.showDeleted}
-              </label>
-
-              <button
-                type="button"
-                onClick={loadInitialData}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-green-200 px-4 py-3 text-sm font-semibold text-green-800 hover:bg-green-50"
-              >
-                <RefreshCw size={16} />
-                {l.refresh}
-              </button>
-            </div>
-          </div>
-
-          {visibleRanges.length === 0 && (
-            <div className="mt-4 rounded-2xl bg-yellow-50 p-4 text-yellow-900">
-              {l.noRanges}
-            </div>
-          )}
-
-          <div className="mt-4 grid gap-3">
+        ) : (
+          <div className="app-modal-list">
             {visibleRanges.map((range) => {
               const symbol = getRangeSymbol(range);
               const unit = getRangeUnit(range);
 
               return (
-                <div
+                <article
                   key={range.custom_range_id}
-                  className={`rounded-2xl border p-4 ${
-                    range.is_deleted
-                      ? "border-red-200 bg-red-50"
-                      : "border-slate-200 bg-white"
+                  className={`app-modal-list-item${
+                    range.is_deleted ? " app-modal-list-item--deleted" : ""
                   }`}
                 >
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="font-bold text-slate-900">
-                          {getRangeName(range)}
-                          {symbol ? ` (${symbol})` : ""}
-                        </h4>
-
-                        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
-                          {range.custom_parameter_id ? l.custom : l.official}
-                        </span>
-
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs font-bold ${
-                            range.is_deleted
-                              ? "bg-red-100 text-red-700"
-                              : "bg-green-100 text-green-800"
-                          }`}
-                        >
-                          {range.is_deleted ? l.deletedStatus : l.active}
-                        </span>
-                      </div>
-
-                      <p className="mt-1 text-sm text-slate-600">
-                        {getRangeCropName(range)} · {range.sample_type}
-                      </p>
-
-                      <p className="mt-1 text-sm font-semibold text-slate-800">
-                        {range.min_value ?? "—"} - {range.max_value ?? "—"}{" "}
-                        {unit}
-                      </p>
-
-                      {range.interpretation_note && (
-                        <p className="mt-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
-                          {range.interpretation_note}
-                        </p>
-                      )}
-
-                      <p className="mt-2 text-xs text-slate-500">
-                        {range.source_name || "User custom range"}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {!range.is_deleted && (
-                        <button
-                          type="button"
-                          onClick={() => editRange(range)}
-                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                        >
-                          <Edit3 size={15} />
-                          Edit
-                        </button>
-                      )}
-
-                      {range.is_deleted ? (
-                        <button
-                          type="button"
-                          onClick={() => restoreRange(range)}
-                          className="inline-flex items-center gap-2 rounded-2xl bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800"
-                        >
-                          {l.restore}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => softDeleteRange(range)}
-                          className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                        >
-                          <Trash2 size={15} />
-                          {l.delete}
-                        </button>
-                      )}
-                    </div>
+                  <div className="app-modal-list-item__head">
+                    <h4 className="app-modal-list-item__title">
+                      {getRangeName(range)}
+                      {symbol ? ` (${symbol})` : ""}
+                    </h4>
+                    <span className="app-modal-badge app-modal-badge--muted">
+                      {range.custom_parameter_id ? l.custom : l.official}
+                    </span>
+                    <span
+                      className={`app-modal-badge ${
+                        range.is_deleted
+                          ? "app-modal-badge--deleted"
+                          : "app-modal-badge--active"
+                      }`}
+                    >
+                      {range.is_deleted ? l.deletedStatus : l.active}
+                    </span>
                   </div>
-                </div>
+
+                  <div className="app-modal-list-item__meta">
+                    <p>
+                      {getRangeCropName(range)} · {range.sample_type}
+                    </p>
+                    <p>
+                      {range.min_value ?? "—"} - {range.max_value ?? "—"} {unit}
+                    </p>
+                  </div>
+
+                  {range.interpretation_note ? (
+                    <p className="mt-2 rounded-xl bg-[var(--glass-surface-muted)] p-3 text-sm text-[var(--foreground)]">
+                      {range.interpretation_note}
+                    </p>
+                  ) : null}
+
+                  <p className="mt-2 text-xs text-[#6c6c70]">
+                    {range.source_name || "User custom range"}
+                  </p>
+
+                  <div className="app-modal-list-item__actions">
+                    {!range.is_deleted ? (
+                      <button
+                        type="button"
+                        onClick={() => editRange(range)}
+                        className="app-modal-btn app-modal-btn--secondary app-modal-btn--sm"
+                      >
+                        <Edit3 size={15} />
+                        {l.editRange}
+                      </button>
+                    ) : null}
+
+                    {range.is_deleted ? (
+                      <button
+                        type="button"
+                        onClick={() => restoreRange(range)}
+                        className="app-modal-btn app-modal-btn--primary app-modal-btn--sm"
+                      >
+                        {l.restore}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => softDeleteRange(range)}
+                        className="app-modal-btn app-modal-btn--danger app-modal-btn--sm"
+                      >
+                        <Trash2 size={15} />
+                        {l.delete}
+                      </button>
+                    )}
+                  </div>
+                </article>
               );
             })}
           </div>
-        </section>
-      </div>
-    </div>
+        )}
+      </section>
+    </AppModal>
   );
 }
 

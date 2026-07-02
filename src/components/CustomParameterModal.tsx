@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { X, PlusCircle } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 
+import AppModal from "@/components/AppModal";
 import { supabase } from "@/lib/supabase";
 import { Language, translations } from "@/lib/translations";
 
@@ -230,140 +231,17 @@ export default function CustomParameterModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[20000] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-md">
-      <div className="glass-modal-shell max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-green-900">{l.title}</h2>
-            <p className="mt-1 text-sm text-slate-600">{l.desc}</p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              onClose();
-            }}
-            className="rounded-2xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <label className="grid gap-1 md:col-span-2">
-            <span className="text-sm font-semibold text-slate-700">
-              {l.name}
-            </span>
-            <input
-              className="rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
-              value={parameterName}
-              onChange={(event) => setParameterName(event.target.value)}
-              placeholder={l.parameterPlaceholder}
-            />
-          </label>
-
-          <label className="grid gap-1">
-            <span className="text-sm font-semibold text-slate-700">
-              {l.symbol}
-            </span>
-            <input
-              className="rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
-              value={symbol}
-              onChange={(event) => setSymbol(event.target.value)}
-              placeholder={l.symbolPlaceholder}
-            />
-          </label>
-
-          <label className="grid gap-1">
-            <span className="text-sm font-semibold text-slate-700">
-              {l.category}
-            </span>
-            <select
-              className="rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-            >
-              <option value="Custom">{appText.categoryCustom}</option>
-              <option value="Chemical">{l.chemical}</option>
-              <option value="Physical">{l.physical}</option>
-              <option value="Biological">{l.biological}</option>
-              <option value="Other">{appText.categoryOther}</option>
-            </select>
-          </label>
-
-          <label className="grid gap-1 md:col-span-2">
-            <span className="text-sm font-semibold text-slate-700">
-              {l.unit}
-            </span>
-            <select
-              className="rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:border-green-600"
-              value={unitId}
-              onChange={(event) =>
-                setUnitId(event.target.value ? Number(event.target.value) : "")
-              }
-            >
-              <option value="">{l.selectUnit}</option>
-              {units.map((unit) => (
-                <option key={unit.unit_id} value={unit.unit_id}>
-                  {unit.unit_symbol}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-6 rounded-2xl bg-green-50 p-4 text-sm text-green-900">
-          {l.rangeInfo}
-        </div>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="grid gap-1">
-            <span className="text-sm font-semibold text-slate-700">
-              {l.min}
-            </span>
-            <input
-              type="number"
-              step="any"
-              className="rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
-              value={minValue}
-              onChange={(event) => setMinValue(event.target.value)}
-            />
-          </label>
-
-          <label className="grid gap-1">
-            <span className="text-sm font-semibold text-slate-700">
-              {l.max}
-            </span>
-            <input
-              type="number"
-              step="any"
-              className="rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
-              value={maxValue}
-              onChange={(event) => setMaxValue(event.target.value)}
-            />
-          </label>
-
-          <label className="grid gap-1 md:col-span-2">
-            <span className="text-sm font-semibold text-slate-700">
-              {l.note}
-            </span>
-            <textarea
-              className="min-h-24 rounded-2xl border border-slate-200 p-3 outline-none focus:border-green-600"
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              placeholder={l.notePlaceholder}
-            />
-          </label>
-        </div>
-
-        {message && (
-          <div className="mt-5 rounded-2xl bg-yellow-50 p-4 text-sm text-yellow-900">
-            {message}
-          </div>
-        )}
-
-        <div className="mt-6 grid gap-3 md:grid-cols-2">
+    <AppModal
+      open={open}
+      onClose={() => {
+        resetForm();
+        onClose();
+      }}
+      title={l.title}
+      description={l.desc}
+      closeLabel={l.cancel}
+      footer={
+        <>
           <button
             type="button"
             onClick={() => {
@@ -371,23 +249,119 @@ export default function CustomParameterModal({
               onClose();
             }}
             disabled={saving}
-            className="rounded-2xl border border-slate-200 px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            className="app-modal-btn app-modal-btn--secondary"
           >
             {l.cancel}
           </button>
-
           <button
             type="button"
             onClick={saveCustomParameter}
             disabled={saving}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-green-700 px-5 py-3 font-semibold text-white hover:bg-green-800 disabled:opacity-60"
+            className="app-modal-btn app-modal-btn--primary"
           >
             <PlusCircle size={18} />
             {saving ? l.saving : l.save}
           </button>
-        </div>
+        </>
+      }
+    >
+      <div className="app-modal-fields app-modal-fields--single">
+        <label className="app-modal-field app-modal-field--wide">
+          <span className="app-modal-label">{l.name}</span>
+          <input
+            className="calc-field-input"
+            value={parameterName}
+            onChange={(event) => setParameterName(event.target.value)}
+            placeholder={l.parameterPlaceholder}
+          />
+        </label>
+
+        <label className="app-modal-field">
+          <span className="app-modal-label">{l.symbol}</span>
+          <input
+            className="calc-field-input"
+            value={symbol}
+            onChange={(event) => setSymbol(event.target.value)}
+            placeholder={l.symbolPlaceholder}
+          />
+        </label>
+
+        <label className="app-modal-field">
+          <span className="app-modal-label">{l.category}</span>
+          <select
+            className="app-native-select"
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+          >
+            <option value="Custom">{appText.categoryCustom}</option>
+            <option value="Chemical">{l.chemical}</option>
+            <option value="Physical">{l.physical}</option>
+            <option value="Biological">{l.biological}</option>
+            <option value="Other">{appText.categoryOther}</option>
+          </select>
+        </label>
+
+        <label className="app-modal-field app-modal-field--wide">
+          <span className="app-modal-label">{l.unit}</span>
+          <select
+            className="app-native-select"
+            value={unitId}
+            onChange={(event) =>
+              setUnitId(event.target.value ? Number(event.target.value) : "")
+            }
+          >
+            <option value="">{l.selectUnit}</option>
+            {units.map((unit) => (
+              <option key={unit.unit_id} value={unit.unit_id}>
+                {unit.unit_symbol}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
-    </div>
+
+      <div className="app-modal-hint mt-4">{l.rangeInfo}</div>
+
+      <div className="app-modal-fields mt-4">
+        <label className="app-modal-field">
+          <span className="app-modal-label">{l.min}</span>
+          <input
+            type="number"
+            step="any"
+            className="calc-field-input"
+            value={minValue}
+            onChange={(event) => setMinValue(event.target.value)}
+          />
+        </label>
+
+        <label className="app-modal-field">
+          <span className="app-modal-label">{l.max}</span>
+          <input
+            type="number"
+            step="any"
+            className="calc-field-input"
+            value={maxValue}
+            onChange={(event) => setMaxValue(event.target.value)}
+          />
+        </label>
+
+        <label className="app-modal-field app-modal-field--wide">
+          <span className="app-modal-label">{l.note}</span>
+          <textarea
+            className="calc-field-input min-h-24"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder={l.notePlaceholder}
+          />
+        </label>
+      </div>
+
+      {message ? (
+        <div className="app-modal-message app-modal-message--warn mt-4">
+          {message}
+        </div>
+      ) : null}
+    </AppModal>
   );
 }
 

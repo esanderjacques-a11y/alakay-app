@@ -31,6 +31,7 @@ import CustomRangeManager from "@/components/CustomRangeManager";
 import LabValueImporter from "@/components/LabValueImporter";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ParameterCategoryFilter from "@/components/ParameterCategoryFilter";
+import AddDataMenu from "@/components/AddDataMenu";
 import ValuesDisplayMenu from "@/components/ValuesDisplayMenu";
 import ResultsDashboard from "@/components/ResultsDashboard";
 import RecycleBinScreen from "@/components/RecycleBinScreen";
@@ -109,6 +110,8 @@ type Parameter = {
   category: string | null;
   unit_id: number;
   unit_symbol: string;
+  /** Friendly default shown in Values (% | mg/kg | cmol(+)/kg when applicable). */
+  preferred_display_symbol: string;
   is_custom: boolean;
   available_units: {
     unit_id: number;
@@ -361,6 +364,23 @@ function getFriendlyUnitSymbol(unitSymbol: string) {
   return friendlySymbols[compact] || unitSymbol;
 }
 
+function resolvePreferredDisplaySymbol(
+  parameter: {
+    parameter_name: string;
+    symbol: string | null;
+    category: string | null;
+  },
+  sampleType: "soil" | "foliar",
+  fallbackUnitSymbol: string
+) {
+  const preferred =
+    sampleType === "foliar"
+      ? getPreferredFoliarUnitSymbol(parameter)
+      : getPreferredSoilUnitSymbol(parameter);
+
+  return preferred || getFriendlyUnitSymbol(fallbackUnitSymbol);
+}
+
 function getPreferredUnitDisplayKey(
   parameter: Parameter,
   selectedUnitId: number,
@@ -373,24 +393,15 @@ function getPreferredUnitDisplayKey(
     if (currentOption) return currentDisplayKey;
   }
 
-  const preferredDisplay = getFriendlyUnitSymbol(parameter.unit_symbol);
+  const preferredDisplay =
+    parameter.preferred_display_symbol ||
+    getFriendlyUnitSymbol(parameter.unit_symbol);
 
-  const selectedOption =
-    parameter.available_units.find(
-      (unit) =>
-        unit.unit_id === selectedUnitId &&
-        normalizeUnitSymbol(unit.display_symbol || unit.unit_symbol) ===
-          normalizeUnitSymbol(preferredDisplay)
-    ) ||
-    parameter.available_units.find(
-      (unit) =>
-        unit.unit_id === selectedUnitId &&
-        (unit.unit_symbol === parameter.unit_symbol ||
-          unit.display_symbol === parameter.unit_symbol)
-    ) ||
-    parameter.available_units.find((unit) => unit.unit_id === selectedUnitId) ||
-    parameter.available_units.find((unit) => unit.unit_id === parameter.unit_id) ||
-    parameter.available_units[0];
+  const selectedOption = pickPreferredDisplayOption(
+    parameter.available_units,
+    preferredDisplay,
+    selectedUnitId
+  );
 
   return selectedOption ? getUnitOptionKey(selectedOption) : "";
 }
@@ -403,8 +414,11 @@ function resolveParameterUnitState(
   const selectedUnitId =
     selectedUnits[parameter.parameter_key] || parameter.unit_id;
   const selectedUnit =
-    parameter.available_units.find((unit) => unit.unit_id === selectedUnitId) ||
-    parameter.available_units[0];
+    pickPreferredDisplayOption(
+      parameter.available_units.filter((unit) => unit.unit_id === selectedUnitId),
+      parameter.preferred_display_symbol || getFriendlyUnitSymbol(parameter.unit_symbol),
+      selectedUnitId
+    ) || parameter.available_units[0];
   const selectedUnitDisplayKey =
     getPreferredUnitDisplayKey(
       parameter,
@@ -420,6 +434,51 @@ function normalizeUnitSymbol(unitSymbol: string) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "");
+}
+
+/** mg/kg and ppm are equivalent; always prefer mg/kg in default display. */
+function massDisplayRank(unitSymbol: string) {
+  const normalized = normalizeUnitSymbol(unitSymbol);
+  if (normalized === normalizeUnitSymbol("mg/kg")) return 0;
+  if (normalized === normalizeUnitSymbol("ppm")) return 1;
+  return 2;
+}
+
+function pickPreferredDisplayOption<
+  T extends {
+    unit_id: number;
+    unit_symbol: string;
+    display_symbol: string;
+    canonical_symbol?: string;
+  },
+>(options: T[], preferredDisplay: string, selectedUnitId?: number) {
+  const normalizedPreferred = normalizeUnitSymbol(preferredDisplay);
+  let candidates = options.filter(
+    (unit) =>
+      normalizeUnitSymbol(unit.display_symbol || unit.unit_symbol) ===
+      normalizedPreferred
+  );
+
+  if (selectedUnitId !== undefined) {
+    const withUnit = candidates.filter((unit) => unit.unit_id === selectedUnitId);
+    if (withUnit.length > 0) candidates = withUnit;
+  }
+
+  if (candidates.length === 0) {
+    const unitMatches =
+      selectedUnitId !== undefined
+        ? options.filter((unit) => unit.unit_id === selectedUnitId)
+        : options;
+    candidates = unitMatches.length > 0 ? unitMatches : options;
+  }
+
+  return (
+    [...candidates].sort(
+      (left, right) =>
+        massDisplayRank(left.display_symbol || left.unit_symbol) -
+        massDisplayRank(right.display_symbol || right.unit_symbol)
+    )[0] || options[0]
+  );
 }
 
 function getPreferredFoliarUnitSymbol(parameter: {
@@ -514,10 +573,14 @@ function findUnitBySymbol(
   );
   if (exactMatch) return exactMatch;
 
+  const normalizedMatch = units.find(
+    (unit) => normalizeUnitSymbol(unit.unit_symbol) === normalizedSymbol
+  );
+  if (normalizedMatch) return normalizedMatch;
+
   return (
-    units.find(
-      (unit) => normalizeUnitSymbol(unit.unit_symbol) === normalizedSymbol
-    ) || null
+    units.find((unit) => canConvertLabUnit(unit.unit_symbol, preferredDisplay)) ||
+    null
   );
 }
 
@@ -1035,8 +1098,11 @@ export default function HomePage() {
 
       incomingUnits[normalizedKey] = value;
       const parameter = parameters.find((item) => item.parameter_key === normalizedKey);
+      const unitOptions =
+        parameter?.available_units.filter((unit) => unit.unit_id === value) || [];
       const unitOption =
-        parameter?.available_units.find((unit) => unit.unit_id === value) ||
+        pickPreferredDisplayOption(unitOptions, "mg/kg", value) ||
+        unitOptions[0] ||
         parameter?.available_units[0];
       if (unitOption) {
         incomingUnitDisplayKeys[normalizedKey] = getUnitOptionKey(unitOption);
@@ -1249,7 +1315,8 @@ export default function HomePage() {
         display_symbol: string;
       }[],
       preferredUnitId = baseUnitId,
-      preferredUnitSymbol = baseUnitSymbol
+      preferredUnitSymbol = baseUnitSymbol,
+      preferredDisplaySymbol = getFriendlyUnitSymbol(preferredUnitSymbol)
     ) {
       type UnitOption = {
         unit_id: number;
@@ -1260,6 +1327,7 @@ export default function HomePage() {
 
       const options: UnitOption[] = [];
       const seen = new Set<string>();
+      const seenDisplay = new Set<string>();
 
       function addOption(option: {
         unit_id: number;
@@ -1270,45 +1338,95 @@ export default function HomePage() {
         const normalized: UnitOption = {
           unit_id: option.unit_id,
           unit_symbol: option.unit_symbol,
-          display_symbol: getFriendlyUnitSymbol(
-            option.display_symbol || option.unit_symbol
-          ),
+          display_symbol: option.display_symbol || option.unit_symbol,
           canonical_symbol: option.canonical_symbol ?? option.unit_symbol,
         };
         const key = getUnitOptionKey(normalized);
-        if (seen.has(key)) return;
+        const displayKey = normalized.display_symbol.toLowerCase().trim();
+        if (seen.has(key) || seenDisplay.has(displayKey)) return;
         seen.add(key);
+        seenDisplay.add(displayKey);
         options.push(normalized);
       }
 
       for (const option of initialOptions) {
-        addOption({ ...option, canonical_symbol: option.unit_symbol });
+        addOption({
+          ...option,
+          display_symbol: getFriendlyUnitSymbol(
+            option.display_symbol || option.unit_symbol
+          ),
+          canonical_symbol: option.unit_symbol,
+        });
       }
 
       if (preferredUnitId && preferredUnitSymbol) {
         addOption({
           unit_id: preferredUnitId,
           unit_symbol: preferredUnitSymbol,
-          display_symbol: preferredUnitSymbol,
+          display_symbol: preferredDisplaySymbol,
           canonical_symbol: preferredUnitSymbol,
+        });
+      }
+
+      if (
+        canConvertLabUnit(baseUnitSymbol, preferredDisplaySymbol) &&
+        normalizeUnitSymbol(preferredDisplaySymbol) !==
+          normalizeUnitSymbol(getFriendlyUnitSymbol(baseUnitSymbol))
+      ) {
+        addOption({
+          unit_id: baseUnitId,
+          unit_symbol: baseUnitSymbol,
+          display_symbol: preferredDisplaySymbol,
+          canonical_symbol: baseUnitSymbol,
         });
       }
 
       for (const candidate of allUnits) {
         if (!canConvertLabUnit(baseUnitSymbol, candidate.unit_symbol)) continue;
+        const friendlyDisplay = getFriendlyUnitSymbol(candidate.unit_symbol);
         addOption({
           unit_id: candidate.unit_id,
           unit_symbol: candidate.unit_symbol,
-          display_symbol: candidate.unit_symbol,
+          display_symbol: friendlyDisplay,
           canonical_symbol: candidate.unit_symbol,
+        });
+        if (candidate.unit_symbol !== friendlyDisplay) {
+          addOption({
+            unit_id: candidate.unit_id,
+            unit_symbol: candidate.unit_symbol,
+            display_symbol: candidate.unit_symbol,
+            canonical_symbol: candidate.unit_symbol,
+          });
+        }
+      }
+
+      for (const alias of ["ppm"]) {
+        if (!canConvertLabUnit(baseUnitSymbol, alias)) continue;
+        addOption({
+          unit_id: baseUnitId,
+          unit_symbol: baseUnitSymbol,
+          display_symbol: alias,
+          canonical_symbol: baseUnitSymbol,
         });
       }
 
+      const normalizedPreferredDisplay = normalizeUnitSymbol(preferredDisplaySymbol);
+
       options.sort((left, right) => {
+        const leftIsPreferredDisplay =
+          normalizeUnitSymbol(left.display_symbol) === normalizedPreferredDisplay;
+        const rightIsPreferredDisplay =
+          normalizeUnitSymbol(right.display_symbol) === normalizedPreferredDisplay;
+        if (leftIsPreferredDisplay !== rightIsPreferredDisplay) {
+          return leftIsPreferredDisplay ? -1 : 1;
+        }
         if (left.unit_id === preferredUnitId) return -1;
         if (right.unit_id === preferredUnitId) return 1;
         if (left.unit_id === baseUnitId) return -1;
         if (right.unit_id === baseUnitId) return 1;
+        const leftMassRank = massDisplayRank(left.display_symbol);
+        const rightMassRank = massDisplayRank(right.display_symbol);
+        if (leftMassRank !== rightMassRank) return leftMassRank - rightMassRank;
         return left.display_symbol.localeCompare(right.display_symbol);
       });
 
@@ -1320,10 +1438,12 @@ export default function HomePage() {
 
       const databaseUnitId = unitData?.unit_id ?? row.default_unit_id;
       const databaseUnitSymbol = unitData?.unit_symbol ?? "";
-      const preferredUnit =
-        sampleType === "foliar"
-          ? findUnitBySymbol(allUnits, getPreferredFoliarUnitSymbol(row))
-          : findUnitBySymbol(allUnits, getPreferredSoilUnitSymbol(row));
+      const preferredDisplaySymbol = resolvePreferredDisplaySymbol(
+        row,
+        column,
+        databaseUnitSymbol
+      );
+      const preferredUnit = findUnitBySymbol(allUnits, preferredDisplaySymbol);
       const unitId = preferredUnit?.unit_id ?? databaseUnitId;
       const unitSymbol = preferredUnit?.unit_symbol ?? databaseUnitSymbol;
 
@@ -1339,6 +1459,7 @@ export default function HomePage() {
         category: row.category,
         unit_id: unitId,
         unit_symbol: unitSymbol,
+        preferred_display_symbol: preferredDisplaySymbol,
         is_custom: false,
         available_units: buildExpandedUnitOptions(
           databaseUnitId,
@@ -1351,7 +1472,8 @@ export default function HomePage() {
             },
           ],
           unitId,
-          unitSymbol
+          unitSymbol,
+          preferredDisplaySymbol
         ),
       };
     });
@@ -1359,8 +1481,16 @@ export default function HomePage() {
     const customParameters: Parameter[] = customRows.map((row) => {
       const unitData = Array.isArray(row.units) ? row.units[0] : row.units;
 
-      const unitId = unitData?.unit_id ?? row.default_unit_id;
-      const unitSymbol = unitData?.unit_symbol ?? "";
+      const databaseUnitId = unitData?.unit_id ?? row.default_unit_id;
+      const databaseUnitSymbol = unitData?.unit_symbol ?? "";
+      const preferredDisplaySymbol = resolvePreferredDisplaySymbol(
+        row,
+        column,
+        databaseUnitSymbol
+      );
+      const preferredUnit = findUnitBySymbol(allUnits, preferredDisplaySymbol);
+      const unitId = preferredUnit?.unit_id ?? databaseUnitId;
+      const unitSymbol = preferredUnit?.unit_symbol ?? databaseUnitSymbol;
       const displayUnitSymbol = getFriendlyUnitSymbol(unitSymbol);
 
       return {
@@ -1374,17 +1504,21 @@ export default function HomePage() {
         category: row.category || "Custom",
         unit_id: unitId,
         unit_symbol: unitSymbol,
+        preferred_display_symbol: preferredDisplaySymbol,
         is_custom: true,
         available_units: buildExpandedUnitOptions(
-          unitId,
-          unitSymbol,
-          unitAliasOptionsMap.get(unitId) || [
+          databaseUnitId,
+          databaseUnitSymbol,
+          unitAliasOptionsMap.get(databaseUnitId) || [
             {
-              unit_id: unitId,
-              unit_symbol: unitSymbol,
+              unit_id: databaseUnitId,
+              unit_symbol: databaseUnitSymbol,
               display_symbol: displayUnitSymbol,
             },
-          ]
+          ],
+          unitId,
+          unitSymbol,
+          preferredDisplaySymbol
         ),
       };
     });
@@ -3076,12 +3210,11 @@ function ValuesScreen({
   openCustomParameterManager: () => void;
   openCustomRangeManager: () => void;
 }) {
-  const [showCustomDataMenu, setShowCustomDataMenu] = useState(false);
-  const [showStickyCustomDataMenu, setShowStickyCustomDataMenu] = useState(false);
+  const [addDataMenuSource, setAddDataMenuSource] = useState<
+    null | "toolbar" | "sticky"
+  >(null);
   const [showParameterActions, setShowParameterActions] = useState(false);
   const [canRenderFloatingActions, setCanRenderFloatingActions] = useState(false);
-  const customMenuRef = useRef<HTMLDivElement | null>(null);
-  const stickyCustomMenuRef = useRef<HTMLDivElement | null>(null);
   const parameterGridRef = useRef<HTMLDivElement | null>(null);
   const [valueEntryView, setValueEntryView] = useState<ValueEntryView>("cards");
   const hasVisibleParameters = filteredParameters.length > 0;
@@ -3118,31 +3251,22 @@ function ValuesScreen({
   const showInterpretAction =
     hasVisibleParameters &&
     (showParameterActions || hasEnteredValues) &&
-    !showCustomDataMenu &&
-    !showStickyCustomDataMenu;
+    addDataMenuSource === null;
 
-  useDismissible(showCustomDataMenu, () => setShowCustomDataMenu(false), customMenuRef);
-  useDismissible(
-    showStickyCustomDataMenu,
-    () => setShowStickyCustomDataMenu(false),
-    stickyCustomMenuRef
-  );
+  const addDataMenuLabels = {
+    menuHeading: t.addNewParameter,
+    addCustomParameter: t.addCustomParameter,
+    addCustomParameterDesc: t.addNewParameter,
+    manageCustomParameters: t.manageCustomParameters,
+    manageCustomParametersDesc: t.manageCustomParametersDesc,
+    manageCustomRanges: t.manageCustomRanges,
+    manageCustomRangesDesc: t.manageCustomRangesDesc,
+    close: t.close,
+  };
 
   useEffect(() => {
     queueMicrotask(() => setCanRenderFloatingActions(true));
   }, []);
-
-  function openManager(type: "parameters" | "ranges") {
-    setShowCustomDataMenu(false);
-    setShowStickyCustomDataMenu(false);
-
-    if (type === "parameters") {
-      openCustomParameterManager();
-      return;
-    }
-
-    openCustomRangeManager();
-  }
 
   useEffect(() => {
     if (!hasVisibleParameters) {
@@ -3186,12 +3310,7 @@ function ValuesScreen({
   }, [hasVisibleParameters]);
 
   useEffect(() => {
-    if (showParameterActions) {
-      queueMicrotask(() => setShowCustomDataMenu(false));
-      return;
-    }
-
-    queueMicrotask(() => setShowStickyCustomDataMenu(false));
+    queueMicrotask(() => setAddDataMenuSource(null));
   }, [showParameterActions]);
 
   return (
@@ -3200,7 +3319,8 @@ function ValuesScreen({
         hasVisibleParameters ? "pb-28" : ""
       }`}
     >
-      {/* Page header: back, title, enter count badge */}
+      {/* Page header + toolbar */}
+      <div className="values-screen-panel__header">
       <div className="values-page-header">
         <BackButton variant="icon" onClick={backToSetup} label={t.backToSetup} />
         <div className="min-w-0 flex-1">
@@ -3220,44 +3340,8 @@ function ValuesScreen({
         </div>
       </div>
 
-      {/* Crop + extraction (when crop skipped or general) */}
-      {!cropId ? (
-        <div className="values-skip-crop-block">
-          <p className="values-block-label">{t.crop}</p>
-          <AppSelect
-            value={cropId}
-            placeholder={t.selectCrop}
-            inlineMenu
-            options={[
-              { label: t.selectCrop, value: "" },
-              ...crops.map((crop) => ({
-                label: crop.display_name,
-                value: crop.crop_id,
-              })),
-            ]}
-            onChange={setCropId}
-          />
-          <p className="values-block-hint">{t.selectCropOnValues}</p>
-        </div>
-      ) : null}
-
-      {showFoliarExtractionPicker ? (
-        <div className="values-skip-crop-block">
-          <p className="values-block-label">{t.extractionMethodLabel}</p>
-          <ExtractionMethodChips
-            t={t}
-            value={extractionMethod}
-            onChange={setExtractionMethod}
-            options={FOLIAR_SKIP_CROP_EXTRACTION_OPTIONS}
-          />
-          <p className="values-block-hint">{t.foliarExtractionHint}</p>
-        </div>
-      ) : null}
-
-      {/* Extraction method (general crop only) - removed duplicate */}
-
       {/* Compact toolbar: search + controls */}
-      <div className="values-toolbar px-4">
+      <div className="values-toolbar">
         <div className="values-toolbar__row">
           <div className="relative min-w-0 flex-1">
               <Search size={15} className="values-search-icon" />
@@ -3280,89 +3364,17 @@ function ValuesScreen({
             </button>
 
             {/* Add custom data */}
-            <div
-              ref={customMenuRef}
-              className={`relative shrink-0 ${
-                showCustomDataMenu ? "z-[19000]" : ""
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setShowStickyCustomDataMenu(false);
-                  setShowCustomDataMenu((previous) => !previous);
-                }}
-                title={t.addNewParameter}
-                className="values-toolbar-btn values-toolbar-btn--accent"
-              >
-                <Plus size={16} />
-              </button>
-
-              {showCustomDataMenu && canRenderFloatingActions
-                ? createPortal(
-                    <>
-                  <button
-                    type="button"
-                    aria-label={t.close}
-                    className="dismiss-backdrop"
-                    onClick={() => setShowCustomDataMenu(false)}
-                  />
-                  <section className="add-data-menu z-[19000] rounded-3xl p-3 shadow-2xl md:fixed md:right-[max(1.25rem,calc((100vw-72rem)/2+1.25rem))] md:top-36 md:w-80">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCustomDataMenu(false);
-                        openCustomParameterModal();
-                      }}
-                      className="add-data-menu-item w-full px-4 py-3 text-left"
-                    >
-                      <p className="add-data-menu-item__title">
-                        {t.addCustomParameter}
-                      </p>
-                      <p className="add-data-menu-item__desc">
-                        {t.addNewParameter}
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => openManager("parameters")}
-                      className="add-data-menu-item mt-2 w-full px-4 py-3 text-left"
-                    >
-                      <p className="add-data-menu-item__title">
-                        {t.manageCustomParameters}
-                      </p>
-                      <p className="add-data-menu-item__desc">
-                        {t.manageCustomParametersDesc}
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => openManager("ranges")}
-                      className="add-data-menu-item mt-2 w-full px-4 py-3 text-left"
-                    >
-                      <p className="add-data-menu-item__title">
-                        {t.manageCustomRanges}
-                      </p>
-                      <p className="add-data-menu-item__desc">
-                        {t.manageCustomRangesDesc}
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowCustomDataMenu(false)}
-                      className="add-data-menu-item add-data-menu-item--muted mt-2 w-full px-4 py-2 text-sm font-semibold text-slate-600"
-                    >
-                      {t.close}
-                    </button>
-                  </section>
-                    </>,
-                    document.body
-                  )
-                : null}
-            </div>
+            <AddDataMenu
+              variant="toolbar"
+              open={addDataMenuSource === "toolbar"}
+              onOpenChange={(open) =>
+                setAddDataMenuSource(open ? "toolbar" : null)
+              }
+              labels={addDataMenuLabels}
+              onAddParameter={openCustomParameterModal}
+              onManageParameters={openCustomParameterManager}
+              onManageRanges={openCustomRangeManager}
+            />
           </div>
 
           <div className="values-toolbar__filters">
@@ -3403,6 +3415,41 @@ function ValuesScreen({
             />
           </div>
       </div>
+      </div>
+
+      {/* Crop + extraction (when crop skipped or general) */}
+      {!cropId ? (
+        <div className="values-skip-crop-block">
+          <p className="values-block-label">{t.crop}</p>
+          <AppSelect
+            value={cropId}
+            placeholder={t.selectCrop}
+            inlineMenu
+            options={[
+              { label: t.selectCrop, value: "" },
+              ...crops.map((crop) => ({
+                label: crop.display_name,
+                value: crop.crop_id,
+              })),
+            ]}
+            onChange={setCropId}
+          />
+          <p className="values-block-hint">{t.selectCropOnValues}</p>
+        </div>
+      ) : null}
+
+      {showFoliarExtractionPicker ? (
+        <div className="values-skip-crop-block">
+          <p className="values-block-label">{t.extractionMethodLabel}</p>
+          <ExtractionMethodChips
+            t={t}
+            value={extractionMethod}
+            onChange={setExtractionMethod}
+            options={FOLIAR_SKIP_CROP_EXTRACTION_OPTIONS}
+          />
+          <p className="values-block-hint">{t.foliarExtractionHint}</p>
+        </div>
+      ) : null}
 
       {canRenderFloatingActions
         ? createPortal(
@@ -3411,91 +3458,20 @@ function ValuesScreen({
                 <div className="fixed right-3 top-[calc(env(safe-area-inset-top,0px)+0.85rem)] z-[16000] animate-float-in sm:right-5 md:right-[max(1.25rem,calc((100vw-72rem)/2+1.25rem))]">
                   <div className="values-sticky-add-shell">
                     <div className="flex justify-end">
-                      <div
-                        ref={stickyCustomMenuRef}
-                        className={`relative ${
-                          showStickyCustomDataMenu ? "z-[19000]" : ""
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowCustomDataMenu(false);
-                            setShowStickyCustomDataMenu((previous) => !previous);
-                          }}
-                          className="values-sticky-add-btn"
-                        >
-                          <span className="values-sticky-add-btn__icon">
-                            <Plus size={15} strokeWidth={2.5} />
-                          </span>
-                          <span>{t.addShort}</span>
-                        </button>
-
-                        {showStickyCustomDataMenu
-                          ? createPortal(
-                              <>
-                            <button
-                              type="button"
-                              aria-label={t.close}
-                              className="dismiss-backdrop"
-                              onClick={() => setShowStickyCustomDataMenu(false)}
-                            />
-                            <section className="add-data-menu z-[19000] rounded-3xl p-3 shadow-2xl md:fixed md:right-[max(1.25rem,calc((100vw-72rem)/2+1.25rem))] md:top-20 md:w-80">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowStickyCustomDataMenu(false);
-                                  openCustomParameterModal();
-                                }}
-                                className="add-data-menu-item w-full px-4 py-3 text-left"
-                              >
-                                <p className="add-data-menu-item__title">
-                                  {t.addCustomParameter}
-                                </p>
-                                <p className="add-data-menu-item__desc">
-                                  {t.addNewParameter}
-                                </p>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => openManager("parameters")}
-                                className="add-data-menu-item mt-2 w-full px-4 py-3 text-left"
-                              >
-                                <p className="add-data-menu-item__title">
-                                  {t.manageCustomParameters}
-                                </p>
-                                <p className="add-data-menu-item__desc">
-                                  {t.manageCustomParametersDesc}
-                                </p>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => openManager("ranges")}
-                                className="add-data-menu-item mt-2 w-full px-4 py-3 text-left"
-                              >
-                                <p className="add-data-menu-item__title">
-                                  {t.manageCustomRanges}
-                                </p>
-                                <p className="add-data-menu-item__desc">
-                                  {t.manageCustomRangesDesc}
-                                </p>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setShowStickyCustomDataMenu(false)}
-                                className="add-data-menu-item add-data-menu-item--muted mt-2 w-full px-4 py-2 text-sm font-semibold text-slate-600"
-                              >
-                                {t.close}
-                              </button>
-                            </section>
-                              </>,
-                              document.body
-                            )
-                          : null}
-                      </div>
+                      <AddDataMenu
+                        variant="sticky"
+                        open={addDataMenuSource === "sticky"}
+                        onOpenChange={(open) =>
+                          setAddDataMenuSource(open ? "sticky" : null)
+                        }
+                        labels={{
+                          ...addDataMenuLabels,
+                          menuHeading: t.addShort,
+                        }}
+                        onAddParameter={openCustomParameterModal}
+                        onManageParameters={openCustomParameterManager}
+                        onManageRanges={openCustomRangeManager}
+                      />
                     </div>
                   </div>
                 </div>

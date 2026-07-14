@@ -2130,12 +2130,18 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     return rows[0] || null;
   }
 
-  async function interpretAnalysis() {
+  async function interpretAnalysis(options?: {
+    method?: ExtractionMethod;
+    preserveResults?: boolean;
+  }) {
+    const activeMethod = options?.method ?? extractionMethod;
     setMessage("");
     setSaveMessage("");
-    setResults([]);
-    setResultsExtractionMethod(null);
-    setMissingResults([]);
+    if (!options?.preserveResults) {
+      setResults([]);
+      setResultsExtractionMethod(null);
+      setMissingResults([]);
+    }
 
     if (!cropId) {
       setMessage(t.selectCropOnValues || t.selectCropMessage);
@@ -2293,7 +2299,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         const resolved = resolveInterpretationParameter(
           parameterLike,
           parameterCatalog,
-          extractionMethod
+          activeMethod
         );
 
         const { data, error } = await supabase.rpc("get_range_match", {
@@ -2315,7 +2321,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
       const table1Range =
         sampleType === "soil"
-          ? table1SufficientRange(extractionMethod, parameterLike)
+          ? table1SufficientRange(activeMethod, parameterLike)
           : null;
 
       if ((!data || data.length === 0) && !table1Range) {
@@ -2396,7 +2402,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     }
 
     setResults(interpretedResults);
-    setResultsExtractionMethod(extractionMethod);
+    setResultsExtractionMethod(activeMethod);
     setMissingResults(notFoundResults);
     setSavedAnalysisSignature(null);
     setSaveMessage("");
@@ -2421,6 +2427,13 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     } finally {
       setLoading(false);
     }
+  }
+
+
+  function changeExtractionMethodFromResults(method: ExtractionMethod) {
+    if (loading || method === extractionMethod) return;
+    setExtractionMethod(method);
+    void interpretAnalysis({ method, preserveResults: true });
   }
 
   async function saveAnalysis(
@@ -3114,7 +3127,9 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                 isGeneralCrop={isGeneralCrop}
                 sampleType={sampleType}
                 showFoliarExtractionPicker={showFoliarExtractionPicker}
-                extractionMethod={resultsExtractionMethod ?? extractionMethod}
+                extractionMethod={extractionMethod}
+                interpreting={loading}
+                onExtractionMethodChange={changeExtractionMethodFromResults}
                 showHorizontalGraphs={appSettings.reports.includeHorizontalResultGraph}
                 backToValues={() => setCurrentStep("values")}
                 onExportPdf={() => setExportModalOpen(true)}
@@ -4866,22 +4881,26 @@ function ExtractionMethodChips({
   value,
   onChange,
   options = GENERAL_CROP_EXTRACTION_OPTIONS,
+  disabled = false,
 }: {
   t: (typeof translations)[Language];
   value: ExtractionMethod;
   onChange: (value: ExtractionMethod) => void;
   options?: ExtractionMethod[];
+  disabled?: boolean;
 }) {
   return (
     <div
       className="extraction-method-chips"
       role="group"
       aria-label={t.extractionMethodLabel}
+      aria-busy={disabled || undefined}
     >
       {options.map((option) => (
         <button
           key={option}
           type="button"
+          disabled={disabled}
           onClick={() => onChange(option)}
           className={`extraction-method-chip ${
             value === option ? "is-active" : ""
@@ -4911,6 +4930,8 @@ function ResultsSection({
   sampleType,
   showFoliarExtractionPicker,
   extractionMethod,
+  interpreting,
+  onExtractionMethodChange,
   showHorizontalGraphs,
   backToValues,
   onExportPdf,
@@ -4939,6 +4960,8 @@ function ResultsSection({
   sampleType: "soil" | "foliar";
   showFoliarExtractionPicker: boolean;
   extractionMethod: ExtractionMethod;
+  interpreting: boolean;
+  onExtractionMethodChange: (method: ExtractionMethod) => void;
   showHorizontalGraphs: boolean;
   backToValues: () => void;
   onExportPdf?: () => void;
@@ -4993,9 +5016,11 @@ function ResultsSection({
             <h2 className="results-flat-title">{t.analysisSummary}</h2>
             <p className="results-flat-count">
               {formatMessage(t.interpretedValuesCount, { count: results.length })}
-              <span className="ml-2 text-amber-600">
-                · {extractionMethodLabel(extractionMethod, t)}
-              </span>
+              {interpreting ? (
+                <span className="ml-2 text-amber-600">
+                  · {t.interpreting || "Interpreting…"}
+                </span>
+              ) : null}
             </p>
           </div>
           {onExportPdf ? (
@@ -5006,6 +5031,33 @@ function ResultsSection({
             />
           ) : null}
         </div>
+
+        {sampleType === "soil" || showFoliarExtractionPicker ? (
+          <div className="mb-4">
+            <p className="values-block-label mb-2">{t.extractionMethodLabel}</p>
+            <ExtractionMethodChips
+              t={t}
+              value={extractionMethod}
+              onChange={onExtractionMethodChange}
+              disabled={interpreting}
+              options={
+                sampleType === "foliar"
+                  ? FOLIAR_EXTRACTION_OPTIONS
+                  : SOIL_EXTRACTION_OPTIONS
+              }
+            />
+            <p className="values-block-hint mt-2">
+              {sampleType === "foliar"
+                ? t.foliarExtractionHint ||
+                  "Choose crop-specific sufficiency ranges, Olsen, or Mehlich for foliar phosphorus interpretation."
+                : isGeneralCrop
+                  ? t.generalCropExtractionHint ||
+                    "Choose General sufficiency ranges, or Olsen / Mehlich (Tabla N.° 1) for phosphorus."
+                  : t.soilExtractionHint ||
+                    "Choose crop-specific sufficiency ranges, or Olsen / Mehlich for method-specific phosphorus bands."}
+            </p>
+          </div>
+        ) : null}
 
         {/* Horizontal scrolling filter chips */}
         <div className="results-flat-filters">

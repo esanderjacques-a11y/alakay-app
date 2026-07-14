@@ -603,60 +603,120 @@ export function buildNutrientDosePlan(
     tableRef: "Tabla N.° 4 / 6",
   });
 
-  const demandCaDisplay = toDisplayKg(demandCao, "ca", mode, factors);
-
-  // Tutoría §§1.4–1.5: only compute Cal / gypsum product when CICe / V% chemistry indicates need.
+  // Tutoría §§1.4–1.5: deficit-first Cal / gypsum — only when CICe / V% chemistry indicates need.
   let doseCaLimeKgHa: number | null = null;
-  let caInterpretation =
-    "No se requiere aplicación de cal o yeso: la distribución de bases en la CICe y/o V% está en rango suficiente.";
-  let caFormula = "Sin dosis — rangos de saturación suficientes";
-  let caSubstitution = "CICe / V% adecuados";
-  let caTableRef = "Tabla N.° 2 · Tutoría §§1.4–1.5";
+  let deficitCaoKgHa = 0;
+  let caSteps: FertilityCalcStep[] = [
+    {
+      label: "Déficit de Ca / enmienda",
+      formula: "Sin dosis — CICe / V% en rango suficiente",
+      substitution: "Tabla N.° 2 rangos adecuados",
+      result: "—",
+      unit: "kg/ha",
+      tableRef: "Tabla N.° 2 · Tutoría §§1.4–1.5",
+      interpretation:
+        "No se requiere aplicación de cal o yeso: la distribución de bases en la CICe y/o V% está en rango suficiente.",
+    },
+  ];
+  const useGypsumProduct = chemGate.needsGypsum && !chemGate.needsLime;
 
-  if (chemGate.needsLime && chemGate.sat && chemGate.sat.cec > 0 && caCmol >= 0) {
+  if (
+    (chemGate.needsLime || chemGate.needsGypsum) &&
+    chemGate.sat &&
+    chemGate.sat.cec > 0 &&
+    Number.isFinite(caCmol)
+  ) {
+    const materialForCal: PhAmendmentMaterial = chemGate.needsLime
+      ? limeMaterial
+      : "calcitic_lime";
     const cal = calculateCalFromCaSaturation({
       cice: chemGate.sat.cec,
       caCmol,
       depthCm,
       bulkDensity,
-      material: limeMaterial,
-      prntPercent: prnt,
-    });
-    if (!cal.noRequirement && cal.adjustedProductKgHa > 0) {
-      doseCaLimeKgHa = cal.adjustedProductKgHa;
-      caInterpretation =
-        limeMaterial === "dolomitic_lime"
-          ? "Cal dolomítica (Tutoría §§1.4–1.5): déficit de saturación de Ca con acidez / V% baja y Mg bajo."
-          : "Cal agrícola (Tutoría §§1.4–1.5): déficit de saturación de Ca con acidez / V% baja.";
-      caFormula = cal.formula;
-      caSubstitution = `CICe ${cal.caTargetCmol.toFixed(3)} − Ca ${caCmol} → ${cal.caKgHa} kg Ca/ha → ${cal.caoKgHa} kg CaO/ha / ${limeCaoPercent}% / PRNT ${prnt}%`;
-      caTableRef = "Tabla N.° 2 / 4 / 12 · Tutoría §§1.4–1.5";
-    } else {
-      caInterpretation =
-        "No se requiere dosis de cal: la saturación de Ca ya alcanza o supera la meta (Tabla N.° 2).";
-      caSubstitution = `Sat Ca actual ≥ meta (${cal.caTargetPercent}%)`;
-    }
-  } else if (chemGate.needsGypsum && chemGate.sat && chemGate.sat.cec > 0 && caCmol >= 0) {
-    const cal = calculateCalFromCaSaturation({
-      cice: chemGate.sat.cec,
-      caCmol,
-      depthCm,
-      bulkDensity,
-      material: "calcitic_lime",
-      prntPercent: 100,
+      material: materialForCal,
+      prntPercent: chemGate.needsLime ? prnt : 100,
     });
     const gypsumCao = TABLE_12_AMENDMENTS.yeso.caoPercent;
-    const productKgHa =
-      !cal.noRequirement && gypsumCao > 0 ? cal.caoKgHa / (gypsumCao / 100) : 0;
-    if (productKgHa > 0) {
-      doseCaLimeKgHa = round(productKgHa, 1);
-      caInterpretation =
-        "Yeso (sin subir pH): déficit de Ca sin acidez y/o sodicidad — Tabla N.° 12 yeso.";
-      caFormula = "Yeso = (Ca déficit → CaO) / (14% CaO)";
-      caSubstitution = `${cal.caoKgHa} kg CaO/ha / (${gypsumCao} / 100)`;
-      caTableRef = "Tabla N.° 2 / 12 · Tutoría";
+    const productKgHa = chemGate.needsLime
+      ? cal.adjustedProductKgHa
+      : !cal.noRequirement && gypsumCao > 0
+        ? round(cal.caoKgHa / (gypsumCao / 100), 1)
+        : 0;
+
+    caSteps = [
+      {
+        label: "Ca objetivo",
+        formula: "Ca objetivo = CICe × (sat meta / 100)",
+        substitution: `${cal.caTargetCmol > 0 ? chemGate.sat.cec : 0} × (${cal.caTargetPercent} / 100)`,
+        result: String(cal.caTargetCmol),
+        unit: "cmol(+)/kg",
+        tableRef: "Tabla N.° 2",
+      },
+      {
+        label: "Déficit de Ca",
+        formula: "Déficit = Ca objetivo − Ca actual",
+        substitution: `${cal.caTargetCmol} − ${caCmol}`,
+        result: String(cal.caDeficitCmol),
+        unit: "cmol(+)/kg",
+        tableRef: "Tutoría §1.4",
+      },
+      {
+        label: "Ca elemental",
+        formula: "kg Ca/ha = déficit (cmol) → soil mass",
+        substitution: `MS ${cal.soilMassKgHa} kg/ha`,
+        result: String(cal.caKgHa),
+        unit: "kg Ca/ha",
+        tableRef: "Tutoría §1.4",
+      },
+      {
+        label: "CaO requerido",
+        formula: "CaO = Ca × 1.4",
+        substitution: `${cal.caKgHa} × ${factors.caToCao}`,
+        result: String(cal.caoKgHa),
+        unit: "kg CaO/ha",
+        tableRef: "Tabla N.° 4",
+      },
+    ];
+
+    if (!cal.noRequirement && productKgHa > 0) {
+      doseCaLimeKgHa = productKgHa;
+      deficitCaoKgHa = cal.caoKgHa;
+      caSteps.push({
+        label: useGypsumProduct ? "Dosis de yeso" : "Dosis de cal ajustada",
+        formula: useGypsumProduct
+          ? "Yeso = CaO / (14% CaO)"
+          : "Cal = CaO / (CaO%/100) / (PRNT/100)",
+        substitution: useGypsumProduct
+          ? `${cal.caoKgHa} / (${gypsumCao} / 100)`
+          : `${cal.caoKgHa} / (${limeCaoPercent} / 100) / (${prnt} / 100)`,
+        result: String(productKgHa),
+        unit: "kg/ha",
+        tableRef: "Tabla N.° 12 · Tutoría §1.5",
+        interpretation: useGypsumProduct
+          ? "Yeso (sin subir pH): déficit de Ca sin vía de encalado y/o sodicidad."
+          : limeMaterial === "dolomitic_lime"
+            ? "Cal dolomítica: déficit de Ca con V%/acidez y Mg bajo."
+            : "Cal agrícola: déficit de saturación de Ca con V% baja o acidez.",
+      });
+    } else {
+      caSteps.push({
+        label: "Producto",
+        formula: "Sin dosis — sat. Ca ≥ meta",
+        substitution: `Sat Ca ${cal.caCurrentPercent}% ≥ ${cal.caTargetPercent}%`,
+        result: "—",
+        unit: "kg/ha",
+        tableRef: "Tabla N.° 2",
+        interpretation:
+          "No se requiere dosis: la saturación de Ca ya alcanza o supera la meta.",
+      });
     }
   }
+
+  const demandCaDisplay =
+    deficitCaoKgHa > 0
+      ? toDisplayKg(deficitCaoKgHa, "ca", mode, factors)
+      : toDisplayKg(demandCao, "ca", mode, factors);
 
   const doseCa: FertilityDoseResult = {
     key: "ca",
@@ -666,36 +726,19 @@ export function buildNutrientDosePlan(
     suministroKgHa: 0,
     eficiencia: 0,
     dosisKgHa: doseCaLimeKgHa,
-    dosisOxideKgHa: doseCaLimeKgHa != null && doseCaLimeKgHa > 0 ? round(demandCao, 2) : null,
+    dosisOxideKgHa:
+      doseCaLimeKgHa != null && doseCaLimeKgHa > 0
+        ? round(deficitCaoKgHa > 0 ? deficitCaoKgHa : demandCao, 2)
+        : null,
     dosisPlot:
       doseCaLimeKgHa != null && areaHa > 0 ? round(doseCaLimeKgHa * areaHa, 1) : null,
     notRequired: !(doseCaLimeKgHa != null && doseCaLimeKgHa > 0),
     viaEncalado: true,
-    unitHa: chemGate.needsGypsum && !chemGate.needsLime ? "kg yeso/ha" : "kg cal agrícola/ha",
-    unitPlot: chemGate.needsGypsum && !chemGate.needsLime
+    unitHa: useGypsumProduct ? "kg yeso/ha" : "kg cal agrícola/ha",
+    unitPlot: useGypsumProduct
       ? `kg yeso/${areaUnit}`
       : `kg cal agrícola/${areaUnit}`,
-    steps: [
-      {
-        label: `Demanda ${labels.ca}`,
-        formula: "Demanda = Extracción × Rendimiento",
-        substitution: `${mode === "elemental" ? round(extractionUsed.cao / factors.caToCao, 3) : extractionUsed.cao} × ${yieldTarget}`,
-        result: String(round(demandCaDisplay, 2)),
-        unit: nutrientHaUnit("ca", mode),
-        tableRef: "Tabla N.° 5",
-      },
-      {
-        label: chemGate.needsGypsum && !chemGate.needsLime
-          ? "Aporte de Ca por yeso"
-          : "Aporte de Ca por encalado",
-        formula: caFormula,
-        substitution: caSubstitution,
-        result: doseCaLimeKgHa != null ? String(doseCaLimeKgHa) : "—",
-        unit: "kg/ha",
-        tableRef: caTableRef,
-        interpretation: caInterpretation,
-      },
-    ],
+    steps: caSteps,
   };
 
   const doses = [doseN, doseP, doseK, doseMg, doseCa];

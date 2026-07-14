@@ -1163,6 +1163,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendSectionMethod: "1. Method",
     phAmendSectionMaterial: "2. Amendment material",
     phAmendSectionInputs: "Inputs",
+    phAmendMethod_ca_saturation: "Ca Saturation (Cal / Tutoría)",
     phAmendMethod_base_saturation: "Base Saturation Method",
     phAmendMethod_exchangeable_acidity: "Exchangeable Acidity Method",
     phAmendMethod_target_ph: "Target pH Method",
@@ -1234,6 +1235,15 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendValidationDensity: "Bulk density must be greater than 0.",
     phAmendValidationAcidity: "Exchangeable acidity must be ≥ 0.",
     phAmendValidationAl: "Exchangeable aluminum must be ≥ 0.",
+    phAmendCaSatTarget: "Target Ca saturation (%)",
+    phAmendCaSatHint:
+      "Tutoría §§1.4–1.5: Cal is calculated only when CICe / V% / acidity indicate liming. Target Ca saturation defaults to 68% (mid of Tabla N.° 2 61–75%).",
+    phAmendValidationCa: "Exchangeable Ca must be ≥ 0.",
+    phAmendNoReqMissingCa: "Enter exchangeable Ca (cmol(+)/kg) to calculate Cal from Ca saturation.",
+    phAmendNoReqChemistryOk:
+      "No amendment needed: CICe cation distribution and base saturation (V%) are within sufficient ranges.",
+    phAmendExplainCaSaturation:
+      "Tutoría Cal method: Ca deficit from CICe × target Ca% (Tabla N.° 2), converted to kg Ca/ha → CaO ×1.4 → product / CaO% / PRNT. Only when liming is indicated.",
     phAmendExplainBaseSaturation:
       "Estimates lime from the gap between current and target base saturation (V%), CEC, incorporation depth and bulk density.",
     phAmendExplainExchangeableAcidity:
@@ -1326,21 +1336,25 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerCollapseAmendment: "Hide lime/amendment inputs",
     fertilizerAmendmentHint: "Optional: amendment material and PRNT for lime dose in the plan.",
     amendRecNone:
-      "No soil amendment is needed based on the current pH, bases, and acidity data.",
+      "No liming or gypsum is needed — CICe base saturation is within the sufficient range.",
+    amendRecNoLime:
+      "No lime application needed — CICe cation distribution and base saturation (V%) are within sufficient ranges.",
+    amendRecNoGypsum:
+      "No gypsum application needed — sodium and Ca saturation do not indicate a gypsum requirement.",
     amendRecInsufficientData:
-      "Amendment: insufficient soil chemistry to decide — enter pH, bases, and acidity in Values.",
+      "Amendment: insufficient CICe / base-saturation data to decide — enter exchangeable bases, CIC (or H+Al), in Values.",
     amendRecCalciticLime:
-      "Amendment: use calcareous (calcitic) agricultural lime — soil is acidic and/or base saturation is low.",
+      "Amendment: use calcareous (calcitic) agricultural lime — base saturation (V%) or Ca saturation is below the sufficient CICe range.",
     amendRecDolomiticLime:
-      "Amendment: use dolomitic lime — acidity or low base saturation with low Mg saturation.",
+      "Amendment: use dolomitic lime — base saturation is low and Mg saturation is below the sufficient CICe range.",
     amendRecCalciticLimeCrop:
-      "Amendment: supply crop Ca with calcareous (calcitic) agricultural lime (not NPK fertilizer).",
+      "Amendment: supply crop Ca with calcareous (calcitic) agricultural lime (not NPK fertilizer) — CICe sats indicate liming is warranted.",
     amendRecDolomiticLimeCrop:
-      "Amendment: supply crop Ca with dolomitic lime — also helps low Mg (not NPK fertilizer).",
+      "Amendment: supply crop Ca with dolomitic lime — also corrects low Mg saturation (not NPK fertilizer).",
     amendRecGypsumNa:
-      "Amendment: use gypsum — elevated sodium / sodicity; gypsum supplies Ca to displace Na without raising pH much.",
+      "Amendment: use gypsum — Na saturation is above the sufficient CICe range; gypsum supplies Ca to displace Na without raising pH much.",
     amendRecGypsumCa:
-      "Amendment: use gypsum (or another Ca source) — Ca saturation is low without exchangeable acidity; liming alone is not the Ca-saturation method.",
+      "Amendment: use gypsum (or another Ca source) — Ca saturation is below the sufficient CICe range without a liming need.",
     amendRecElementalSulfur:
       "Amendment: use elemental sulfur — soil pH is high and may need acidification for the crop.",
     amendRecOrganicMatter:
@@ -1620,6 +1634,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendSectionMethod: "1. Método",
     phAmendSectionMaterial: "2. Material enmienda",
     phAmendSectionInputs: "Entradas",
+    phAmendMethod_ca_saturation: "Saturación de Ca (Cal / Tutoría)",
     phAmendMethod_base_saturation: "Método de saturación de bases",
     phAmendMethod_exchangeable_acidity: "Método de acidez intercambiable",
     phAmendMethod_target_ph: "Método de pH objetivo",
@@ -1691,6 +1706,15 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendValidationDensity: "La densidad aparente debe ser mayor que 0.",
     phAmendValidationAcidity: "La acidez intercambiable debe ser ≥ 0.",
     phAmendValidationAl: "El aluminio intercambiable debe ser ≥ 0.",
+    phAmendCaSatTarget: "Saturación de Ca objetivo (%)",
+    phAmendCaSatHint:
+      "Tutoría §§1.4–1.5: la Cal solo se calcula cuando CICe / V% / acidez indican encalado. Meta de Ca por defecto 68% (medio Tabla N.° 2, 61–75%).",
+    phAmendValidationCa: "El Ca intercambiable debe ser ≥ 0.",
+    phAmendNoReqMissingCa: "Ingrese Ca intercambiable (cmol(+)/kg) para calcular la Cal por saturación de Ca.",
+    phAmendNoReqChemistryOk:
+      "No se requiere enmienda: la distribución de cationes en la CICe y la saturación de bases (V%) están en rangos suficientes.",
+    phAmendExplainCaSaturation:
+      "Método Tutoría de Cal: déficit de Ca = CICe × %Ca meta (Tabla N.° 2), a kg Ca/ha → CaO ×1,4 → producto / %CaO / PRNT. Solo si el encalado está indicado.",
     phAmendExplainBaseSaturation:
       "Estima la cal a partir de la brecha entre saturación de bases actual y objetivo (V%), CIC, profundidad y densidad aparente.",
     phAmendExplainExchangeableAcidity:
@@ -1787,6 +1811,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerAmendmentHint: "Opcional: material enmiendante y PRNT para la dosis de cal en el plan.",
     amendRecNone:
       "No se necesita encalado ni yeso — la saturación de bases (CICe) está en el rango suficiente.",
+    amendRecNoLime:
+      "No se requiere aplicación de cal: la distribución de bases en la CICe y el V% están en rangos suficientes.",
+    amendRecNoGypsum:
+      "No se requiere aplicación de yeso: el sodio y la saturación de Ca no indican necesidad de yeso.",
     amendRecInsufficientData:
       "Enmienda: faltan datos de CICe / saturación de bases — ingrese bases intercambiables, CIC (o H+Al) en Valores.",
     amendRecCalciticLime:
@@ -2072,6 +2100,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendSectionMethod: "1. Méthode",
     phAmendSectionMaterial: "2. Matériau amendement",
     phAmendSectionInputs: "Entrées",
+    phAmendMethod_ca_saturation: "Saturation en Ca (Chaux / Tutoría)",
     phAmendMethod_base_saturation: "Méthode de saturation des bases",
     phAmendMethod_exchangeable_acidity: "Méthode d'acidité échangeable",
     phAmendMethod_target_ph: "Méthode du pH cible",
@@ -2143,6 +2172,15 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendValidationDensity: "La densité apparente doit être supérieure à 0.",
     phAmendValidationAcidity: "L'acidité échangeable doit être ≥ 0.",
     phAmendValidationAl: "L'aluminium échangeable doit être ≥ 0.",
+    phAmendCaSatTarget: "Saturation en Ca cible (%)",
+    phAmendCaSatHint:
+      "Tutoría §§1.4–1.5 : la chaux n'est calculée que si CICe / V% / acidité indiquent un chaulage. Cible Ca par défaut 68% (milieu Tabla N.° 2, 61–75%).",
+    phAmendValidationCa: "Le Ca échangeable doit être ≥ 0.",
+    phAmendNoReqMissingCa: "Saisir le Ca échangeable (cmol(+)/kg) pour calculer la chaux par saturation en Ca.",
+    phAmendNoReqChemistryOk:
+      "Aucun amendement nécessaire : distribution des cations de la CICe et saturation en bases (V%) dans les plages suffisantes.",
+    phAmendExplainCaSaturation:
+      "Méthode Tutoría : déficit Ca = CICe × %Ca cible (Tabla N.° 2), en kg Ca/ha → CaO ×1,4 → produit / %CaO / PRNT. Seulement si le chaulage est indiqué.",
     phAmendExplainBaseSaturation:
       "Estime la chaux à partir de l'écart entre saturation de bases actuelle et cible (V%), CEC, profondeur et densité.",
     phAmendExplainExchangeableAcidity:
@@ -2239,6 +2277,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerAmendmentHint: "Optionnel : matériau amendant et PRNT pour la dose de chaux dans le plan.",
     amendRecNone:
       "Ni chaulage ni gypse nécessaires — la saturation en bases (CICe) est dans la plage suffisante.",
+    amendRecNoLime:
+      "Pas d'application de chaux nécessaire : distribution des cations CICe et saturation en bases (V%) dans les plages suffisantes.",
+    amendRecNoGypsum:
+      "Pas d'application de gypse nécessaire : sodium et saturation en Ca n'indiquent pas de besoin en gypse.",
     amendRecInsufficientData:
       "Amendement : données CICe / saturation en bases insuffisantes — saisissez bases échangeables, CIC (ou H+Al) dans Valeurs.",
     amendRecCalciticLime:
@@ -2524,6 +2566,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendSectionMethod: "1. Metòd",
     phAmendSectionMaterial: "2. Materyèl amandman",
     phAmendSectionInputs: "Antre",
+    phAmendMethod_ca_saturation: "Saturasyon Ca (Kal / Tutoría)",
     phAmendMethod_base_saturation: "Metòd saturasyon baz",
     phAmendMethod_exchangeable_acidity: "Metòd asidite echanjabl",
     phAmendMethod_target_ph: "Metòd pH objektif",
@@ -2595,6 +2638,15 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendValidationDensity: "Dansite aparante a dwe pi gran pase 0.",
     phAmendValidationAcidity: "Asidite echanjabl dwe ≥ 0.",
     phAmendValidationAl: "Aliminyòm echanjabl dwe ≥ 0.",
+    phAmendCaSatTarget: "Saturasyon Ca objektif (%)",
+    phAmendCaSatHint:
+      "Tutoría §§1.4–1.5: kalkile Kal sèlman lè CICe / V% / asidite montre bezwen kalk. Objektif Ca pa defo 68% (mitan Tabla N.° 2, 61–75%).",
+    phAmendValidationCa: "Ca echanjab dwe ≥ 0.",
+    phAmendNoReqMissingCa: "Antre Ca echanjab (cmol(+)/kg) pou kalkile Kal dapre saturasyon Ca.",
+    phAmendNoReqChemistryOk:
+      "Pa gen amandman nesesè: distribisyon katyon CICe ak saturasyon baz (V%) nan ranje ase.",
+    phAmendExplainCaSaturation:
+      "Metòd Tutoría Kal: defisi Ca = CICe × %Ca objektif (Tabla N.° 2), an kg Ca/ha → CaO ×1,4 → pwodui / %CaO / PRNT. Sèlman si kalkaj endike.",
     phAmendExplainBaseSaturation:
       "Estime chò selon diferans saturasyon baz aktyèl ak objektif (V%), CEC, pwofondè ak dansite.",
     phAmendExplainExchangeableAcidity:
@@ -2689,6 +2741,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerAmendmentHint: "Opsyonèl: materyèl amandman ak PRNT pou dòz kalk nan plan an.",
     amendRecNone:
       "Pa bezwen kalk ni jips — saturasyon baz CICe a nan ranje ki sifizan.",
+    amendRecNoLime:
+      "Pa bezwen aplike kalk: distribisyon baz nan CICe ak V% nan ranje ase.",
+    amendRecNoGypsum:
+      "Pa bezwen aplike jips: sodyòm ak saturasyon Ca pa montre bezwen jips.",
     amendRecInsufficientData:
       "Amandman: done CICe / saturasyon baz pa ase — antre baz echanjabl, CIC (oswa H+Al) nan Valè.",
     amendRecCalciticLime:
@@ -2974,6 +3030,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendSectionMethod: "1. Método",
     phAmendSectionMaterial: "2. Material corretivo",
     phAmendSectionInputs: "Entradas",
+    phAmendMethod_ca_saturation: "Saturação de Ca (Cal / Tutoría)",
     phAmendMethod_base_saturation: "Método de saturação de bases",
     phAmendMethod_exchangeable_acidity: "Método de acidez trocável",
     phAmendMethod_target_ph: "Método de pH alvo",
@@ -3045,6 +3102,15 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendValidationDensity: "A densidade aparente deve ser maior que 0.",
     phAmendValidationAcidity: "A acidez trocável deve ser ≥ 0.",
     phAmendValidationAl: "O alumínio trocável deve ser ≥ 0.",
+    phAmendCaSatTarget: "Saturação de Ca alvo (%)",
+    phAmendCaSatHint:
+      "Tutoría §§1.4–1.5: a Cal só é calculada quando CICe / V% / acidez indicam calagem. Meta de Ca padrão 68% (meio da Tabla N.° 2, 61–75%).",
+    phAmendValidationCa: "O Ca trocável deve ser ≥ 0.",
+    phAmendNoReqMissingCa: "Informe Ca trocável (cmol(+)/kg) para calcular a Cal por saturação de Ca.",
+    phAmendNoReqChemistryOk:
+      "Nenhuma correção necessária: distribuição de cátions na CICe e saturação de bases (V%) dentro das faixas suficientes.",
+    phAmendExplainCaSaturation:
+      "Método Tutoría de Cal: déficit de Ca = CICe × %Ca meta (Tabla N.° 2), em kg Ca/ha → CaO ×1,4 → produto / %CaO / PRNT. Só quando a calagem for indicada.",
     phAmendExplainBaseSaturation:
       "Estima a cal a partir da diferença entre saturação de bases atual e alvo (V%), CTC, profundidade e densidade.",
     phAmendExplainExchangeableAcidity:
@@ -3140,6 +3206,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerAmendmentHint: "Opcional: material corretivo e PRNT para dose de cal no plano.",
     amendRecNone:
       "Não é necessária calagem nem gesso — a saturação de bases (CICe) está na faixa suficiente.",
+    amendRecNoLime:
+      "Não é necessária aplicação de cal: a distribuição de bases na CICe e o V% estão em faixas suficientes.",
+    amendRecNoGypsum:
+      "Não é necessária aplicação de gesso: sódio e saturação de Ca não indicam necessidade de gesso.",
     amendRecInsufficientData:
       "Emenda: dados de CICe / saturação de bases insuficientes — informe bases trocáveis, CTC (ou H+Al) em Valores.",
     amendRecCalciticLime:
@@ -3425,6 +3495,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendSectionMethod: "1. Njia",
     phAmendSectionMaterial: "2. Nyenzo ya marekebisho",
     phAmendSectionInputs: "Ingizo",
+    phAmendMethod_ca_saturation: "Kuenea kwa Ca (Chokaa / Tutoría)",
     phAmendMethod_base_saturation: "Njia ya kuenea kwa besi",
     phAmendMethod_exchangeable_acidity: "Njia ya asidi inayobadilishika",
     phAmendMethod_target_ph: "Njia ya pH lengwa",
@@ -3496,6 +3567,15 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendValidationDensity: "Msongamano wa udongo lazima uwe mkubwa kuliko 0.",
     phAmendValidationAcidity: "Asidi inayobadilishika lazima iwe ≥ 0.",
     phAmendValidationAl: "Alumini inayobadilishika lazima iwe ≥ 0.",
+    phAmendCaSatTarget: "Kuenea kwa Ca lengwa (%)",
+    phAmendCaSatHint:
+      "Tutoría §§1.4–1.5: chokaa inahesabiwa tu wakati CICe / V% / asidi inaonyesha hitaji. Lengo la Ca chaguomsingi 68% (katikati ya Tabla N.° 2, 61–75%).",
+    phAmendValidationCa: "Ca inayobadilishika lazima iwe ≥ 0.",
+    phAmendNoReqMissingCa: "Weka Ca inayobadilishika (cmol(+)/kg) ili kuhesabu chokaa kutoka kuenea kwa Ca.",
+    phAmendNoReqChemistryOk:
+      "Hakuna marekebisho yanayohitajika: usambazaji wa CICe na ushibaji wa besi (V%) uko katika safu za kutosha.",
+    phAmendExplainCaSaturation:
+      "Mbinu ya Tutoría ya chokaa: upungufu wa Ca = CICe × %Ca lengwa (Tabla N.° 2), hadi kg Ca/ha → CaO ×1.4 → bidhaa / %CaO / PRNT. Tu wakati uwekaji chokaa unahitajika.",
     phAmendExplainBaseSaturation:
       "Inakadiria chokaa kutoka tofauti kati ya kuenea kwa besi ya sasa na lengwa (V%), CEC, kina na msongamano.",
     phAmendExplainExchangeableAcidity:
@@ -3591,6 +3671,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerAmendmentHint: "Hiari: nyenzo ya marekebisho na PRNT kwa dozi ya chokaa katika mpango.",
     amendRecNone:
       "Hakuna haja ya chokaa wala jipsamu — kueneza kwa besi (CICe) iko ndani ya kiwango cha kutosha.",
+    amendRecNoLime:
+      "Hakuna haja ya kuweka chokaa: usambazaji wa besi katika CICe na V% uko katika safu za kutosha.",
+    amendRecNoGypsum:
+      "Hakuna haja ya kuweka jipsi: sodiamu na kuenea kwa Ca hazionyeshi hitaji la jipsi.",
     amendRecInsufficientData:
       "Marekebisho: data ya CICe / kueneza kwa besi haitoshi — weka besi zinazobadilishana, CIC (au H+Al) katika Thamani.",
     amendRecCalciticLime:

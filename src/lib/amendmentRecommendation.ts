@@ -84,8 +84,12 @@ export type AmendmentChemistryGate = {
 
 const IDEAL = CIC_ADEQUATE_SATURATION;
 
-/** Typical pH bands used for amendment triage (alongside lab ranges). */
-const PH_ACID = 5.8;
+/**
+ * Table 1 — extractable acidity above this leaves the adequate band (cmol(+)/kg).
+ * Used with low Ca sat to decide liming vs gypsum (not raw acidic pH alone).
+ */
+const ACIDITY_ADEQUATE_MAX = 0.5;
+/** Typical pH band for elemental sulfur triage only (not lime). */
 const PH_ALKALINE = 7.5;
 /** Organic matter % below which an OM amendment note is useful. */
 const OM_LOW = 2;
@@ -146,7 +150,6 @@ export function assessAmendmentChemistry(
   }
 
   const sat = buildSaturation(input);
-  const ph = finite(input.ph);
   const acidity = getCicAcidityContribution({
     hAl: finite(input.exchangeableAcidity) ?? undefined,
     aluminum: finite(input.aluminum) ?? undefined,
@@ -154,29 +157,34 @@ export function assessAmendmentChemistry(
   });
   const naCmol = finite(input.na);
   const hasAcidity = acidity > 0;
-  const acidPh = ph != null && ph < PH_ACID;
+  const acidityHigh = acidity > ACIDITY_ADEQUATE_MAX;
 
   const caPercent = sat != null && sat.caPercent > 0 ? sat.caPercent : null;
   const vPercent =
     sat != null && sat.totalBasePercent > 0 ? sat.totalBasePercent : null;
+  const canEvaluateSats = caPercent != null || vPercent != null;
 
   const caDeficit = caPercent != null && caPercent < IDEAL.ca.min;
   const lowBaseSaturation = vPercent != null && vPercent < IDEAL.totalBases.min;
   const mgLow = sat != null && sat.mgPercent > 0 && sat.mgPercent < IDEAL.mg.min;
-  const sodicBySat = sat != null && sat.naPercent > IDEAL.na.max;
-  const sodicByCmol = naCmol != null && naCmol > 1.0;
-  const sodic = sodicBySat || sodicByCmol;
+  // Prefer Na% of CICe when available; fall back to cmol only without sat %.
+  const sodic =
+    sat != null && sat.totalBasePercent > 0
+      ? sat.naPercent > IDEAL.na.max
+      : naCmol != null && naCmol > 1.0;
 
-  // Gypsum: Ca without raising pH (no acidity), or sodicity (Tutoría / encaladoCaDeficitNoAcidity).
-  const needsGypsum = sodic || (caDeficit && !hasAcidity && !acidPh);
+  // Lime (Cal): low V% / PSB, or low Ca sat coinciding with excess extractable acidity.
+  // Acidic pH alone does NOT force liming when CICe / V% already look sufficient.
+  const needsLime = lowBaseSaturation || (caDeficit && acidityHigh);
 
-  // Lime (Cal): acidity, acid pH, or low V% — not for Ca-only deficit without acidity.
-  const needsLime = hasAcidity || acidPh || lowBaseSaturation;
+  // Gypsum: sodicity, or Ca sat below sufficient without a liming pathway.
+  const needsGypsum = sodic || (caDeficit && !needsLime);
 
   const noLimeOrGypsum = !needsLime && !needsGypsum;
 
   return {
-    insufficientData: false,
+    // Without CICe / base sat % we cannot affirm sufficiency (pH-only is not enough).
+    insufficientData: !canEvaluateSats && !sodic,
     caDeficit,
     lowBaseSaturation,
     hasAcidity,
@@ -194,8 +202,8 @@ export function assessAmendmentChemistry(
 
 /**
  * Diagnose which soil amendment(s) to name in recommendations.
- * Priority: gypsum (sodicity / Ca without acidity) → lime (acidity / pH / V%) →
- * sulfur (alkaline pH) → organic matter (low OM).
+ * Priority: gypsum (sodicity / Ca without liming need) → lime (low V% / Ca+acidity)
+ * → sulfur (alkaline pH) → organic matter (low OM).
  * Calcitic vs dolomitic is named only when liming is chemically warranted.
  */
 export function recommendSoilAmendment(
@@ -227,10 +235,17 @@ export function recommendSoilAmendment(
   }
 
   if (gate.needsLime) {
+    const useCropCopy = Boolean(input.cropCaViaLiming);
     if (gate.mgLow) {
-      push("dolomitic_lime", "amendRecDolomiticLime");
+      push(
+        "dolomitic_lime",
+        useCropCopy ? "amendRecDolomiticLimeCrop" : "amendRecDolomiticLime"
+      );
     } else {
-      push("calcitic_lime", "amendRecCalciticLime");
+      push(
+        "calcitic_lime",
+        useCropCopy ? "amendRecCalciticLimeCrop" : "amendRecCalciticLime"
+      );
     }
   }
 
@@ -243,7 +258,11 @@ export function recommendSoilAmendment(
   }
 
   if (needs.length === 0) {
-    return { kind: "none", needs: [], insufficientData: false };
+    return {
+      kind: "none",
+      needs: [],
+      insufficientData: gate.insufficientData,
+    };
   }
 
   return {
@@ -255,25 +274,25 @@ export function recommendSoilAmendment(
 
 const FALLBACKS: Record<string, string> = {
   amendRecNone:
-    "No soil amendment is needed based on the current pH, bases, and acidity data.",
+    "No liming or gypsum is needed — CICe base saturation is within the sufficient range.",
   amendRecInsufficientData:
-    "Amendment: insufficient soil chemistry to decide — enter pH, bases, and acidity in Values.",
+    "Amendment: insufficient CICe / base-saturation data to decide — enter exchangeable bases, CIC (or H+Al), in Values.",
   amendRecCalciticLime:
-    "Amendment: use calcareous (calcitic) agricultural lime — soil is acidic and/or base saturation is low.",
+    "Amendment: use calcareous (calcitic) agricultural lime — base saturation (V%) or Ca saturation is below the sufficient CICe range.",
   amendRecDolomiticLime:
-    "Amendment: use dolomitic lime — acidity or low base saturation with low Mg saturation.",
+    "Amendment: use dolomitic lime — base saturation is low and Mg saturation is below the sufficient CICe range.",
   amendRecGypsumNa:
-    "Amendment: use gypsum — elevated sodium / sodicity; gypsum supplies Ca to displace Na without raising pH much.",
+    "Amendment: use gypsum — Na saturation is above the sufficient CICe range; gypsum supplies Ca to displace Na without raising pH much.",
   amendRecGypsumCa:
-    "Amendment: use gypsum (or another Ca source) — Ca saturation is low without exchangeable acidity; liming alone is not the Ca-saturation method.",
+    "Amendment: use gypsum (or another Ca source) — Ca saturation is below the sufficient CICe range without a liming need.",
   amendRecElementalSulfur:
     "Amendment: use elemental sulfur — soil pH is high and may need acidification for the crop.",
   amendRecOrganicMatter:
     "Amendment: consider organic matter (manure, compost, or cover crops) — soil OM is low.",
   amendRecNoLime:
-    "No lime application needed: CICe cation distribution and base saturation (V%) are within sufficient ranges.",
+    "No lime application needed — CICe cation distribution and base saturation (V%) are within sufficient ranges.",
   amendRecNoGypsum:
-    "No gypsum application needed: sodium and Ca saturation do not indicate a gypsum requirement.",
+    "No gypsum application needed — sodium and Ca saturation do not indicate a gypsum requirement.",
 };
 
 function messageFor(t: Record<string, string>, key: string) {

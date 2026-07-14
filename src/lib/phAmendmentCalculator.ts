@@ -580,9 +580,7 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
     noRequirementReason = "zero_dose";
   }
 
-  // ca_saturation already applies PRNT inside calculateCalFromCaSaturation for adjusted;
-  // for that method, fold PRNT here consistently with other lime methods:
-  // base = pre-PRNT, adjusted = base / (CCE/100).
+  // For lime methods, adjusted = base / (CCE/100). Gypsum is not PRNT-adjusted.
   const adjustedRequirementTha =
     methodRaisesPh(input.method) && !noRequirement && baseRequirementTha > 0
       ? baseRequirementTha / (cce / 100)

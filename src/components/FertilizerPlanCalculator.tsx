@@ -581,6 +581,7 @@ export default function FertilizerPlanCalculator({
         ) : null}
 
         {!isDoseOnly ? (
+          <>
         <PlanSection
           title={t.fertilizerPlanCropPlot || t.fertilizerPlanCrop || "Crop & plot"}
           summary={
@@ -844,6 +845,7 @@ export default function FertilizerPlanCalculator({
             </p>
           </div>
         </PlanSection>
+          </>
         ) : null}
       </div>
 

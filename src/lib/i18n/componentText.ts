@@ -1544,7 +1544,6 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     cicAutoPlaceholder: "Auto si vacío",
     cicEstimated: "est.",
     cicOtherRatios: "Otras relaciones",
-    cicOtherRatios: "Otros índices",
     cicMainResults: "Resultados principales",
     cicCiceResult: "CICe",
     cicCiceEstimatedNote: "Estimada a partir de bases + acidez cuando no se reportó CIC.",

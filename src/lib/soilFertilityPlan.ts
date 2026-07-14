@@ -797,7 +797,119 @@ export function buildNutrientDosePlan(
   };
 }
 
+/**
+ * Build a dose plan from known N / P₂O₅ / K₂O / MgO rates (kg/ha oxide basis).
+ * Use when the agronomic dose is already known and only product mass / cost are needed.
+ */
+export function buildManualDosePlan(input: {
+  cultivo?: string | null;
+  nOxideKgHa: number;
+  p2o5KgHa: number;
+  k2oKgHa: number;
+  mgoKgHa: number;
+  area: number;
+  areaUnit: AreaUnit;
+  displayMode?: NutrientDisplayMode;
+}): FertilityDosePlanResult {
+  const mode = input.displayMode || "oxide";
+  const factors = DEFAULT_SOIL_FERTILITY_REFERENCE.oxideFactors;
+  const labels = displayExtractionLabels(mode);
+  const area = Math.max(0, num(input.area, 0));
+  const areaUnit = input.areaUnit;
+  const areaHa = convertAreaToHa(area, areaUnit);
+  const cultivoLabel = (input.cultivo || "").trim() || "Manual doses";
+
+  function manualDose(
+    key: Exclude<DoseNutrientKey, "ca">,
+    nutrientLabel: string,
+    nutrientOxideLabel: string,
+    oxideKgHa: number
+  ): FertilityDoseResult {
+    const oxide = Math.max(0, num(oxideKgHa, 0));
+    const notRequired = oxide <= 0;
+    const dosisKgHaOxide = notRequired ? null : round(oxide, 2);
+    const dosisDisplayHa =
+      dosisKgHaOxide === null
+        ? null
+        : round(toDisplayKg(dosisKgHaOxide, key, mode, factors), 2);
+    const dosisPlot =
+      dosisDisplayHa === null
+        ? null
+        : round(scaleDoseByArea(dosisDisplayHa, area, areaUnit), 2);
+    const unitHa = nutrientHaUnit(key, mode);
+    const unitPlot = nutrientPlotUnit(key, mode, areaUnit);
+
+    return {
+      key,
+      nutrient: nutrientLabel,
+      nutrientOxide: nutrientOxideLabel,
+      demandaKgHa: dosisDisplayHa ?? 0,
+      suministroKgHa: 0,
+      eficiencia: 1,
+      dosisKgHa: dosisDisplayHa,
+      dosisOxideKgHa: dosisKgHaOxide,
+      dosisPlot,
+      notRequired,
+      viaEncalado: false,
+      unitHa,
+      unitPlot,
+      steps: [
+        {
+          label: `Dosis ${nutrientLabel}`,
+          formula: "Dosis conocida (entrada manual)",
+          substitution: notRequired ? "0" : String(dosisDisplayHa),
+          result: notRequired ? "NF" : String(dosisDisplayHa),
+          unit: unitHa,
+          interpretation: notRequired
+            ? "Sin dosis — no se calcula producto para este nutriente."
+            : areaUnit !== "ha"
+              ? `Parcela: ${dosisPlot} ${unitPlot}`
+              : "Usar para estimar cantidad de fertilizante comercial y costo.",
+        },
+      ],
+    };
+  }
+
+  const doses: FertilityDoseResult[] = [
+    manualDose("n", labels.n, "N", input.nOxideKgHa),
+    manualDose("p", labels.p, "P₂O₅", input.p2o5KgHa),
+    manualDose("k", labels.k, "K₂O", input.k2oKgHa),
+    manualDose("mg", labels.mg, "MgO", input.mgoKgHa),
+  ];
+
+  const active = doses.filter((d) => !d.notRequired);
+
+  return {
+    cultivo: cultivoLabel,
+    cropMatched: false,
+    massTonsHa: 0,
+    massKgHa: 0,
+    displayMode: mode,
+    areaHa: round(areaHa, 4),
+    areaUnit,
+    extractionUsed: { n: 0, p2o5: 0, k2o: 0, cao: 0, mgo: 0 },
+    mineralizationScenario: "conservative",
+    mineralizationCoef: 0,
+    doses,
+    recommendations: [
+      `Dosis conocidas (entrada manual)${cultivoLabel !== "Manual doses" ? ` · ${cultivoLabel}` : ""}.`,
+      active.length
+        ? `Aplicar fertilizante para: ${active
+            .map(
+              (d) =>
+                `${d.nutrient} (${d.dosisPlot ?? d.dosisKgHa} ${
+                  d.dosisPlot != null && areaUnit !== "ha" ? d.unitPlot : d.unitHa
+                })`
+            )
+            .join(", ")}.`
+        : "Ingrese al menos una dosis mayor que cero para estimar productos y costos.",
+    ],
+    sections: [],
+  };
+}
+
 export function fertilityDosePlanToCalculationOutputs(plan: FertilityDosePlanResult): CalculationOutput[] {
+  const manualPlan = plan.massTonsHa === 0 && plan.sections.length === 0;
   return plan.doses
     .filter((d) => !d.viaEncalado || (d.dosisKgHa != null && d.dosisKgHa > 0))
     .map((dose) => ({
@@ -810,7 +922,9 @@ export function fertilityDosePlanToCalculationOutputs(plan: FertilityDosePlanRes
           : `Dosis ${dose.nutrient}`,
       formula: dose.viaEncalado
         ? "Cal = [(CICe×sat_meta − Ca) → kg Ca/ha × 1.4] / (CaO%/100) / (PRNT/100)"
-        : "(Demanda − Suministro) / Eficiencia",
+        : manualPlan
+          ? "Dosis conocida (entrada manual)"
+          : "(Demanda − Suministro) / Eficiencia",
       notes: [
         dose.viaEncalado
           ? dose.notRequired
@@ -818,7 +932,9 @@ export function fertilityDosePlanToCalculationOutputs(plan: FertilityDosePlanRes
             : `Liming/gypsum product from Tutoría Ca-saturation method · ${dose.dosisKgHa} kg/ha.`
           : dose.notRequired
             ? "No requiere fertilización."
-            : `Demanda: ${dose.demandaKgHa} · Suministro: ${dose.suministroKgHa} · Eficiencia: ${round(dose.eficiencia * 100, 0)}%.`,
+            : manualPlan
+              ? `Dosis conocida: ${dose.dosisKgHa} ${dose.unitHa}.`
+              : `Demanda: ${dose.demandaKgHa} · Suministro: ${dose.suministroKgHa} · Eficiencia: ${round(dose.eficiencia * 100, 0)}%.`,
         `Cultivo: ${plan.cultivo}.`,
       ],
     }));

@@ -25,6 +25,7 @@ import {
   soilAmendmentInputFromLabLike,
 } from "@/lib/amendmentRecommendation";
 import {
+  buildManualDosePlan,
   buildNutrientDosePlan,
   displayExtractionLabels,
   elementalToOxideExtraction,
@@ -39,6 +40,8 @@ import {
   type NutrientDisplayMode,
   type ExtractionOxide,
 } from "@/lib/soilFertilityPlan";
+
+type PlanCalcMode = "full" | "dose";
 
 type Props = {
   t: Record<string, string>;
@@ -117,6 +120,7 @@ export default function FertilizerPlanCalculator({
     }
   }, [cropVariants, selectedTableCropKey]);
 
+  const [calcMode, setCalcMode] = useState<PlanCalcMode>("full");
   const [displayMode, setDisplayMode] = useState<NutrientDisplayMode>("oxide");
   const [irrigationSystem, setIrrigationSystem] = useState<IrrigationSystem>("aspersion_pivote");
   const [areaUnit, setAreaUnit] = useState<AreaUnit>("ha");
@@ -245,6 +249,12 @@ export default function FertilizerPlanCalculator({
     0
   );
 
+  /** Known doses stored on oxide basis (N elemental, P₂O₅, K₂O, MgO). */
+  const [manualNOxide, setManualNOxide] = useMemoryNumber("fertilizer", "manualDoseN", 0);
+  const [manualPOxide, setManualPOxide] = useMemoryNumber("fertilizer", "manualDoseP", 0);
+  const [manualKOxide, setManualKOxide] = useMemoryNumber("fertilizer", "manualDoseK", 0);
+  const [manualMgOxide, setManualMgOxide] = useMemoryNumber("fertilizer", "manualDoseMg", 0);
+
   const extractOxide = useMemo<ExtractionOxide>(
     () => ({
       n: extractN,
@@ -310,6 +320,18 @@ export default function FertilizerPlanCalculator({
   }
 
   const plan = useMemo(() => {
+    if (calcMode === "dose") {
+      return buildManualDosePlan({
+        cultivo: effectiveCropName,
+        nOxideKgHa: manualNOxide,
+        p2o5KgHa: manualPOxide,
+        k2oKgHa: manualKOxide,
+        mgoKgHa: manualMgOxide,
+        area,
+        areaUnit,
+        displayMode,
+      });
+    }
     return buildNutrientDosePlan(
       {
         cultivo: effectiveCropName,
@@ -341,7 +363,12 @@ export default function FertilizerPlanCalculator({
       reference
     );
   }, [
+    calcMode,
     effectiveCropName,
+    manualNOxide,
+    manualPOxide,
+    manualKOxide,
+    manualMgOxide,
     extractOxide,
     yieldTarget,
     depthCm,
@@ -365,6 +392,7 @@ export default function FertilizerPlanCalculator({
 
   const planRecommendations = useMemo(() => {
     if (!plan) return [];
+    if (calcMode === "dose") return plan.recommendations;
     const amendmentInput = soilAmendmentInputFromLabLike(
       (keys) => {
         for (const key of keys) {
@@ -389,7 +417,29 @@ export default function FertilizerPlanCalculator({
       t
     );
     return [...plan.recommendations, ...amendmentLines];
-  }, [plan, lab, organicMatter, t]);
+  }, [plan, calcMode, lab, organicMatter, t]);
+
+  function displayManualDose(oxideKgHa: number, key: "n" | "p" | "k" | "mg") {
+    if (displayMode === "oxide" || key === "n") return oxideKgHa;
+    if (key === "p") return oxideKgHa / factors.pToP2o5;
+    if (key === "k") return oxideKgHa / factors.kToK2o;
+    return oxideKgHa / factors.mgToMgo;
+  }
+
+  function setManualDoseFromDisplay(key: "n" | "p" | "k" | "mg", displayValue: number) {
+    const oxide =
+      displayMode === "oxide" || key === "n"
+        ? displayValue
+        : key === "p"
+          ? displayValue * factors.pToP2o5
+          : key === "k"
+            ? displayValue * factors.kToK2o
+            : displayValue * factors.mgToMgo;
+    if (key === "n") setManualNOxide(oxide);
+    else if (key === "p") setManualPOxide(oxide);
+    else if (key === "k") setManualKOxide(oxide);
+    else setManualMgOxide(oxide);
+  }
 
   useEffect(() => {
     if (!onOutputsChange) return;
@@ -436,6 +486,8 @@ export default function FertilizerPlanCalculator({
     (!showCropPicker && effectiveCropName) ||
     null;
 
+  const isDoseOnly = calcMode === "dose";
+
   return (
     <div className="fertilizer-plan calc-page px-3 sm:px-4 space-y-4">
       <div className="fertilizer-plan__params calc-surface p-4 space-y-2">
@@ -445,22 +497,90 @@ export default function FertilizerPlanCalculator({
               {t.fertilizerPlanTab || "Nutritional plan"}
             </h2>
             <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-              {t.fertilizerPlanDoseDesc ||
-                t.fertilizerPlanDesc ||
-                "Dose from crop demand, soil supply, and irrigation efficiency."}
+              {isDoseOnly
+                ? t.fertilizerPlanKnownDoseDesc ||
+                  "Enter known nutrient doses to estimate fertilizer product amounts and cost."
+                : t.fertilizerPlanDoseDesc ||
+                  t.fertilizerPlanDesc ||
+                  "Dose from crop demand, soil supply, and irrigation efficiency."}
             </p>
           </div>
-          <SelectField
-            label={t.fertilizerPlanDisplayMode || t.fertilizerPlanMode || "Type"}
-            value={displayMode}
-            onChange={(value) => setDisplayMode(value as NutrientDisplayMode)}
-            options={[
-              ["oxide", t.oxide || "Óxido"],
-              ["elemental", t.element || t.elemental || "Elemental"],
-            ]}
-          />
+          <div className="flex flex-wrap items-end gap-2">
+            <SelectField
+              label={t.fertilizerPlanMode || "Mode"}
+              value={calcMode}
+              onChange={(value) => setCalcMode(value as PlanCalcMode)}
+              options={[
+                ["full", t.fertilizerPlanModeFull || "Full (diagnosis + doses)"],
+                ["dose", t.fertilizerPlanModeDose || "Doses only"],
+              ]}
+            />
+            <SelectField
+              label={t.fertilizerPlanDisplayMode || "Type"}
+              value={displayMode}
+              onChange={(value) => setDisplayMode(value as NutrientDisplayMode)}
+              options={[
+                ["oxide", t.oxide || "Óxido"],
+                ["elemental", t.element || t.elemental || "Elemental"],
+              ]}
+            />
+          </div>
         </div>
 
+        {isDoseOnly ? (
+          <PlanSection
+            title={t.fertilizerPlanKnownDoses || "Known doses"}
+            summary={
+              area > 0
+                ? `${area} ${t[`areaUnit_${areaUnit}`] || areaUnitLabel(areaUnit)}`
+                : undefined
+            }
+            defaultOpen
+          >
+            <p className="text-xs text-slate-600 dark:text-slate-300 px-1">
+              {t.fertilizerPlanKnownDoseHint ||
+                "Enter the nutrient rates you already know (kg/ha). Leave unused nutrients at 0."}
+            </p>
+            <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-2">
+              <NumberField
+                label={`${labels.n} (kg/ha)`}
+                value={displayManualDose(manualNOxide, "n")}
+                onChange={(value) => setManualDoseFromDisplay("n", value)}
+                preserveCase
+              />
+              <NumberField
+                label={`${labels.p} (kg/ha)`}
+                value={displayManualDose(manualPOxide, "p")}
+                onChange={(value) => setManualDoseFromDisplay("p", value)}
+                preserveCase
+              />
+              <NumberField
+                label={`${labels.k} (kg/ha)`}
+                value={displayManualDose(manualKOxide, "k")}
+                onChange={(value) => setManualDoseFromDisplay("k", value)}
+                preserveCase
+              />
+              <NumberField
+                label={`${labels.mg} (kg/ha)`}
+                value={displayManualDose(manualMgOxide, "mg")}
+                onChange={(value) => setManualDoseFromDisplay("mg", value)}
+                preserveCase
+              />
+              <NumberField label={t.area || "Area"} value={area} onChange={setArea} />
+              <SelectField
+                label={t.areaUnit || t.unit || "Unit"}
+                value={areaUnit}
+                onChange={(value) => setAreaUnit(value as AreaUnit)}
+                options={AREA_UNITS.map((unit) => [
+                  unit,
+                  t[`areaUnit_${unit}`] || areaUnitLabel(unit),
+                ])}
+              />
+            </div>
+          </PlanSection>
+        ) : null}
+
+        {!isDoseOnly ? (
         <PlanSection
           title={t.fertilizerPlanCropPlot || t.fertilizerPlanCrop || "Crop & plot"}
           summary={
@@ -724,6 +844,7 @@ export default function FertilizerPlanCalculator({
             </p>
           </div>
         </PlanSection>
+        ) : null}
       </div>
 
       {plan ? (
@@ -847,7 +968,11 @@ export default function FertilizerPlanCalculator({
       ) : (
         <div className="calc-surface p-4">
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            {t.fertilizerPlanNeedYield || "Enter a target yield greater than zero to calculate doses."}
+            {isDoseOnly
+              ? t.fertilizerPlanNeedKnownDose ||
+                "Enter at least one known nutrient dose greater than zero."
+              : t.fertilizerPlanNeedYield ||
+                "Enter a target yield greater than zero to calculate doses."}
           </p>
         </div>
       )}

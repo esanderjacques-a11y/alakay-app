@@ -739,7 +739,11 @@ function CalculatorHubBody({
                 <div className="calc-surface p-4 space-y-3">
                   <p className="text-sm text-slate-600 dark-text-primary">
                     {t.fertilizerCostNeedPlan ||
-                      "Complete the nutritional plan first to estimate product costs."}
+                      "Complete the nutritional plan, or switch it to Doses only and enter known rates, to estimate product costs."}
+                  </p>
+                  <p className="text-xs text-slate-500 dark-text-primary">
+                    {t.fertilizerPlanKnownDoseHint ||
+                      "Enter the nutrient rates you already know (kg/ha). Leave unused nutrients at 0."}
                   </p>
                   <button
                     type="button"

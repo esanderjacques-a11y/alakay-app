@@ -239,7 +239,7 @@
   exportGeneralCropExtractionNote:
     "Cultivo general con {method}: los rangos suficientes de fósforo siguen la Tabla N.° 1 ({method}).",
   exportExtractionMethodNote:
-    "Los rangos suficientes de fósforo usan las bandas del extractante {method} cuando no hay rangos específicos del cultivo para ese método.",
+    "Los rangos suficientes de fósforo siguen la Tabla N.° 1 del extractante {method} (no la suficiencia del cultivo).",
   exportFoliarExtractionNote:
     "Análisis foliar con {method}: la interpretación de fósforo prioriza rangos vinculados a {method} cuando están disponibles.",
   exportRecommendationsHint:

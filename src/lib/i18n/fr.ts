@@ -240,7 +240,7 @@
   exportGeneralCropExtractionNote:
     "Culture générale avec {method} : les plages de suffisance du phosphore suivent la Tabla N.° 1 ({method}).",
   exportExtractionMethodNote:
-    "Les plages de suffisance du phosphore utilisent les bandes d'extractant {method} quand les plages spécifiques à la culture manquent.",
+    "Les plages de suffisance du phosphore suivent la Tabla N.° 1 de l'extractant {method} (pas la suffisance de la culture).",
   exportFoliarExtractionNote:
     "Analyse foliaire avec {method} : l'interprétation du phosphore privilégie les plages liées à {method} si disponibles.",
   exportRecommendationsHint:

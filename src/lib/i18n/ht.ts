@@ -232,7 +232,7 @@
   exportGeneralCropExtractionNote:
     "Rekòt jeneral ak {method}: entèval sufizans fosfò swiv Tabla N.° 1 ({method}).",
   exportExtractionMethodNote:
-    "Entèval sufizans fosfò itilize bann ekstraktan {method} lè pa gen entèval spesifik pou rekòt la.",
+    "Entèval sufizans fosfò swiv Tabla N.° 1 pou ekstraktan {method} (pa sufizans rekòt la).",
   exportFoliarExtractionNote:
     "Analiz fèy ak {method}: entèpretasyon fosfò prefere entèval ki mare ak {method} lè yo disponib.",
   exportRecommendationsHint:

@@ -224,7 +224,7 @@
   exportGeneralCropExtractionNote:
     "General crop with {method}: phosphorus sufficient ranges follow Tabla N.° 1 ({method}).",
   exportExtractionMethodNote:
-    "Phosphorus sufficient ranges use the {method} extractant bands when crop-specific method ranges are unavailable.",
+    "Phosphorus sufficient ranges follow Tabla N.° 1 for the {method} extractant (not crop sufficiency).",
   exportFoliarExtractionNote:
     "Foliar analysis with {method}: phosphorus interpretation prefers {method}-linked ranges when available.",
   exportRecommendationsHint:

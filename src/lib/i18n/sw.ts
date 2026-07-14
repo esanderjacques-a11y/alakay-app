@@ -76,7 +76,7 @@ const sw = {
   exportGeneralCropExtractionNote:
     "Zao la jumla na {method}: viwango vya kutosha vya fosforasi hufuata Tabla N.° 1 ({method}).",
   exportExtractionMethodNote:
-    "Viwango vya kutosha vya fosforasi hutumia bendi za extractant {method} ikiwa hakuna viwango maalum vya zao.",
+    "Viwango vya kutosha vya fosforasi hufuata Tabla N.° 1 ya extractant {method} (si utoshelezi wa zao).",
   exportFoliarExtractionNote:
     "Uchambuzi wa majani na {method}: tafsiri ya fosforasi inapendelea viwango vilivyounganishwa na {method} vinapopatikana.",
   exportRecommendationsHint:

@@ -137,20 +137,21 @@ export function extractionMethodUsesGeneralFallback(
 }
 
 /**
- * Prefer Tabla 1 Olsen/Mehlich P bands for soil when the crop is General or the
- * method-specific catalog parameter has no dedicated range.
+ * Prefer Tabla 1 Olsen/Mehlich P bands for soil whenever Olsen or Mehlich is
+ * selected — overrides crop sufficiency (including named crops and General).
+ * Crop-specific (`general`) keeps DB crop sufficiency ranges.
  * Foliar keeps DB / method-specific catalog ranges only (no soil Tabla 1).
  */
 export function shouldApplyTable1PhosphorusRange(input: {
   extractionMethod: ExtractionMethod;
-  isGeneralCrop: boolean;
   parameter: ParameterLike;
-  resolved: ParameterLike;
   sampleType?: "soil" | "foliar";
+  /** @deprecated Ignored — Tabla 1 applies for any crop when Olsen/Mehlich is selected. */
+  isGeneralCrop?: boolean;
+  /** @deprecated Ignored — crop catalog resolve no longer gates Tabla 1 override. */
+  resolved?: ParameterLike;
 }) {
   if (input.sampleType === "foliar") return false;
   if (!isPhosphorusParameter(input.parameter)) return false;
-  if (!extractionMethodToExtractant(input.extractionMethod)) return false;
-  if (input.isGeneralCrop) return true;
-  return extractionMethodUsesGeneralFallback(input.parameter, input.resolved);
+  return extractionMethodToExtractant(input.extractionMethod) != null;
 }

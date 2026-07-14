@@ -78,7 +78,7 @@ const pt = {
   exportGeneralCropExtractionNote:
     "Cultura geral com {method}: as faixas suficientes de fósforo seguem a Tabla N.° 1 ({method}).",
   exportExtractionMethodNote:
-    "As faixas suficientes de fósforo usam as bandas do extrator {method} quando não há faixas específicas da cultura.",
+    "As faixas suficientes de fósforo seguem a Tabla N.° 1 do extrator {method} (não a suficiência da cultura).",
   exportFoliarExtractionNote:
     "Análise foliar com {method}: a interpretação de fósforo prioriza faixas ligadas a {method} quando disponíveis.",
   exportRecommendationsHint:

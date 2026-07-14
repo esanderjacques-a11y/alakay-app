@@ -2683,17 +2683,14 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       extractionMethod === "olsen" || extractionMethod === "mehlich";
     const extractionNote = usesMethodBands
       ? sampleType === "soil"
-        ? isGeneralCrop
-          ? formatMessage(
-              t.exportGeneralCropExtractionNote ||
-                "General crop with {method}: phosphorus sufficient ranges follow Tabla N.° 1 ({method}).",
-              { method: methodLabel }
-            )
-          : formatMessage(
-              t.exportExtractionMethodNote ||
-                "Phosphorus sufficient ranges use the {method} extractant bands when crop-specific method ranges are unavailable.",
-              { method: methodLabel }
-            )
+        ? formatMessage(
+            isGeneralCrop
+              ? t.exportGeneralCropExtractionNote ||
+                  "General crop with {method}: phosphorus sufficient ranges follow Tabla N.° 1 ({method})."
+              : t.exportExtractionMethodNote ||
+                  "Phosphorus sufficient ranges follow Tabla N.° 1 for the {method} extractant (not crop sufficiency).",
+            { method: methodLabel }
+          )
         : formatMessage(
             t.exportFoliarExtractionNote ||
               "Foliar analysis with {method}: phosphorus interpretation prefers {method}-linked ranges when available.",

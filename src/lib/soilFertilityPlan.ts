@@ -1,59 +1,55 @@
-import { round } from "@/lib/agronomicCalculators";
-import { CIC_ADEQUATE_SATURATION, interpretCationRatio, interpretCationSaturation } from "@/lib/cicInterpretation";
 import {
-  classifyTable1,
+  areaUnitLabel,
+  convertAreaToHa,
+  round,
+  scaleDoseByArea,
+  type AreaUnit,
+  type CalculationOutput,
+} from "@/lib/agronomicCalculators";
+import {
   cmolToKgHa,
   cmolToMgKg,
   DEFAULT_SOIL_FERTILITY_REFERENCE,
-  matchCropExtraction,
-  type AmendmentMaterialKey,
-  type Extractant,
-  type NutrientClass,
+  findCropExtraction,
   type SoilFertilityReference,
-  type Table1Parameter,
-  type Table1Row,
 } from "@/lib/soilFertilityTables";
 
-export type FertilityPlanMode = "completo" | "solo_dosis";
+/** Display form for extraction / dose labels (Tabla N.° 4). */
+export type NutrientDisplayMode = "elemental" | "oxide";
 
-export type FertilityPlanInput = {
-  modo: FertilityPlanMode;
+export type DoseNutrientKey = "n" | "p" | "k" | "mg" | "ca";
+
+/** Extraction coefficients as stored in Tabla N.° 5 (P/K/Ca/Mg = oxides). */
+export type ExtractionOxide = {
+  n: number;
+  p2o5: number;
+  k2o: number;
+  cao: number;
+  mgo: number;
+};
+
+export type FertilityPlanDoseInput = {
   cultivo?: string | null;
-  /** Extractante de laboratorio usado (Tabla N.° 1). Por defecto Olsen Modificado/KCl 1N. */
-  extractant?: Extractant;
+  /** Oxide-form extraction (kg/t). Required when crop is unknown or user overrides. */
+  extraction?: Partial<ExtractionOxide> | null;
   rendimientoObjetivo: number;
   profundidadMuestreo_cm: number;
   densidadAparente_g_cm3: number;
-  ph?: number;
-  acidezExtraible?: number;
-  K?: number;
-  Ca?: number;
-  Mg?: number;
-  Na?: number;
-  P?: number;
-  S?: number;
-  Fe?: number;
-  Cu?: number;
-  Zn?: number;
-  Mn?: number;
+  /** Organic matter % (for N supply estimate). */
   materiaOrganica?: number;
+  /** Mineralization coefficient as fraction (default 0.02 = 2%). */
+  coeficienteMineralizacion?: number;
+  K?: number;
+  Mg?: number;
+  P?: number;
+  /** Efficiency as 0–100 (%). */
   eficienciaN?: number;
   eficienciaP?: number;
   eficienciaK?: number;
   eficienciaMg?: number;
-  PRNT?: number;
-  enmiendaSeleccionada?: AmendmentMaterialKey;
-  /** Demanda manual (kg/ha) — solo_dosis */
-  demandaN_manual?: number;
-  demandaP2o5_manual?: number;
-  demandaK2o_manual?: number;
-  demandaMgo_manual?: number;
-  /** Suministro manual (kg/ha) — prioridad sobre calculado */
-  N_suministro_manual?: number;
-  P_suministro_manual?: number;
-  K_suministro_manual?: number;
-  Mg_suministro_manual?: number;
-  Ca_suministro_manual?: number;
+  area: number;
+  areaUnit: AreaUnit;
+  displayMode: NutrientDisplayMode;
 };
 
 export type FertilityCalcStep = {
@@ -66,879 +62,511 @@ export type FertilityCalcStep = {
   tableRef?: string;
 };
 
-export type FertilityPlanSection = {
-  id: string;
-  title: string;
-  tableRef?: string;
-  steps: FertilityCalcStep[];
-  summary?: string;
-};
-
 export type FertilityDoseResult = {
+  key: DoseNutrientKey;
   nutrient: string;
-  demanda: number;
-  suministro: number;
+  nutrientOxide: string;
+  demandaKgHa: number;
+  suministroKgHa: number;
   eficiencia: number;
-  dosis: number | null;
+  /** Dose in kg/ha of the oxide form (N elemental); null when not required. */
+  dosisKgHa: number | null;
+  /** Dose scaled to plot area in display mode. */
+  dosisPlot: number | null;
   notRequired: boolean;
-  unit: string;
+  /** Ca is supplied via liming, not fertilizer dose. */
+  viaEncalado: boolean;
+  unitHa: string;
+  unitPlot: string;
   steps: FertilityCalcStep[];
 };
 
-export type FertilityPlanResult = {
-  modo: FertilityPlanMode;
+export type FertilityDosePlanResult = {
   cultivo: string;
-  sections: FertilityPlanSection[];
+  cropMatched: boolean;
+  massTonsHa: number;
+  massKgHa: number;
+  displayMode: NutrientDisplayMode;
+  areaHa: number;
+  areaUnit: AreaUnit;
+  extractionUsed: ExtractionOxide;
   doses: FertilityDoseResult[];
-  /** SUE302 §1.4–1.5: Ca saturation + lime only when acidity and Ca deficit coexist. */
-  encaladoEligible: boolean;
-  encaladoCanEvaluate: boolean;
-  encaladoNoteKey: EncaladoReasonKey;
-  encaladoNoteValues?: { sat?: number; target?: number };
-  encalado?: {
-    caoRequerido: number;
-    dosisTeorica: number;
-    dosisAjustada: number;
-    material: AmendmentMaterialKey;
-    recomendacion: string;
-    steps: FertilityCalcStep[];
-  };
-  conclusiones: string[];
+  recommendations: string[];
+  sections: Array<{ id: string; title: string; steps: FertilityCalcStep[]; tableRef?: string }>;
 };
 
 function num(value: number | undefined, fallback = 0) {
   return Number.isFinite(value) ? Number(value) : fallback;
 }
 
-function pickSupply(manual: number | undefined, calculated: number) {
-  if (Number.isFinite(manual)) return Number(manual);
-  if (Number.isFinite(calculated) && calculated > 0) return calculated;
-  return 0;
+function effFraction(percent: number | undefined, fallbackPercent: number) {
+  const pct = num(percent, fallbackPercent);
+  if (pct > 1) return pct / 100;
+  if (pct > 0) return pct;
+  return fallbackPercent / 100;
 }
 
-function classifyLabel(c: NutrientClass) {
-  return c === "bajo" ? "Bajo" : c === "adecuado" ? "Adecuado" : "Exceso";
-}
-
-function interpretVPercent(vPercent: number): { label: string; interpretation: string } {
-  if (vPercent < CIC_ADEQUATE_SATURATION.totalBases.min) {
-    return { label: "Bajo", interpretation: "Saturación de bases baja — evaluar encalado." };
-  }
-  if (vPercent > CIC_ADEQUATE_SATURATION.totalBases.max) {
-    return { label: "Alto", interpretation: "Saturación de bases alta — revisar antes de fertilizar." };
-  }
-  return { label: "Adecuado", interpretation: "Saturación de bases dentro del rango adecuado (Tabla N.° 2)." };
-}
-
-export type EncaladoReasonKey =
-  | "encaladoEligible"
-  | "encaladoNoAcidityNoDeficit"
-  | "encaladoCaDeficitNoAcidity"
-  | "encaladoAcidityCaAdequate"
-  | "encaladoInsufficientData"
-  | "encaladoSoloDosis";
-
-export type EncaladoEligibility = {
-  eligible: boolean;
-  canEvaluate: boolean;
-  hasAcidity: boolean;
-  hasCaSaturationDeficit: boolean;
-  reasonKey: EncaladoReasonKey;
-  satCaPercent?: number;
-  caTargetPercent: number;
-};
-
-function encaladoConclusionText(
-  eligibility: EncaladoEligibility,
-  encaladoDose?: number
-): string {
-  if (encaladoDose && encaladoDose > 0) {
-    return `Encalado estimado: ${encaladoDose} kg/ha.`;
-  }
-  if (eligibility.eligible) {
-    return "Sin déficit de Ca intercambiable para encalado por saturación.";
-  }
-  const notes: Record<EncaladoReasonKey, string> = {
-    encaladoEligible:
-      "Acidez intercambiable y déficit de saturación de Ca — aplica el cálculo de encalado (SUE302 §1.4–1.5).",
-    encaladoNoAcidityNoDeficit:
-      "Sin acidez intercambiable ni déficit de saturación de Ca — no aplica el método de encalado por saturación.",
-    encaladoCaDeficitNoAcidity:
-      "Hay déficit de Ca, pero sin acidez intercambiable: use yeso u otra fuente de Ca; el encalado por saturación no aplica.",
-    encaladoAcidityCaAdequate:
-      "Hay acidez, pero la saturación de Ca ya alcanza la meta — corrija la acidez con la calculadora de enmiendas (pH / saturación de bases).",
-    encaladoInsufficientData:
-      "Ingrese Ca y cationes intercambiables (Mg, K, acidez) en Valores para evaluar el encalado por saturación de Ca.",
-    encaladoSoloDosis: "Modo solo dosis — sin cálculo de encalado por saturación de Ca.",
-  };
-  return notes[eligibility.reasonKey];
-}
-
-/** SUE302 §1.4: Ca saturation lime method only when exchangeable acidity and Ca target deficit coexist. */
-export function evaluateEncaladoEligibility(
-  input: FertilityPlanInput,
-  table1: Table1Row[],
-  ca: number,
-  cice: number
-): EncaladoEligibility {
-  const caTargetPercent = CIC_ADEQUATE_SATURATION.ca.target;
-  const canEvaluate = ca > 0 && cice > 0;
-
-  if (!canEvaluate) {
-    return {
-      eligible: false,
-      canEvaluate: false,
-      hasAcidity: false,
-      hasCaSaturationDeficit: false,
-      reasonKey: "encaladoInsufficientData",
-      caTargetPercent,
-    };
-  }
-
-  const acidity = num(input.acidezExtraible);
-  const ph = input.ph;
-  const acidityRow = table1.find((row) => row.parameter === "acidez_extraible");
-  const phRow = table1.find((row) => row.parameter === "ph");
-  const acidityLimit = acidityRow?.adequateMax ?? 0.5;
-  const phMin = phRow?.adequateMin ?? 5.5;
-
-  const hasAcidity =
-    acidity > acidityLimit ||
-    (ph !== undefined && Number.isFinite(ph) && ph < phMin) ||
-    (cice > 0 && acidity > 0 && (acidity / cice) * 100 > 5);
-
-  const satCaActual = (ca / cice) * 100;
-  const caObjetivo = cice * (caTargetPercent / 100);
-  const deficitCa = Math.max(0, caObjetivo - ca);
-  const hasCaSaturationDeficit =
-    satCaActual < CIC_ADEQUATE_SATURATION.ca.min || deficitCa > 0.001;
-
-  const eligible = hasAcidity && hasCaSaturationDeficit;
-
-  let reasonKey: EncaladoReasonKey;
-  if (eligible) {
-    reasonKey = "encaladoEligible";
-  } else if (!hasAcidity && !hasCaSaturationDeficit) {
-    reasonKey = "encaladoNoAcidityNoDeficit";
-  } else if (!hasAcidity) {
-    reasonKey = "encaladoCaDeficitNoAcidity";
-  } else {
-    reasonKey = "encaladoAcidityCaAdequate";
-  }
-
+export function oxideToElementalExtraction(
+  oxide: ExtractionOxide,
+  factors: SoilFertilityReference["oxideFactors"] = DEFAULT_SOIL_FERTILITY_REFERENCE.oxideFactors
+): ExtractionOxide {
   return {
-    eligible,
-    canEvaluate: true,
-    hasAcidity,
-    hasCaSaturationDeficit,
-    reasonKey,
-    satCaPercent: round(satCaActual, 1),
-    caTargetPercent,
+    n: oxide.n,
+    p2o5: oxide.p2o5 / factors.pToP2o5,
+    k2o: oxide.k2o / factors.kToK2o,
+    cao: oxide.cao / factors.caToCao,
+    mgo: oxide.mgo / factors.mgToMgo,
   };
 }
 
-function buildDiagnosticSection(
-  input: FertilityPlanInput,
-  table1: Table1Row[]
-): FertilityPlanSection {
-  const values: Partial<Record<Table1Parameter, number>> = {
-    ph: input.ph,
-    acidez_extraible: input.acidezExtraible,
-    k: input.K,
-    ca: input.Ca,
-    mg: input.Mg,
-    na: input.Na,
-    p: input.P,
-    s: input.S,
-    fe: input.Fe,
-    cu: input.Cu,
-    zn: input.Zn,
-    mn: input.Mn,
-  };
-
-  const steps: FertilityCalcStep[] = table1.map((row) => {
-    const value = num(values[row.parameter]);
-    const classification = classifyTable1(value, row);
-    return {
-      label: row.label,
-      formula: "Comparar valor vs rango óptimo (Tabla N.° 1)",
-      substitution: `${round(value, 3)} ${row.unit}`,
-      result: classifyLabel(classification),
-      unit: "",
-      interpretation: `Rango óptimo: ${row.adequateMin}–${row.adequateMax} ${row.unit}`,
-      tableRef: "Tabla N.° 1",
-    };
-  });
-
+export function elementalToOxideExtraction(
+  elemental: ExtractionOxide,
+  factors: SoilFertilityReference["oxideFactors"] = DEFAULT_SOIL_FERTILITY_REFERENCE.oxideFactors
+): ExtractionOxide {
   return {
-    id: "diagnostico",
-    title: "Diagnóstico de fertilidad",
-    tableRef: "Tabla N.° 1",
-    steps,
+    n: elemental.n,
+    p2o5: elemental.p2o5 * factors.pToP2o5,
+    k2o: elemental.k2o * factors.kToK2o,
+    cao: elemental.cao * factors.caToCao,
+    mgo: elemental.mgo * factors.mgToMgo,
   };
 }
 
-function buildSoilMassSection(depthCm: number, bulkDensity: number): FertilityPlanSection {
-  const depthM = depthCm / 100;
-  const massTonsHa = depthM * bulkDensity * 10000;
-  const massKgHa = massTonsHa * 1000;
-
-  return {
-    id: "masa_suelo",
-    title: "Masa de suelo",
-    steps: [
-      {
-        label: "Masa de suelo",
-        formula: "MS = Profundidad(m) × Densidad aparente(t/m³) × 10 000",
-        substitution: `${round(depthM, 2)} × ${round(bulkDensity, 2)} × 10 000`,
-        result: String(round(massTonsHa, 2)),
-        unit: "t/ha",
-      },
-      {
-        label: "Masa de suelo",
-        formula: "MS(kg/ha) = MS(t/ha) × 1 000",
-        substitution: `${round(massTonsHa, 2)} × 1 000`,
-        result: String(round(massKgHa, 0)),
-        unit: "kg/ha",
-      },
-    ],
-    summary: `${round(massTonsHa, 2)} t/ha · ${round(massKgHa, 0)} kg/ha`,
-  };
+export function displayExtractionLabels(mode: NutrientDisplayMode) {
+  if (mode === "elemental") {
+    return { n: "N", p: "P", k: "K", ca: "Ca", mg: "Mg" };
+  }
+  return { n: "N", p: "P₂O₅", k: "K₂O", ca: "CaO", mg: "MgO" };
 }
 
-export function buildSoilFertilityPlan(
-  input: FertilityPlanInput,
+function nutrientHaUnit(key: DoseNutrientKey, mode: NutrientDisplayMode) {
+  const labels = displayExtractionLabels(mode);
+  return `kg ${labels[key === "p" ? "p" : key === "k" ? "k" : key === "ca" ? "ca" : key === "mg" ? "mg" : "n"]}/ha`;
+}
+
+function nutrientPlotUnit(key: DoseNutrientKey, mode: NutrientDisplayMode, areaUnit: AreaUnit) {
+  const labels = displayExtractionLabels(mode);
+  const map: Record<DoseNutrientKey, string> = {
+    n: labels.n,
+    p: labels.p,
+    k: labels.k,
+    ca: labels.ca,
+    mg: labels.mg,
+  };
+  return `kg ${map[key]} / ${areaUnitLabel(areaUnit)}`;
+}
+
+function toDisplayKg(valueKgOxide: number, key: DoseNutrientKey, mode: NutrientDisplayMode, factors: SoilFertilityReference["oxideFactors"]) {
+  if (mode === "oxide" || key === "n") return valueKgOxide;
+  if (key === "p") return valueKgOxide / factors.pToP2o5;
+  if (key === "k") return valueKgOxide / factors.kToK2o;
+  if (key === "ca") return valueKgOxide / factors.caToCao;
+  return valueKgOxide / factors.mgToMgo;
+}
+
+/**
+ * Estimate mineralizable N (kg/ha) from organic matter % (SUE302 §2.5.1).
+ * Assumes OM is ~5% N; mineralization coefficient default 2%.
+ */
+export function estimateNSupplyFromOm(input: {
+  organicMatterPercent: number;
+  massTonsHa: number;
+  mineralizationCoef?: number;
+}) {
+  const om = Math.max(0, input.organicMatterPercent);
+  const miner = Math.max(0, input.mineralizationCoef ?? 0.02);
+  const organicNPercent = om * 0.05;
+  const mineralizablePercent = organicNPercent * miner;
+  const mgKg = mineralizablePercent * 10000;
+  // SUE302: Factor MS = MS(t/ha)/1000 → kg/ha = (mg/kg) × (MS/1000)
+  const massFactor = input.massTonsHa / 1000;
+  const kgHa = mgKg * massFactor;
+  return { organicNPercent, mineralizablePercent, mgKg, massFactor, kgHa };
+}
+
+export function buildNutrientDosePlan(
+  input: FertilityPlanDoseInput,
   refs: SoilFertilityReference = DEFAULT_SOIL_FERTILITY_REFERENCE
-): FertilityPlanResult | null {
+): FertilityDosePlanResult | null {
   const depthCm = Math.max(1, num(input.profundidadMuestreo_cm, 30));
   const bulkDensity = Math.max(0.5, num(input.densidadAparente_g_cm3, 1));
   const depthM = depthCm / 100;
   const massTonsHa = depthM * bulkDensity * 10000;
   const massKgHa = massTonsHa * 1000;
-
-  const ca = num(input.Ca);
-  const mg = num(input.Mg);
-  const k = num(input.K);
-  const na = num(input.Na);
-  const acidity = num(input.acidezExtraible);
-  const pMgKg = num(input.P);
-
-  const effN = num(input.eficienciaN, 0.6);
-  const effP = num(input.eficienciaP, 0.3);
-  const effK = num(input.eficienciaK, 0.7);
-  const effMg = num(input.eficienciaMg, 0.7);
-
-  const crop = matchCropExtraction(input.cultivo, refs);
   const yieldTarget = Math.max(0, num(input.rendimientoObjetivo));
-  const extractant = input.extractant || "olsen_kcl";
-  const table1 = refs.nutrientInterpretationByExtractant[extractant] || refs.nutrientInterpretation;
+  const area = Math.max(0, num(input.area, 1));
+  const areaUnit = input.areaUnit || "ha";
+  const areaHa = convertAreaToHa(area, areaUnit);
+  const mode = input.displayMode || "oxide";
+  const factors = refs.oxideFactors;
 
-  const sections: FertilityPlanSection[] = [];
+  const matched = findCropExtraction(input.cultivo, refs);
+  const cropMatched = Boolean(matched);
+  const baseExtraction: ExtractionOxide = matched
+    ? { n: matched.n, p2o5: matched.p2o5, k2o: matched.k2o, cao: matched.cao, mgo: matched.mgo }
+    : { n: 0, p2o5: 0, k2o: 0, cao: 0, mgo: 0 };
 
-  if (input.modo === "completo") {
-    sections.push(buildDiagnosticSection(input, table1));
-    sections.push(buildSoilMassSection(depthCm, bulkDensity));
+  const extractionUsed: ExtractionOxide = {
+    n: num(input.extraction?.n, baseExtraction.n),
+    p2o5: num(input.extraction?.p2o5, baseExtraction.p2o5),
+    k2o: num(input.extraction?.k2o, baseExtraction.k2o),
+    cao: num(input.extraction?.cao, baseExtraction.cao),
+    mgo: num(input.extraction?.mgo, baseExtraction.mgo),
+  };
 
-    const sb = ca + mg + k + na;
-    const cice = sb + acidity;
-    const pctCa = cice > 0 ? (ca / cice) * 100 : 0;
-    const pctMg = cice > 0 ? (mg / cice) * 100 : 0;
-    const pctK = cice > 0 ? (k / cice) * 100 : 0;
-    const pctNa = cice > 0 ? (na / cice) * 100 : 0;
-    const pctAlH = cice > 0 ? (acidity / cice) * 100 : 0;
-    const vPercent = cice > 0 ? (sb / cice) * 100 : 0;
-    const vInterp = interpretVPercent(vPercent);
+  const cultivoLabel = matched?.label || (input.cultivo?.trim() || "Cultivo (extracción manual)");
 
-    sections.push({
-      id: "indicadores",
-      title: "Indicadores de fertilidad",
-      tableRef: "Tabla N.° 2",
-      steps: [
-        {
-          label: "Suma de bases (SB)",
-          formula: "SB = Ca + Mg + K + Na",
-          substitution: `${round(ca, 2)} + ${round(mg, 2)} + ${round(k, 2)} + ${round(na, 2)}`,
-          result: String(round(sb, 2)),
-          unit: "cmol(+)/kg",
-        },
-        {
-          label: "CIC efectiva (CICe)",
-          formula: "CICe = SB + Acidez extraíble",
-          substitution: `${round(sb, 2)} + ${round(acidity, 2)}`,
-          result: String(round(cice, 2)),
-          unit: "cmol(+)/kg",
-        },
-        {
-          label: "%Ca",
-          formula: "%Ca = (Ca / CICe) × 100",
-          substitution: `(${round(ca, 2)} / ${round(cice, 2)}) × 100`,
-          result: String(round(pctCa, 1)),
-          unit: "%",
-          interpretation: `${interpretCationSaturation("ca", pctCa).rangeLabel} (Tabla N.° 2)`,
-          tableRef: "Tabla N.° 2",
-        },
-        {
-          label: "%Mg",
-          formula: "%Mg = (Mg / CICe) × 100",
-          substitution: `(${round(mg, 2)} / ${round(cice, 2)}) × 100`,
-          result: String(round(pctMg, 1)),
-          unit: "%",
-          interpretation: `${interpretCationSaturation("mg", pctMg).rangeLabel} (Tabla N.° 2)`,
-          tableRef: "Tabla N.° 2",
-        },
-        {
-          label: "%K",
-          formula: "%K = (K / CICe) × 100",
-          substitution: `(${round(k, 2)} / ${round(cice, 2)}) × 100`,
-          result: String(round(pctK, 1)),
-          unit: "%",
-          interpretation: `${interpretCationSaturation("k", pctK).rangeLabel} (Tabla N.° 2)`,
-          tableRef: "Tabla N.° 2",
-        },
-        {
-          label: "%Na",
-          formula: "%Na = (Na / CICe) × 100",
-          substitution: `(${round(na, 2)} / ${round(cice, 2)}) × 100`,
-          result: String(round(pctNa, 1)),
-          unit: "%",
-          interpretation: `${interpretCationSaturation("na", pctNa).rangeLabel} (Tabla N.° 2)`,
-          tableRef: "Tabla N.° 2",
-        },
-        {
-          label: "%Al+H",
-          formula: "%Al+H = (Acidez / CICe) × 100",
-          substitution: `(${round(acidity, 2)} / ${round(cice, 2)}) × 100`,
-          result: String(round(pctAlH, 1)),
-          unit: "%",
-        },
-        {
-          label: "V%",
-          formula: "V% = (SB / CICe) × 100",
-          substitution: `(${round(sb, 2)} / ${round(cice, 2)}) × 100`,
-          result: String(round(vPercent, 1)),
-          unit: "%",
-          interpretation: `${vInterp.label} — ${vInterp.interpretation}`,
-          tableRef: "Tabla N.° 2",
-        },
-      ],
-    });
+  if (!(yieldTarget > 0) || !(massTonsHa > 0)) return null;
 
-    const caMg = mg > 0 ? ca / mg : null;
-    const caK = k > 0 ? ca / k : null;
-    const mgK = k > 0 ? mg / k : null;
-    const caMgK = k > 0 ? (ca + mg) / k : null;
+  const pMgKg = num(input.P);
+  const kCmol = num(input.K);
+  const mgCmol = num(input.Mg);
+  const om = num(input.materiaOrganica);
+  const minerCoef = num(input.coeficienteMineralizacion, 0.02);
 
-    const ratioDefs: Array<{
-      key: string;
-      value: number | null;
-      relation?: Exclude<import("@/lib/baseSaturation").BaseRelationKey, "all">;
-      optimalMin?: number;
-      optimalMax?: number;
-    }> = [
-      { key: "Ca/Mg", value: caMg, relation: "ca_mg" },
-      { key: "Ca/K", value: caK, relation: "ca_k" },
-      { key: "Mg/K", value: mgK, relation: "mg_k" },
-      { key: "(Ca+Mg)/K", value: caMgK, optimalMin: 11, optimalMax: 32 },
-    ];
-
-    const ratioSteps: FertilityCalcStep[] = ratioDefs.map(({ key, value, relation, optimalMin, optimalMax }) => {
-      const interp = relation
-        ? interpretCationRatio(relation, value)
-        : value !== null && Number.isFinite(value)
-          ? {
-              band:
-                value < (optimalMin || 0)
-                  ? ("low" as const)
-                  : value > (optimalMax || Infinity)
-                    ? ("high" as const)
-                    : ("optimal" as const),
-              optimalMin: optimalMin || 0,
-              optimalMax: optimalMax || 0,
-              messageKey: "",
-            }
-          : { band: "unknown" as const, optimalMin: optimalMin || 0, optimalMax: optimalMax || 0, messageKey: "" };
-
-      const band =
-        interp.band === "optimal"
-          ? "Adecuado"
-          : interp.band === "low"
-            ? key.startsWith("Ca") || key.includes("Ca/")
-              ? "Riesgo de deficiencia de Ca"
-              : key.startsWith("Mg")
-                ? "Riesgo de deficiencia de Mg"
-                : "Riesgo de deficiencia de K"
-            : interp.band === "high"
-              ? "Fuera de rango óptimo"
-              : "Sin dato";
-
-      return {
-        label: key,
-        formula: `${key} = cociente catiónico`,
-        substitution: value !== null ? String(round(value, 2)) : "—",
-        result: band,
-        unit: ":1",
-        interpretation: `Rango óptimo Tabla N.° 3: ${interp.optimalMin}–${interp.optimalMax}`,
-        tableRef: "Tabla N.° 3",
-      };
-    });
-
-    sections.push({
-      id: "relaciones",
-      title: "Relaciones catiónicas",
-      tableRef: "Tabla N.° 3",
-      steps: ratioSteps,
-    });
-
-    const satCaActual = cice > 0 ? (ca / cice) * 100 : 0;
-    const satCaObjetivo = CIC_ADEQUATE_SATURATION.ca.target;
-    const caObjetivo = cice * (satCaObjetivo / 100);
-    const deficitCa = Math.max(0, caObjetivo - ca);
-    const encaladoEligibility = evaluateEncaladoEligibility(input, table1, ca, cice);
-
-    sections.push({
-      id: "requerimiento_ca",
-      title: "Requerimiento de calcio",
-      tableRef: "Tabla N.° 2",
-      summary: encaladoConclusionText(encaladoEligibility),
-      steps: [
-        {
-          label: "Saturación actual de Ca",
-          formula: "SatCa actual = (Ca / CICe) × 100",
-          substitution: `(${round(ca, 2)} / ${round(cice, 2)}) × 100`,
-          result: String(round(satCaActual, 1)),
-          unit: "%",
-        },
-        {
-          label: "Saturación objetivo de Ca",
-          formula: "SatCa objetivo (Tabla N.° 2)",
-          substitution: "Rango adecuado Ca",
-          result: String(satCaObjetivo),
-          unit: "%",
-          tableRef: "Tabla N.° 2",
-        },
-        {
-          label: "Ca objetivo",
-          formula: "Ca objetivo = CICe × (SatCa objetivo / 100)",
-          substitution: `${round(cice, 2)} × ${satCaObjetivo / 100}`,
-          result: String(round(caObjetivo, 2)),
-          unit: "cmol(+)/kg",
-        },
-        {
-          label: "Déficit de Ca",
-          formula: "Déficit Ca = Ca objetivo − Ca actual (mín. 0)",
-          substitution: `${round(caObjetivo, 2)} − ${round(ca, 2)}`,
-          result: String(round(deficitCa, 2)),
-          unit: "cmol(+)/kg",
-          interpretation: encaladoEligibility.eligible
-            ? deficitCa > 0
-              ? "Se requiere corrección de Ca / encalado (SUE302 §1.4)."
-              : "Sin déficit de Ca intercambiable."
-            : encaladoConclusionText(encaladoEligibility),
-        },
-      ],
-    });
-
-    const cationSteps: FertilityCalcStep[] = (["ca", "mg", "k", "na"] as const).flatMap((cation) => {
-      const cmol = { ca, mg, k, na }[cation];
-      const conv = cmolToKgHa({ cation, cmolKg: cmol, soilMassKgHa: massKgHa });
-      const label = cation.toUpperCase();
-      return [
-        {
-          label: `Moles ${label}`,
-          formula: "Moles = (cmol(+)/kg × 0.01) ÷ valencia",
-          substitution: `(${round(cmol, 3)} × 0.01) ÷ ${cation === "k" || cation === "na" ? 1 : 2}`,
-          result: String(round(conv.moles, 5)),
-          unit: "mol/kg",
-        },
-        {
-          label: `g ${label}/kg suelo`,
-          formula: "g/kg = Moles × peso molecular",
-          substitution: `${round(conv.moles, 5)} × ${cation === "ca" ? 40.078 : cation === "mg" ? 24.305 : cation === "k" ? 39.098 : 22.99}`,
-          result: String(round(conv.gramsPerKg, 4)),
-          unit: "g/kg",
-        },
-        {
-          label: `${label} suministro`,
-          formula: "kg/ha = (g/kg × MS kg/ha) / 1 000",
-          substitution: `(${round(conv.gramsPerKg, 4)} × ${round(massKgHa, 0)}) / 1 000`,
-          result: String(round(conv.kgHa, 2)),
-          unit: `kg ${label}/ha`,
-        },
-      ];
-    });
-
-    sections.push({
-      id: "conversion_cationes",
-      title: "Conversión general de cationes",
-      steps: cationSteps,
-    });
-
-    const mgKgSteps: FertilityCalcStep[] = (["ca", "mg", "k", "na"] as const).map((cation) => {
-      const cmol = { ca, mg, k, na }[cation];
-      const mgKg = cmolToMgKg(cation, cmol, refs.cmolToMgKg);
-      return {
-        label: `${cation.toUpperCase()} en mg/kg`,
-        formula: "mg/kg = cmol(+)/kg × factor",
-        substitution: `${round(cmol, 3)} × ${refs.cmolToMgKg[cation]}`,
-        result: String(round(mgKg, 1)),
-        unit: "mg/kg",
-        tableRef: "Tabla N.° 6",
-      };
-    });
-
-    sections.push({
-      id: "conversion_mgkg",
-      title: "Conversión directa a mg/kg",
-      tableRef: "Tabla N.° 6",
-      steps: mgKgSteps,
-    });
-  } else {
-    sections.push(buildSoilMassSection(depthCm, bulkDensity));
-  }
-
-  const pSupplyKgHa = pMgKg > 0 ? (pMgKg * massKgHa) / 1_000_000 : 0;
-  const p2o5SupplyCalc = pSupplyKgHa * refs.oxideFactors.pToP2o5;
-  const kConv = cmolToKgHa({ cation: "k", cmolKg: k, soilMassKgHa: massKgHa });
-  const k2oSupplyCalc = kConv.kgHa * refs.oxideFactors.kToK2o;
-  const mgConv = cmolToKgHa({ cation: "mg", cmolKg: mg, soilMassKgHa: massKgHa });
-  const mgoSupplyCalc = mgConv.kgHa * refs.oxideFactors.mgToMgo;
-  const nSupplyCalc = 0;
-
-  const supplyN = pickSupply(input.N_suministro_manual, nSupplyCalc);
-  const supplyP2o5 = pickSupply(
-    input.P_suministro_manual !== undefined ? input.P_suministro_manual * refs.oxideFactors.pToP2o5 : undefined,
-    p2o5SupplyCalc
-  );
-  const supplyK2o = pickSupply(
-    input.K_suministro_manual !== undefined ? input.K_suministro_manual * refs.oxideFactors.kToK2o : undefined,
-    k2oSupplyCalc
-  );
-  const supplyMgo = pickSupply(
-    input.Mg_suministro_manual !== undefined ? input.Mg_suministro_manual * refs.oxideFactors.mgToMgo : undefined,
-    mgoSupplyCalc
-  );
-
-  const demandN =
-    input.modo === "solo_dosis" && Number.isFinite(input.demandaN_manual)
-      ? Number(input.demandaN_manual)
-      : crop.n * yieldTarget;
-  const demandP2o5 =
-    input.modo === "solo_dosis" && Number.isFinite(input.demandaP2o5_manual)
-      ? Number(input.demandaP2o5_manual)
-      : crop.p2o5 * yieldTarget;
-  const demandK2o =
-    input.modo === "solo_dosis" && Number.isFinite(input.demandaK2o_manual)
-      ? Number(input.demandaK2o_manual)
-      : crop.k2o * yieldTarget;
-  const demandMgo =
-    input.modo === "solo_dosis" && Number.isFinite(input.demandaMgo_manual)
-      ? Number(input.demandaMgo_manual)
-      : crop.mgo * yieldTarget;
-
-  sections.push({
-    id: "suministro",
-    title: "Suministro del suelo",
-    steps: [
-      {
-        label: "P → P₂O₅",
-        formula: "Suministro P₂O₅ = P(mg/kg) × MS(kg/ha) / 10⁶ × 2.29",
-        substitution: pMgKg > 0 ? `${pMgKg} × ${round(massKgHa, 0)} / 10⁶ × 2.29` : "Sin dato de P",
-        result: String(round(p2o5SupplyCalc, 2)),
-        unit: "kg P₂O₅/ha",
-        tableRef: "Tabla N.° 4",
-      },
-      {
-        label: "K → K₂O",
-        formula: "Suministro K₂O = K(kg/ha) × 1.20",
-        substitution: k > 0 ? `${round(kConv.kgHa, 2)} × 1.20` : "Sin dato de K",
-        result: String(round(k2oSupplyCalc, 2)),
-        unit: "kg K₂O/ha",
-        tableRef: "Tabla N.° 4",
-      },
-      {
-        label: "Mg → MgO",
-        formula: "Suministro MgO = Mg(kg/ha) × 1.66",
-        substitution: mg > 0 ? `${round(mgConv.kgHa, 2)} × 1.66` : "Sin dato de Mg",
-        result: String(round(mgoSupplyCalc, 2)),
-        unit: "kg MgO/ha",
-        tableRef: "Tabla N.° 4",
-      },
-    ],
-    summary: `Prioridad: manual > calculado > cero.`,
+  const nFromOm = estimateNSupplyFromOm({
+    organicMatterPercent: om,
+    massTonsHa,
+    mineralizationCoef: minerCoef,
   });
+  const supplyN = nFromOm.kgHa;
 
-  sections.push({
-    id: "demanda",
-    title: "Demanda nutricional",
-    tableRef: "Tabla N.° 5",
-    steps: [
-      {
-        label: "N",
-        formula: "Demanda N = Extracción N × Rendimiento",
-        substitution: `${crop.n} × ${yieldTarget}`,
-        result: String(round(demandN, 2)),
-        unit: "kg N/ha",
-        interpretation: `${crop.label} (Tabla N.° 5)`,
-        tableRef: "Tabla N.° 5",
-      },
-      {
-        label: "P₂O₅",
-        formula: "Demanda P₂O₅ = Extracción × Rendimiento",
-        substitution: `${crop.p2o5} × ${yieldTarget}`,
-        result: String(round(demandP2o5, 2)),
-        unit: "kg P₂O₅/ha",
-        tableRef: "Tabla N.° 5",
-      },
-      {
-        label: "K₂O",
-        formula: "Demanda K₂O = Extracción × Rendimiento",
-        substitution: `${crop.k2o} × ${yieldTarget}`,
-        result: String(round(demandK2o, 2)),
-        unit: "kg K₂O/ha",
-        tableRef: "Tabla N.° 5",
-      },
-      {
-        label: "MgO",
-        formula: "Demanda MgO = Extracción × Rendimiento",
-        substitution: `${crop.mgo} × ${yieldTarget}`,
-        result: String(round(demandMgo, 2)),
-        unit: "kg MgO/ha",
-        tableRef: "Tabla N.° 5",
-      },
-    ],
-  });
+  const pSupplyElementalKgHa = pMgKg > 0 ? (pMgKg * massKgHa) / 1_000_000 : 0;
+  const supplyP2o5 = pSupplyElementalKgHa * factors.pToP2o5;
 
-  sections.push({
-    id: "factores",
-    title: "Factores de conversión",
-    tableRef: "Tabla N.° 4",
-    steps: [
-      { label: "P → P₂O₅", formula: "Factor", substitution: "Tabla N.° 4", result: String(refs.oxideFactors.pToP2o5), unit: "" },
-      { label: "K → K₂O", formula: "Factor", substitution: "Tabla N.° 4", result: String(refs.oxideFactors.kToK2o), unit: "" },
-      { label: "Ca → CaO", formula: "Factor", substitution: "Tabla N.° 4", result: String(refs.oxideFactors.caToCao), unit: "" },
-      { label: "Mg → MgO", formula: "Factor", substitution: "Tabla N.° 4", result: String(refs.oxideFactors.mgToMgo), unit: "" },
-    ],
-  });
+  const kConv = cmolToKgHa({ cation: "k", cmolKg: kCmol, soilMassKgHa: massKgHa });
+  const kMgKgLayer = cmolToMgKg("k", kCmol, refs.cmolToMgKg) * massTonsHa;
+  const supplyK2o = kConv.kgHa * factors.kToK2o;
 
-  function buildDose(
-    nutrient: string,
-    demanda: number,
-    suministro: number,
+  const mgConv = cmolToKgHa({ cation: "mg", cmolKg: mgCmol, soilMassKgHa: massKgHa });
+  const supplyMgo = mgConv.kgHa * factors.mgToMgo;
+
+  const demandN = extractionUsed.n * yieldTarget;
+  const demandP2o5 = extractionUsed.p2o5 * yieldTarget;
+  const demandK2o = extractionUsed.k2o * yieldTarget;
+  const demandMgo = extractionUsed.mgo * yieldTarget;
+  const demandCao = extractionUsed.cao * yieldTarget;
+
+  const effN = effFraction(input.eficienciaN, 60);
+  const effP = effFraction(input.eficienciaP, 20);
+  const effK = effFraction(input.eficienciaK, 70);
+  const effMg = effFraction(input.eficienciaMg, 70);
+
+  const labels = displayExtractionLabels(mode);
+
+  function buildFertilizerDose(
+    key: Exclude<DoseNutrientKey, "ca">,
+    nutrientLabel: string,
+    nutrientOxideLabel: string,
+    demandaOxide: number,
+    suministroOxide: number,
     eficiencia: number,
-    formula: string,
-    unit: string
+    formula: string
   ): FertilityDoseResult {
-    const gap = demanda - suministro;
+    const gap = demandaOxide - suministroOxide;
     const raw = eficiencia > 0 ? gap / eficiencia : 0;
     const notRequired = raw <= 0;
+    const dosisKgHaOxide = notRequired ? null : round(raw, 2);
+    const demandaDisplay = toDisplayKg(demandaOxide, key, mode, factors);
+    const suministroDisplay = toDisplayKg(suministroOxide, key, mode, factors);
+    const dosisDisplayHa =
+      dosisKgHaOxide === null ? null : round(toDisplayKg(dosisKgHaOxide, key, mode, factors), 2);
+    const dosisPlot =
+      dosisDisplayHa === null ? null : round(scaleDoseByArea(dosisDisplayHa, area, areaUnit), 2);
+
+    const unitHa = nutrientHaUnit(key, mode);
+    const unitPlot = nutrientPlotUnit(key, mode, areaUnit);
+
     const steps: FertilityCalcStep[] = [
       {
-        label: `Demanda ${nutrient}`,
-        formula: "Demanda nutricional",
-        substitution: String(round(demanda, 2)),
-        result: String(round(demanda, 2)),
-        unit,
+        label: `Demanda ${nutrientLabel}`,
+        formula: "Demanda = Extracción (kg/t) × Rendimiento (t/ha)",
+        substitution: `${round(key === "n" ? extractionUsed.n : key === "p" ? (mode === "elemental" ? extractionUsed.p2o5 / factors.pToP2o5 : extractionUsed.p2o5) : key === "k" ? (mode === "elemental" ? extractionUsed.k2o / factors.kToK2o : extractionUsed.k2o) : mode === "elemental" ? extractionUsed.mgo / factors.mgToMgo : extractionUsed.mgo, 3)} × ${yieldTarget}`,
+        result: String(round(demandaDisplay, 2)),
+        unit: unitHa,
+        tableRef: "Tabla N.° 5",
       },
       {
-        label: `Suministro ${nutrient}`,
-        formula: "Suministro del suelo (manual o calculado)",
-        substitution: String(round(suministro, 2)),
-        result: String(round(suministro, 2)),
-        unit,
+        label: `Suministro ${nutrientLabel}`,
+        formula: "Suministro del suelo",
+        substitution: String(round(suministroDisplay, 2)),
+        result: String(round(suministroDisplay, 2)),
+        unit: unitHa,
       },
       {
-        label: `Dosis ${nutrient}`,
+        label: `Eficiencia ${nutrientLabel}`,
+        formula: "Eficiencia (fracción) — Tabla N.° 7 / sistema de riego",
+        substitution: `${round(eficiencia * 100, 1)}%`,
+        result: String(round(eficiencia, 3)),
+        unit: "",
+        tableRef: "Tabla N.° 7",
+      },
+      {
+        label: `Dosis ${nutrientLabel}`,
         formula,
-        substitution: `(${round(demanda, 2)} − ${round(suministro, 2)}) / ${round(eficiencia, 2)}`,
-        result: notRequired ? "NF" : String(round(raw, 2)),
-        unit,
-        interpretation: notRequired ? "No requiere fertilización" : "Aplicar según eficiencia y calendario del cultivo.",
+        substitution: `(${round(demandaDisplay, 2)} − ${round(suministroDisplay, 2)}) / ${round(eficiencia, 3)}`,
+        result: notRequired ? "NF" : String(dosisDisplayHa),
+        unit: unitHa,
+        interpretation: notRequired
+          ? "No requiere fertilización — el suministro cubre la demanda."
+          : areaUnit !== "ha"
+            ? `Parcela: ${dosisPlot} ${unitPlot}`
+            : "Aplicar según calendario del cultivo.",
       },
     ];
+
     return {
-      nutrient,
-      demanda,
-      suministro,
+      key,
+      nutrient: nutrientLabel,
+      nutrientOxide: nutrientOxideLabel,
+      demandaKgHa: round(demandaDisplay, 2),
+      suministroKgHa: round(suministroDisplay, 2),
       eficiencia,
-      dosis: notRequired ? null : round(raw, 2),
+      dosisKgHa: dosisDisplayHa,
+      dosisPlot,
       notRequired,
-      unit,
+      viaEncalado: false,
+      unitHa,
+      unitPlot,
       steps,
     };
   }
 
-  const doses: FertilityDoseResult[] = [
-    buildDose("N", demandN, supplyN, effN, "Dosis N = (Demanda N − Suministro N) / Eficiencia N", "kg N/ha"),
-    buildDose(
-      "P₂O₅",
-      demandP2o5,
-      supplyP2o5,
-      effP,
-      "Dosis P₂O₅ = (Demanda P₂O₅ − Suministro P₂O₅) / Eficiencia P",
-      "kg P₂O₅/ha"
-    ),
-    buildDose(
-      "K₂O",
-      demandK2o,
-      supplyK2o,
-      effK,
-      "Dosis K₂O = (Demanda K₂O − Suministro K₂O) / Eficiencia K",
-      "kg K₂O/ha"
-    ),
-    buildDose(
-      "MgO",
-      demandMgo,
-      supplyMgo,
-      effMg,
-      "Dosis MgO = (Demanda MgO − Suministro MgO) / Eficiencia Mg",
-      "kg MgO/ha"
-    ),
+  const nSupplySteps: FertilityCalcStep[] = [
+    {
+      label: "N orgánico",
+      formula: "N orgánico (%) = MO% × 0.05",
+      substitution: `${om} × 0.05`,
+      result: String(round(nFromOm.organicNPercent, 4)),
+      unit: "%",
+      interpretation: om > 0 ? undefined : "Sin dato de MO — suministro N = 0.",
+    },
+    {
+      label: "N mineralizable",
+      formula: "N mineralizable (%) = N orgánico × coeficiente de mineralización",
+      substitution: `${round(nFromOm.organicNPercent, 4)} × ${minerCoef}`,
+      result: String(round(nFromOm.mineralizablePercent, 6)),
+      unit: "%",
+    },
+    {
+      label: "N (mg/kg)",
+      formula: "mg/kg = N mineralizable × 10 000",
+      substitution: `${round(nFromOm.mineralizablePercent, 6)} × 10 000`,
+      result: String(round(nFromOm.mgKg, 2)),
+      unit: "mg/kg",
+    },
+    {
+      label: "Suministro N",
+      formula: "kg/ha = (mg/kg) × (MS t/ha / 1000)",
+      substitution: `${round(nFromOm.mgKg, 2)} × ${round(nFromOm.massFactor, 2)}`,
+      result: String(round(supplyN, 2)),
+      unit: "kg N/ha",
+    },
   ];
 
-  sections.push({
-    id: "dosis",
-    title: "Dosis de fertilización",
-    steps: doses.flatMap((d) => d.steps),
+  const doseN = buildFertilizerDose(
+    "n",
+    labels.n,
+    "N",
+    demandN,
+    supplyN,
+    effN,
+    "Dosis N = (Demanda − Suministro) / Eficiencia"
+  );
+  doseN.steps = [
+    ...nSupplySteps,
+    {
+      label: `Demanda ${labels.n}`,
+      formula: "Demanda = Extracción (kg/t) × Rendimiento (t/ha)",
+      substitution: `${extractionUsed.n} × ${yieldTarget}`,
+      result: String(round(demandN, 2)),
+      unit: "kg N/ha",
+      tableRef: "Tabla N.° 5",
+    },
+    {
+      label: `Eficiencia ${labels.n}`,
+      formula: "Eficiencia — Tabla N.° 7 / sistema de riego",
+      substitution: `${round(effN * 100, 1)}%`,
+      result: String(round(effN, 3)),
+      unit: "",
+      tableRef: "Tabla N.° 7",
+    },
+    {
+      label: `Dosis ${labels.n}`,
+      formula: "Dosis N = (Demanda − Suministro) / Eficiencia",
+      substitution: `(${round(demandN, 2)} − ${round(supplyN, 2)}) / ${round(effN, 3)}`,
+      result: doseN.notRequired ? "NF" : String(doseN.dosisKgHa),
+      unit: doseN.unitHa,
+      interpretation: doseN.notRequired
+        ? "No requiere fertilización — el suministro cubre la demanda."
+        : areaUnit !== "ha"
+          ? `Parcela: ${doseN.dosisPlot} ${doseN.unitPlot}`
+          : "Aplicar según calendario del cultivo.",
+    },
+  ];
+
+  const doseP = buildFertilizerDose(
+    "p",
+    labels.p,
+    "P₂O₅",
+    demandP2o5,
+    supplyP2o5,
+    effP,
+    "Dosis P₂O₅ = (Demanda − Suministro) / Eficiencia"
+  );
+  doseP.steps.splice(1, 1, {
+    label: `Suministro ${labels.p}`,
+    formula: "Suministro P₂O₅ = P(mg/kg) × MS(kg/ha) / 10⁶ × 2.29",
+    substitution:
+      pMgKg > 0
+        ? `${pMgKg} × ${round(massKgHa, 0)} / 10⁶ × ${factors.pToP2o5}`
+        : "Sin dato de P",
+    result: String(round(toDisplayKg(supplyP2o5, "p", mode, factors), 2)),
+    unit: nutrientHaUnit("p", mode),
+    tableRef: "Tabla N.° 4",
   });
 
-  let encalado: FertilityPlanResult["encalado"];
-  const ciceForEncalado = ca + mg + k + na + acidity;
-  const encaladoEligibility =
-    input.modo === "completo"
-      ? evaluateEncaladoEligibility(input, table1, ca, ciceForEncalado)
-      : {
-          eligible: false,
-          canEvaluate: false,
-          hasAcidity: false,
-          hasCaSaturationDeficit: false,
-          reasonKey: "encaladoSoloDosis" as const,
-          caTargetPercent: CIC_ADEQUATE_SATURATION.ca.target,
-        };
+  const doseK = buildFertilizerDose(
+    "k",
+    labels.k,
+    "K₂O",
+    demandK2o,
+    supplyK2o,
+    effK,
+    "Dosis K₂O = (Demanda − Suministro) / Eficiencia"
+  );
+  doseK.steps.splice(1, 1, {
+    label: `Suministro ${labels.k}`,
+    formula: "Suministro K₂O = K(cmol) → kg/ha × 1.20",
+    substitution:
+      kCmol > 0
+        ? `K capa ≈ ${round(kMgKgLayer, 1)} mg/kg · ${round(kConv.kgHa, 2)} kg K/ha × ${factors.kToK2o}`
+        : "Sin dato de K",
+    result: String(round(toDisplayKg(supplyK2o, "k", mode, factors), 2)),
+    unit: nutrientHaUnit("k", mode),
+    tableRef: "Tabla N.° 4 / 6",
+  });
 
-  if (input.modo === "completo" && ca > 0 && encaladoEligibility.eligible) {
-    const caObjetivo = ciceForEncalado * (CIC_ADEQUATE_SATURATION.ca.target / 100);
-    const deficitCaCmol = Math.max(0, caObjetivo - ca);
-    if (deficitCaCmol > 0.001) {
-      const caKgHa = cmolToKgHa({ cation: "ca", cmolKg: deficitCaCmol, soilMassKgHa: massKgHa }).kgHa;
-      const caoRequerido = caKgHa * refs.oxideFactors.caToCao;
-      const materialKey = input.enmiendaSeleccionada || "cal_agricola";
-      const material = refs.amendments[materialKey];
-      const prnt = Math.max(1, num(input.PRNT, 95));
-      const dosisTeorica = material.caoPercent > 0 ? caoRequerido / (material.caoPercent / 100) : 0;
-      const dosisAjustada = dosisTeorica / (prnt / 100);
+  const doseMg = buildFertilizerDose(
+    "mg",
+    labels.mg,
+    "MgO",
+    demandMgo,
+    supplyMgo,
+    effMg,
+    "Dosis MgO = (Demanda − Suministro) / Eficiencia"
+  );
+  doseMg.steps.splice(1, 1, {
+    label: `Suministro ${labels.mg}`,
+    formula: "Suministro MgO = Mg(cmol) → kg/ha × 1.66",
+    substitution:
+      mgCmol > 0
+        ? `${round(mgConv.kgHa, 2)} kg Mg/ha × ${factors.mgToMgo}`
+        : "Sin dato de Mg",
+    result: String(round(toDisplayKg(supplyMgo, "mg", mode, factors), 2)),
+    unit: nutrientHaUnit("mg", mode),
+    tableRef: "Tabla N.° 4 / 6",
+  });
 
-      const caRow = table1.find((r) => r.parameter === "ca");
-      const mgRow = table1.find((r) => r.parameter === "mg");
-      const caClass = caRow ? classifyTable1(ca, caRow) : "bajo";
-      const mgClass = mgRow ? classifyTable1(mg, mgRow) : "bajo";
-      let recomendacion = material.label;
-      let motivo = `Enmienda seleccionada: ${material.label}.`;
-      if (caClass === "bajo" && mgClass !== "bajo") {
-        recomendacion = "Cal agrícola o yeso";
-        motivo = "Ca bajo y Mg adecuado — cal agrícola para elevar pH y Ca; yeso si se requiere Ca sin elevar pH.";
-      } else if (caClass === "bajo" && mgClass === "bajo") {
-        recomendacion = "Dolomita";
-        motivo = "Ca y Mg bajos — dolomita aporta CaO y MgO simultáneamente.";
-      }
+  const demandCaDisplay = toDisplayKg(demandCao, "ca", mode, factors);
+  const doseCa: FertilityDoseResult = {
+    key: "ca",
+    nutrient: labels.ca,
+    nutrientOxide: "CaO",
+    demandaKgHa: round(demandCaDisplay, 2),
+    suministroKgHa: 0,
+    eficiencia: 0,
+    dosisKgHa: null,
+    dosisPlot: null,
+    notRequired: true,
+    viaEncalado: true,
+    unitHa: nutrientHaUnit("ca", mode),
+    unitPlot: nutrientPlotUnit("ca", mode, areaUnit),
+    steps: [
+      {
+        label: `Demanda ${labels.ca}`,
+        formula: "Demanda = Extracción × Rendimiento",
+        substitution: `${mode === "elemental" ? round(extractionUsed.cao / factors.caToCao, 3) : extractionUsed.cao} × ${yieldTarget}`,
+        result: String(round(demandCaDisplay, 2)),
+        unit: nutrientHaUnit("ca", mode),
+        tableRef: "Tabla N.° 5",
+      },
+      {
+        label: "Aporte de Ca",
+        formula: "Por encalado (SUE302 §2.5.4)",
+        substitution: "No se calcula dosis fertilizante de Ca",
+        result: "Encalado",
+        unit: "",
+        interpretation: "El calcio se aporta mediante enmienda calcárea — use la calculadora de Enmiendas.",
+      },
+    ],
+  };
 
-      encalado = {
-        caoRequerido: round(caoRequerido, 2),
-        dosisTeorica: round(dosisTeorica, 2),
-        dosisAjustada: round(dosisAjustada, 2),
-        material: materialKey,
-        recomendacion,
-        steps: [
-          {
-            label: "CaO requerido",
-            formula: "CaO = Ca requerido (kg/ha) × 1.40",
-            substitution: `${round(caKgHa, 2)} × 1.40`,
-            result: String(round(caoRequerido, 2)),
-            unit: "kg CaO/ha",
-            tableRef: "Tabla N.° 4",
-          },
-          {
-            label: "Dosis teórica",
-            formula: "Dosis = CaO requerido / (%CaO/100)",
-            substitution: `${round(caoRequerido, 2)} / ${material.caoPercent}%`,
-            result: String(round(dosisTeorica, 2)),
-            unit: "kg/ha",
-          },
-          {
-            label: "Dosis ajustada PRNT",
-            formula: "Dosis ajustada = Dosis / (PRNT/100)",
-            substitution: `${round(dosisTeorica, 2)} / (${prnt}/100)`,
-            result: String(round(dosisAjustada, 2)),
-            unit: "kg/ha",
-          },
-          {
-            label: "Dosis ajustada",
-            formula: "t/ha = kg/ha / 1 000",
-            substitution: `${round(dosisAjustada, 2)} / 1 000`,
-            result: String(round(dosisAjustada / 1000, 3)),
-            unit: "t/ha",
-          },
-          {
-            label: "Recomendación de enmienda",
-            formula: "Criterio Ca/Mg (Tabla N.° 1)",
-            substitution: `Ca: ${classifyLabel(caClass)}, Mg: ${classifyLabel(mgClass)}`,
-            result: recomendacion,
-            unit: "",
-            interpretation: motivo,
-          },
-        ],
-      };
+  const doses = [doseN, doseP, doseK, doseMg, doseCa];
 
-      sections.push({
-        id: "encalado",
-        title: "Requerimiento de encalado",
-        tableRef: "SUE302 §1.4–1.5",
-        summary: `${round(dosisAjustada, 2)} kg/ha · ${round(dosisAjustada / 1000, 3)} t/ha`,
-        steps: encalado.steps,
-      });
-    }
-  }
+  const needed = doses.filter((d) => !d.notRequired && !d.viaEncalado);
+  const notNeeded = doses.filter((d) => d.notRequired && !d.viaEncalado);
 
-  const conclusiones = [
-    `Cultivo: ${crop.label} · Rendimiento objetivo: ${yieldTarget} t/ha.`,
-    doses.some((d) => !d.notRequired)
-      ? `Se recomienda fertilización para: ${doses.filter((d) => !d.notRequired).map((d) => d.nutrient).join(", ")}.`
-      : "No se requieren dosis positivas de N, P₂O₅, K₂O ni MgO con los datos actuales.",
-    encalado && encalado.dosisAjustada > 0
-      ? `Encalado estimado: ${encalado.dosisAjustada} kg/ha (${encalado.recomendacion}).`
-      : encaladoConclusionText(encaladoEligibility, encalado?.dosisAjustada),
+  const recommendations: string[] = [
+    `Cultivo: ${cultivoLabel}${cropMatched ? "" : " (extracción manual)"}. Rendimiento objetivo: ${yieldTarget} t/ha.`,
+    needed.length
+      ? `Aplicar fertilizante para: ${needed.map((d) => `${d.nutrient} (${d.dosisPlot ?? d.dosisKgHa} ${d.dosisPlot != null && areaUnit !== "ha" ? d.unitPlot : d.unitHa})`).join(", ")}.`
+      : "No se requieren dosis positivas de N, P, K ni Mg con los datos actuales.",
+    ...notNeeded.map((d) => `No es necesario fertilizar ${d.nutrient} — el suministro del suelo cubre la demanda.`),
+    `Ca (${labels.ca}): aportar mediante encalado / enmienda — no como fertilizante NPK.`,
+  ];
+
+  const sections = [
+    {
+      id: "masa_suelo",
+      title: "Masa de suelo",
+      steps: [
+        {
+          label: "Masa de suelo",
+          formula: "MS = Profundidad(m) × Densidad aparente(t/m³) × 10 000",
+          substitution: `${round(depthM, 2)} × ${round(bulkDensity, 2)} × 10 000`,
+          result: String(round(massTonsHa, 2)),
+          unit: "t/ha",
+        },
+        {
+          label: "Masa de suelo",
+          formula: "MS(kg/ha) = MS(t/ha) × 1 000",
+          substitution: `${round(massTonsHa, 2)} × 1 000`,
+          result: String(round(massKgHa, 0)),
+          unit: "kg/ha",
+        },
+      ] satisfies FertilityCalcStep[],
+    },
   ];
 
   return {
-    modo: input.modo,
-    cultivo: crop.label,
-    sections,
+    cultivo: cultivoLabel,
+    cropMatched,
+    massTonsHa: round(massTonsHa, 2),
+    massKgHa: round(massKgHa, 0),
+    displayMode: mode,
+    areaHa: round(areaHa, 4),
+    areaUnit,
+    extractionUsed,
     doses,
-    encaladoEligible: encaladoEligibility.eligible,
-    encaladoCanEvaluate: encaladoEligibility.canEvaluate,
-    encaladoNoteKey: encaladoEligibility.reasonKey,
-    encaladoNoteValues:
-      encaladoEligibility.satCaPercent !== undefined
-        ? {
-            sat: encaladoEligibility.satCaPercent,
-            target: encaladoEligibility.caTargetPercent,
-          }
-        : undefined,
-    encalado,
-    conclusiones,
+    recommendations,
+    sections,
   };
 }
 
-export function fertilityPlanToCalculationOutputs(plan: FertilityPlanResult) {
-  return plan.doses.map((dose) => ({
-    value: dose.notRequired ? 0 : dose.dosis || 0,
-    unit: dose.unit,
-    label: dose.notRequired ? `${dose.nutrient} — NF` : `Dosis ${dose.nutrient}`,
-    formula: dose.steps[dose.steps.length - 1]?.formula || "",
-    notes: dose.notRequired
-      ? ["No requiere fertilización (NF)."]
-      : [
-          `Demanda: ${round(dose.demanda, 2)} · Suministro: ${round(dose.suministro, 2)} · Eficiencia: ${round(dose.eficiencia * 100, 0)}%.`,
-          ...(dose.steps[dose.steps.length - 1]?.interpretation ? [dose.steps[dose.steps.length - 1].interpretation!] : []),
-        ],
-  }));
+export function fertilityDosePlanToCalculationOutputs(plan: FertilityDosePlanResult): CalculationOutput[] {
+  return plan.doses
+    .filter((d) => !d.viaEncalado)
+    .map((dose) => ({
+      value: dose.dosisPlot ?? dose.dosisKgHa ?? 0,
+      unit: dose.dosisPlot != null && plan.areaUnit !== "ha" ? dose.unitPlot : dose.unitHa,
+      label: dose.notRequired ? `${dose.nutrient} — NF` : `Dosis ${dose.nutrient}`,
+      formula: "(Demanda − Suministro) / Eficiencia",
+      notes: [
+        dose.notRequired
+          ? "No requiere fertilización."
+          : `Demanda: ${dose.demandaKgHa} · Suministro: ${dose.suministroKgHa} · Eficiencia: ${round(dose.eficiencia * 100, 0)}%.`,
+        `Cultivo: ${plan.cultivo}.`,
+      ],
+    }));
 }

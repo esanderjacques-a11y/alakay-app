@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "CULTOSOL - Soil & foliar interpretation",
     short_name: "CULTOSOL",
-    description: "Interpret soil and foliar lab results.",
+    description: "Interpret soil and foliar lab results. Works offline after install.",
     start_url: "/",
     scope: "/",
     display: "standalone",

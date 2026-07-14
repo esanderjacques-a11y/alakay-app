@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { PlusCircle } from "lucide-react";
 
 import AppModal from "@/components/AppModal";
+import MenuSelect from "@/components/ui/MenuSelect";
 import { supabase } from "@/lib/supabase";
 import { Language, translations } from "@/lib/translations";
 
@@ -298,39 +299,38 @@ export default function CustomParameterModal({
                 />
               </label>
 
-              <label className="app-modal-field">
-                <span className="app-modal-label">{l.category}</span>
-                <select
-                  className="app-native-select"
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value)}
-                >
-                  <option value="Custom">{appText.categoryCustom}</option>
-                  <option value="Chemical">{l.chemical}</option>
-                  <option value="Physical">{l.physical}</option>
-                  <option value="Biological">{l.biological}</option>
-                  <option value="Other">{appText.categoryOther}</option>
-                </select>
-              </label>
+              <MenuSelect
+                label={l.category}
+                value={category}
+                heading={l.category}
+                variant="field"
+                onChange={setCategory}
+                options={[
+                  ["Custom", appText.categoryCustom],
+                  ["Chemical", l.chemical],
+                  ["Physical", l.physical],
+                  ["Biological", l.biological],
+                  ["Other", appText.categoryOther],
+                ]}
+              />
             </div>
 
-            <label className="app-modal-field app-modal-field--wide">
-              <span className="app-modal-label">{l.unit}</span>
-              <select
-                className="app-native-select"
-                value={unitId}
-                onChange={(event) =>
-                  setUnitId(event.target.value ? Number(event.target.value) : "")
-                }
-              >
-                <option value="">{l.selectUnit}</option>
-                {units.map((unit) => (
-                  <option key={unit.unit_id} value={unit.unit_id}>
-                    {unit.unit_symbol}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <MenuSelect
+              label={l.unit}
+              value={unitId === "" ? "" : String(unitId)}
+              heading={l.unit}
+              variant="field"
+              fullWidth
+              placeholder={l.selectUnit}
+              onChange={(next) => setUnitId(next ? Number(next) : "")}
+              options={[
+                { value: "", label: l.selectUnit },
+                ...units.map((unit) => ({
+                  value: String(unit.unit_id),
+                  label: unit.unit_symbol,
+                })),
+              ]}
+            />
           </div>
         </section>
 

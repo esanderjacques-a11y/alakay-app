@@ -115,6 +115,7 @@ type SettingsText = {
     includeDopInReport: string;
     includeNutrientRatiosInReport: string;
     autoSaveAnalyses: string;
+    autoSaveAnalysesHint: string;
     keepImportHistory: string;
     permanentDeleteTime: string;
     showParameterDetails: string;
@@ -223,6 +224,8 @@ const settingsText: Record<Language, SettingsText> = {
       includeDopInReport: "Include DOP values in reports",
       includeNutrientRatiosInReport: "Include nutrient ratios in reports",
       autoSaveAnalyses: "Auto-save analyses",
+      autoSaveAnalysesHint:
+        "Save each interpretation to your account automatically. When offline, analyses queue on this device and sync later.",
       keepImportHistory: "Keep import history",
       permanentDeleteTime: "Permanent delete time (max 30 days)",
       showParameterDetails: "Show parameter details in value entry",
@@ -330,6 +333,8 @@ const settingsText: Record<Language, SettingsText> = {
       includeDopInReport: "Incluir valores DOP en reportes",
       includeNutrientRatiosInReport: "Incluir relaciones de nutrientes en reportes",
       autoSaveAnalyses: "Guardar análisis automáticamente",
+      autoSaveAnalysesHint:
+        "Guarda cada interpretación en tu cuenta automáticamente. Sin conexión, los análisis se ponen en cola en este dispositivo y se sincronizan después.",
       keepImportHistory: "Conservar historial de importación",
       permanentDeleteTime: "Eliminación permanente (máx. 30 días)",
       showParameterDetails: "Mostrar detalles del parámetro al ingresar valores",
@@ -437,6 +442,8 @@ const settingsText: Record<Language, SettingsText> = {
       includeDopInReport: "Inclure les valeurs DOP dans les rapports",
       includeNutrientRatiosInReport: "Inclure les ratios nutritifs dans les rapports",
       autoSaveAnalyses: "Enregistrer les analyses automatiquement",
+      autoSaveAnalysesHint:
+        "Enregistrez chaque interprétation sur votre compte automatiquement. Hors ligne, les analyses sont mises en file sur cet appareil et synchronisées plus tard.",
       keepImportHistory: "Conserver l’historique d’import",
       permanentDeleteTime: "Suppression définitive (max. 30 jours)",
       showParameterDetails: "Afficher les détails des paramètres dans la saisie",
@@ -544,6 +551,8 @@ const settingsText: Record<Language, SettingsText> = {
       includeDopInReport: "Mete valè DOP yo nan rapò yo",
       includeNutrientRatiosInReport: "Mete rapò eleman nitritif yo nan rapò yo",
       autoSaveAnalyses: "Sove analiz yo otomatikman",
+      autoSaveAnalysesHint:
+        "Sove chak entèpretasyon sou kont ou otomatikman. Lè ou pa gen entènèt, analiz yo rete nan fil sou aparèy sa a epi yo senkronize pita.",
       keepImportHistory: "Kenbe istwa enpòtasyon",
       permanentDeleteTime: "Efasman pou tout tan (maks. 30 jou)",
       showParameterDetails: "Montre detay paramèt yo lè w ap antre valè",
@@ -651,6 +660,8 @@ const settingsText: Record<Language, SettingsText> = {
       includeDopInReport: "Incluir valores DOP nos relatórios",
       includeNutrientRatiosInReport: "Incluir relações de nutrientes nos relatórios",
       autoSaveAnalyses: "Salvar análises automaticamente",
+      autoSaveAnalysesHint:
+        "Salve cada interpretação na sua conta automaticamente. Offline, as análises ficam na fila neste dispositivo e sincronizam depois.",
       keepImportHistory: "Manter histórico de importação",
       permanentDeleteTime: "Exclusão permanente (máx. 30 dias)",
       showParameterDetails: "Mostrar detalhes dos parâmetros ao inserir valores",
@@ -758,6 +769,8 @@ const settingsText: Record<Language, SettingsText> = {
       includeDopInReport: "Jumuisha thamani za DOP kwenye ripoti",
       includeNutrientRatiosInReport: "Jumuisha uwiano wa virutubisho kwenye ripoti",
       autoSaveAnalyses: "Hifadhi uchambuzi kiotomatiki",
+      autoSaveAnalysesHint:
+        "Hifadhi kila tafsiri kwenye akaunti yako kiotomatiki. Bila mtandao, uchambuzi huwekwa kwenye foleni kwenye kifaa hiki na husawazishwa baadaye.",
       keepImportHistory: "Hifadhi historia ya kuingiza",
       permanentDeleteTime: "Kufuta kabisa (kiwango cha juu siku 30)",
       showParameterDetails: "Onyesha maelezo ya vigezo wakati wa kuingiza thamani",
@@ -1322,6 +1335,7 @@ export default function AppSettingsScreen({
           <SettingsSection title={text.sections.data}>
             <SwitchField
               label={text.labels.autoSaveAnalyses}
+              hint={text.labels.autoSaveAnalysesHint}
               checked={draftSettings.data.autoSaveAnalyses}
               onChange={(value) => changeSetting("data", "autoSaveAnalyses", value)}
             />
@@ -1544,18 +1558,26 @@ function SettingsSection({
 
 function SwitchField({
   label,
+  hint,
   checked,
   onChange,
 }: {
   label: string;
+  hint?: string;
   checked: boolean;
   onChange: (value: boolean) => void;
 }) {
   const id = useId();
 
   return (
-    <label className="settings-toggle-row" htmlFor={id}>
-      <span className="settings-toggle-row__label">{label}</span>
+    <label
+      className={`settings-toggle-row${hint ? " settings-toggle-row--with-hint" : ""}`}
+      htmlFor={id}
+    >
+      <span className="settings-toggle-row__copy">
+        <span className="settings-toggle-row__label">{label}</span>
+        {hint ? <span className="settings-toggle-row__hint">{hint}</span> : null}
+      </span>
       <span className="settings-toggle">
         <input
           id={id}

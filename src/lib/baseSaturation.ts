@@ -9,13 +9,21 @@ export type BaseSaturationInput = {
   mg?: number;
   k?: number;
   na?: number;
+  /** Extractable / exchangeable acidity (H+Al), cmol(+)/kg */
   hAl?: number;
+  /** Extractable Al when H+Al is not reported, cmol(+)/kg */
+  aluminum?: number;
+  aluminumUnit?: string;
   /** When true, ca/mg/k/na are already in % saturation */
   valuesArePercent?: boolean;
 };
 
 export type BaseSaturationResult = {
   cec: number;
+  /** Ca+Mg+K+Na in cmol(+)/kg (0 when valuesArePercent). */
+  sumBases: number;
+  /** H+Al (or Al) contribution in cmol(+)/kg (0 when valuesArePercent). */
+  acidity: number;
   caPercent: number;
   mgPercent: number;
   kPercent: number;
@@ -52,19 +60,44 @@ export function getBaseCationSaturationRange(cation: BaseCationKey): SaturationR
   return BASE_CATION_SATURATION_RANGES[cation];
 }
 
+export function getCicAcidityContribution(input: {
+  hAl?: number;
+  aluminum?: number;
+  aluminumUnit?: string;
+}): number {
+  const acidity = finitePositive(input.hAl);
+  if (acidity) return acidity;
+
+  const aluminum = finitePositive(input.aluminum);
+  if (!aluminum) return 0;
+
+  const unit = (input.aluminumUnit || "").toLowerCase().replace(/\s+/g, "");
+  // Only use Al in CEC units — skip mass concentrations (mg/kg, ppm).
+  if (/mg\/kg|ppm|µg|ug\/|g\/kg|gkg/.test(unit)) return 0;
+  return aluminum;
+}
+
 export function calculateBaseSaturation(input: BaseSaturationInput): BaseSaturationResult | null {
-  const cec = finitePositive(input.cec);
+  const reportedCec = finitePositive(input.cec);
   const ca = Number(input.ca);
   const mg = Number(input.mg);
   const k = Number(input.k);
   const na = Number(input.na);
-  const hAl = Number(input.hAl);
+  const hAl = getCicAcidityContribution({
+    hAl: input.hAl,
+    aluminum: input.aluminum,
+    aluminumUnit: input.aluminumUnit,
+  });
 
-  if (!cec && !input.valuesArePercent) {
-    const sumBases =
-      (finitePositive(ca) + finitePositive(mg) + finitePositive(k) + finitePositive(na)) || 0;
-    if (!sumBases) return null;
-  }
+  const sumBases =
+    finitePositive(ca) + finitePositive(mg) + finitePositive(k) + finitePositive(na);
+  const estimatedCec = sumBases + finitePositive(hAl);
+
+  // When CIC/CICe is not reported, estimate it from exchangeable cations
+  // (and acidity/Al when available): CICe ≈ Ca + Mg + K + Na + (H+Al or Al).
+  const cec = reportedCec || (input.valuesArePercent ? 0 : estimatedCec);
+
+  if (!input.valuesArePercent && !finitePositive(cec)) return null;
 
   let caPercent = 0;
   let mgPercent = 0;
@@ -78,21 +111,20 @@ export function calculateBaseSaturation(input: BaseSaturationInput): BaseSaturat
     kPercent = finitePositive(k);
     naPercent = finitePositive(na);
     hAlPercent = finitePositive(hAl);
-  } else if (cec) {
+  } else {
     caPercent = finitePositive(ca) ? (ca / cec) * 100 : 0;
     mgPercent = finitePositive(mg) ? (mg / cec) * 100 : 0;
     kPercent = finitePositive(k) ? (k / cec) * 100 : 0;
     naPercent = finitePositive(na) ? (na / cec) * 100 : 0;
     hAlPercent = finitePositive(hAl) ? (hAl / cec) * 100 : 0;
-  } else {
-    return null;
   }
 
   const totalBasePercent = caPercent + mgPercent + kPercent + naPercent;
-  const effectiveCec = cec || totalBasePercent + hAlPercent;
 
   return {
-    cec: round(effectiveCec, 2),
+    cec: round(cec, 2),
+    sumBases: input.valuesArePercent ? 0 : round(sumBases, 2),
+    acidity: input.valuesArePercent ? 0 : round(finitePositive(hAl), 2),
     caPercent: round(caPercent, 1),
     mgPercent: round(mgPercent, 1),
     kPercent: round(kPercent, 1),
@@ -287,14 +319,25 @@ export function buildBaseSaturationOutputs(
       formula: "(Na / CIC) × 100",
       notes: ["Keep below 5% when possible; elevated Na may require gypsum."],
     },
-    {
+  ];
+
+  if (result.hAlPercent > 0) {
+    outputs.push({
+      value: result.hAlPercent,
+      unit: "%",
+      label: "H+Al / Al saturation",
+      formula: "((H+Al or Al) / CIC) × 100",
+      notes: ["Included in CICe when CIC is not reported."],
+    });
+  }
+
+  outputs.push({
       value: result.totalBasePercent,
       unit: "%",
       label: "Total base saturation (V%)",
       formula: "Ca% + Mg% + K% + Na%",
       notes: [`CIC/CICe: ${result.cec} cmol(+)/kg`],
-    },
-  ];
+  });
 
   const relationEntries: Array<[BaseRelationKey, string]> = [
     ["ca_mg", "Ca/Mg"],

@@ -93,49 +93,52 @@ export type CropExtractionCoefficients = {
   cropKey: string;
   patterns: RegExp[];
   label: string;
-  /** kg nutriente / t producto */
+  /** kg nutriente / t producto (P/K/Ca/Mg stored as oxides per Tabla N.° 5). */
   n: number;
   p2o5: number;
   k2o: number;
   cao: number;
   mgo: number;
+  /** Optional yield guidance range from Tabla N.° 5 (t/ha). */
+  yieldMin?: number;
+  yieldMax?: number;
 };
 
 /** Tabla N.° 5 — Extracción nutricional de cultivos (kg/t rendimiento). */
 export const TABLE_5_CROP_EXTRACTION: CropExtractionCoefficients[] = [
-  { cropKey: "maiz", patterns: [/\bmaiz ensilaje\b/i, /\b(corn|maize) silage\b/i], label: "Maíz ensilaje", n: 3.9, p2o5: 1.6, k2o: 2.5, cao: 0.8, mgo: 0.4 },
-  { cropKey: "maiz_grano", patterns: [/\b(maiz|maize|corn)\b/i], label: "Maíz grano", n: 20.0, p2o5: 6.9, k2o: 14.0, cao: 4.5, mgo: 2.2 },
-  { cropKey: "arroz", patterns: [/\b(arroz|rice)\b/i], label: "Arroz", n: 21.4, p2o5: 7.1, k2o: 27.0, cao: 6.6, mgo: 4.0 },
-  { cropKey: "frijol", patterns: [/\b(frijol|bean|frejol|habichuela)/i], label: "Frejoles", n: 20.0, p2o5: 13.7, k2o: 40.0, cao: 15.0, mgo: 10.0 },
-  { cropKey: "papa", patterns: [/\b(papa|potato|patata)/i], label: "Papas", n: 3.8, p2o5: 1.0, k2o: 4.0, cao: 1.6, mgo: 0.9 },
+  { cropKey: "maiz", patterns: [/\bmaiz ensilaje\b/i, /\b(corn|maize) silage\b/i], label: "Maíz ensilaje", n: 3.9, p2o5: 1.6, k2o: 2.5, cao: 0.8, mgo: 0.4, yieldMin: 70, yieldMax: 90 },
+  { cropKey: "maiz_grano", patterns: [/\b(maiz|maize|corn)\b/i], label: "Maíz grano", n: 20.0, p2o5: 6.9, k2o: 14.0, cao: 4.5, mgo: 2.2, yieldMin: 12, yieldMax: 20 },
+  { cropKey: "arroz", patterns: [/\b(arroz|rice)\b/i], label: "Arroz", n: 21.4, p2o5: 7.1, k2o: 27.0, cao: 6.6, mgo: 4.0, yieldMin: 6, yieldMax: 9 },
+  { cropKey: "frijol", patterns: [/\b(frijol|bean|frejol|habichuela)/i], label: "Frejoles", n: 20.0, p2o5: 13.7, k2o: 40.0, cao: 15.0, mgo: 10.0, yieldMin: 2, yieldMax: 4 },
+  { cropKey: "papa", patterns: [/\b(papa|potato|patata)/i], label: "Papas", n: 3.8, p2o5: 1.0, k2o: 4.0, cao: 1.6, mgo: 0.9, yieldMin: 25, yieldMax: 50 },
   { cropKey: "cana", patterns: [/\b(cana|caña|sugarcane)/i], label: "Caña de azúcar", n: 1.8, p2o5: 0.4, k2o: 2.0, cao: 0.5, mgo: 0.3 },
-  { cropKey: "tomate_industrial", patterns: [/\btomate industrial\b/i, /\bprocessing tomato\b/i], label: "Tomate industrial", n: 3.3, p2o5: 0.8, k2o: 5.0, cao: 0.8, mgo: 0.6 },
-  { cropKey: "tomate_invernadero", patterns: [/\btomate invernadero\b/i, /\bgreenhouse tomato\b/i], label: "Tomate invernadero", n: 3.3, p2o5: 0.8, k2o: 5.0, cao: 0.4, mgo: 0.4 },
-  { cropKey: "tomate", patterns: [/\btomate\b/i, /\btomato\b/i], label: "Tomate campo", n: 3.3, p2o5: 0.8, k2o: 5.0, cao: 1.2, mgo: 0.6 },
+  { cropKey: "tomate_industrial", patterns: [/\btomate industrial\b/i, /\bprocessing tomato\b/i], label: "Tomate industrial", n: 3.3, p2o5: 0.8, k2o: 5.0, cao: 0.8, mgo: 0.6, yieldMin: 45, yieldMax: 80 },
+  { cropKey: "tomate_invernadero", patterns: [/\btomate invernadero\b/i, /\bgreenhouse tomato\b/i], label: "Tomate invernadero", n: 3.3, p2o5: 0.8, k2o: 5.0, cao: 0.4, mgo: 0.4, yieldMin: 80, yieldMax: 200 },
+  { cropKey: "tomate", patterns: [/\btomate\b/i, /\btomato\b/i], label: "Tomate campo", n: 3.3, p2o5: 0.8, k2o: 5.0, cao: 1.2, mgo: 0.6, yieldMin: 45, yieldMax: 80 },
   { cropKey: "banano", patterns: [/\b(banano|banana|platano|plantain)/i], label: "Banano / plátano", n: 2.5, p2o5: 0.6, k2o: 8.0, cao: 0.8, mgo: 0.4 },
   { cropKey: "cafe", patterns: [/\b(cafe|coffee)\b/i], label: "Café", n: 8.0, p2o5: 1.5, k2o: 10.0, cao: 1.5, mgo: 0.8 },
   { cropKey: "soya", patterns: [/\b(soya|soja|soybean)/i], label: "Soya", n: 55, p2o5: 10.0, k2o: 18.0, cao: 4.0, mgo: 2.0 },
-  { cropKey: "trigo", patterns: [/\b(trigo|wheat)\b/i], label: "Trigo", n: 24.3, p2o5: 7.3, k2o: 24.0, cao: 7.0, mgo: 4.3 },
-  { cropKey: "cebada", patterns: [/\b(cebada|barley)\b/i], label: "Cebada", n: 22.2, p2o5: 7.1, k2o: 22.0, cao: 8.6, mgo: 5.4 },
-  { cropKey: "avena", patterns: [/\b(avena|oats?)\b/i], label: "Avena", n: 22.2, p2o5: 7.6, k2o: 20.0, cao: 8.5, mgo: 5.4 },
-  { cropKey: "girasol", patterns: [/\b(girasol|sunflower)/i], label: "Girasol", n: 34.5, p2o5: 11.0, k2o: 37.4, cao: 15.0, mgo: 8.0 },
+  { cropKey: "trigo", patterns: [/\b(trigo|wheat)\b/i], label: "Trigo", n: 24.3, p2o5: 7.3, k2o: 24.0, cao: 7.0, mgo: 4.3, yieldMin: 5, yieldMax: 9 },
+  { cropKey: "cebada", patterns: [/\b(cebada|barley)\b/i], label: "Cebada", n: 22.2, p2o5: 7.1, k2o: 22.0, cao: 8.6, mgo: 5.4, yieldMin: 4, yieldMax: 7 },
+  { cropKey: "avena", patterns: [/\b(avena|oats?)\b/i], label: "Avena", n: 22.2, p2o5: 7.6, k2o: 20.0, cao: 8.5, mgo: 5.4, yieldMin: 4, yieldMax: 7 },
+  { cropKey: "girasol", patterns: [/\b(girasol|sunflower)/i], label: "Girasol", n: 34.5, p2o5: 11.0, k2o: 37.4, cao: 15.0, mgo: 8.0, yieldMin: 3, yieldMax: 4 },
   { cropKey: "yuca", patterns: [/\b(yuca|cassava|manioca)/i], label: "Yuca", n: 2.5, p2o5: 0.5, k2o: 3.5, cao: 0.4, mgo: 0.2 },
-  { cropKey: "naranja", patterns: [/\b(naranja|orange)/i], label: "Naranja", n: 2.7, p2o5: 0.6, k2o: 4.2, cao: 1.1, mgo: 0.6 },
-  { cropKey: "limon", patterns: [/\b(limon|lemon|lime)/i], label: "Limón", n: 2.7, p2o5: 0.6, k2o: 4.2, cao: 1.0, mgo: 0.6 },
-  { cropKey: "aguacate", patterns: [/\b(aguacate|avocado|palta)/i], label: "Aguacate", n: 6.2, p2o5: 2.9, k2o: 18.2, cao: 4.8, mgo: 2.5 },
-  { cropKey: "papaya", patterns: [/\bpapaya\b/i], label: "Papaya", n: 6.0, p2o5: 2.3, k2o: 7.0, cao: 3.0, mgo: 1.5 },
-  { cropKey: "arandano", patterns: [/\b(arandano|blueberry)/i], label: "Arándano", n: 4.7, p2o5: 0.8, k2o: 5.2, cao: 2.0, mgo: 1.2 },
-  { cropKey: "frambuesa", patterns: [/\b(frambuesa|raspberry)/i], label: "Frambuesa", n: 16.9, p2o5: 3.6, k2o: 10.4, cao: 8.0, mgo: 3.7 },
-  { cropKey: "frutilla", patterns: [/\b(frutilla|fresa|strawberry)/i], label: "Frutilla", n: 2.5, p2o5: 1.3, k2o: 4.5, cao: 1.6, mgo: 0.9 },
-  { cropKey: "cebolla", patterns: [/\b(cebolla|onion)/i], label: "Cebolla", n: 3.1, p2o5: 1.2, k2o: 4.0, cao: 1.6, mgo: 0.9 },
-  { cropKey: "coliflor", patterns: [/\b(coliflor|cauliflower)/i], label: "Coliflor", n: 4.5, p2o5: 1.4, k2o: 5.0, cao: 2.7, mgo: 1.5 },
-  { cropKey: "brocoli", patterns: [/\b(brocoli|broccoli)/i], label: "Brócoli", n: 4.5, p2o5: 1.4, k2o: 5.0, cao: 2.7, mgo: 1.5 },
-  { cropKey: "sandia", patterns: [/\b(sandia|watermelon)/i], label: "Sandía", n: 3.5, p2o5: 1.2, k2o: 4.5, cao: 1.7, mgo: 0.9 },
-  { cropKey: "melon", patterns: [/\b(melon|cantaloupe)\b/i], label: "Melón", n: 4.5, p2o5: 1.6, k2o: 6.5, cao: 1.3, mgo: 0.7 },
-  { cropKey: "pepino", patterns: [/\b(pepino|cucumber)/i], label: "Pepino ensalada", n: 1.3, p2o5: 0.8, k2o: 2.8, cao: 0.6, mgo: 0.3 },
-  { cropKey: "lechuga", patterns: [/\b(lechugas?|lettuce)/i], label: "Lechugas", n: 2.7, p2o5: 0.9, k2o: 4.5, cao: 1.7, mgo: 1.0 },
-  { cropKey: "arveja", patterns: [/\b(arvejas?|guisantes?|peas?)\b/i], label: "Arvejas", n: 8.0, p2o5: 4.2, k2o: 8.0, cao: 7.5, mgo: 3.8 },
-  { cropKey: "zanahoria", patterns: [/\b(zanahoria|carrot)/i], label: "Zanahoria", n: 4.0, p2o5: 1.4, k2o: 6.5, cao: 2.0, mgo: 1.0 },
+  { cropKey: "naranja", patterns: [/\b(naranja|orange)/i], label: "Naranja", n: 2.7, p2o5: 0.6, k2o: 4.2, cao: 1.1, mgo: 0.6, yieldMin: 40, yieldMax: 70 },
+  { cropKey: "limon", patterns: [/\b(limon|lemon|lime)/i], label: "Limón", n: 2.7, p2o5: 0.6, k2o: 4.2, cao: 1.0, mgo: 0.6, yieldMin: 40, yieldMax: 80 },
+  { cropKey: "aguacate", patterns: [/\b(aguacate|avocado|palta)/i], label: "Aguacate", n: 6.2, p2o5: 2.9, k2o: 18.2, cao: 4.8, mgo: 2.5, yieldMin: 10, yieldMax: 15 },
+  { cropKey: "papaya", patterns: [/\bpapaya\b/i], label: "Papaya", n: 6.0, p2o5: 2.3, k2o: 7.0, cao: 3.0, mgo: 1.5, yieldMin: 15, yieldMax: 25 },
+  { cropKey: "arandano", patterns: [/\b(arandano|blueberry)/i], label: "Arándano", n: 4.7, p2o5: 0.8, k2o: 5.2, cao: 2.0, mgo: 1.2, yieldMin: 10, yieldMax: 35 },
+  { cropKey: "frambuesa", patterns: [/\b(frambuesa|raspberry)/i], label: "Frambuesa", n: 16.9, p2o5: 3.6, k2o: 10.4, cao: 8.0, mgo: 3.7, yieldMin: 8, yieldMax: 20 },
+  { cropKey: "frutilla", patterns: [/\b(frutilla|fresa|strawberry)/i], label: "Frutilla", n: 2.5, p2o5: 1.3, k2o: 4.5, cao: 1.6, mgo: 0.9, yieldMin: 25, yieldMax: 60 },
+  { cropKey: "cebolla", patterns: [/\b(cebolla|onion)/i], label: "Cebolla", n: 3.1, p2o5: 1.2, k2o: 4.0, cao: 1.6, mgo: 0.9, yieldMin: 25, yieldMax: 50 },
+  { cropKey: "coliflor", patterns: [/\b(coliflor|cauliflower)/i], label: "Coliflor", n: 4.5, p2o5: 1.4, k2o: 5.0, cao: 2.7, mgo: 1.5, yieldMin: 15, yieldMax: 30 },
+  { cropKey: "brocoli", patterns: [/\b(brocoli|broccoli)/i], label: "Brócoli", n: 4.5, p2o5: 1.4, k2o: 5.0, cao: 2.7, mgo: 1.5, yieldMin: 15, yieldMax: 30 },
+  { cropKey: "sandia", patterns: [/\b(sandia|watermelon)/i], label: "Sandía", n: 3.5, p2o5: 1.2, k2o: 4.5, cao: 1.7, mgo: 0.9, yieldMin: 20, yieldMax: 50 },
+  { cropKey: "melon", patterns: [/\b(melon|cantaloupe)\b/i], label: "Melón", n: 4.5, p2o5: 1.6, k2o: 6.5, cao: 1.3, mgo: 0.7, yieldMin: 25, yieldMax: 70 },
+  { cropKey: "pepino", patterns: [/\b(pepino|cucumber)/i], label: "Pepino ensalada", n: 1.3, p2o5: 0.8, k2o: 2.8, cao: 0.6, mgo: 0.3, yieldMin: 40, yieldMax: 300 },
+  { cropKey: "lechuga", patterns: [/\b(lechugas?|lettuce)/i], label: "Lechugas", n: 2.7, p2o5: 0.9, k2o: 4.5, cao: 1.7, mgo: 1.0, yieldMin: 18, yieldMax: 50 },
+  { cropKey: "arveja", patterns: [/\b(arvejas?|guisantes?|peas?)\b/i], label: "Arvejas", n: 8.0, p2o5: 4.2, k2o: 8.0, cao: 7.5, mgo: 3.8, yieldMin: 6, yieldMax: 10 },
+  { cropKey: "zanahoria", patterns: [/\b(zanahoria|carrot)/i], label: "Zanahoria", n: 4.0, p2o5: 1.4, k2o: 6.5, cao: 2.0, mgo: 1.0, yieldMin: 25, yieldMax: 35 },
 ];
 
 export const TABLE_5_DEFAULT_EXTRACTION: Omit<CropExtractionCoefficients, "cropKey" | "patterns"> = {
@@ -396,22 +399,47 @@ export function classifyTable1(value: number, row: Table1Row): NutrientClass {
   return "exceso";
 }
 
-export function matchCropExtraction(
-  cropName?: string | null,
-  refs: Pick<SoilFertilityReference, "cropExtraction" | "defaultExtraction"> = DEFAULT_SOIL_FERTILITY_REFERENCE
-) {
-  const normalized = (cropName || "")
+function normalizeCropName(cropName?: string | null) {
+  return (cropName || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
-  if (!normalized) return { ...refs.defaultExtraction, cropKey: "general" };
+}
+
+function matchesCropPattern(pattern: unknown, normalized: string): boolean {
+  if (pattern instanceof RegExp) return pattern.test(normalized);
+  if (typeof pattern === "string" && pattern.trim()) {
+    try {
+      return new RegExp(pattern, "i").test(normalized);
+    } catch {
+      return normalized.includes(pattern.toLowerCase());
+    }
+  }
+  return false;
+}
+
+/** Exact Tabla N.° 5 match, or null when the crop is unknown (caller should collect manual extraction). */
+export function findCropExtraction(
+  cropName?: string | null,
+  refs: Pick<SoilFertilityReference, "cropExtraction"> = DEFAULT_SOIL_FERTILITY_REFERENCE
+): CropExtractionCoefficients | null {
+  const normalized = normalizeCropName(cropName);
+  if (!normalized) return null;
   for (const crop of refs.cropExtraction) {
-    if (crop.patterns.some((pattern) => pattern.test(normalized))) {
+    const patterns = crop.patterns || [];
+    if (patterns.some((pattern) => matchesCropPattern(pattern, normalized))) {
       return crop;
     }
   }
-  return { ...refs.defaultExtraction, cropKey: "general" };
+  return null;
+}
+
+export function matchCropExtraction(
+  cropName?: string | null,
+  refs: Pick<SoilFertilityReference, "cropExtraction" | "defaultExtraction"> = DEFAULT_SOIL_FERTILITY_REFERENCE
+) {
+  return findCropExtraction(cropName, refs) ?? { ...refs.defaultExtraction, cropKey: "general" };
 }
 
 export function cmolToMgKg(
@@ -420,6 +448,17 @@ export function cmolToMgKg(
   factors: CmolToMgKgFactors = DEFAULT_SOIL_FERTILITY_REFERENCE.cmolToMgKg
 ) {
   return cmolKg * factors[cation];
+}
+
+/** Inverse of Tabla N.° 6 — mg/kg → cmol(+)/kg. */
+export function mgKgToCmol(
+  cation: keyof CmolToMgKgFactors,
+  mgKg: number,
+  factors: CmolToMgKgFactors = DEFAULT_SOIL_FERTILITY_REFERENCE.cmolToMgKg
+) {
+  const factor = factors[cation];
+  if (!(factor > 0) || !Number.isFinite(mgKg)) return 0;
+  return mgKg / factor;
 }
 
 export function cmolToKgHa(input: {

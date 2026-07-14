@@ -16,6 +16,7 @@ import {
 } from "@/lib/import/intelligentLabExtractor";
 import type { Language } from "@/lib/translations";
 import { canConvertLabUnit } from "@/lib/unitConversions";
+import MenuSelect from "@/components/ui/MenuSelect";
 
 type ImportMode = "scan" | "import";
 
@@ -846,8 +847,28 @@ function normalizeUnitForMatching(value: string) {
 }
 
 function findUnitSelection(parameter: ParameterForImport, rawUnit: string | undefined) {
+  const sortedDefaults = [...parameter.available_units].sort((left, right) => {
+    const leftLabel = String(left.display_symbol || left.unit_symbol || "");
+    const rightLabel = String(right.display_symbol || right.unit_symbol || "");
+    const rank = (label: string) => {
+      const raw = label.trim().toLowerCase().replace(/\s+/g, "");
+      if (raw === "mg/kg" || raw === "mgkg-1" || raw === "mg.kg-1") return 0;
+      if (raw === "ppm" || raw === "ug/g") return 2;
+      return 1;
+    };
+    return rank(leftLabel) - rank(rightLabel);
+  });
+  const preferredMgKg = sortedDefaults.find((unit) => {
+    const raw = String(unit.display_symbol || unit.unit_symbol || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+    return raw === "mg/kg" || raw === "mgkg-1" || raw === "mg.kg-1";
+  });
   const defaultOption =
+    preferredMgKg ||
     parameter.available_units.find((unit) => unit.unit_id === parameter.unit_id) ||
+    sortedDefaults[0] ||
     parameter.available_units[0];
 
   if (!rawUnit?.trim()) {
@@ -859,11 +880,22 @@ function findUnitSelection(parameter: ParameterForImport, rawUnit: string | unde
   }
 
   const normalizedRawUnit = normalizeUnitForMatching(rawUnit);
-  const rawUnitLiteral = rawUnit.trim().toLowerCase();
+  const rawUnitLiteral = rawUnit.trim().toLowerCase().replace(/\s+/g, "");
+  // ppm ≡ mg/kg — prefer showing mg/kg when the lab reports either.
+  if (rawUnitLiteral === "ppm" || rawUnitLiteral === "ug/g" || rawUnitLiteral === "µg/g") {
+    if (preferredMgKg) {
+      return {
+        unitId: preferredMgKg.unit_id,
+        displayKey: getUnitOptionKey(preferredMgKg),
+        quality: "compatible" as const,
+      };
+    }
+  }
+
   const literalMatch = parameter.available_units.find((unit) => {
     return (
-      String(unit.display_symbol || "").trim().toLowerCase() === rawUnitLiteral ||
-      String(unit.unit_symbol || "").trim().toLowerCase() === rawUnitLiteral
+      String(unit.display_symbol || "").trim().toLowerCase() === rawUnit.trim().toLowerCase() ||
+      String(unit.unit_symbol || "").trim().toLowerCase() === rawUnit.trim().toLowerCase()
     );
   });
   if (literalMatch) {
@@ -894,9 +926,21 @@ function findUnitSelection(parameter: ParameterForImport, rawUnit: string | unde
   );
 
   if (compatibleMatch) {
+    // Prefer mg/kg display label among compatible mass units.
+    const compatibleMgKg = parameter.available_units.find((unit) => {
+      const raw = String(unit.display_symbol || unit.unit_symbol || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "");
+      return (
+        (raw === "mg/kg" || raw === "mgkg-1") &&
+        canConvertLabUnit(rawUnit, unit.unit_symbol || unit.display_symbol)
+      );
+    });
+    const selected = compatibleMgKg || compatibleMatch;
     return {
-      unitId: compatibleMatch.unit_id,
-      displayKey: getUnitOptionKey(compatibleMatch),
+      unitId: selected.unit_id,
+      displayKey: getUnitOptionKey(selected),
       quality: "compatible" as const,
     };
   }
@@ -2430,23 +2474,21 @@ export default function LabValueImporter({
                           ) : null}
                         </td>
                         <td className="border-b border-slate-100 p-3">
-                          <select
-                            className="calc-field-input w-full rounded-xl p-2"
+                          <MenuSelect
                             value={row.matchedParameterKey || ""}
-                            onChange={(event) =>
-                              updateRowParameter(row.id, event.target.value)
-                            }
-                          >
-                            <option value="">Select parameter</option>
-                            {parameters.map((parameter) => (
-                              <option
-                                key={parameter.parameter_key}
-                                value={parameter.parameter_key}
-                              >
-                                {getParameterLabel(parameter)}
-                              </option>
-                            ))}
-                          </select>
+                            heading="Select parameter"
+                            variant="field"
+                            fullWidth
+                            placeholder="Select parameter"
+                            onChange={(next) => updateRowParameter(row.id, next)}
+                            options={[
+                              { value: "", label: "Select parameter" },
+                              ...parameters.map((parameter) => ({
+                                value: parameter.parameter_key,
+                                label: getParameterLabel(parameter),
+                              })),
+                            ]}
+                          />
 
                           {hasExistingValue ? (
                             <p className="mt-1 text-xs font-semibold text-orange-700">
@@ -2487,34 +2529,38 @@ export default function LabValueImporter({
                         <td className="border-b border-slate-100 p-3">
                           {matchedParameter ? (
                             <div className="grid gap-1">
-                            <select
-                              className="calc-field-input w-full rounded-xl p-2"
-                              value={row.selectedUnitDisplayKey || ""}
-                              onChange={(event) =>
-                                updateRowUnit(row.id, event.target.value)
-                              }
-                            >
-                              {matchedParameter.available_units.map((unit, index) => {
-                                const canConvert =
-                                  !selectedRowUnit ||
-                                  canConvertLabUnit(
-                                    selectedRowUnit.unit_symbol || selectedRowUnit.display_symbol,
-                                    unit.unit_symbol || unit.display_symbol
-                                  );
-                                return (
-                                <option
-                                  key={`${unit.unit_id}-${unit.display_symbol}-${index}`}
-                                  value={getUnitOptionKey(unit)}
-                                  disabled={!canConvert}
-                                >
-                                  {unit.display_symbol || unit.unit_symbol}
-                                </option>
-                                );
-                              })}
-                            </select>
+                              <MenuSelect
+                                value={row.selectedUnitDisplayKey || ""}
+                                heading="Unit"
+                                variant="field"
+                                fullWidth
+                                onChange={(next) => updateRowUnit(row.id, next)}
+                                options={matchedParameter.available_units.map(
+                                  (unit, index) => {
+                                    const canConvert =
+                                      !selectedRowUnit ||
+                                      canConvertLabUnit(
+                                        selectedRowUnit.unit_symbol ||
+                                          selectedRowUnit.display_symbol,
+                                        unit.unit_symbol || unit.display_symbol
+                                      );
+                                    return {
+                                      value: getUnitOptionKey(unit),
+                                      label:
+                                        unit.display_symbol || unit.unit_symbol,
+                                      disabled: !canConvert,
+                                      description:
+                                        index === 0 && row.unit
+                                          ? `Detected: ${row.unit}`
+                                          : undefined,
+                                    };
+                                  }
+                                )}
+                              />
                               {row.unit ? (
                                 <p className="text-xs font-semibold text-slate-500">
-                                  Detected: {row.unit}. Values convert only when compatible.
+                                  Detected: {row.unit}. Values convert only when
+                                  compatible.
                                 </p>
                               ) : null}
                             </div>

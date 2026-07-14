@@ -9,6 +9,7 @@ import {
   Mail,
   Phone,
   Send,
+  Sparkles,
 } from "lucide-react";
 import FeedbackSection from "@/components/FeedbackSection";
 import ImpactSection from "@/components/ImpactSection";
@@ -18,8 +19,14 @@ const CONTACT_EMAIL = "jesander@earth.ac.cr";
 const PHONE_CR = "+506 8828 7831";
 const PHONE_HT = "+509 4422 9395";
 const LINKEDIN_URL = "https://www.linkedin.com/in/jacques-esander/";
+
+/** Public PayPal hosted-button URL — keeps Donate working on Vercel even if env is unset. */
+const DEFAULT_PAYPAL_DONATE_URL =
+  "https://www.paypal.com/donate/?hosted_button_id=CX8WKQWMD8NW4";
+
 const PAYPAL_DONATE_URL =
-  process.env.NEXT_PUBLIC_PAYPAL_DONATE_URL?.trim() || "";
+  process.env.NEXT_PUBLIC_PAYPAL_DONATE_URL?.trim() || DEFAULT_PAYPAL_DONATE_URL;
+
 const CREATOR_PHOTO =
   process.env.NEXT_PUBLIC_CREATOR_PHOTO_URL?.trim() || "/creator/esander.jpg";
 
@@ -36,26 +43,19 @@ type Props = {
 };
 
 function AboutDonateBar({ t }: { t: Translation }) {
-  if (PAYPAL_DONATE_URL) {
-    return (
-      <a
-        href={PAYPAL_DONATE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="about-flat-donate-btn"
-      >
-        <Heart size={16} />
-        {t.aboutDonate}
-      </a>
-    );
-  }
-
   return (
-    <button type="button" disabled className="about-flat-donate-btn is-disabled">
+    <a
+      href={PAYPAL_DONATE_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="about-flat-donate-btn"
+    >
       <Heart size={16} />
-      {t.aboutDonate}
-      <span className="about-flat-donate-hint">{t.aboutDonateSoon}</span>
-    </button>
+      <span className="about-flat-donate-copy">
+        <strong>{t.aboutDonate}</strong>
+        <span className="about-flat-donate-hint">{t.aboutDonateSupport}</span>
+      </span>
+    </a>
   );
 }
 
@@ -126,7 +126,9 @@ export default function AboutScreen({
   function openRequestForm() {
     setShowRequestForm(true);
     setTab("about");
-    requestSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => {
+      requestSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   }
 
   return (
@@ -156,6 +158,8 @@ export default function AboutScreen({
                 className="about-flat-avatar app-logo-frame object-contain"
               />
             )}
+            <p className="about-flat-brand">{t.appName}</p>
+            <p className="about-flat-tagline">{t.aboutTagline}</p>
           </header>
 
           <nav className="about-flat-tabs" aria-label={t.aboutTitle}>
@@ -173,130 +177,144 @@ export default function AboutScreen({
         </div>
 
         <div className="about-flat-scroll">
-        <div className="about-flat-content">
-          {tab === "about" ? (
-            <div className="about-flat-section">
-              <p className="about-flat-intro">{t.aboutIntro}</p>
+          <div className="about-flat-content">
+            {tab === "about" ? (
+              <div className="about-flat-section about-story">
+                <p className="about-flat-intro">{t.aboutIntro}</p>
 
-              <div className="about-flat-block">
-                <h2 className="about-flat-subtitle">{t.aboutMissionLabel}</h2>
-                <p className="about-flat-body">{t.aboutMission}</p>
-              </div>
-
-              <div className="about-flat-block">
-                <h2 className="about-flat-subtitle">{t.aboutVisionLabel}</h2>
-                <p className="about-flat-body">{t.aboutVision}</p>
-              </div>
-
-              <div className="about-flat-block about-flat-block--contact">
-                <h2 className="about-flat-subtitle">{t.aboutContactLabel}</h2>
-                <ul className="about-flat-contact-list">
-                  <li>
-                    <Mail size={16} />
-                    <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
-                  </li>
-                  <li>
-                    <Phone size={16} />
-                    <a href={`tel:${PHONE_CR.replace(/\s/g, "")}`}>
-                      {PHONE_CR}
-                    </a>
-                  </li>
-                  <li>
-                    <Phone size={16} />
-                    <a href={`tel:${PHONE_HT.replace(/\s/g, "")}`}>
-                      {PHONE_HT}
-                    </a>
-                  </li>
-                  <li>
-                    <Linkedin size={16} />
-                    <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer">
-                      LinkedIn
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              <p className="about-flat-disclaimer">{t.aboutDisclaimerShort}</p>
-
-              <button type="button" onClick={openRequestForm} className="about-flat-btn">
-                {t.aboutAddRequest}
-              </button>
-
-              {showRequestForm ? (
-                <div ref={requestSectionRef} className="about-flat-block mt-3">
-                  <h2 className="about-flat-subtitle">{t.featureRequest}</h2>
-                  <form className="about-flat-form" onSubmit={handleFeatureRequest}>
-                    <label className="about-flat-field">
-                      <span>{t.featureRequestName}</span>
-                      <input value={name} onChange={(e) => setName(e.target.value)} />
-                    </label>
-                    <label className="about-flat-field">
-                      <span>{t.featureRequestEmail}</span>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                      />
-                    </label>
-                    <label className="about-flat-field">
-                      <span>{t.featureRequestSubject}</span>
-                      <input
-                        required
-                        value={subject}
-                        onChange={(e) => setSubject(e.target.value)}
-                      />
-                    </label>
-                    <label className="about-flat-field">
-                      <span>{t.featureRequestMessage}</span>
-                      <textarea
-                        required
-                        rows={3}
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                      />
-                    </label>
-                    {status === "success" ? (
-                      <p className="about-flat-banner about-flat-banner--success">
-                        {t.featureRequestSuccess}
-                      </p>
-                    ) : null}
-                    {status === "error" ? (
-                      <p className="about-flat-banner about-flat-banner--error">
-                        {errorMessage}
-                      </p>
-                    ) : null}
-                    <button
-                      type="submit"
-                      disabled={status === "sending"}
-                      className="about-flat-btn about-flat-btn--secondary"
-                    >
-                      <Send size={16} />
-                      {status === "sending" ? t.featureRequestSending : t.featureRequestSend}
-                    </button>
-                  </form>
+                <div className="about-story-grid">
+                  <article className="about-story-card">
+                    <h2 className="about-flat-subtitle">{t.aboutMissionLabel}</h2>
+                    <p className="about-flat-body">{t.aboutMission}</p>
+                  </article>
+                  <article className="about-story-card">
+                    <h2 className="about-flat-subtitle">{t.aboutVisionLabel}</h2>
+                    <p className="about-flat-body">{t.aboutVision}</p>
+                  </article>
                 </div>
-              ) : null}
 
-              {isAdmin && onOpenAdmin ? (
-                <button
-                  type="button"
-                  onClick={onOpenAdmin}
-                  className="about-flat-btn about-flat-btn--secondary mt-3"
-                >
-                  {t.adminOpen}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
+                <div className="about-flat-block about-flat-block--contact">
+                  <h2 className="about-flat-subtitle">{t.aboutContactLabel}</h2>
+                  <ul className="about-flat-contact-list">
+                    <li>
+                      <Mail size={16} />
+                      <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+                    </li>
+                    <li>
+                      <Phone size={16} />
+                      <div className="about-contact-stack">
+                        <a href={`tel:${PHONE_CR.replace(/\s/g, "")}`}>{PHONE_CR}</a>
+                        <span>{t.aboutPhoneCr}</span>
+                      </div>
+                    </li>
+                    <li>
+                      <Phone size={16} />
+                      <div className="about-contact-stack">
+                        <a href={`tel:${PHONE_HT.replace(/\s/g, "")}`}>{PHONE_HT}</a>
+                        <span>{t.aboutPhoneHt}</span>
+                      </div>
+                    </li>
+                    <li>
+                      <Linkedin size={16} />
+                      <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer">
+                        LinkedIn
+                      </a>
+                    </li>
+                  </ul>
+                </div>
 
-          {tab === "feedback" ? (
-            <FeedbackSection t={t} language={language} session={session} country={country} />
-          ) : null}
+                <p className="about-flat-disclaimer">{t.aboutDisclaimerShort}</p>
 
-          {tab === "impact" ? (
-            <ImpactSection t={t} />
-          ) : null}
-        </div>
+                <div className="about-action-row">
+                  <button type="button" onClick={openRequestForm} className="about-flat-btn">
+                    <Sparkles size={16} />
+                    {t.aboutAddRequest}
+                  </button>
+                  <a
+                    href={PAYPAL_DONATE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="about-flat-btn about-flat-btn--secondary about-support-link"
+                  >
+                    <Heart size={16} />
+                    {t.aboutDonate}
+                  </a>
+                </div>
+
+                {showRequestForm ? (
+                  <div ref={requestSectionRef} className="about-flat-form-frame mt-3">
+                    <h2 className="about-flat-subtitle">{t.featureRequest}</h2>
+                    <p className="about-flat-body">{t.featureRequestDesc}</p>
+                    <form className="about-flat-form mt-3" onSubmit={handleFeatureRequest}>
+                      <label className="about-flat-field">
+                        <span>{t.featureRequestName}</span>
+                        <input value={name} onChange={(e) => setName(e.target.value)} />
+                      </label>
+                      <label className="about-flat-field">
+                        <span>{t.featureRequestEmail}</span>
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                        />
+                      </label>
+                      <label className="about-flat-field">
+                        <span>{t.featureRequestSubject}</span>
+                        <input
+                          required
+                          value={subject}
+                          onChange={(e) => setSubject(e.target.value)}
+                        />
+                      </label>
+                      <label className="about-flat-field">
+                        <span>{t.featureRequestMessage}</span>
+                        <textarea
+                          required
+                          rows={3}
+                          value={message}
+                          onChange={(e) => setMessage(e.target.value)}
+                        />
+                      </label>
+                      {status === "success" ? (
+                        <p className="about-flat-banner about-flat-banner--success">
+                          {t.featureRequestSuccess}
+                        </p>
+                      ) : null}
+                      {status === "error" ? (
+                        <p className="about-flat-banner about-flat-banner--error">
+                          {errorMessage}
+                        </p>
+                      ) : null}
+                      <button
+                        type="submit"
+                        disabled={status === "sending"}
+                        className="about-flat-btn about-flat-btn--secondary"
+                      >
+                        <Send size={16} />
+                        {status === "sending" ? t.featureRequestSending : t.featureRequestSend}
+                      </button>
+                    </form>
+                  </div>
+                ) : null}
+
+                {isAdmin && onOpenAdmin ? (
+                  <button
+                    type="button"
+                    onClick={onOpenAdmin}
+                    className="about-flat-btn about-flat-btn--secondary mt-3"
+                  >
+                    {t.adminOpen}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
+            {tab === "feedback" ? (
+              <FeedbackSection t={t} language={language} session={session} country={country} />
+            ) : null}
+
+            {tab === "impact" ? <ImpactSection t={t} /> : null}
+          </div>
         </div>
 
         <div className="about-flat-bottom-bar" aria-label={t.aboutDeveloperLabel}>

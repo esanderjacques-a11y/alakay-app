@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Share, X } from "lucide-react";
+import { Download, Share, Upload, WifiOff, X } from "lucide-react";
 import { readStoredLanguage } from "@/lib/uiPreferences";
 import { translations } from "@/lib/translations";
+import {
+  getOfflineQueueCount,
+  subscribeOfflineQueue,
+} from "@/lib/offlineAnalysisQueue";
 
 const INSTALL_DISMISS_KEY = "cultosol_install_prompt_dismissed";
 
@@ -82,16 +86,81 @@ export default function MobilePwaBootstrap() {
     null
   );
   const [isIos, setIsIos] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const [pendingSaves, setPendingSaves] = useState(0);
+
+  useEffect(() => {
+    const refreshPendingSaves = () => {
+      setPendingSaves(getOfflineQueueCount());
+    };
+
+    refreshPendingSaves();
+    return subscribeOfflineQueue(refreshPendingSaves);
+  }, []);
 
   useEffect(() => {
     syncDisplayMode();
     syncThemeColorMeta();
     minimizeMobileBrowserChrome();
 
+    const syncOnlineState = () => {
+      setIsOffline(typeof navigator !== "undefined" && !navigator.onLine);
+    };
+    syncOnlineState();
+    window.addEventListener("online", syncOnlineState);
+    window.addEventListener("offline", syncOnlineState);
+
     if ("serviceWorker" in navigator) {
-      void navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
-        /* offline install is optional */
-      });
+      const isDevHost =
+        process.env.NODE_ENV === "development" ||
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1";
+
+      if (isDevHost) {
+        // Dev + localhost: never keep a SW — it caches stale JS and hides Fast Refresh.
+        void (async () => {
+          const CLEAR_TOKEN = "v3-kill-stale-0713b";
+          const regs = await navigator.serviceWorker.getRegistrations();
+          const hadController =
+            Boolean(navigator.serviceWorker.controller) || regs.length > 0;
+          await Promise.all(regs.map((reg) => reg.unregister()));
+          if ("caches" in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((key) => caches.delete(key)));
+          }
+          try {
+            if (hadController && sessionStorage.getItem("cultosol_dev_sw_cleared") !== CLEAR_TOKEN) {
+              sessionStorage.setItem("cultosol_dev_sw_cleared", CLEAR_TOKEN);
+              window.location.reload();
+            }
+          } catch {
+            /* sessionStorage may be blocked */
+          }
+        })();
+      } else {
+        void navigator.serviceWorker
+          .register("/sw.js", { scope: "/", updateViaCache: "none" })
+          .then((registration) => {
+            registration.addEventListener("updatefound", () => {
+              const nextWorker = registration.installing;
+              if (!nextWorker) return;
+
+              nextWorker.addEventListener("statechange", () => {
+                if (nextWorker.state === "installed" && navigator.serviceWorker.controller) {
+                  nextWorker.postMessage("SKIP_WAITING");
+                }
+              });
+            });
+          })
+          .catch(() => {
+            /* offline install is optional */
+          });
+
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (!navigator.serviceWorker.controller) return;
+          window.location.reload();
+        });
+      }
     }
 
     const standalone = isStandaloneDisplay();
@@ -139,6 +208,8 @@ export default function MobilePwaBootstrap() {
     });
 
     return () => {
+      window.removeEventListener("online", syncOnlineState);
+      window.removeEventListener("offline", syncOnlineState);
       displayMq.removeEventListener("change", onDisplayChange);
       window.removeEventListener("orientationchange", onDisplayChange);
       window.removeEventListener("resize", onDisplayChange);
@@ -148,10 +219,11 @@ export default function MobilePwaBootstrap() {
     };
   }, []);
 
-  if (!showInstallPrompt || isStandaloneDisplay()) return null;
-
   const language = readStoredLanguage();
   const t = translations[language];
+
+  if (!showInstallPrompt && !isOffline && pendingSaves === 0) return null;
+  if (isStandaloneDisplay() && !isOffline && pendingSaves === 0) return null;
 
   async function handleInstall() {
     if (!deferredPrompt) return;
@@ -171,6 +243,20 @@ export default function MobilePwaBootstrap() {
   }
 
   return (
+    <>
+      {isOffline || pendingSaves > 0 ? (
+        <div className="offline-status-banner" role="status" aria-live="polite">
+          {isOffline ? <WifiOff size={14} aria-hidden /> : <Upload size={14} aria-hidden />}
+          <span>
+            {isOffline
+              ? pendingSaves > 0
+                ? `${t.offlineStatus} ${formatPendingSync(t.analysisPendingSync, pendingSaves)}`
+                : t.offlineStatus
+              : formatPendingSync(t.analysisPendingSync, pendingSaves)}
+          </span>
+        </div>
+      ) : null}
+      {showInstallPrompt && !isStandaloneDisplay() ? (
     <div className="mobile-install-banner" role="region" aria-label={t.installAppTitle}>
       <div className="mobile-install-banner__content">
         <p className="mobile-install-banner__title">{t.installAppTitle}</p>
@@ -198,10 +284,16 @@ export default function MobilePwaBootstrap() {
         </div>
       </div>
     </div>
+      ) : null}
+    </>
   );
 }
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+function formatPendingSync(template: string, count: number) {
+  return template.replace("{count}", String(count));
 }

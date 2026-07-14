@@ -20,6 +20,7 @@ import {
 } from "@/lib/soilFertilityTables";
 
 export const SOIL_FERTILITY_SOURCE_KEY = "sue302_villasenor";
+const SOIL_FERTILITY_CACHE_KEY = "cultosol_sf_reference_v1";
 
 type NutrientRow = {
   parameter_key: string;
@@ -182,7 +183,15 @@ function mapCropRows(rows: CropRow[]) {
     .map((row) => ({
       cropKey: row.crop_key,
       label: row.label,
-      patterns: (row.match_patterns || []).map((pattern) => new RegExp(pattern, "i")),
+      patterns: (row.match_patterns || [])
+        .map((pattern) => {
+          try {
+            return new RegExp(pattern, "i");
+          } catch {
+            return null;
+          }
+        })
+        .filter((pattern): pattern is RegExp => pattern instanceof RegExp),
       n: row.n_kg_per_t,
       p2o5: row.p2o5_kg_per_t,
       k2o: row.k2o_kg_per_t,
@@ -298,6 +307,84 @@ function isCompleteReference(refs: SoilFertilityReference) {
   );
 }
 
+/** RegExp cannot survive JSON.stringify — store source strings instead. */
+function patternSource(pattern: unknown): string | null {
+  if (pattern instanceof RegExp) return pattern.source;
+  if (typeof pattern === "string" && pattern.trim()) return pattern;
+  return null;
+}
+
+function revivePattern(pattern: unknown): RegExp | null {
+  if (pattern instanceof RegExp) return pattern;
+  const source = patternSource(pattern);
+  if (!source) return null;
+  try {
+    return new RegExp(source, "i");
+  } catch {
+    return null;
+  }
+}
+
+function serializeReferenceForCache(refs: SoilFertilityReference) {
+  return {
+    ...refs,
+    cropExtraction: refs.cropExtraction.map((crop) => ({
+      ...crop,
+      patterns: crop.patterns
+        .map((pattern) => patternSource(pattern))
+        .filter((source): source is string => Boolean(source)),
+    })),
+  };
+}
+
+function reviveStoredReference(raw: unknown): SoilFertilityReference | null {
+  if (!raw || typeof raw !== "object") return null;
+  const parsed = raw as SoilFertilityReference;
+  if (!Array.isArray(parsed.cropExtraction)) return null;
+
+  const cropExtraction = parsed.cropExtraction.map((crop) => ({
+    ...crop,
+    patterns: (crop.patterns || [])
+      .map((pattern) => revivePattern(pattern))
+      .filter((pattern): pattern is RegExp => pattern instanceof RegExp),
+  }));
+
+  const hadStoredPatterns = parsed.cropExtraction.some(
+    (crop) => Array.isArray(crop.patterns) && crop.patterns.length > 0
+  );
+  const revivedAnyPattern = cropExtraction.some((crop) => crop.patterns.length > 0);
+  // Older caches JSON.stringified RegExp as {} — discard and refetch.
+  if (hadStoredPatterns && !revivedAnyPattern) return null;
+
+  const revived = { ...parsed, cropExtraction };
+  return isCompleteReference(revived) ? revived : null;
+}
+
+function readStoredReference(): SoilFertilityReference | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(SOIL_FERTILITY_CACHE_KEY);
+    if (!raw) return null;
+    return reviveStoredReference(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+function persistReference(reference: SoilFertilityReference) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(
+      SOIL_FERTILITY_CACHE_KEY,
+      JSON.stringify(serializeReferenceForCache(reference))
+    );
+  } catch {
+    /* Storage may be full or unavailable. */
+  }
+}
+
 export async function fetchSoilFertilityReference(
   sourceKey = SOIL_FERTILITY_SOURCE_KEY
 ): Promise<{ reference: SoilFertilityReference; fromSupabase: boolean }> {
@@ -307,6 +394,12 @@ export async function fetchSoilFertilityReference(
   if (inflightFetch) return inflightFetch;
 
   inflightFetch = (async () => {
+    const storedReference = readStoredReference();
+    if (storedReference) {
+      cachedReference = storedReference;
+      cachedFromSupabase = false;
+    }
+
     try {
       const [
         nutrientsRes,
@@ -357,6 +450,9 @@ export async function fetchSoilFertilityReference(
 
       if (firstError) {
         console.warn("Soil fertility reference fetch failed, using hardcoded fallback:", firstError.message);
+        if (storedReference) {
+          return { reference: storedReference, fromSupabase: false };
+        }
         return { reference: DEFAULT_SOIL_FERTILITY_REFERENCE, fromSupabase: false };
       }
 
@@ -390,14 +486,21 @@ export async function fetchSoilFertilityReference(
 
       if (!isCompleteReference(refs)) {
         console.warn("Soil fertility reference incomplete in Supabase, using hardcoded fallback.");
+        if (storedReference) {
+          return { reference: storedReference, fromSupabase: false };
+        }
         return { reference: DEFAULT_SOIL_FERTILITY_REFERENCE, fromSupabase: false };
       }
 
       cachedReference = refs;
       cachedFromSupabase = true;
+      persistReference(refs);
       return { reference: refs, fromSupabase: true };
     } catch (error) {
       console.warn("Soil fertility reference fetch error, using hardcoded fallback:", error);
+      if (storedReference) {
+        return { reference: storedReference, fromSupabase: false };
+      }
       return { reference: DEFAULT_SOIL_FERTILITY_REFERENCE, fromSupabase: false };
     } finally {
       inflightFetch = null;

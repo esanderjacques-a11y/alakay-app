@@ -11,7 +11,58 @@ export type PhAmendmentMaterial = "calcitic_lime" | "dolomitic_lime";
 
 export type SoilTexture = "sand" | "sandy_loam" | "loam" | "clay_loam" | "clay";
 
-export type PhAmendmentOutputUnit = "t_ha" | "kg_ha";
+/**
+ * Display rate for amendment doses.
+ * Internal calculation stays in t/ha; these only rescale the result.
+ */
+export type PhAmendmentOutputUnit =
+  | "t_ha"
+  | "kg_ha"
+  | "t_acre"
+  | "kg_acre"
+  | "lb_acre"
+  | "t_carreau"
+  | "kg_carreau"
+  | "kg_m2"
+  | "g_m2";
+
+export const PH_AMENDMENT_OUTPUT_UNITS: PhAmendmentOutputUnit[] = [
+  "t_ha",
+  "kg_ha",
+  "t_acre",
+  "kg_acre",
+  "lb_acre",
+  "t_carreau",
+  "kg_carreau",
+  "kg_m2",
+  "g_m2",
+];
+
+/** Hectares covered by one unit of the output area basis. */
+const OUTPUT_AREA_HA: Record<PhAmendmentOutputUnit, number> = {
+  t_ha: 1,
+  kg_ha: 1,
+  t_acre: 0.404686,
+  kg_acre: 0.404686,
+  lb_acre: 0.404686,
+  t_carreau: 1.29,
+  kg_carreau: 1.29,
+  kg_m2: 0.0001,
+  g_m2: 0.0001,
+};
+
+/** Mass multiplier relative to 1 tonne. */
+const OUTPUT_MASS_FROM_T: Record<PhAmendmentOutputUnit, number> = {
+  t_ha: 1,
+  kg_ha: 1000,
+  t_acre: 1,
+  kg_acre: 1000,
+  lb_acre: 2204.62262185,
+  t_carreau: 1,
+  kg_carreau: 1000,
+  kg_m2: 1000,
+  g_m2: 1_000_000,
+};
 
 export const PH_AMENDMENT_METHODS: PhAmendmentMethod[] = [
   "base_saturation",
@@ -66,6 +117,18 @@ export type PhAmendmentResult = {
   formula: string;
   explanationKey: string;
   noRequirement: boolean;
+  /** Why calculation produced no dose (when noRequirement). */
+  noRequirementReason?:
+    | "current_meets_target"
+    | "missing_cec"
+    | "missing_current_v"
+    | "missing_acidity"
+    | "missing_aluminum"
+    | "ph_already_ok"
+    | "zero_dose";
+  detailCurrent?: number;
+  detailTarget?: number;
+  detailCec?: number;
   ccePercent?: number;
 };
 
@@ -173,14 +236,31 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
   let formula = "";
   let explanationKey = "";
   let noRequirement = false;
+  let noRequirementReason: PhAmendmentResult["noRequirementReason"];
+  let detailCurrent: number | undefined;
+  let detailTarget: number | undefined;
+  let detailCec: number | undefined;
 
   switch (input.method) {
     case "base_saturation": {
-      const gap = (input.baseSaturationTarget ?? 0) - (input.baseSaturationCurrent ?? 0);
-      if (gap <= 0) {
+      const current = input.baseSaturationCurrent ?? 0;
+      const target = input.baseSaturationTarget ?? 0;
+      const cec = input.cec ?? 0;
+      detailCurrent = current;
+      detailTarget = target;
+      detailCec = cec;
+      const gap = target - current;
+      if (!(cec > 0)) {
         noRequirement = true;
+        noRequirementReason = "missing_cec";
+      } else if (!(current > 0)) {
+        noRequirement = true;
+        noRequirementReason = "missing_current_v";
+      } else if (gap <= 0) {
+        noRequirement = true;
+        noRequirementReason = "current_meets_target";
       } else {
-        const cmolGap = (gap / 100) * (input.cec ?? 0);
+        const cmolGap = (gap / 100) * cec;
         baseRequirementTha = cmolGap * 1.5 * df;
       }
       formula = "((V₂ − V₁) / 100) × CEC × 1.5 × (Depth / 10) × (BD / 1.3)";
@@ -189,8 +269,10 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
     }
     case "exchangeable_acidity": {
       const acidity = input.exchangeableAcidity ?? 0;
+      detailCurrent = acidity;
       if (acidity <= 0) {
         noRequirement = true;
+        noRequirementReason = "missing_acidity";
       } else {
         baseRequirementTha = acidity * 1.5 * df;
       }
@@ -199,9 +281,14 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
       break;
     }
     case "target_ph": {
-      const delta = (input.targetPh ?? 0) - (input.currentPh ?? 0);
+      const current = input.currentPh ?? 0;
+      const target = input.targetPh ?? 0;
+      detailCurrent = current;
+      detailTarget = target;
+      const delta = target - current;
       if (delta <= 0) {
         noRequirement = true;
+        noRequirementReason = "ph_already_ok";
       } else {
         baseRequirementTha = delta * LIME_TEXTURE_FACTORS[texture];
       }
@@ -211,8 +298,10 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
     }
     case "gypsum": {
       const al = input.exchangeableAl ?? 0;
+      detailCurrent = al;
       if (al <= 0) {
         noRequirement = true;
+        noRequirementReason = "missing_aluminum";
       } else {
         baseRequirementTha = al * 1.72 * df;
       }
@@ -221,9 +310,14 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
       break;
     }
     case "sulfur": {
-      const delta = (input.currentPh ?? 0) - (input.targetPh ?? 0);
+      const current = input.currentPh ?? 0;
+      const target = input.targetPh ?? 0;
+      detailCurrent = current;
+      detailTarget = target;
+      const delta = current - target;
       if (delta <= 0) {
         noRequirement = true;
+        noRequirementReason = "ph_already_ok";
       } else {
         baseRequirementTha = delta * SULFUR_TEXTURE_FACTORS[texture];
       }
@@ -231,6 +325,11 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
       explanationKey = "phAmendExplainSulfur";
       break;
     }
+  }
+
+  if (!noRequirement && baseRequirementTha <= 0) {
+    noRequirement = true;
+    noRequirementReason = "zero_dose";
   }
 
   const adjustedRequirementTha =
@@ -247,7 +346,11 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
         adjustedRequirementTha !== undefined ? round(adjustedRequirementTha, 2) : undefined,
       formula,
       explanationKey,
-      noRequirement: noRequirement || baseRequirementTha <= 0,
+      noRequirement,
+      noRequirementReason,
+      detailCurrent,
+      detailTarget,
+      detailCec,
       ccePercent: methodRaisesPh(input.method) ? cce : undefined,
     },
     errors: [],
@@ -255,12 +358,57 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
 }
 
 export function convertPhAmendmentUnit(valueTha: number, unit: PhAmendmentOutputUnit) {
-  if (unit === "kg_ha") return round(valueTha * 1000, 1);
-  return valueTha;
+  if (!Number.isFinite(valueTha)) return 0;
+  const rate = valueTha * OUTPUT_AREA_HA[unit] * OUTPUT_MASS_FROM_T[unit];
+  if (unit === "t_ha" || unit === "t_acre" || unit === "t_carreau") return round(rate, 2);
+  if (unit === "kg_m2") return round(rate, 3);
+  if (unit === "g_m2") return round(rate, 1);
+  return round(rate, 1);
 }
 
 export function phAmendmentUnitLabel(unit: PhAmendmentOutputUnit) {
-  return unit === "kg_ha" ? "kg/ha" : "t/ha";
+  switch (unit) {
+    case "kg_ha":
+      return "kg/ha";
+    case "t_acre":
+      return "t/acre";
+    case "kg_acre":
+      return "kg/acre";
+    case "lb_acre":
+      return "lb/acre";
+    case "t_carreau":
+      return "t/carreau";
+    case "kg_carreau":
+      return "kg/carreau";
+    case "kg_m2":
+      return "kg/m²";
+    case "g_m2":
+      return "g/m²";
+    default:
+      return "t/ha";
+  }
+}
+
+/** Total product for a plot = rate (t/ha) × area converted to hectares. */
+export function convertPhAmendmentPlotTotal(
+  valueTha: number,
+  plotArea: number,
+  plotAreaUnit: "ha" | "acre" | "carreau" | "m2"
+) {
+  const haPerUnit = { ha: 1, acre: 0.404686, carreau: 1.29, m2: 0.0001 }[plotAreaUnit];
+  if (!(valueTha > 0) || !(plotArea > 0) || !(haPerUnit > 0)) return 0;
+  return round(valueTha * plotArea * haPerUnit, 2);
+}
+
+export function formatPhAmendmentDisplay(value: number, unit: PhAmendmentOutputUnit) {
+  const converted = convertPhAmendmentUnit(value, unit);
+  if (unit === "t_ha" || unit === "t_acre" || unit === "t_carreau") {
+    return converted.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+  if (unit === "kg_m2") {
+    return converted.toLocaleString(undefined, { maximumFractionDigits: 3 });
+  }
+  return converted.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
 export function suggestBaseSaturationTarget(cropName?: string | null) {

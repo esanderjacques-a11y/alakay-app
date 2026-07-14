@@ -1,18 +1,32 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CalculationOutput, CalculatorValue } from "@/lib/agronomicCalculators";
+import type { AreaUnit, CalculationOutput, CalculatorValue } from "@/lib/agronomicCalculators";
+import { areaUnitLabel } from "@/lib/agronomicCalculators";
 import {
   calculatePhAmendment,
+  convertPhAmendmentPlotTotal,
   convertPhAmendmentUnit,
+  formatPhAmendmentDisplay,
   methodRaisesPh,
   phAmendmentUnitLabel,
+  PH_AMENDMENT_OUTPUT_UNITS,
   suggestBaseSaturationTarget,
   type PhAmendmentMaterial,
   type PhAmendmentMethod,
   type PhAmendmentOutputUnit,
   type SoilTexture,
 } from "@/lib/phAmendmentCalculator";
+import { useMemoryNumber, useSharedCationInputs } from "@/hooks/useCalculatorMemory";
+import MenuSelect, { type MenuSelectOption } from "@/components/ui/MenuSelect";
+import { getCicAcidityContribution } from "@/lib/baseSaturation";
+import {
+  Beaker,
+  FlaskConical,
+  Mountain,
+  Percent,
+  ThermometerSun,
+} from "lucide-react";
 
 type Props = {
   t: Record<string, string>;
@@ -29,7 +43,19 @@ const METHOD_OPTIONS: PhAmendmentMethod[] = [
   "sulfur",
 ];
 
+const METHOD_ICONS: Record<
+  PhAmendmentMethod,
+  NonNullable<MenuSelectOption<PhAmendmentMethod>["icon"]>
+> = {
+  base_saturation: Percent,
+  exchangeable_acidity: Beaker,
+  target_ph: ThermometerSun,
+  gypsum: Mountain,
+  sulfur: FlaskConical,
+};
+
 const TEXTURE_OPTIONS: SoilTexture[] = ["sand", "sandy_loam", "loam", "clay_loam", "clay"];
+const PLOT_AREA_UNITS: AreaUnit[] = ["ha", "acre", "carreau", "m2"];
 
 function methodLabelKey(method: PhAmendmentMethod) {
   return `phAmendMethod_${method}` as const;
@@ -43,9 +69,8 @@ function materialLabelKey(material: PhAmendmentMaterial) {
   return material === "calcitic_lime" ? "phAmendMaterialCalcitic" : "phAmendMaterialDolomitic";
 }
 
-function formatDisplay(value: number, unit: PhAmendmentOutputUnit) {
-  const converted = convertPhAmendmentUnit(value, unit);
-  return unit === "kg_ha" ? converted.toLocaleString(undefined, { maximumFractionDigits: 1 }) : String(converted);
+function outputUnitLabel(unit: PhAmendmentOutputUnit, t: Record<string, string>) {
+  return t[`phAmendUnit_${unit}`] || phAmendmentUnitLabel(unit);
 }
 
 export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutputsChange }: Props) {
@@ -53,23 +78,79 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
 
   const [method, setMethod] = useState<PhAmendmentMethod>("base_saturation");
   const [material, setMaterial] = useState<PhAmendmentMaterial>("calcitic_lime");
-  const [ccePercent, setCcePercent] = useState(100);
+  const [ccePercent, setCcePercent] = useMemoryNumber("amendment", "ccePercent", 100);
   const [outputUnit, setOutputUnit] = useState<PhAmendmentOutputUnit>("t_ha");
+  const [plotArea, setPlotArea] = useMemoryNumber("amendment", "plotArea", 0);
+  const [plotAreaUnit, setPlotAreaUnit] = useState<AreaUnit>("ha");
 
-  const [cec, setCec] = useState(lab.get("cec")?.value || 10);
-  const [baseSaturationCurrent, setBaseSaturationCurrent] = useState(lab.get("base_saturation")?.value || 50);
-  const [baseSaturationTarget, setBaseSaturationTarget] = useState(cropSuggestedTarget);
-  const [exchangeableAcidity, setExchangeableAcidity] = useState(lab.get("exchangeable_acidity")?.value || 0);
-  const [currentPh, setCurrentPh] = useState(lab.get("ph")?.value || 5.5);
-  const [targetPh, setTargetPh] = useState(6.2);
+  const [cec, setCec] = useMemoryNumber("amendment", "cec", lab.get("cec")?.value || 0);
+  const [baseSaturationCurrent, setBaseSaturationCurrent] = useMemoryNumber(
+    "amendment",
+    "baseSaturationCurrent",
+    lab.get("base_saturation")?.value || 0
+  );
+  const [baseSaturationTarget, setBaseSaturationTarget] = useMemoryNumber(
+    "amendment",
+    "baseSaturationTarget",
+    cropSuggestedTarget
+  );
+  const [exchangeableAcidity, setExchangeableAcidity] = useMemoryNumber(
+    "amendment",
+    "exchangeableAcidity",
+    lab.get("exchangeable_acidity")?.value || 0
+  );
+  const [currentPh, setCurrentPh] = useMemoryNumber(
+    "amendment",
+    "currentPh",
+    lab.get("ph")?.value || 0
+  );
+  const [targetPh, setTargetPh] = useMemoryNumber("amendment", "targetPh", 0);
   const [texture, setTexture] = useState<SoilTexture>("loam");
-  const [exchangeableAl, setExchangeableAl] = useState(lab.get("aluminum")?.value || 0);
-  const [bulkDensity, setBulkDensity] = useState(lab.get("bulk_density")?.value || 1.3);
-  const [depthCm, setDepthCm] = useState(15);
+  const [exchangeableAl, setExchangeableAl] = useMemoryNumber(
+    "amendment",
+    "exchangeableAl",
+    lab.get("aluminum")?.value || 0
+  );
+  const [bulkDensity, setBulkDensity] = useMemoryNumber(
+    "amendment",
+    "bulkDensity",
+    lab.get("bulk_density")?.value || 0
+  );
+  const [depthCm, setDepthCm] = useMemoryNumber("amendment", "depthCm", 0);
 
-  useEffect(() => {
-    setBaseSaturationTarget(cropSuggestedTarget);
-  }, [cropSuggestedTarget]);
+  const shared = useSharedCationInputs(lab);
+
+  const estimatedCec = shared.estimatedCec;
+  const estimatedBaseSaturation = shared.estimatedBaseSaturation;
+  const estimatedAcidity = getCicAcidityContribution({
+    hAl: shared.hAl,
+    aluminum: shared.aluminum,
+    aluminumUnit: shared.aluminumUnit,
+  });
+
+  // Bases-only CICe makes V%≈100% by definition — do not treat that as a liming diagnosis.
+  const resolvedCec = cec > 0 ? cec : estimatedCec;
+  const resolvedBaseSaturationCurrent =
+    baseSaturationCurrent > 0 ? baseSaturationCurrent : estimatedBaseSaturation;
+  const needsMeasuredCecOrV =
+    method === "base_saturation" &&
+    !(baseSaturationCurrent > 0) &&
+    estimatedBaseSaturation <= 0 &&
+    shared.cecReported <= 0;
+  const resolvedAcidity =
+    exchangeableAcidity > 0 ? exchangeableAcidity : estimatedAcidity;
+  const resolvedAl =
+    exchangeableAl > 0
+      ? exchangeableAl
+      : getCicAcidityContribution({
+          aluminum: shared.aluminum,
+          aluminumUnit: shared.aluminumUnit,
+        });
+  const resolvedCurrentPh = currentPh > 0 ? currentPh : lab.get("ph")?.value || 0;
+  const resolvedTargetPh =
+    targetPh > 0 ? targetPh : method === "sulfur" ? 5.5 : 6.2;
+  const resolvedBulkDensity = bulkDensity > 0 ? bulkDensity : 1.3;
+  const resolvedDepthCm = depthCm > 0 ? depthCm : 15;
 
   const { result, errors } = useMemo(
     () =>
@@ -77,31 +158,33 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
         method,
         material: methodRaisesPh(method) ? material : undefined,
         ccePercent,
-        cec,
-        baseSaturationCurrent,
-        baseSaturationTarget,
-        exchangeableAcidity,
-        currentPh,
-        targetPh,
+        cec: resolvedCec,
+        baseSaturationCurrent: resolvedBaseSaturationCurrent,
+        baseSaturationTarget:
+          baseSaturationTarget > 0 ? baseSaturationTarget : cropSuggestedTarget,
+        exchangeableAcidity: resolvedAcidity,
+        currentPh: resolvedCurrentPh,
+        targetPh: resolvedTargetPh,
         texture,
-        exchangeableAl,
-        bulkDensity,
-        depthCm,
+        exchangeableAl: resolvedAl,
+        bulkDensity: resolvedBulkDensity,
+        depthCm: resolvedDepthCm,
       }),
     [
       method,
       material,
       ccePercent,
-      cec,
-      baseSaturationCurrent,
+      resolvedCec,
+      resolvedBaseSaturationCurrent,
       baseSaturationTarget,
-      exchangeableAcidity,
-      currentPh,
-      targetPh,
+      cropSuggestedTarget,
+      resolvedAcidity,
+      resolvedCurrentPh,
+      resolvedTargetPh,
       texture,
-      exchangeableAl,
-      bulkDensity,
-      depthCm,
+      resolvedAl,
+      resolvedBulkDensity,
+      resolvedDepthCm,
     ]
   );
 
@@ -119,7 +202,13 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
     const notes = [t[result.explanationKey] || result.explanationKey];
     if (result.adjustedRequirementTha !== undefined && result.ccePercent !== undefined) {
       notes.push(
-        `${t.phAmendResultBase || "Base requirement"}: ${formatDisplay(result.baseRequirementTha, outputUnit)} ${phAmendmentUnitLabel(outputUnit)} · CCE ${result.ccePercent}%`
+        `${t.phAmendResultBase || "Base requirement"}: ${formatPhAmendmentDisplay(result.baseRequirementTha, outputUnit)} ${phAmendmentUnitLabel(outputUnit)} · CCE ${result.ccePercent}%`
+      );
+    }
+    if (plotArea > 0) {
+      const totalT = convertPhAmendmentPlotTotal(primaryValue, plotArea, plotAreaUnit);
+      notes.push(
+        `${t.phAmendPlotTotal || "Plot total"}: ${totalT.toLocaleString(undefined, { maximumFractionDigits: 2 })} t (${plotArea} ${areaUnitLabel(plotAreaUnit)})`
       );
     }
 
@@ -132,7 +221,7 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
         notes,
       } satisfies CalculationOutput,
     ];
-  }, [result, method, outputUnit, t]);
+  }, [result, method, outputUnit, plotArea, plotAreaUnit, t]);
 
   useEffect(() => {
     onOutputsChange?.(outputs);
@@ -153,7 +242,12 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
             value={method}
             onChange={(value) => setMethod(value as PhAmendmentMethod)}
             fullWidth
-            options={METHOD_OPTIONS.map((key) => [key, t[methodLabelKey(key)] || key])}
+            heading={t.phAmendSectionMethod || "Method"}
+            options={METHOD_OPTIONS.map((key) => ({
+              value: key,
+              label: t[methodLabelKey(key)] || key,
+              icon: METHOD_ICONS[key],
+            }))}
           />
         </section>
 
@@ -190,29 +284,55 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
           <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-2">
             {method === "base_saturation" ? (
               <>
-                <NumberField label={t.effectiveCec || "CEC (cmol(+)/kg)"} value={cec} onChange={setCec} />
+                <NumberField
+                  label={t.effectiveCec || "CEC (cmol(+)/kg)"}
+                  value={cec}
+                  onChange={setCec}
+                  placeholder={
+                    estimatedCec > 0
+                      ? `${estimatedCec}${!(cec > 0) ? ` (${t.phAmendAuto || "auto"})` : ""}`
+                      : t.phAmendImportHint || "Import / auto if blank"
+                  }
+                />
                 <NumberField
                   label={t.baseSaturationCurrent || "Current base saturation (%)"}
                   value={baseSaturationCurrent}
                   onChange={setBaseSaturationCurrent}
+                  placeholder={
+                    estimatedBaseSaturation > 0
+                      ? `${estimatedBaseSaturation}${!(baseSaturationCurrent > 0) ? ` (${t.phAmendAuto || "auto"})` : ""}`
+                      : t.phAmendCalcHint || "Auto if blank"
+                  }
                 />
                 <NumberField
                   label={t.baseSaturationTarget || "Target base saturation (%)"}
                   value={baseSaturationTarget}
                   onChange={setBaseSaturationTarget}
+                  placeholder={`${cropSuggestedTarget} (${t.phAmendAuto || "auto"})`}
                 />
-                <p className="text-xs font-semibold text-slate-600 sm:col-span-2">
+                <p className="text-xs font-semibold text-slate-600 sm:col-span-2 dark:text-slate-300">
                   {`${t.v2SuggestedByCrop || "Target suggested by crop"}: ${cropSuggestedTarget}%`}
+                  {!(cec > 0) && estimatedCec > 0
+                    ? ` · ${t.phAmendCecAutoNote || "CEC estimated from exchangeable bases (+ H+Al/Al when reported)"}`
+                    : ""}
+                  {!(baseSaturationCurrent > 0) && estimatedBaseSaturation > 0
+                    ? ` · ${t.phAmendVAutoNote || "Current V% calculated from bases / CEC"}`
+                    : ""}
+                  {needsMeasuredCecOrV
+                    ? ` · ${t.phAmendNeedVNote || "Enter measured CIC (or H+Al) to auto-estimate V%, or type current V% yourself. Bases alone imply ~100% V% and cannot diagnose lime need."}`
+                    : ""}
                 </p>
                 <NumberField
                   label={`${t.bulkDensity || "Bulk density"} (${t.phAmendOptional || "optional"})`}
                   value={bulkDensity}
                   onChange={setBulkDensity}
+                  placeholder={`1.3 (${t.phAmendDefault || "default"})`}
                 />
                 <NumberField
                   label={`${t.incorporationDepth || "Incorporation depth"} (cm)`}
                   value={depthCm}
                   onChange={setDepthCm}
+                  placeholder={`15 (${t.phAmendDefault || "default"})`}
                 />
               </>
             ) : null}
@@ -223,20 +343,45 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
                   label={t.phAmendExchangeableAcidity || "Exchangeable acidity (cmol(+)/kg)"}
                   value={exchangeableAcidity}
                   onChange={setExchangeableAcidity}
+                  placeholder={
+                    estimatedAcidity > 0
+                      ? `${estimatedAcidity} (${t.phAmendAuto || "auto"})`
+                      : t.phAmendImportHint || "Import / auto if blank"
+                  }
                 />
-                <NumberField label={t.bulkDensity || "Bulk density"} value={bulkDensity} onChange={setBulkDensity} />
+                <NumberField
+                  label={t.bulkDensity || "Bulk density"}
+                  value={bulkDensity}
+                  onChange={setBulkDensity}
+                  placeholder={`1.3 (${t.phAmendDefault || "default"})`}
+                />
                 <NumberField
                   label={`${t.incorporationDepth || "Incorporation depth"} (cm)`}
                   value={depthCm}
                   onChange={setDepthCm}
+                  placeholder={`15 (${t.phAmendDefault || "default"})`}
                 />
               </>
             ) : null}
 
             {method === "target_ph" || method === "sulfur" ? (
               <>
-                <NumberField label={t.phAmendCurrentPh || "Current soil pH"} value={currentPh} onChange={setCurrentPh} />
-                <NumberField label={t.phAmendTargetPh || "Target soil pH"} value={targetPh} onChange={setTargetPh} />
+                <NumberField
+                  label={t.phAmendCurrentPh || "Current soil pH"}
+                  value={currentPh}
+                  onChange={setCurrentPh}
+                  placeholder={
+                    lab.get("ph")?.value
+                      ? `${lab.get("ph")!.value} (${t.phAmendAuto || "auto"})`
+                      : t.phAmendImportHint || "Import / auto if blank"
+                  }
+                />
+                <NumberField
+                  label={t.phAmendTargetPh || "Target soil pH"}
+                  value={targetPh}
+                  onChange={setTargetPh}
+                  placeholder={`${method === "sulfur" ? 5.5 : 6.2} (${t.phAmendDefault || "default"})`}
+                />
                 <SelectField
                   label={t.phAmendSoilTexture || "Soil texture"}
                   value={texture}
@@ -252,25 +397,44 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
                   label={t.phAmendExchangeableAl || "Exchangeable aluminum (cmol(+)/kg)"}
                   value={exchangeableAl}
                   onChange={setExchangeableAl}
+                  placeholder={
+                    resolvedAl > 0 && !(exchangeableAl > 0)
+                      ? `${resolvedAl} (${t.phAmendAuto || "auto"})`
+                      : t.phAmendImportHint || "Import / auto if blank"
+                  }
                 />
-                <NumberField label={t.bulkDensity || "Bulk density"} value={bulkDensity} onChange={setBulkDensity} />
+                <NumberField
+                  label={t.bulkDensity || "Bulk density"}
+                  value={bulkDensity}
+                  onChange={setBulkDensity}
+                  placeholder={`1.3 (${t.phAmendDefault || "default"})`}
+                />
                 <NumberField
                   label={`${t.incorporationDepth || "Incorporation depth"} (cm)`}
                   value={depthCm}
                   onChange={setDepthCm}
+                  placeholder={`15 (${t.phAmendDefault || "default"})`}
                 />
               </>
             ) : null}
 
-            <SelectField
-              label={t.phAmendOutputUnit || "Output unit"}
-              value={outputUnit}
-              onChange={(value) => setOutputUnit(value as PhAmendmentOutputUnit)}
-              options={[
-                ["t_ha", t.phAmendUnitTha || "t/ha"],
-                ["kg_ha", t.phAmendUnitKgha || "kg/ha"],
-              ]}
-            />
+            <div className="col-span-full grid gap-3 sm:grid-cols-[1fr_auto]">
+              <NumberField
+                label={`${t.area || "Plot area"} (${t.phAmendOptional || "optional"})`}
+                value={plotArea}
+                onChange={setPlotArea}
+                placeholder={`1 (${t.phAmendOptional || "optional"})`}
+              />
+              <SelectField
+                label={t.areaUnit || "Unit"}
+                value={plotAreaUnit}
+                onChange={(value) => setPlotAreaUnit(value as AreaUnit)}
+                options={PLOT_AREA_UNITS.map((unit) => [
+                  unit,
+                  t[`areaUnit_${unit}`] || areaUnitLabel(unit),
+                ])}
+              />
+            </div>
           </div>
         </section>
       </div>
@@ -285,7 +449,15 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
         </div>
       ) : null}
 
-      <PhAmendmentResultsCard t={t} result={result} outputUnit={outputUnit} unitLabel={unitLabel} />
+      <PhAmendmentResultsCard
+        t={t}
+        result={result}
+        outputUnit={outputUnit}
+        onOutputUnitChange={setOutputUnit}
+        unitLabel={unitLabel}
+        plotArea={plotArea}
+        plotAreaUnit={plotAreaUnit}
+      />
     </div>
   );
 }
@@ -294,21 +466,72 @@ function PhAmendmentResultsCard({
   t,
   result,
   outputUnit,
+  onOutputUnitChange,
   unitLabel,
+  plotArea,
+  plotAreaUnit,
 }: {
   t: Record<string, string>;
   result: ReturnType<typeof calculatePhAmendment>["result"];
   outputUnit: PhAmendmentOutputUnit;
+  onOutputUnitChange: (unit: PhAmendmentOutputUnit) => void;
   unitLabel: string;
+  plotArea: number;
+  plotAreaUnit: AreaUnit;
 }) {
   if (!result) return null;
 
+  const unitSelect = (
+    <SelectField
+      label={t.phAmendOutputUnit || "Output unit"}
+      value={outputUnit}
+      onChange={(value) => onOutputUnitChange(value as PhAmendmentOutputUnit)}
+      options={PH_AMENDMENT_OUTPUT_UNITS.map((unit) => [unit, outputUnitLabel(unit, t)])}
+    />
+  );
+
   if (result.noRequirement) {
+    const reason = result.noRequirementReason;
+    const message =
+      reason === "current_meets_target"
+        ? t.phAmendNoReqMeetsTarget ||
+          "No lime needed: current base saturation is already at or above the target."
+        : reason === "missing_cec"
+          ? t.phAmendNoReqMissingCec ||
+            "Enter CEC (cmol(+)/kg) greater than 0 to calculate the dose."
+          : reason === "missing_current_v"
+            ? t.phAmendNoReqMissingV ||
+              "Enter current V%, or provide measured CIC / H+Al so V% can be estimated. Bases alone are not enough for this method."
+            : reason === "missing_acidity"
+              ? t.phAmendNoReqMissingAcidity ||
+                "Enter exchangeable acidity (H+Al) greater than 0 to calculate liming."
+              : reason === "missing_aluminum"
+                ? t.phAmendNoReqMissingAl ||
+                  "Enter exchangeable aluminum greater than 0 to calculate gypsum."
+                : reason === "ph_already_ok"
+                  ? t.phAmendNoReqPhOk ||
+                    "No amendment needed: soil pH already meets the selected target."
+                  : t.phAmendNoRequirement ||
+                    "No amendment is required based on the selected target.";
+
+    const detailParts: string[] = [];
+    if (
+      reason === "current_meets_target" &&
+      result.detailCurrent !== undefined &&
+      result.detailTarget !== undefined
+    ) {
+      detailParts.push(`V₁ ${result.detailCurrent}% → V₂ ${result.detailTarget}%`);
+      if (result.detailCec !== undefined) {
+        detailParts.push(`CEC ${result.detailCec} cmol(+)/kg`);
+      }
+    }
+
     return (
-      <div className="ph-amend-results calc-surface p-4">
-        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-          {t.phAmendNoRequirement || "No amendment is required based on the selected target."}
-        </p>
+      <div className="ph-amend-results calc-surface p-4 space-y-2">
+        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{message}</p>
+        {detailParts.length > 0 ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400">{detailParts.join(" · ")}</p>
+        ) : null}
       </div>
     );
   }
@@ -321,11 +544,23 @@ function PhAmendmentResultsCard({
         ? t.phAmendSulfurRequirement || "Elemental sulfur requirement"
         : t.limeRequirementTitle || "Lime requirement";
 
+  const plotTotalT =
+    plotArea > 0 ? convertPhAmendmentPlotTotal(primaryTha, plotArea, plotAreaUnit) : 0;
+  const plotTotalDisplay =
+    outputUnit.startsWith("lb_")
+      ? `${(plotTotalT * 2204.62262185).toLocaleString(undefined, { maximumFractionDigits: 0 })} lb`
+      : outputUnit.startsWith("kg_") || outputUnit === "g_m2"
+        ? `${(plotTotalT * 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`
+        : `${plotTotalT.toLocaleString(undefined, { maximumFractionDigits: 2 })} t`;
+
   return (
     <div className="ph-amend-results calc-surface p-4 space-y-4">
-      <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
-        {t.phAmendResultsTitle || "Results"}
-      </h3>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
+          {t.phAmendResultsTitle || "Results"}
+        </h3>
+        {unitSelect}
+      </div>
 
       <dl className="ph-amend-results__grid grid gap-3 sm:grid-cols-2">
         <ResultRow label={t.phAmendResultMethod || "Method"} value={t[methodLabelKey(result.method)] || result.method} />
@@ -339,13 +574,13 @@ function PhAmendmentResultsCard({
           <>
             <ResultRow
               label={t.phAmendResultBase || "Base requirement"}
-              value={`${formatDisplay(result.baseRequirementTha, outputUnit)} ${unitLabel}`}
+              value={`${formatPhAmendmentDisplay(result.baseRequirementTha, outputUnit)} ${unitLabel}`}
               highlight
             />
             {result.adjustedRequirementTha !== undefined ? (
               <ResultRow
                 label={t.phAmendResultAdjusted || "Adjusted requirement"}
-                value={`${formatDisplay(result.adjustedRequirementTha, outputUnit)} ${unitLabel}`}
+                value={`${formatPhAmendmentDisplay(result.adjustedRequirementTha, outputUnit)} ${unitLabel}`}
                 highlight
               />
             ) : null}
@@ -353,10 +588,17 @@ function PhAmendmentResultsCard({
         ) : (
           <ResultRow
             label={requirementLabel}
-            value={`${formatDisplay(primaryTha, outputUnit)} ${unitLabel}`}
+            value={`${formatPhAmendmentDisplay(primaryTha, outputUnit)} ${unitLabel}`}
             highlight
           />
         )}
+        {plotArea > 0 ? (
+          <ResultRow
+            label={t.phAmendPlotTotal || "Total for plot"}
+            value={`${plotTotalDisplay} · ${plotArea} ${t[`areaUnit_${plotAreaUnit}`] || areaUnitLabel(plotAreaUnit)}`}
+            highlight
+          />
+        ) : null}
       </dl>
 
       <div className="space-y-2 border-t border-emerald-100/80 pt-3 dark:border-white/10">
@@ -377,6 +619,12 @@ function PhAmendmentResultsCard({
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {t.phAmendAdjustedNote ||
               `Adjusted requirement accounts for material quality (CCE ${result.ccePercent}%).`}
+          </p>
+        ) : null}
+        {plotArea <= 0 ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {t.phAmendPlotAreaHint ||
+              "Optional: enter plot area above to also see total product for the field."}
           </p>
         ) : null}
       </div>
@@ -408,11 +656,13 @@ function NumberField({
   value,
   onChange,
   readOnly,
+  placeholder,
 }: {
   label: string;
   value: number;
   onChange?: (value: number) => void;
   readOnly?: boolean;
+  placeholder?: string;
 }) {
   const [text, setText] = useState(() => formatNumberInput(value));
   const focusedRef = useRef(false);
@@ -430,6 +680,7 @@ function NumberField({
         inputMode="decimal"
         value={text}
         readOnly={readOnly}
+        placeholder={placeholder}
         onFocus={() => {
           focusedRef.current = true;
         }}
@@ -466,23 +717,24 @@ function SelectField({
   onChange,
   options,
   fullWidth,
+  heading,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  options: Array<[string, string]>;
+  options: Array<MenuSelectOption | [string, string]>;
   fullWidth?: boolean;
+  heading?: string;
 }) {
   return (
-    <label className={`calc-field-label grid gap-1${fullWidth ? " col-span-full" : ""}`}>
-      {label}
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="calc-field-input">
-        {options.map(([optionValue, labelText]) => (
-          <option key={optionValue} value={optionValue}>
-            {labelText}
-          </option>
-        ))}
-      </select>
-    </label>
+    <MenuSelect
+      label={label}
+      heading={heading}
+      value={value}
+      onChange={onChange}
+      options={options}
+      fullWidth={fullWidth}
+      variant="field"
+    />
   );
 }

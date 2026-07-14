@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import MobilePwaBootstrap from "@/components/MobilePwaBootstrap";
+import ScrollEdgeButtons from "@/components/ui/ScrollEdgeButtons";
 
 export const metadata: Metadata = {
   applicationName: "CULTOSOL",
@@ -55,6 +56,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col overscroll-none">
         <MobilePwaBootstrap />
+        <ScrollEdgeButtons />
         {children}
       </body>
     </html>

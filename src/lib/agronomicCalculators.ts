@@ -1,5 +1,4 @@
 export type AreaUnit = "ha" | "carreau" | "acre" | "m2";
-export type FertilizerMode = "element" | "oxide";
 export type LimeMethod = "earth_practical" | "target_ph" | "exchangeable_acidity" | "buffer_index";
 export type AmendmentMaterial = "calcitic_lime" | "dolomitic_lime" | "gypsum";
 
@@ -33,6 +32,24 @@ export function convertAreaToHa(area: number, unit: AreaUnit) {
   return finitePositive(area) * AREA_TO_HA[unit];
 }
 
+/** Convert an area expressed in hectares into the given unit. */
+export function convertHaToArea(areaHa: number, unit: AreaUnit) {
+  const factor = AREA_TO_HA[unit];
+  if (!(factor > 0) || !Number.isFinite(areaHa)) return 0;
+  return areaHa / factor;
+}
+
+export function areaUnitLabel(unit: AreaUnit): string {
+  if (unit === "m2") return "m²";
+  if (unit === "carreau") return "carreaux";
+  return unit;
+}
+
+/** Scale a per-hectare dose to the selected plot area/unit. */
+export function scaleDoseByArea(kgPerHa: number, area: number, unit: AreaUnit) {
+  return kgPerHa * convertAreaToHa(area, unit);
+}
+
 export function calculateCNRatio(carbon: number, nitrogen: number): CalculationOutput | null {
   if (!finitePositive(carbon) || !finitePositive(nitrogen)) return null;
 
@@ -60,38 +77,6 @@ export function calculateNutrientRatio(
     formula: `${numerator.label} / ${denominator.label}`,
     notes: ["Use ratios as balance indicators, not as a replacement for crop-specific sufficiency ranges."],
   };
-}
-
-export function calculateFertilizerRequirement(input: {
-  current?: number;
-  target: number;
-  nutrientPercent: number;
-  area: number;
-  areaUnit: AreaUnit;
-  mode?: FertilizerMode;
-  efficiencyPercent?: number;
-}) {
-  const current = Number.isFinite(input.current) ? Number(input.current) : 0;
-  const deficit = Math.max(0, input.target - current);
-  const areaHa = convertAreaToHa(input.area, input.areaUnit);
-  const nutrientFraction = finitePositive(input.nutrientPercent) / 100;
-  const efficiencyFraction = Math.min(1, Math.max(0.05, (input.efficiencyPercent || 100) / 100));
-  if (!deficit || !areaHa || !nutrientFraction) return null;
-
-  const kgPerHa = deficit / nutrientFraction / efficiencyFraction;
-
-  return {
-    value: round(kgPerHa * areaHa, 2),
-    unit: "kg product",
-    label: "Fertilizer requirement",
-    formula: "(target - current) / nutrient fraction / efficiency * area",
-    notes: [
-      `${round(kgPerHa, 2)} kg product/ha before local calibration.`,
-      input.mode === "oxide"
-        ? "Input is treated as oxide grade, such as P2O5 or K2O."
-        : "Input is treated as elemental nutrient grade.",
-    ],
-  } satisfies CalculationOutput;
 }
 
 export function calculateSoilAmendment(input: {

@@ -6,57 +6,47 @@ import {
   Activity,
   BarChart3,
   Calculator,
+  Download,
   Droplets,
   FlaskConical,
   Leaf,
   Percent,
   Sprout,
-  Scale,
 } from "lucide-react";
 import {
   calculateCNRatio,
   calculateDop,
-  calculateFertilizerRequirement,
   calculateGypsumRequirementByPsi,
   calculateLeachingRequirement,
-  calculateNutrientRatio,
   calculatePorosity,
   calculatePsi,
   calculateSar,
   calculateTotalWaterFromLeaching,
-  type AreaUnit,
   type CalculationOutput,
   type CalculatorValue,
-  type FertilizerMode,
 } from "@/lib/agronomicCalculators";
 import PhAmendmentCalculator from "@/components/PhAmendmentCalculator";
+import FertilizerPlanCalculator from "@/components/FertilizerPlanCalculator";
+import MenuSelect from "@/components/ui/MenuSelect";
 import type { Language } from "@/lib/translations";
 import { calculatorHubText } from "@/lib/i18n/componentText";
 import { formatMessage } from "@/lib/i18n/format";
 import { getUptakeProfileForCrop } from "@/lib/i18n/uptakeProfiles";
+import { buildLabValueIndex, labHasUsefulSoilData } from "@/lib/labValueIndex";
 import {
-  buildSoilFertilityPlan,
-  fertilityPlanToCalculationOutputs,
-  type FertilityCalcStep,
-  type FertilityPlanMode,
-  type FertilityPlanResult,
-} from "@/lib/soilFertilityPlan";
-import AppModal from "@/components/AppModal";
+  enrichLabWithResolvedCations,
+} from "@/lib/resolveCationInputs";
 import { useSoilFertilityReference } from "@/lib/soilFertilityData";
 import {
-  IRRIGATION_SYSTEM_OPTIONS,
-  irrigationEfficiencyDefaults,
-  TABLE_12_AMENDMENTS,
-  type AmendmentMaterialKey,
-  type CicRatioRangeTable,
-  type CicSaturationBandTable,
-  type Extractant,
-  type IrrigationSystem,
-} from "@/lib/soilFertilityTables";
+  CalculatorMemoryProvider,
+  useCalculatorMemory,
+  useMemoryNumber,
+  useSharedCationInputs,
+} from "@/hooks/useCalculatorMemory";
 import {
   buildBaseSaturationOutputs,
   calculateBaseSaturation,
-  diagnoseBaseBalance,
+  getCicAcidityContribution,
   type BaseRelationKey,
   type BaseSaturationResult,
 } from "@/lib/baseSaturation";
@@ -66,7 +56,12 @@ import {
   ratioBandLabelKey,
   saturationBandMessageKey,
   type CicRatioBand,
+  type CicSaturationBand,
 } from "@/lib/cicInterpretation";
+import type {
+  CicRatioRangeTable,
+  CicSaturationBandTable,
+} from "@/lib/soilFertilityTables";
 import { useViewLayoutPreference } from "@/hooks/useViewLayoutPreference";
 import { ViewLayoutToggle } from "@/components/ui/ViewLayoutToggle";
 import BackButton from "@/components/ui/BackButton";
@@ -99,6 +94,8 @@ type Props = {
   results: ResultLite[];
   sampleType: "soil" | "foliar";
   selectedCropName?: string | null;
+  /** Selected display unit per parameter_key (from Values). */
+  parameterUnits?: Record<string, string>;
   goToValues?: () => void;
   onBack?: () => void;
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
@@ -106,10 +103,9 @@ type Props = {
 
 type CalculatorKey =
   | "priority"
-  | "ratios"
   | "cic"
-  | "fertilizer"
   | "amendment"
+  | "fertilizer"
   | "dop"
   | "uptake"
   | "salinity"
@@ -119,10 +115,9 @@ const CalculatorFieldsLayoutContext = createContext<ViewLayoutMode>("grid");
 
 const tabs: Array<{ key: CalculatorKey; icon: ReactNode }> = [
   { key: "priority", icon: <Activity size={17} /> },
-  { key: "ratios", icon: <Scale size={17} /> },
   { key: "cic", icon: <Percent size={17} /> },
-  { key: "fertilizer", icon: <Leaf size={17} /> },
   { key: "amendment", icon: <FlaskConical size={17} /> },
+  { key: "fertilizer", icon: <Leaf size={17} /> },
   { key: "dop", icon: <Calculator size={17} /> },
   { key: "uptake", icon: <Sprout size={17} /> },
   { key: "salinity", icon: <Droplets size={17} /> },
@@ -133,17 +128,17 @@ function visibleCalculatorTabs(sampleType: "soil" | "foliar") {
   return tabs.filter(({ key }) => {
     if (key === "cic") return sampleType === "soil";
     if (key === "dop") return sampleType === "foliar";
+    if (key === "fertilizer") return sampleType === "soil";
     return true;
   });
 }
 
-/** "Guided" mode: recommended calculation order, mirroring the SUE302 methodology
- * (diagnóstico → corrección → plan nutricional), one calculator screen at a time. */
+/** "Guided" mode: recommended calculation order, one calculator screen at a time. */
 type HubMode = "guided" | "explorer";
 
 const GUIDED_STEPS: Record<"soil" | "foliar", CalculatorKey[]> = {
   soil: ["cic", "amendment", "fertilizer", "salinity"],
-  foliar: ["dop", "ratios", "fertilizer", "uptake"],
+  foliar: ["dop", "uptake"],
 };
 
 export default function CalculatorHub({
@@ -153,12 +148,75 @@ export default function CalculatorHub({
   results,
   sampleType,
   selectedCropName,
+  parameterUnits = {},
   goToValues,
   onBack,
   onOutputsChange,
 }: Props) {
   const t = calculatorHubText[language] || calculatorHubText.en;
   const defaultCalculatorFilter: CalculatorKey = "priority";
+  const lab = useMemo(
+    () => buildLabValueIndex(parameters, values, results, parameterUnits),
+    [parameters, values, results, parameterUnits]
+  );
+  const hasLabData = labHasUsefulSoilData(lab);
+  const suggestions = getSuggestions(lab, results, t);
+
+  return (
+    <CalculatorMemoryProvider sampleType={sampleType} lab={lab}>
+      <CalculatorHubBody
+        t={t}
+        language={language}
+        lab={lab}
+        results={results}
+        sampleType={sampleType}
+        selectedCropName={selectedCropName}
+        hasLabData={hasLabData}
+        suggestions={suggestions}
+        goToValues={goToValues}
+        onBack={onBack}
+        onOutputsChange={onOutputsChange}
+        defaultCalculatorFilter={defaultCalculatorFilter}
+      />
+    </CalculatorMemoryProvider>
+  );
+}
+
+function CalculatorHubBody({
+  t,
+  language,
+  lab,
+  results,
+  sampleType,
+  selectedCropName,
+  hasLabData,
+  suggestions,
+  goToValues,
+  onBack,
+  onOutputsChange,
+  defaultCalculatorFilter,
+}: {
+  t: Record<string, string>;
+  language: Language;
+  lab: Map<string, CalculatorValue>;
+  results: ResultLite[];
+  sampleType: "soil" | "foliar";
+  selectedCropName?: string | null;
+  hasLabData: boolean;
+  suggestions: Array<{ key: CalculatorKey; title: string; desc: string }>;
+  goToValues?: () => void;
+  onBack?: () => void;
+  onOutputsChange?: (outputs: CalculationOutput[]) => void;
+  defaultCalculatorFilter: CalculatorKey;
+}) {
+  const { importFromValues, valuesOutOfSync, lastImportFingerprint } = useCalculatorMemory();
+  const sharedCations = useSharedCationInputs(lab);
+  const effectiveLab = useMemo(
+    () => enrichLabWithResolvedCations(lab, sharedCations),
+    [lab, sharedCations]
+  );
+  const [importMessage, setImportMessage] = useState("");
+  const autoImportedRef = useRef(false);
   const [active, setActive] = useState<CalculatorKey>(defaultCalculatorFilter);
   const [browseLayout, setBrowseLayout] = useViewLayoutPreference("calculator-hub");
   const fieldsLayout = browseLayout;
@@ -166,6 +224,13 @@ export default function CalculatorHub({
     () => visibleCalculatorTabs(sampleType),
     [sampleType]
   );
+
+  // Drop removed tabs if a stale selection lingered.
+  useEffect(() => {
+    if (!calculatorTabs.some((tab) => tab.key === active)) {
+      setActive(defaultCalculatorFilter);
+    }
+  }, [active, calculatorTabs, defaultCalculatorFilter]);
   const [hubMode, setHubMode] = useState<HubMode>("explorer");
   const guidedSteps = useMemo(() => {
     const visibleKeys = new Set(calculatorTabs.map((tab) => tab.key));
@@ -190,8 +255,6 @@ export default function CalculatorHub({
   }
 
   const [calculatorOutputs, setCalculatorOutputs] = useState<Record<string, CalculationOutput[]>>({});
-  const lab = useMemo(() => buildLabValueIndex(parameters, values, results), [parameters, values, results]);
-  const suggestions = getSuggestions(lab, results, t);
 
   function reportOutputs(key: string, outputs: CalculationOutput[]) {
     const cleanOutputs = outputs.filter(Boolean);
@@ -214,6 +277,32 @@ export default function CalculatorHub({
         .map((output) => translateCalculationOutput(output, t))
     );
   }, [calculatorOutputs, onOutputsChange, t]);
+
+  function handleImportFromValues() {
+    const { importedCount } = importFromValues();
+    setImportMessage(
+      importedCount > 0
+        ? formatMessage(t.importFromValuesDone || "Imported {count} values from Values.", {
+            count: importedCount,
+          })
+        : t.importFromValuesEmpty || "No Values data to import yet. Enter values first."
+    );
+  }
+
+  useEffect(() => {
+    if (!importMessage) return;
+    const timer = window.setTimeout(() => setImportMessage(""), 3500);
+    return () => window.clearTimeout(timer);
+  }, [importMessage]);
+
+  // First visit (no saved import): pull Values into calculator memory automatically once.
+  useEffect(() => {
+    if (autoImportedRef.current) return;
+    if (lastImportFingerprint) return;
+    if (!hasLabData) return;
+    autoImportedRef.current = true;
+    importFromValues();
+  }, [hasLabData, lastImportFingerprint, importFromValues]);
 
   return (
     <section className="animate-slide-up">
@@ -263,20 +352,68 @@ export default function CalculatorHub({
                 {t.hubModeExplorer}
               </button>
             </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={handleImportFromValues}
+                className={`inline-flex items-center gap-1 text-xs font-semibold underline-offset-2 hover:underline ${
+                  valuesOutOfSync
+                    ? "text-amber-800 dark:text-amber-300"
+                    : "text-green-800 dark:text-green-300"
+                }`}
+                title={t.importFromValuesHint}
+              >
+                <Download size={14} aria-hidden />
+                {t.importFromValues || "Import from Values"}
+                {valuesOutOfSync ? (
+                  <span className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
+                ) : null}
+              </button>
+              {goToValues ? (
+                <button
+                  type="button"
+                  onClick={goToValues}
+                  className="text-xs font-semibold text-green-800 underline-offset-2 hover:underline dark:text-green-300"
+                >
+                  {t.openValues}
+                </button>
+              ) : null}
+            </div>
+          </div>
+          <p className="hub-mode-hint text-xs text-slate-500 dark:text-slate-400">
+            {hubMode === "guided" ? t.hubModeGuidedHint : t.hubModeExplorerHint}
+          </p>
+          {importMessage ? (
+            <p className="text-xs font-semibold text-green-800 dark:text-green-300" role="status">
+              {importMessage}
+            </p>
+          ) : valuesOutOfSync ? (
+            <p className="text-xs text-amber-800/90 dark:text-amber-200/90" role="status">
+              {t.importFromValuesStale ||
+                "Values changed since the last import. Tap Import from Values to update."}
+            </p>
+          ) : null}
+        </div>
+
+        {!hasLabData ? (
+          <div className="mx-4 mb-3 rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-3 dark:border-amber-900/40 dark:bg-amber-950/30" role="status">
+            <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+              {t.labDataRequiredTitle}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-amber-900/90 dark:text-amber-200/90">
+              {t.labDataRequiredDesc}
+            </p>
             {goToValues ? (
               <button
                 type="button"
                 onClick={goToValues}
-                className="shrink-0 text-xs font-semibold text-green-800 underline-offset-2 hover:underline dark:text-green-300"
+                className="mt-2 text-xs font-bold text-green-800 underline-offset-2 hover:underline dark:text-green-300"
               >
                 {t.openValues}
               </button>
             ) : null}
           </div>
-          <p className="hub-mode-hint text-xs text-slate-500 dark:text-slate-400">
-            {hubMode === "guided" ? t.hubModeGuidedHint : t.hubModeExplorerHint}
-          </p>
-        </div>
+        ) : null}
 
         <CalculatorFieldsLayoutContext.Provider value={fieldsLayout}>
         {hubMode === "guided" && guidedSteps.length > 0 ? (
@@ -321,22 +458,18 @@ export default function CalculatorHub({
         ) : null}
         {hubMode === "explorer" && browseLayout === "list" ? (
           <div className="px-4 pb-3">
-            <label className="calculator-hub-picker grid gap-1">
-              <span className="calculator-hub-picker__label">
-                {t.calculatorPickerLabel}
-              </span>
-              <select
-                value={active}
-                onChange={(event) => setActive(event.target.value as CalculatorKey)}
-                className="calc-field-input w-full"
-              >
-                {calculatorTabs.map((tab) => (
-                  <option key={tab.key} value={tab.key}>
-                    {t[tab.key]}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <MenuSelect
+              label={t.calculatorPickerLabel}
+              heading={t.calculatorPickerLabel}
+              value={active}
+              onChange={(value) => setActive(value as CalculatorKey)}
+              variant="field"
+              fullWidth
+              options={calculatorTabs.map((tab) => ({
+                value: tab.key,
+                label: t[tab.key],
+              }))}
+            />
           </div>
         ) : null}
         {hubMode === "explorer" && browseLayout !== "list" ? (
@@ -367,37 +500,44 @@ export default function CalculatorHub({
             <p className="calc-surface p-4 text-sm text-slate-600">{t.calculatorListHint}</p>
           </CalculatorPage>
         ) : null}
-        {active === "ratios" ? <RatioCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("ratios", outputs)} /> : null}
         {active === "cic" ? (
           <CicCalculator
             t={t}
-            lab={lab}
+            lab={effectiveLab}
             sampleType={sampleType}
             onOutputsChange={(outputs) => reportOutputs("cic", outputs)}
-          />
-        ) : null}
-        {active === "fertilizer" ? (
-          <FertilizerCalculator
-            t={t}
-            lab={lab}
-            results={results}
-            selectedCropName={selectedCropName}
-            onOutputsChange={(outputs) => reportOutputs("fertilizer", outputs)}
           />
         ) : null}
         {active === "amendment" ? (
           <PhAmendmentCalculator
             t={t}
-            lab={lab}
+            lab={effectiveLab}
             selectedCropName={selectedCropName}
             onOutputsChange={(outputs) => reportOutputs("amendment", outputs)}
           />
+        ) : null}
+        {active === "fertilizer" ? (
+          sampleType === "soil" ? (
+            <FertilizerPlanCalculator
+              t={t}
+              lab={effectiveLab}
+              selectedCropName={selectedCropName}
+              layout={fieldsLayout}
+              onOutputsChange={(outputs) => reportOutputs("fertilizer", outputs)}
+            />
+          ) : (
+            <CalculatorPage>
+              <p className="calc-surface p-4 text-sm font-semibold text-yellow-900">
+                {t.fertilizerSoilOnly || "The nutritional plan is available for soil analyses."}
+              </p>
+            </CalculatorPage>
+          )
         ) : null}
         {active === "dop" ? (
           sampleType === "foliar" ? (
             <DopCalculator
               t={t}
-              lab={lab}
+              lab={effectiveLab}
               results={results}
               onOutputsChange={(outputs) => reportOutputs("dop", outputs)}
             />
@@ -410,8 +550,14 @@ export default function CalculatorHub({
         {active === "uptake" ? (
           <CropUptakeGuide t={t} language={language} selectedCropName={selectedCropName} />
         ) : null}
-        {active === "salinity" ? <SalinityCalculator t={t} lab={lab} onOutputsChange={(outputs) => reportOutputs("salinity", outputs)} /> : null}
-        {active === "graphs" ? <NutrientGraphs t={t} lab={lab} /> : null}
+        {active === "salinity" ? (
+          <SalinityCalculator
+            t={t}
+            lab={effectiveLab}
+            onOutputsChange={(outputs) => reportOutputs("salinity", outputs)}
+          />
+        ) : null}
+        {active === "graphs" ? <NutrientGraphs t={t} lab={effectiveLab} /> : null}
         </CalculatorFieldsLayoutContext.Provider>
       </div>
     </section>
@@ -493,37 +639,6 @@ function PriorityCalculators({
   );
 }
 
-function RatioCalculator({
-  t,
-  lab,
-  onOutputsChange,
-}: {
-  t: Record<string, string>;
-  lab: Map<string, CalculatorValue>;
-  onOutputsChange?: (outputs: CalculationOutput[]) => void;
-}) {
-  const cn = calculateCNRatio(lab.get("organic_carbon")?.value || lab.get("organic_matter")?.value || 0, lab.get("nitrogen")?.value || 0);
-  const caMg = calculateNutrientRatio(
-    lab.get("calcium") || { key: "ca", label: "Ca", value: 0 },
-    lab.get("magnesium") || { key: "mg", label: "Mg", value: 0 }
-  );
-  const kMg = calculateNutrientRatio(
-    lab.get("potassium") || { key: "k", label: "K", value: 0 },
-    lab.get("magnesium") || { key: "mg", label: "Mg", value: 0 }
-  );
-  const outputs = [cn, caMg, kMg].filter(Boolean) as CalculationOutput[];
-
-  useEffect(() => {
-    onOutputsChange?.(outputs);
-  }, [onOutputsChange, outputs]);
-
-  return (
-    <CalculatorPage>
-      <OutputGrid t={t} outputs={outputs} title={t.ratios} />
-    </CalculatorPage>
-  );
-}
-
 function CicCalculator({
   t,
   lab,
@@ -536,12 +651,39 @@ function CicCalculator({
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
 }) {
   const { reference } = useSoilFertilityReference();
-  const [cec, setCec] = useState(lab.get("cec")?.value || 0);
-  const [ca, setCa] = useState(lab.get("calcium")?.value || 0);
-  const [mg, setMg] = useState(lab.get("magnesium")?.value || 0);
-  const [k, setK] = useState(lab.get("potassium")?.value || 0);
-  const [na, setNa] = useState(lab.get("sodium")?.value || 0);
+  const shared = useSharedCationInputs(lab);
+  const acidityFallback = shared.hAl || shared.aluminum;
+
+  const [cec, setCec] = useMemoryNumber("cic", "cec", shared.cecReported || 0);
+  const [ca, setCa] = useMemoryNumber("cic", "ca", shared.ca);
+  const [mg, setMg] = useMemoryNumber("cic", "mg", shared.mg);
+  const [k, setK] = useMemoryNumber("cic", "k", shared.k);
+  const [na, setNa] = useMemoryNumber("cic", "na", shared.na);
+  const [hAl, setHAl] = useMemoryNumber("cic", "hAl", acidityFallback);
   const [relationFilter, setRelationFilter] = useState<BaseRelationKey>("all");
+
+  const acidityTerm = useMemo(
+    () =>
+      getCicAcidityContribution({
+        hAl,
+        aluminum: shared.aluminum,
+        aluminumUnit: shared.aluminumUnit,
+      }),
+    [hAl, shared.aluminum, shared.aluminumUnit]
+  );
+
+  const estimatedCec = useMemo(() => {
+    if (shared.cecReported > 0) return shared.cecReported;
+    const sum =
+      (Number.isFinite(ca) && ca > 0 ? ca : 0) +
+      (Number.isFinite(mg) && mg > 0 ? mg : 0) +
+      (Number.isFinite(k) && k > 0 ? k : 0) +
+      (Number.isFinite(na) && na > 0 ? na : 0) +
+      acidityTerm;
+    return sum > 0 ? Math.round(sum * 100) / 100 : shared.estimatedCec;
+  }, [ca, mg, k, na, acidityTerm, shared.cecReported, shared.estimatedCec]);
+
+  const cecIsEstimated = !(Number.isFinite(cec) && cec > 0) && estimatedCec > 0;
 
   const baseResult = useMemo(
     () =>
@@ -551,37 +693,26 @@ function CicCalculator({
         mg,
         k,
         na,
+        hAl,
+        aluminum: shared.aluminum,
+        aluminumUnit: shared.aluminumUnit,
       }),
-    [cec, ca, mg, k, na]
+    [cec, ca, mg, k, na, hAl, shared.aluminum, shared.aluminumUnit]
   );
 
-  const diagnostics = useMemo(() => {
-    if (!baseResult) return [];
-    return diagnoseBaseBalance(baseResult, {
-      ca: t.cicCa || "Ca",
-      mg: t.cicMg || "Mg",
-      k: t.cicK || "K",
-      total: t.cicTotalBases || "Total bases",
-      caMg: "Ca/Mg",
-      mgK: "Mg/K",
-      low: t.cicLow || "Below ideal range — consider amendment or fertilizer adjustment.",
-      optimal: t.cicOptimal || "Within typical base balance range.",
-      high: t.cicHigh || "Above ideal range — review before fertilizing.",
-      limeSuggested:
-        t.cicLimeSuggested ||
-        "Low base saturation — evaluate agricultural lime or dolomite before fertilizer plan.",
-      gypsumSuggested:
-        t.cicGypsumSuggested ||
-        "Elevated sodium — gypsum may help displace Na (no PRNT applies to gypsum).",
-      kAdjustment: t.cicKHigh || "High K saturation — reduce K fertilizer and check Ca/Mg balance.",
-      mgAdjustment: t.cicMgLow || "Low Mg saturation — dolomitic lime or Mg source may be needed.",
-    });
-  }, [baseResult, t]);
+  const cnRatio = useMemo(
+    () =>
+      calculateCNRatio(
+        lab.get("organic_carbon")?.value || lab.get("organic_matter")?.value || 0,
+        lab.get("nitrogen")?.value || 0
+      ),
+    [lab]
+  );
 
   const outputs = useMemo(() => {
-    if (!baseResult) return [];
-    return buildBaseSaturationOutputs(baseResult, relationFilter);
-  }, [baseResult, relationFilter]);
+    const fromBases = baseResult ? buildBaseSaturationOutputs(baseResult, relationFilter) : [];
+    return cnRatio ? [...fromBases, cnRatio] : fromBases;
+  }, [baseResult, relationFilter, cnRatio]);
 
   useEffect(() => {
     onOutputsChange?.(outputs);
@@ -596,7 +727,7 @@ function CicCalculator({
   }
 
   const relationOptions: Array<[BaseRelationKey, string]> = [
-    ["all", t.cicRelationAll || "All relations"],
+    ["all", t.cicMainResults || "Main results"],
     ["ca_mg", "Ca/Mg"],
     ["mg_k", "Mg/K"],
     ["ca_k", "Ca/K"],
@@ -622,7 +753,16 @@ function CicCalculator({
     <CalculatorPage>
       <div className="calc-page__params calc-surface p-4">
         <CalculatorFormFields>
-          <NumberField label={t.cicLabel || "CIC / CICe"} value={cec} onChange={setCec} />
+          <NumberField
+            label={t.cicLabel || "CIC / CICe"}
+            value={cec}
+            onChange={setCec}
+            placeholder={
+              estimatedCec > 0
+                ? `${estimatedCec}${cecIsEstimated ? ` (${t.cicEstimated || "est."})` : ""}`
+                : t.cicAutoPlaceholder || "Auto if blank"
+            }
+          />
           <NumberField
             label={`${t.cicFieldCa || "Ca"} (${t.current})`}
             value={ca}
@@ -647,10 +787,24 @@ function CicCalculator({
             onChange={setNa}
             preserveCase
           />
+          <NumberField
+            label={t.cicFieldHal || "Extractable acidity (H+Al)"}
+            value={hAl}
+            onChange={setHAl}
+            preserveCase
+            placeholder={
+              acidityTerm > 0 && !(Number.isFinite(hAl) && hAl > 0)
+                ? `${acidityTerm} (${t.cicEstimated || "est."})`
+                : undefined
+            }
+          />
         </CalculatorFormFields>
         <p className="mt-3 text-xs leading-relaxed text-[#6c6c70]">
-          {t.cicHelp ||
-            "Enter exchangeable bases and CIC in consistent units (cmol(+)/kg or meq/100 g). Use this step before liming or fertilizing."}
+          {cecIsEstimated
+            ? t.cicAutoHelp ||
+              "CIC not reported — CICe is estimated as Ca + Mg + K + Na + (H+Al or extractable Al when reported)."
+            : t.cicHelp ||
+              "Enter exchangeable bases and CIC in consistent units (cmol(+)/kg or meq/100 g). If CIC is blank, it is calculated automatically including extractable acidity or Al when reported."}
         </p>
       </div>
 
@@ -675,34 +829,36 @@ function CicCalculator({
         <CicRatioHighlightCard ratio={selectedRatio} t={t} ranges={reference.cicRatioRanges} />
       ) : null}
 
-      {baseResult ? (
+      {baseResult && relationFilter === "all" ? (
         <CicResultsPanel
           baseResult={baseResult}
-          relationFilter={relationFilter}
           t={t}
           bands={reference.cicSaturationBands}
-          ranges={reference.cicRatioRanges}
+          cecEstimated={cecIsEstimated}
         />
-      ) : (
+      ) : null}
+
+      {!baseResult ? (
         <p className="calc-cic-result calc-cic-result--empty calc-surface p-4 text-sm text-slate-600">
           {t.noData}
         </p>
-      )}
+      ) : null}
 
-      {diagnostics.length > 0 && relationFilter === "all" ? (
+      {cnRatio && relationFilter === "all" ? (
         <div className="calc-surface p-4">
           <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
-            {t.cicDiagnosis || "Base balance diagnosis"}
+            {t.cicOtherRatios || "Other ratios"}
           </h3>
-          <ul className="mt-3 space-y-2">
-            {diagnostics.map((item) => (
-              <li key={item.key} className={`calc-cic-diagnosis calc-cic-diagnosis--${item.level}`}>
-                <span className="font-extrabold">{item.label}</span>
-                {item.value !== null ? `: ${item.value}${item.unit}` : ""}
-                <span className="opacity-90"> · {item.message}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-3">
+            <CicResultCard
+              label={cnRatio.label}
+              value={cnRatio.value}
+              unit={cnRatio.unit}
+              band="optimal"
+              bandLabel=""
+              interpretation={cnRatio.notes[0] || ""}
+            />
+          </div>
         </div>
       ) : null}
     </CalculatorPage>
@@ -750,67 +906,101 @@ function CicRatioHighlightCard({
 
 function CicResultsPanel({
   baseResult,
-  relationFilter,
   t,
   bands,
-  ranges,
+  cecEstimated,
 }: {
   baseResult: BaseSaturationResult;
-  relationFilter: BaseRelationKey;
   t: Record<string, string>;
   bands: CicSaturationBandTable;
-  ranges: CicRatioRangeTable;
+  cecEstimated?: boolean;
 }) {
   const layout = useContext(CalculatorFieldsLayoutContext);
+
   const saturationRows: Array<{
     key: string;
     label: string;
     value: number;
     cation?: "ca" | "mg" | "k" | "na";
-    isTotal?: boolean;
   }> = [
     { key: "ca", label: t.cicCaSaturation || "Ca saturation", value: baseResult.caPercent, cation: "ca" },
     { key: "mg", label: t.cicMgSaturation || "Mg saturation", value: baseResult.mgPercent, cation: "mg" },
     { key: "k", label: t.cicKSaturation || "K saturation", value: baseResult.kPercent, cation: "k" },
     { key: "na", label: t.cicNaSaturation || "Na saturation", value: baseResult.naPercent, cation: "na" },
-    {
-      key: "total",
-      label: t.cicTotalBases || "Total base saturation (V%)",
-      value: baseResult.totalBasePercent,
-      isTotal: true,
-    },
   ];
 
-  const relationRows: Array<[Exclude<BaseRelationKey, "all">, string]> = [
-    ["ca_mg", "Ca/Mg"],
-    ["mg_k", "Mg/K"],
-    ["ca_k", "Ca/K"],
-    ["k_na", "K/Na"],
-    ["ca_na", "Ca/Na"],
-  ];
+  const vBand: CicRatioBand =
+    baseResult.totalBasePercent >= 75 && baseResult.totalBasePercent <= 80
+      ? "optimal"
+      : baseResult.totalBasePercent < 75
+        ? "low"
+        : "high";
+  const vSeverity: CicSeverity =
+    baseResult.totalBasePercent < 60
+      ? "critical"
+      : baseResult.totalBasePercent < 75
+        ? "strong"
+        : baseResult.totalBasePercent > 90
+          ? "critical"
+          : baseResult.totalBasePercent > 80
+            ? "mild"
+            : "ok";
+  const vMessageKey =
+    baseResult.totalBasePercent < 75
+      ? "cicVPercentLow"
+      : baseResult.totalBasePercent > 80
+        ? "cicVPercentHigh"
+        : "cicVPercentAdequate";
+
+  const aciditySeverity = aciditySaturationSeverity(baseResult.hAlPercent);
+  const acidityBand: CicRatioBand =
+    aciditySeverity === "ok" ? "optimal" : aciditySeverity === "unknown" ? "unknown" : "high";
 
   return (
     <div className={`calc-cic-results calc-cic-results--${layout}`}>
-      {saturationRows.map((row) => {
-        if (row.isTotal) {
-          const messageKey =
-            row.value < 75 ? "cicVPercentLow" : row.value > 80 ? "cicVPercentHigh" : "cicVPercentAdequate";
-          const band: CicRatioBand =
-            row.value >= 75 && row.value <= 80 ? "optimal" : row.value < 75 ? "low" : "high";
-          return (
-            <CicResultCard
-              key={row.key}
-              label={row.label}
-              value={row.value}
-              unit="%"
-              band={band}
-              bandLabel={t[ratioBandLabelKey(band)] || band}
-              interpretation={t[messageKey] || messageKey}
-              rangeNote={`CICe ${baseResult.cec} cmol(+)/kg · ${t.cicVPercentTarget || "75–80% for tropical crops"}`}
-            />
-          );
+      <CicResultCard
+        label={t.cicCiceResult || "CICe"}
+        value={baseResult.cec}
+        unit="cmol(+)/kg"
+        band="optimal"
+        severity="ok"
+        bandLabel={
+          cecEstimated
+            ? t.cicEstimated || "est."
+            : t.cicBandOptimal || "OK"
         }
+        interpretation={
+          cecEstimated
+            ? t.cicCiceEstimatedNote || "Estimated from bases + acidity when CIC was not reported."
+            : t.cicCiceReportedNote || "Effective cation exchange capacity used for saturations."
+        }
+      />
+      <CicResultCard
+        label={t.cicSumBases || "Sum of bases"}
+        value={baseResult.sumBases}
+        unit="cmol(+)/kg"
+        band="optimal"
+        severity="ok"
+        bandLabel="Ca+Mg+K+Na"
+        interpretation={t.cicSumBasesNote || "Exchangeable bases contributing to CICe."}
+        rangeNote={
+          baseResult.acidity > 0
+            ? `${t.cicAcidityAmount || "Acidity"}: ${baseResult.acidity} cmol(+)/kg`
+            : undefined
+        }
+      />
+      <CicResultCard
+        label={t.cicTotalBases || "Total base saturation (V%)"}
+        value={baseResult.totalBasePercent}
+        unit="%"
+        band={vBand}
+        severity={vSeverity}
+        bandLabel={t[ratioBandLabelKey(vBand)] || vBand}
+        interpretation={t[vMessageKey] || vMessageKey}
+        rangeNote={t.cicVPercentTarget || "75–80% for tropical crops"}
+      />
 
+      {saturationRows.map((row) => {
         const sat = interpretCationSaturation(row.cation!, row.value, bands);
         const bandForUi: CicRatioBand =
           sat.band === "adequate"
@@ -826,6 +1016,7 @@ function CicResultsPanel({
             value={row.value}
             unit="%"
             band={bandForUi}
+            severity={saturationSeverity(sat.band)}
             bandLabel={t[saturationBandMessageKey(sat.band)] || t[ratioBandLabelKey(bandForUi)] || sat.band}
             interpretation={t[saturationBandMessageKey(sat.band)] || saturationBandMessageKey(sat.band)}
             rangeNote={`${t.cicTableBand || "Table band"}: ${sat.rangeLabel}`}
@@ -833,27 +1024,42 @@ function CicResultsPanel({
         );
       })}
 
-      {relationFilter === "all"
-        ? relationRows.map(([key, label]) => {
-            const value = baseResult.relations[key];
-            if (value === null) return null;
-            const interpretation = interpretCationRatio(key, value, ranges);
-            return (
-              <CicResultCard
-                key={key}
-                label={label}
-                value={value}
-                unit=":1"
-                band={interpretation.band}
-                bandLabel={t[ratioBandLabelKey(interpretation.band)] || interpretation.band}
-                interpretation={t[interpretation.messageKey] || interpretation.messageKey}
-                rangeNote={`${t.cicTargetRange || "Target range"}: ${interpretation.optimalMin}–${interpretation.optimalMax}`}
-              />
-            );
-          })
-        : null}
+      <CicResultCard
+        label={t.cicAciditySaturation || "Acidity saturation (H+Al)"}
+        value={baseResult.hAlPercent}
+        unit="%"
+        band={acidityBand}
+        severity={aciditySeverity}
+        bandLabel={
+          aciditySeverity === "ok"
+            ? t.cicBandOptimal || "OK"
+            : aciditySeverity === "mild"
+              ? t.cicSatModeratelyHigh || "Moderate"
+              : aciditySeverity === "strong"
+                ? t.cicSatHigh || "High"
+                : aciditySeverity === "critical"
+                  ? t.cicSatVeryHigh || "Very high"
+                  : "—"
+        }
+        interpretation={
+          t.cicAciditySaturationNote ||
+          "Share of CICe occupied by exchangeable acidity — higher values increase liming need."
+        }
+        rangeNote={
+          baseResult.acidity > 0
+            ? `${baseResult.acidity} cmol(+)/kg`
+            : t.cicAcidityNone || "No exchangeable acidity reported"
+        }
+      />
     </div>
   );
+}
+
+function aciditySaturationSeverity(percent: number): CicSeverity {
+  if (!(percent > 0)) return "ok";
+  if (percent < 10) return "mild";
+  if (percent < 20) return "strong";
+  return "critical";
 }
 
 function CicResultCard({
@@ -861,6 +1067,7 @@ function CicResultCard({
   value,
   unit,
   band,
+  severity,
   bandLabel,
   interpretation,
   rangeNote,
@@ -869,16 +1076,20 @@ function CicResultCard({
   value: number;
   unit: string;
   band: CicRatioBand;
+  severity?: CicSeverity;
   bandLabel: string;
   interpretation: string;
   rangeNote?: string;
 }) {
+  const tone = severity || ratioSeverity(band);
   return (
-    <article className={`calc-cic-result calc-cic-result--${band}`}>
+    <article className={`calc-cic-result calc-cic-result--${band} calc-cic-result--sev-${tone}`}>
       <div className="calc-cic-result__head">
         <p className="calc-cic-result__label">{label}</p>
         {bandLabel ? (
-          <span className={`calc-cic-band calc-cic-band--${band}`}>{bandLabel}</span>
+          <span className={`calc-cic-band calc-cic-band--${band} calc-cic-band--sev-${tone}`}>
+            {bandLabel}
+          </span>
         ) : null}
       </div>
       <p className="calc-cic-result__value">
@@ -890,486 +1101,30 @@ function CicResultCard({
   );
 }
 
-function formatEncaladoHint(plan: FertilityPlanResult, t: Record<string, string>) {
-  if (plan.encaladoEligible) return null;
-  const template = t[plan.encaladoNoteKey];
-  if (!template) return null;
-  return formatMessage(template, {
-    sat: plan.encaladoNoteValues?.sat ?? "—",
-    target: plan.encaladoNoteValues?.target ?? "—",
-  });
+type CicSeverity = "critical" | "strong" | "mild" | "ok" | "unknown";
+
+function saturationSeverity(band: CicSaturationBand): CicSeverity {
+  switch (band) {
+    case "very_low":
+    case "very_high":
+      return "critical";
+    case "low":
+    case "high":
+      return "strong";
+    case "moderately_low":
+    case "moderately_high":
+      return "mild";
+    case "adequate":
+      return "ok";
+    default:
+      return "unknown";
+  }
 }
 
-function FertilizerDoseStepRow({
-  t,
-  step,
-}: {
-  t: Record<string, string>;
-  step: FertilityCalcStep;
-}) {
-  const resultDisplay = step.unit
-    ? `${step.result} ${step.unit}`.trim()
-    : step.result;
-
-  return (
-    <article className="fertilizer-plan__step">
-      <p className="fertilizer-plan__step-label">{step.label}</p>
-      <p className="fertilizer-plan__step-formula">{step.formula}</p>
-      {step.substitution ? (
-        <p className="fertilizer-plan__step-meta">
-          <span className="fertilizer-plan__step-meta-key">{t.substitution}</span>
-          <span className="fertilizer-plan__step-meta-value">{step.substitution}</span>
-        </p>
-      ) : null}
-      <p className="fertilizer-plan__step-meta">
-        <span className="fertilizer-plan__step-meta-key">{t.result}</span>
-        <span className="fertilizer-plan__step-result">{resultDisplay}</span>
-      </p>
-      {step.tableRef ? (
-        <p className="fertilizer-plan__step-ref">{step.tableRef}</p>
-      ) : null}
-      {step.interpretation ? (
-        <p className="fertilizer-plan__step-note">{step.interpretation}</p>
-      ) : null}
-    </article>
-  );
-}
-
-function FertilizerPlanCalculator({
-  t,
-  lab,
-  selectedCropName,
-  onOutputsChange,
-}: {
-  t: Record<string, string>;
-  lab: Map<string, CalculatorValue>;
-  selectedCropName?: string | null;
-  onOutputsChange?: (outputs: CalculationOutput[]) => void;
-}) {
-  const { reference } = useSoilFertilityReference();
-  const [modo, setModo] = useState<FertilityPlanMode>("completo");
-  const [extractant, setExtractant] = useState<Extractant>("olsen_kcl");
-  const [rendimiento, setRendimiento] = useState(4);
-  const [depth, setDepth] = useState(30);
-  const [bulkDensity, setBulkDensity] = useState(lab.get("bulk_density")?.value || 1);
-  const [irrigationSystem, setIrrigationSystem] = useState<IrrigationSystem>("aspersion_pivote");
-  const [effN, setEffN] = useState(() => irrigationEfficiencyDefaults("aspersion_pivote").n);
-  const [effP, setEffP] = useState(() => irrigationEfficiencyDefaults("aspersion_pivote").p);
-  const [effK, setEffK] = useState(() => irrigationEfficiencyDefaults("aspersion_pivote").k);
-  const [effMg, setEffMg] = useState(() => irrigationEfficiencyDefaults("aspersion_pivote").mg);
-  const [prnt, setPrnt] = useState(95);
-  const [enmienda, setEnmienda] = useState<AmendmentMaterialKey>("cal_agricola");
-  const [manualN, setManualN] = useState(0);
-  const [manualP2o5, setManualP2o5] = useState(0);
-  const [manualK2o, setManualK2o] = useState(0);
-  const [manualMgo, setManualMgo] = useState(0);
-  const [selectedDoseNutrient, setSelectedDoseNutrient] = useState<string | null>(
-    null
-  );
-
-  const plan = useMemo(
-    () =>
-      buildSoilFertilityPlan(
-        {
-          modo,
-          extractant,
-          cultivo: selectedCropName,
-          rendimientoObjetivo: rendimiento,
-          profundidadMuestreo_cm: depth,
-          densidadAparente_g_cm3: bulkDensity,
-          ph: lab.get("ph")?.value,
-          acidezExtraible: lab.get("exchangeable_acidity")?.value,
-          K: lab.get("potassium")?.value,
-          Ca: lab.get("calcium")?.value,
-          Mg: lab.get("magnesium")?.value,
-          Na: lab.get("sodium")?.value,
-          P: lab.get("phosphorus")?.value,
-          S: lab.get("sulfur")?.value,
-          Fe: lab.get("iron")?.value,
-          Cu: lab.get("copper")?.value,
-          Zn: lab.get("zinc")?.value,
-          Mn: lab.get("manganese")?.value,
-          materiaOrganica: lab.get("organic_matter")?.value,
-          eficienciaN: effN / 100,
-          eficienciaP: effP / 100,
-          eficienciaK: effK / 100,
-          eficienciaMg: effMg / 100,
-          PRNT: prnt,
-          enmiendaSeleccionada: enmienda,
-          demandaN_manual: modo === "solo_dosis" ? manualN : undefined,
-          demandaP2o5_manual: modo === "solo_dosis" ? manualP2o5 : undefined,
-          demandaK2o_manual: modo === "solo_dosis" ? manualK2o : undefined,
-          demandaMgo_manual: modo === "solo_dosis" ? manualMgo : undefined,
-        },
-        reference
-      ),
-    [
-      modo,
-      extractant,
-      selectedCropName,
-      rendimiento,
-      depth,
-      bulkDensity,
-      effN,
-      effP,
-      effK,
-      effMg,
-      prnt,
-      enmienda,
-      manualN,
-      manualP2o5,
-      manualK2o,
-      manualMgo,
-      lab,
-      reference,
-    ]
-  );
-
-  useEffect(() => {
-    const defaults = irrigationEfficiencyDefaults(irrigationSystem, reference.irrigationEfficiency);
-    setEffN(defaults.n);
-    setEffP(defaults.p);
-    setEffK(defaults.k);
-    setEffMg(defaults.mg);
-  }, [irrigationSystem, reference.irrigationEfficiency]);
-
-  const outputs = useMemo(
-    () => (plan ? fertilityPlanToCalculationOutputs(plan) : []),
-    [plan]
-  );
-
-  useEffect(() => {
-    onOutputsChange?.(outputs);
-  }, [onOutputsChange, outputs]);
-
-  useEffect(() => {
-    setSelectedDoseNutrient(null);
-  }, [plan]);
-
-  const selectedDose =
-    plan?.doses.find((dose) => dose.nutrient === selectedDoseNutrient) ?? null;
-
-  return (
-    <div className="calc-page space-y-4">
-      <div className="fertilizer-plan__params calc-surface p-4">
-        {selectedCropName ? (
-          <div className="calc-page__crop mb-4 flex items-center gap-2 px-3 py-2.5">
-            <Sprout size={16} className="calc-page__crop-icon shrink-0" />
-            <div className="min-w-0">
-              <p className="calc-page__crop-label">
-                {t.fertilizerPlanCrop}
-              </p>
-              <p className="calc-page__crop-name">{selectedCropName}</p>
-            </div>
-          </div>
-        ) : null}
-
-        <CalculatorFormFields>
-          <SelectField
-            label={t.fertilizerPlanMode}
-            value={modo}
-            onChange={(value) => setModo(value as FertilityPlanMode)}
-            fullWidth
-            options={[
-              ["completo", t.fertilizerPlanModeFull],
-              ["solo_dosis", t.fertilizerPlanModeDose],
-            ]}
-          />
-          {modo === "completo" ? (
-            <SelectField
-              label={t.extractantLabel}
-              value={extractant}
-              onChange={(value) => setExtractant(value as Extractant)}
-              fullWidth
-              options={[
-                ["olsen_kcl", t.extractantOlsenKcl],
-                ["mehlich3", t.extractantMehlich3],
-              ]}
-            />
-          ) : null}
-          <NumberField
-            label={t.fertilizerPlanYield}
-            value={rendimiento}
-            onChange={setRendimiento}
-          />
-          <NumberField label={t.depth} value={depth} onChange={setDepth} />
-          <NumberField label={t.bulkDensity} value={bulkDensity} onChange={setBulkDensity} />
-        </CalculatorFormFields>
-
-        <p className="mt-4 mb-2 text-xs font-semibold text-[#6c6c70]">{t.efficiency}</p>
-        <div className="calc-irrigation-picker mb-3">
-          <SelectField
-            label={t.irrigationSystemLabel}
-            value={irrigationSystem}
-            onChange={(value) => setIrrigationSystem(value as IrrigationSystem)}
-            fullWidth
-            options={IRRIGATION_SYSTEM_OPTIONS.map((system) => [system, t[`irrigation_${system}`] || system])}
-          />
-        </div>
-        <CalculatorFormFields>
-          <NumberField label="N (%)" value={effN} onChange={setEffN} preserveCase />
-          <NumberField label="P (%)" value={effP} onChange={setEffP} preserveCase />
-          <NumberField label="K (%)" value={effK} onChange={setEffK} preserveCase />
-          <NumberField label="Mg (%)" value={effMg} onChange={setEffMg} preserveCase />
-        </CalculatorFormFields>
-
-        {modo === "completo" && plan ? (
-          plan.encaladoEligible ? (
-            <CalculatorFormFields className="mt-4">
-              <SelectField
-                label={t.amendmentMaterial}
-                value={enmienda}
-                onChange={(value) => setEnmienda(value as AmendmentMaterialKey)}
-                options={Object.values(TABLE_12_AMENDMENTS).map((item) => [item.key, item.label])}
-              />
-              <NumberField label={t.prntPercent} value={prnt} onChange={setPrnt} />
-            </CalculatorFormFields>
-          ) : (() => {
-              const encaladoHint = formatEncaladoHint(plan, t);
-              return encaladoHint ? (
-                <p className="fertilizer-plan__encalado-hint mt-4" role="status">
-                  {encaladoHint}
-                </p>
-              ) : null;
-            })()
-        ) : modo === "solo_dosis" ? (
-          <CalculatorFormFields className="mt-4">
-            <NumberField
-              label={t.fertilizerPlanDemandN}
-              value={manualN}
-              onChange={setManualN}
-            />
-            <NumberField
-              label={t.fertilizerPlanDemandP}
-              value={manualP2o5}
-              onChange={setManualP2o5}
-            />
-            <NumberField
-              label={t.fertilizerPlanDemandK}
-              value={manualK2o}
-              onChange={setManualK2o}
-            />
-            <NumberField
-              label={t.fertilizerPlanDemandMg}
-              value={manualMgo}
-              onChange={setManualMgo}
-            />
-          </CalculatorFormFields>
-        ) : null}
-      </div>
-
-      {plan ? (
-        <>
-          <div className="fertilizer-plan__results calc-surface p-4">
-            <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
-              {t.fertilizerPlanSummary}
-            </h3>
-            <div className="mt-3 grid grid-cols-2 gap-2.5">
-              {plan.doses.map((dose) => {
-                const isSelected = selectedDoseNutrient === dose.nutrient;
-                return (
-                  <button
-                    key={dose.nutrient}
-                    type="button"
-                    aria-expanded={isSelected}
-                    aria-label={`${dose.nutrient} — ${t.fertilizerPlanViewSteps}`}
-                    onClick={() =>
-                      setSelectedDoseNutrient((current) =>
-                        current === dose.nutrient ? null : dose.nutrient
-                      )
-                    }
-                    className={`calc-result-card calc-result-card--clickable rounded-xl px-3 py-3 text-left ${
-                      dose.notRequired
-                        ? "calc-result-card--muted"
-                        : "calc-result-card--active"
-                    }${isSelected ? " calc-result-card--selected" : ""}`}
-                  >
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-                      {dose.nutrient}
-                    </p>
-                    <p className="mt-1 text-2xl font-extrabold leading-none text-green-950">
-                      {dose.notRequired ? "NF" : dose.dosis}
-                      {!dose.notRequired ? (
-                        <span className="ml-1 text-xs font-semibold">{dose.unit}</span>
-                      ) : null}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {selectedDose ? (
-            <AppModal
-              open
-              onClose={() => setSelectedDoseNutrient(null)}
-              title={`${selectedDose.nutrient} — ${t.fertilizerPlanStepsTitle}`}
-              description={`${t.efficiency} ${Math.round(selectedDose.eficiencia * 100)}%`}
-              closeLabel={t.close}
-              size="md"
-            >
-              <div className="fertilizer-plan__steps">
-                {selectedDose.steps.map((step) => (
-                  <FertilizerDoseStepRow
-                    key={`${selectedDose.nutrient}-${step.label}`}
-                    t={t}
-                    step={step}
-                  />
-                ))}
-              </div>
-            </AppModal>
-          ) : null}
-
-          {plan.conclusiones.length > 0 ? (
-            <div className="fertilizer-plan__interpretation calc-surface p-4">
-              <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
-                {t.fertilizerPlanConclusions}
-              </h3>
-              <ul className="mt-3 space-y-2 text-sm leading-relaxed text-[#3c3c43]">
-                {plan.conclusiones.map((line) => (
-                  <li key={line} className="flex gap-2">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-600" />
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </>
-      ) : (
-        <div className="calc-surface p-4">
-          <p className="text-sm text-slate-500">{t.noData}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function FertilizerSingleCalculator({
-  t,
-  lab,
-  onOutputsChange,
-}: {
-  t: Record<string, string>;
-  lab: Map<string, CalculatorValue>;
-  onOutputsChange?: (outputs: CalculationOutput[]) => void;
-}) {
-  const [element, setElement] = useState("nitrogen");
-  const [target, setTarget] = useState(80);
-  const [grade, setGrade] = useState(20);
-  const [area, setArea] = useState(1);
-  const [areaUnit, setAreaUnit] = useState<AreaUnit>("ha");
-  const [efficiency, setEfficiency] = useState(85);
-  const [mode, setMode] = useState<FertilizerMode>("element");
-  const [current, setCurrent] = useState(() => lab.get("nitrogen")?.value || 0);
-
-  useEffect(() => {
-    setCurrent(lab.get(element)?.value || 0);
-  }, [element, lab]);
-
-  const output = calculateFertilizerRequirement({
-    current,
-    target,
-    nutrientPercent: grade,
-    area,
-    areaUnit,
-    efficiencyPercent: efficiency,
-    mode,
-  });
-
-  useEffect(() => {
-    onOutputsChange?.(output ? [output] : []);
-  }, [onOutputsChange, output]);
-
-  return (
-    <CalculatorPanel
-      t={t}
-      output={output}
-      fields={
-        <>
-          <SelectField
-            label={t.nutrientElement}
-            value={element}
-            onChange={setElement}
-            fullWidth
-            options={[
-              ["nitrogen", "N"],
-              ["phosphorus", "P"],
-              ["potassium", "K"],
-              ["calcium", "Ca"],
-              ["magnesium", "Mg"],
-              ["sulfur", "S"],
-            ]}
-          />
-          <NumberField label={t.current} value={current} onChange={setCurrent} />
-          <NumberField label={t.target} value={target} onChange={setTarget} />
-          <NumberField label={t.nutrientGrade} value={grade} onChange={setGrade} />
-          <NumberField label={t.efficiency} value={efficiency} onChange={setEfficiency} />
-          <AreaFields t={t} area={area} setArea={setArea} areaUnit={areaUnit} setAreaUnit={setAreaUnit} />
-          <SelectField
-            label={t.mode}
-            value={mode}
-            onChange={(value) => setMode(value as FertilizerMode)}
-            options={[
-              ["element", t.element],
-              ["oxide", t.oxide],
-            ]}
-          />
-        </>
-      }
-    />
-  );
-}
-
-function FertilizerCalculator({
-  t,
-  lab,
-  results: _results,
-  selectedCropName,
-  onOutputsChange,
-}: {
-  t: Record<string, string>;
-  lab: Map<string, CalculatorValue>;
-  results: ResultLite[];
-  selectedCropName?: string | null;
-  onOutputsChange?: (outputs: CalculationOutput[]) => void;
-}) {
-  const [view, setView] = useState<"single" | "plan">("plan");
-
-  return (
-    <CalculatorPage>
-      <div className="app-segmented-control">
-        <button
-          type="button"
-          onClick={() => setView("plan")}
-          className={`app-segmented-control__btn ${
-            view === "plan" ? "app-segmented-control__btn--active" : ""
-          }`}
-        >
-          {t.fertilizerPlanTab}
-        </button>
-        <button
-          type="button"
-          onClick={() => setView("single")}
-          className={`app-segmented-control__btn ${
-            view === "single" ? "app-segmented-control__btn--active" : ""
-          }`}
-        >
-          {t.fertilizerSingleTab}
-        </button>
-      </div>
-      {view === "plan" ? (
-        <FertilizerPlanCalculator
-          t={t}
-          lab={lab}
-          selectedCropName={selectedCropName}
-          onOutputsChange={onOutputsChange}
-        />
-      ) : (
-        <FertilizerSingleCalculator t={t} lab={lab} onOutputsChange={onOutputsChange} />
-      )}
-    </CalculatorPage>
-  );
+function ratioSeverity(band: CicRatioBand): CicSeverity {
+  if (band === "optimal") return "ok";
+  if (band === "low" || band === "high") return "strong";
+  return "unknown";
 }
 
 function DopCalculator({
@@ -1681,10 +1436,10 @@ function SalinityCalculator({
   lab: Map<string, CalculatorValue>;
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
 }) {
-  const [ecw, setEcw] = useState(1);
-  const [eceTarget, setEceTarget] = useState(2);
-  const [psiTarget, setPsiTarget] = useState(10);
-  const [etValue, setEtValue] = useState(5);
+  const [ecw, setEcw] = useMemoryNumber("salinity", "ecw", 1);
+  const [eceTarget, setEceTarget] = useMemoryNumber("salinity", "eceTarget", 2);
+  const [psiTarget, setPsiTarget] = useMemoryNumber("salinity", "psiTarget", 10);
+  const [etValue, setEtValue] = useMemoryNumber("salinity", "et", 5);
   const lr = calculateLeachingRequirement(ecw, eceTarget);
   const sar = calculateSar(lab.get("sodium")?.value || 0, lab.get("calcium")?.value || 0, lab.get("magnesium")?.value || 0);
   const psi = calculatePsi(lab.get("sodium")?.value || 0, lab.get("cec")?.value || 0);
@@ -2133,13 +1888,6 @@ function translateCalculatorText(value: string, t: Record<string, string>) {
   const dictionary: Record<string, string | undefined> = {
     "kg product": t.unitKgProduct,
     "t product": t.unitTProduct,
-    "Fertilizer requirement": t.fertilizerRequirementTitle,
-    "Calculate product quantity by nutrient grade, efficiency, and area.":
-      t.fertilizerRequirementDesc,
-    "Calculate product quantity by nutrient grade, efficiency, and area":
-      t.fertilizerRequirementDesc,
-    "Calculate the amount of product based on nutrient grade, efficiency, and area.":
-      t.fertilizerRequirementDesc,
     "Gypsum requirement": t.gypsumRequirementTitle,
     "Gypsum (meq/100 g)": t.gypsumMeqTitle,
     "Gypsum (mg/100 g)": t.gypsumMgTitle,
@@ -2164,8 +1912,6 @@ function translateCalculatorText(value: string, t: Record<string, string>) {
     Porosity: t.porosityTitle,
     "Leaching requirement": t.leachingRequirementTitle,
     "Total water": t.totalWaterTitle,
-    "(target - current) / nutrient fraction / efficiency * area":
-      t.fertilizerFormula,
     "target_ph adjusted by depth, bulk density, RNDT, and area":
       t.targetPhFormula,
     "exchangeable_acidity adjusted by depth, bulk density, RNDT, and area":
@@ -2222,12 +1968,14 @@ function NumberField({
   onChange,
   readOnly,
   preserveCase,
+  placeholder,
 }: {
   label: string;
   value: number;
   onChange?: (value: number) => void;
   readOnly?: boolean;
   preserveCase?: boolean;
+  placeholder?: string;
 }) {
   const [text, setText] = useState(() => formatNumberInput(value));
   const focusedRef = useRef(false);
@@ -2247,6 +1995,7 @@ function NumberField({
         inputMode="decimal"
         value={text}
         readOnly={readOnly}
+        placeholder={placeholder}
         onFocus={() => {
           focusedRef.current = true;
         }}
@@ -2291,103 +2040,15 @@ function SelectField({
   fullWidth?: boolean;
 }) {
   return (
-    <label
-      className={`calc-field-label grid gap-1${fullWidth ? " col-span-full" : ""}`}
-    >
-      {label}
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="calc-field-input"
-      >
-        {options.map(([optionValue, labelText]) => <option key={optionValue} value={optionValue}>{labelText}</option>)}
-      </select>
-    </label>
+    <MenuSelect
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={options}
+      fullWidth={fullWidth}
+      variant="field"
+    />
   );
-}
-
-function AreaFields({
-  t,
-  area,
-  setArea,
-  areaUnit,
-  setAreaUnit,
-}: {
-  t: Record<string, string>;
-  area: number;
-  setArea: (value: number) => void;
-  areaUnit: AreaUnit;
-  setAreaUnit: (value: AreaUnit) => void;
-}) {
-  return (
-    <>
-      <NumberField label={t.area} value={area} onChange={setArea} />
-      <SelectField label={t.unit} value={areaUnit} onChange={(value) => setAreaUnit(value as AreaUnit)} options={[["ha", "ha"], ["carreau", "carreau"], ["acre", "acre"], ["m2", "m²"]]} />
-    </>
-  );
-}
-
-function buildLabValueIndex(
-  parameters: ParameterLite[],
-  values: Record<string, string>,
-  results: ResultLite[]
-) {
-  const map = new Map<string, CalculatorValue>();
-  for (const parameter of parameters) {
-    const numericValue = Number(String(values[parameter.parameter_key] || "").replace(",", "."));
-    if (!Number.isFinite(numericValue)) continue;
-    addKnownValue(map, parameter.display_name || parameter.parameter_name, parameter.symbol, numericValue);
-  }
-
-  for (const result of results) {
-    addKnownValue(
-      map,
-      result.display_parameter_name || result.parameter_name,
-      undefined,
-      result.value,
-      result.unit_symbol
-    );
-  }
-
-  return map;
-}
-
-function addKnownValue(
-  map: Map<string, CalculatorValue>,
-  label: string,
-  symbol: string | null | undefined,
-  value: number,
-  unit?: string
-) {
-  const normalized = normalizeName(`${label} ${symbol || ""}`);
-  const keys = [
-    ["ph", /\bph\b/],
-    ["nitrogen", /\b(n|nitrogen|nitrogeno|azote)\b/],
-    ["phosphorus", /\b(p|phosphorus|fosforo|phosphore)\b/],
-    ["potassium", /\b(k|potassium|potasio)\b/],
-    ["calcium", /\b(ca|calcium|calcio)\b/],
-    ["magnesium", /\b(mg|magnesium|magnesio)\b/],
-    ["sulfur", /\b(s|sulfur|azufre|soufre)\b/],
-    ["sodium", /\b(na|sodium|sodio)\b/],
-    ["iron", /\b(fe|iron|hierro|fer)\b/],
-    ["zinc", /\b(zn|zinc)\b/],
-    ["manganese", /\b(mn|manganese|manganeso)\b/],
-    ["copper", /\b(cu|copper|cobre|cuivre)\b/],
-    ["boron", /\b(b|boron|boro|bore)\b/],
-    ["organic_matter", /\b(organic matter|materia organica|matiere organique|om|mo)\b/],
-    ["organic_carbon", /\b(organic carbon|carbono organico)\b/],
-    ["exchangeable_acidity", /\b(acidity|acidez|h\+al)\b/],
-    ["bulk_density", /\b(bulk density|densidad aparente|da)\b/],
-    ["cec", /\b(cec|cice|cic|ctc|cation exchange capacity|capacidad de intercambio cationico)\b/],
-    ["base_saturation", /\b(base saturation|saturacion de bases|saturacao de bases|v%|sb)\b/],
-    ["aluminum", /\b(al|aluminum|aluminium|aluminio)\b/],
-  ] as const;
-
-  for (const [key, pattern] of keys) {
-    if (pattern.test(normalized) && !map.has(key)) {
-      map.set(key, { key, label: symbol || label, value, unit });
-    }
-  }
 }
 
 function getSuggestions(
@@ -2398,12 +2059,6 @@ function getSuggestions(
   const suggestions: Array<{ key: CalculatorKey; title: string; desc: string }> = [];
   const hasCriticalPh = results.some((result) => /ph/i.test(result.parameter_name) && ["warning", "negative"].includes(result.final_group_code || ""));
   const hasSalinity = results.some((result) => /conduct|ec|salin|sodium|sodio/i.test(result.parameter_name) && ["warning", "negative"].includes(result.final_group_code || ""));
-
-  suggestions.push({
-    key: "fertilizer",
-    title: t.fertilizerRequirementTitle,
-    desc: t.fertilizerRequirementDesc,
-  });
 
   if (hasCriticalPh || lab.has("ph")) {
     suggestions.push({
@@ -2431,6 +2086,19 @@ function getSuggestions(
       key: "cic",
       title: t.cicRequirementTitle,
       desc: t.cicRequirementDesc,
+    });
+  }
+
+  if (
+    lab.has("phosphorus") ||
+    lab.has("potassium") ||
+    lab.has("magnesium") ||
+    lab.has("organic_matter")
+  ) {
+    suggestions.push({
+      key: "fertilizer",
+      title: t.fertilizerPlanTab || t.fertilizerRequirementTitle,
+      desc: t.fertilizerPlanDoseDesc || t.fertilizerPlanDesc || t.fertilizerRequirementDesc,
     });
   }
 

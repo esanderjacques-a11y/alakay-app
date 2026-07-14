@@ -33,6 +33,7 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ParameterCategoryFilter from "@/components/ParameterCategoryFilter";
 import AddDataMenu from "@/components/AddDataMenu";
 import ValuesDisplayMenu from "@/components/ValuesDisplayMenu";
+import ParameterUnitPicker from "@/components/ParameterUnitPicker";
 import ResultsDashboard from "@/components/ResultsDashboard";
 import RecycleBinScreen from "@/components/RecycleBinScreen";
 import CalculatorHub from "@/components/CalculatorHub";
@@ -72,6 +73,15 @@ import {
 import { translateCategory } from "@/lib/categoryLabels";
 import { countries, countryRegions, type CountryRegion } from "@/lib/countries";
 import { supabase } from "@/lib/supabase";
+import {
+  enqueueAnalysisSave,
+  flushOfflineAnalysisQueue,
+  getOfflineQueueCount,
+  isSignatureQueued,
+  shouldQueueAnalysisSave,
+  subscribeOfflineQueue,
+} from "@/lib/offlineAnalysisQueue";
+import { saveAnalysisToSupabase } from "@/lib/saveAnalysisToSupabase";
 import {
   loadCropAliasMap,
   loadParameterAliasOptionsMap,
@@ -230,6 +240,69 @@ function normalizeForMatching(value: string | null | undefined) {
   return normalizeParameterText(value)
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+/** Exchangeable bases + related: searching "bases" should surface Ca, Mg, K, Na. */
+const PARAMETER_SEARCH_GROUPS: Array<{
+  triggers: RegExp;
+  match: (parameter: Parameter) => boolean;
+}> = [
+  {
+    triggers:
+      /\b(bas|bases?|baz|besi|cations?|cationes?|cationiques?|intercambiables?|echangeables?|exchangeable)\b/i,
+    match: (parameter) => {
+      const symbol = String(parameter.symbol || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+      if (["ca", "mg", "k", "na"].includes(symbol)) return true;
+      const text = normalizeParameterText(
+        [
+          parameter.display_name,
+          parameter.parameter_name,
+          ...(parameter.aliases || []),
+        ].join(" ")
+      );
+      return /\b(calcium|calcio|magnesium|magnesio|potassium|potasio|sodium|sodio|base saturation|saturacion de bases|saturation en bases|saturacao de bases|exchangeable|intercambiable|echangeable)\b/.test(
+        text
+      );
+    },
+  },
+];
+
+function parameterSearchHaystack(parameter: Parameter) {
+  return {
+    displayName: normalizeParameterText(parameter.display_name),
+    baseName: normalizeParameterText(parameter.parameter_name),
+    symbol: normalizeParameterText(parameter.symbol || ""),
+    category: normalizeParameterText(parameter.category || ""),
+    aliases: (parameter.aliases || []).map((alias) => normalizeParameterText(alias)),
+  };
+}
+
+/**
+ * Lower is better. Names containing the typed letters rank ahead of synonym-only
+ * matches (e.g. "Base saturation" before Ca when searching "bases").
+ */
+function getParameterSearchRank(parameter: Parameter, search: string): number | null {
+  const needle = normalizeParameterText(search).trim();
+  if (!needle) return 0;
+
+  const { displayName, baseName, symbol, category, aliases } =
+    parameterSearchHaystack(parameter);
+
+  if (displayName.startsWith(needle) || baseName.startsWith(needle)) return 0;
+  if (displayName.includes(needle) || baseName.includes(needle)) return 1;
+  if (aliases.some((alias) => alias.startsWith(needle))) return 2;
+  if (aliases.some((alias) => alias.includes(needle))) return 3;
+  if (symbol && (symbol === needle || symbol.startsWith(needle))) return 4;
+  if (category.includes(needle)) return 5;
+
+  for (const group of PARAMETER_SEARCH_GROUPS) {
+    if (group.triggers.test(needle) && group.match(parameter)) return 6;
+  }
+
+  return null;
 }
 
 function getTodayIsoDate() {
@@ -436,12 +509,24 @@ function normalizeUnitSymbol(unitSymbol: string) {
     .replace(/\s+/g, "");
 }
 
-/** mg/kg and ppm are equivalent; always prefer mg/kg in default display. */
+function compactUnitSymbol(unitSymbol: string) {
+  return String(unitSymbol || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/\u00b5/g, "u")
+    .replace(/\u03bc/g, "u");
+}
+
+/** mg/kg and ppm are equivalent; always prefer the literal mg/kg label for display. */
 function massDisplayRank(unitSymbol: string) {
+  const raw = compactUnitSymbol(unitSymbol);
+  if (raw === "mg/kg" || raw === "mgkg-1" || raw === "mg.kg-1") return 0;
+  // Keep ppm (and ug/g) selectable, but never pick them as the default label.
+  if (raw === "ppm" || raw === "ug/g") return 2;
   const normalized = normalizeUnitSymbol(unitSymbol);
-  if (normalized === normalizeUnitSymbol("mg/kg")) return 0;
-  if (normalized === normalizeUnitSymbol("ppm")) return 1;
-  return 2;
+  if (normalized === "mg/kg") return 1;
+  return 3;
 }
 
 function pickPreferredDisplayOption<
@@ -453,11 +538,30 @@ function pickPreferredDisplayOption<
   },
 >(options: T[], preferredDisplay: string, selectedUnitId?: number) {
   const normalizedPreferred = normalizeUnitSymbol(preferredDisplay);
+  const compactPreferred = compactUnitSymbol(preferredDisplay);
+
+  // Prefer an option whose visible label matches the preferred text literally
+  // (so "mg/kg" wins over "ppm" even though they are numerically equivalent).
   let candidates = options.filter(
     (unit) =>
-      normalizeUnitSymbol(unit.display_symbol || unit.unit_symbol) ===
-      normalizedPreferred
+      compactUnitSymbol(unit.display_symbol || unit.unit_symbol) === compactPreferred
   );
+
+  if (candidates.length === 0) {
+    candidates = options.filter(
+      (unit) =>
+        normalizeUnitSymbol(unit.display_symbol || unit.unit_symbol) ===
+        normalizedPreferred
+    );
+    // When preferring mg/kg, drop ppm labels if a true mg/kg label exists among matches.
+    if (normalizedPreferred === "mg/kg") {
+      const withoutPpm = candidates.filter((unit) => {
+        const raw = compactUnitSymbol(unit.display_symbol || unit.unit_symbol);
+        return raw !== "ppm" && raw !== "ug/g";
+      });
+      if (withoutPpm.length > 0) candidates = withoutPpm;
+    }
+  }
 
   if (selectedUnitId !== undefined) {
     const withUnit = candidates.filter((unit) => unit.unit_id === selectedUnitId);
@@ -476,7 +580,8 @@ function pickPreferredDisplayOption<
     [...candidates].sort(
       (left, right) =>
         massDisplayRank(left.display_symbol || left.unit_symbol) -
-        massDisplayRank(right.display_symbol || right.unit_symbol)
+          massDisplayRank(right.display_symbol || right.unit_symbol) ||
+        String(left.display_symbol || "").localeCompare(String(right.display_symbol || ""))
     )[0] || options[0]
   );
 }
@@ -950,6 +1055,7 @@ export default function HomePage() {
   const [savedAnalysisSignature, setSavedAnalysisSignature] = useState<
     string | null
   >(null);
+  const [queueTick, setQueueTick] = useState(0);
 
   const finalCountry = country === "Other" ? customCountry.trim() : country;
 
@@ -1053,6 +1159,96 @@ export default function HomePage() {
       })),
     });
   }
+
+  function buildSaveAnalysisInput(
+    userId: string,
+    sourceResults: InterpretationResult[] = results
+  ) {
+    return {
+      userId,
+      cropId: Number(cropId),
+      sampleType,
+      results: sourceResults.map((result) => ({
+        parameter_id: result.parameter_id,
+        custom_parameter_id: result.custom_parameter_id || null,
+        unit_id: result.unit_id,
+        value: result.value,
+        min: result.min,
+        max: result.max,
+        level_code: result.level_code,
+        final_group_code: result.final_group_code,
+        confidence: result.confidence,
+        is_proxy: result.is_proxy,
+        source_name: result.source_name,
+        advice: result.advice,
+      })),
+      farmName,
+      lotName,
+      labName,
+      analysisName,
+      samplingDate,
+      reportDate,
+      country: finalCountry || null,
+      provinceState,
+      editingRootAnalysisId,
+      editingNextVersionNumber,
+    };
+  }
+
+  function applySuccessfulSaveState(
+    signature: string,
+    result: { analysisId: number; versionNumber: number; isVersionSave: boolean }
+  ) {
+    if (result.isVersionSave) {
+      setSaveMessage(formatMessage(t.versionSaved, { version: result.versionNumber }));
+    } else {
+      setSaveMessage(t.analysisSaved);
+    }
+
+    setSavedAnalysisSignature(signature);
+    setEditingRootAnalysisId(editingRootAnalysisId || result.analysisId);
+    setEditingNextVersionNumber(
+      editingRootAnalysisId ? editingNextVersionNumber + 1 : 2
+    );
+    setPendingEditableAnalysis(null);
+  }
+
+  useEffect(() => {
+    return subscribeOfflineQueue(() => {
+      setQueueTick((current) => current + 1);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user || guestMode) return;
+
+    const userId = session.user.id;
+
+    async function syncQueuedAnalyses() {
+      if (!navigator.onLine) return;
+
+      const result = await flushOfflineAnalysisQueue(userId);
+      if (result.synced === 0) return;
+
+      setQueueTick((current) => current + 1);
+      setMessage(formatMessage(t.analysisSyncComplete, { count: result.synced }));
+
+      const signature = buildAnalysisSignature();
+      if (result.syncedSignatures.includes(signature)) {
+        setSavedAnalysisSignature(signature);
+        setSaveMessage(t.analysisSaved);
+      }
+    }
+
+    void syncQueuedAnalyses();
+
+    const onOnline = () => {
+      void syncQueuedAnalyses();
+    };
+
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [session?.user?.id, guestMode, t.analysisSyncComplete]);
 
   useEffect(() => {
     loadSession();
@@ -1411,8 +1607,17 @@ export default function HomePage() {
       }
 
       const normalizedPreferredDisplay = normalizeUnitSymbol(preferredDisplaySymbol);
+      const compactPreferredDisplay = compactUnitSymbol(preferredDisplaySymbol);
 
       options.sort((left, right) => {
+        const leftCompact = compactUnitSymbol(left.display_symbol);
+        const rightCompact = compactUnitSymbol(right.display_symbol);
+        const leftIsLiteralPreferred = leftCompact === compactPreferredDisplay;
+        const rightIsLiteralPreferred = rightCompact === compactPreferredDisplay;
+        if (leftIsLiteralPreferred !== rightIsLiteralPreferred) {
+          return leftIsLiteralPreferred ? -1 : 1;
+        }
+
         const leftIsPreferredDisplay =
           normalizeUnitSymbol(left.display_symbol) === normalizedPreferredDisplay;
         const rightIsPreferredDisplay =
@@ -1420,13 +1625,13 @@ export default function HomePage() {
         if (leftIsPreferredDisplay !== rightIsPreferredDisplay) {
           return leftIsPreferredDisplay ? -1 : 1;
         }
+        const leftMassRank = massDisplayRank(left.display_symbol);
+        const rightMassRank = massDisplayRank(right.display_symbol);
+        if (leftMassRank !== rightMassRank) return leftMassRank - rightMassRank;
         if (left.unit_id === preferredUnitId) return -1;
         if (right.unit_id === preferredUnitId) return 1;
         if (left.unit_id === baseUnitId) return -1;
         if (right.unit_id === baseUnitId) return 1;
-        const leftMassRank = massDisplayRank(left.display_symbol);
-        const rightMassRank = massDisplayRank(right.display_symbol);
-        if (leftMassRank !== rightMassRank) return leftMassRank - rightMassRank;
         return left.display_symbol.localeCompare(right.display_symbol);
       });
 
@@ -2122,6 +2327,16 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     if (interpretedResults.length === 0 && notFoundResults.length > 0) {
       setMessage(t.noRangeFoundDesc);
     }
+
+    if (
+      appSettings.data.autoSaveAnalyses &&
+      session?.user &&
+      !guestMode &&
+      cropId &&
+      interpretedResults.length > 0
+    ) {
+      void saveAnalysis(interpretedResults, { automatic: true });
+    }
     } catch (error) {
       console.error("interpretAnalysis:", error);
       setMessage(formatRequestError(error));
@@ -2130,177 +2345,90 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     }
   }
 
-  async function saveAnalysis() {
-    setSaveMessage("");
+  async function saveAnalysis(
+    sourceResults?: InterpretationResult[],
+    options?: { automatic?: boolean }
+  ) {
+    const activeResults = sourceResults ?? results;
+    const automatic = options?.automatic ?? false;
+
+    if (!automatic) {
+      setSaveMessage("");
+    }
 
     if (!session?.user || guestMode) {
-      setSaveMessage(t.loginToSave);
+      if (!automatic) {
+        setSaveMessage(t.loginToSave);
+      }
       return;
     }
 
     if (!cropId) {
-      setSaveMessage(t.selectCropMessage);
+      if (!automatic) {
+        setSaveMessage(t.selectCropMessage);
+      }
       return;
     }
 
-    if (results.length === 0) {
-      setSaveMessage(t.interpretBeforeSaving);
+    if (activeResults.length === 0) {
+      if (!automatic) {
+        setSaveMessage(t.interpretBeforeSaving);
+      }
       return;
     }
 
-    const signature = buildAnalysisSignature();
+    const signature = buildAnalysisSignature(activeResults);
+    const userId = session.user.id;
 
     if (savedAnalysisSignature === signature) {
-      setSaveMessage(t.analysisAlreadySaved);
+      if (!automatic) {
+        setSaveMessage(t.analysisAlreadySaved);
+      }
+      return;
+    }
+
+    if (isSignatureQueued(userId, signature)) {
+      if (!automatic) {
+        setSaveMessage(t.analysisAlreadyQueued);
+      }
+      return;
+    }
+
+    const saveInput = buildSaveAnalysisInput(userId, activeResults);
+
+    if (!navigator.onLine) {
+      enqueueAnalysisSave({
+        userId,
+        signature,
+        payload: saveInput,
+      });
+      setQueueTick((current) => current + 1);
+      setSaveMessage(t.analysisQueuedOffline);
       return;
     }
 
     setSaving(true);
 
-    const sampleTypeId = sampleType === "soil" ? 1 : 2;
-    const userId = session.user.id;
-
-    let farmId: number | null = null;
-    let lotId: number | null = null;
-    let labId: number | null = null;
-
-    if (farmName.trim()) {
-      const { data: farmData, error: farmError } = await supabase
-        .from("farms")
-        .insert({
-          user_id: userId,
-          farm_name: farmName.trim(),
-          location: [provinceState.trim(), finalCountry]
-            .filter(Boolean)
-            .join(", "),
-        })
-        .select("farm_id")
-        .single();
-
-      if (farmError) {
-        setSaving(false);
-        setSaveMessage(farmError.message);
-        return;
+    try {
+      const result = await saveAnalysisToSupabase(saveInput);
+      applySuccessfulSaveState(signature, result);
+    } catch (error) {
+      if (shouldQueueAnalysisSave(error)) {
+        enqueueAnalysisSave({
+          userId,
+          signature,
+          payload: saveInput,
+        });
+        setQueueTick((current) => current + 1);
+        setSaveMessage(t.analysisQueuedOffline);
+      } else {
+        setSaveMessage(
+          error instanceof Error ? error.message : formatRequestError(error)
+        );
       }
-
-      farmId = farmData.farm_id;
-    }
-
-    if (lotName.trim() && farmId) {
-      const { data: lotData, error: lotError } = await supabase
-        .from("lots")
-        .insert({
-          farm_id: farmId,
-          lot_name: lotName.trim(),
-        })
-        .select("lot_id")
-        .single();
-
-      if (lotError) {
-        setSaving(false);
-        setSaveMessage(lotError.message);
-        return;
-      }
-
-      lotId = lotData.lot_id;
-    }
-
-    if (labName.trim()) {
-      const { data: labData, error: labError } = await supabase
-        .from("labs")
-        .insert({
-          user_id: userId,
-          lab_name: labName.trim(),
-        })
-        .select("lab_id")
-        .single();
-
-      if (labError) {
-        setSaving(false);
-        setSaveMessage(labError.message);
-        return;
-      }
-
-      labId = labData.lab_id;
-    }
-
-    const { data: analysisData, error: analysisError } = await supabase
-      .from("analyses")
-      .insert({
-        user_id: userId,
-        crop_id: cropId,
-        sample_type_id: sampleTypeId,
-        farm_id: farmId,
-        lot_id: lotId,
-        lab_id: labId,
-        parent_analysis_id: editingRootAnalysisId,
-        version_number: editingRootAnalysisId ? editingNextVersionNumber : 1,
-        is_deleted: false,
-        analysis_name:
-          analysisName.trim() ||
-          `${sampleType} analysis - ${new Date().toLocaleDateString()}`,
-        sampling_date: samplingDate || getTodayIsoDate(),
-        report_date: reportDate || null,
-        country: finalCountry || null,
-        province_state: provinceState.trim() || null,
-        latitude: null,
-        longitude: null,
-        location_source: finalCountry || provinceState.trim() ? "manual" : null,
-        status: "completed",
-      })
-      .select("analysis_id")
-      .single();
-
-    if (analysisError) {
+    } finally {
       setSaving(false);
-      setSaveMessage(analysisError.message);
-      return;
     }
-
-    const analysisId = analysisData.analysis_id;
-
-    const valuesToInsert = results.map((result) => ({
-      analysis_id: analysisId,
-      parameter_id: result.parameter_id,
-      custom_parameter_id: result.custom_parameter_id || null,
-      unit_id: result.unit_id,
-      value: result.value,
-      min: result.min,
-      max: result.max,
-      level_code: result.level_code,
-      group_code: result.final_group_code,
-      confidence: result.confidence,
-      is_proxy: result.is_proxy,
-      source_name: result.source_name,
-      advice: result.advice,
-    }));
-
-    const { error: valuesError } = await supabase
-      .from("analysis_values")
-      .insert(valuesToInsert);
-
-    if (valuesError) {
-      setSaving(false);
-      setSaveMessage(valuesError.message);
-      return;
-    }
-
-    setSaving(false);
-
-    if (editingRootAnalysisId) {
-      setSaveMessage(
-        formatMessage(t.versionSaved, { version: editingNextVersionNumber })
-      );
-    } else {
-      setSaveMessage(t.analysisSaved);
-    }
-
-    setSavedAnalysisSignature(signature);
-    setEditingRootAnalysisId(editingRootAnalysisId || analysisId);
-    setEditingNextVersionNumber(
-      editingRootAnalysisId ? editingNextVersionNumber + 1 : 2
-    );
-    setPendingEditableAnalysis(null);
   }
 
   const groupedResults = useMemo(() => {
@@ -2320,8 +2448,16 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
   }, [results]);
 
   const currentAnalysisSignature = buildAnalysisSignature(results);
+  const isCurrentAnalysisQueued = Boolean(
+    session?.user &&
+      isSignatureQueued(session.user.id, currentAnalysisSignature)
+  );
   const isCurrentAnalysisSaved =
     results.length > 0 && savedAnalysisSignature === currentAnalysisSignature;
+  const pendingOfflineSaves = useMemo(
+    () => (session?.user ? getOfflineQueueCount(session.user.id) : 0),
+    [session?.user?.id, queueTick]
+  );
 
   const textureSummary = useMemo<TextureSummary | null>(() => {
     function findTextureValue(keywords: string[]) {
@@ -2387,19 +2523,27 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     }
 
     if (search) {
-      list = list.filter((parameter) => {
-        const displayName = parameter.display_name.toLowerCase();
-        const baseName = parameter.parameter_name.toLowerCase();
-        const symbol = parameter.symbol?.toLowerCase() || "";
-        const category = parameter.category?.toLowerCase() || "";
+      const ranked = list
+        .map((parameter) => ({
+          parameter,
+          rank: getParameterSearchRank(parameter, search),
+        }))
+        .filter((entry) => entry.rank !== null) as Array<{
+        parameter: Parameter;
+        rank: number;
+      }>;
 
-        return (
-          displayName.includes(search) ||
-          baseName.includes(search) ||
-          symbol.includes(search) ||
-          category.includes(search)
-        );
+      ranked.sort((a, b) => {
+        if (a.rank !== b.rank) return a.rank - b.rank;
+        if (sortMode === "type") {
+          const typeCompare =
+            getParameterSortRank(a.parameter) - getParameterSortRank(b.parameter);
+          if (typeCompare !== 0) return typeCompare;
+        }
+        return a.parameter.display_name.localeCompare(b.parameter.display_name);
       });
+
+      return ranked.map((entry) => entry.parameter);
     }
 
     if (sortMode === "name") {
@@ -2515,7 +2659,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
   if (!hasAccess) {
     return (
-      <main className="app-main-gradient auth-page flex flex-col text-slate-900">
+      <main className="app-main-gradient auth-page flex flex-col">
         <div className="app-main-backdrop" aria-hidden="true" />
         <header className="auth-top-bar">
           <LanguageSwitcher
@@ -2524,12 +2668,12 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             compact
           />
         </header>
-        <div className="auth-page__content relative flex flex-1 items-center justify-center px-4 py-6 sm:py-8">
+        <div className="auth-page__content relative flex flex-1 items-center justify-center px-3 py-4 sm:px-4 sm:py-8">
           <LoadingOverlay
             open={isBusy}
             label={loading ? t.interpreting : t.saving}
           />
-          <section className="app-content-shell w-full animate-slide-up">
+          <section className="app-content-shell auth-page__shell w-full animate-slide-up">
             <AuthPanel
               t={t}
               language={language}
@@ -2723,6 +2867,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                 saveMessage={saveMessage}
                 saveAnalysis={saveAnalysis}
                 isSaved={isCurrentAnalysisSaved}
+                isQueued={isCurrentAnalysisQueued}
+                pendingOfflineSaves={pendingOfflineSaves}
                 reportMeta={{
                   title:
                     analysisName.trim() ||
@@ -2769,6 +2915,21 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             results={results}
             sampleType={sampleType}
             selectedCropName={selectedCrop?.display_name || selectedCrop?.crop_name || null}
+            parameterUnits={Object.fromEntries(
+              parameters.map((parameter) => {
+                const { selectedUnit } = resolveParameterUnitState(
+                  parameter,
+                  selectedUnits,
+                  selectedUnitDisplayKeys
+                );
+                return [
+                  parameter.parameter_key,
+                  selectedUnit?.canonical_symbol ||
+                    selectedUnit?.unit_symbol ||
+                    parameter.unit_symbol,
+                ];
+              })
+            )}
             goToValues={() => setCurrentStep("values")}
             onBack={() => setCurrentStep("home")}
             onOutputsChange={setCalculatorOutputs}
@@ -3592,42 +3753,17 @@ function ValuesScreen({
                         aria-label={`${label.primary} ${t.valueLabel}`}
                       />
                       {parameter.available_units.length > 1 ? (
-                        <select
-                          value={selectedUnitDisplayKey}
-                          onChange={(event) => {
-                            const unit = parameter.available_units.find(
-                              (option) =>
-                                getUnitOptionKey(option) === event.target.value
-                            );
-                            if (!unit) return;
-                            updateUnit(
-                              parameter.parameter_key,
-                              unit.unit_id,
-                              getUnitOptionKey(unit)
-                            );
-                          }}
-                          className="app-native-select values-unit-inline min-h-11 w-full min-w-0 px-2 py-2 text-base sm:px-3 sm:text-sm"
-                          title={t.changeUnit}
-                          aria-label={`${label.primary} ${t.unitLabel}`}
-                        >
-                          {parameter.available_units.map((unit) => {
-                            const canConvert =
-                              !selectedUnit ||
-                              canConvertLabUnit(
-                                getUnitSymbolForConversion(selectedUnit),
-                                getUnitSymbolForConversion(unit)
-                              );
-                            return (
-                              <option
-                                key={getUnitOptionKey(unit)}
-                                value={getUnitOptionKey(unit)}
-                                disabled={!canConvert}
-                              >
-                                {unit.display_symbol || unit.unit_symbol}
-                              </option>
-                            );
-                          })}
-                        </select>
+                        <ParameterUnitPicker
+                          units={parameter.available_units}
+                          selectedUnit={selectedUnit}
+                          selectedDisplayKey={selectedUnitDisplayKey}
+                          getUnitOptionKey={getUnitOptionKey}
+                          dedupeUnitOptions={dedupeUnitOptions}
+                          changeUnitLabel={t.changeUnit}
+                          onChange={(unitId, displayKey) =>
+                            updateUnit(parameter.parameter_key, unitId, displayKey)
+                          }
+                        />
                       ) : (
                         <span
                           className="values-unit-inline"
@@ -3721,42 +3857,18 @@ function ValuesScreen({
                     </td>
                     <td className="values-table-cell values-table-cell--unit px-2.5 py-1.5 align-middle sm:px-3">
                       {parameter.available_units.length > 1 ? (
-                        <select
-                          value={selectedUnitDisplayKey}
-                          onChange={(event) => {
-                            const unit = parameter.available_units.find(
-                              (option) =>
-                                getUnitOptionKey(option) === event.target.value
-                            );
-                            if (!unit) return;
-                            updateUnit(
-                              parameter.parameter_key,
-                              unit.unit_id,
-                              getUnitOptionKey(unit)
-                            );
-                          }}
-                          className="app-native-select values-table-unit-select w-full min-w-0"
-                          title={t.changeUnit}
-                          aria-label={`${displayParameterLabel} ${t.unitLabel}`}
-                        >
-                          {parameter.available_units.map((unit) => {
-                            const canConvert =
-                              !selectedUnit ||
-                              canConvertLabUnit(
-                                getUnitSymbolForConversion(selectedUnit),
-                                getUnitSymbolForConversion(unit)
-                              );
-                            return (
-                              <option
-                                key={getUnitOptionKey(unit)}
-                                value={getUnitOptionKey(unit)}
-                                disabled={!canConvert}
-                              >
-                                {unit.display_symbol || unit.unit_symbol}
-                              </option>
-                            );
-                          })}
-                        </select>
+                        <ParameterUnitPicker
+                          units={parameter.available_units}
+                          selectedUnit={selectedUnit}
+                          selectedDisplayKey={selectedUnitDisplayKey}
+                          getUnitOptionKey={getUnitOptionKey}
+                          dedupeUnitOptions={dedupeUnitOptions}
+                          changeUnitLabel={t.changeUnit}
+                          compact
+                          onChange={(unitId, displayKey) =>
+                            updateUnit(parameter.parameter_key, unitId, displayKey)
+                          }
+                        />
                       ) : (
                         <span
                           className="values-unit-inline"
@@ -4410,6 +4522,8 @@ function ResultsSection({
   saveMessage,
   saveAnalysis,
   isSaved,
+  isQueued,
+  pendingOfflineSaves,
   reportMeta,
   isGeneralCrop,
   showFoliarExtractionPicker,
@@ -4433,8 +4547,10 @@ function ResultsSection({
   t: (typeof translations)[Language];
   saving: boolean;
   saveMessage: string;
-  saveAnalysis: () => void;
+  saveAnalysis: () => void | Promise<void>;
   isSaved: boolean;
+  isQueued: boolean;
+  pendingOfflineSaves: number;
   reportMeta: {
     title?: string;
     details?: string[];
@@ -4688,16 +4804,22 @@ function ResultsSection({
         <div className="app-content-shell px-4 py-3">
           <button
             type="button"
-            onClick={saveAnalysis}
-            disabled={saving || results.length === 0 || isSaved}
+            onClick={() => void saveAnalysis()}
+            disabled={saving || results.length === 0 || isSaved || isQueued}
             className={`flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${
-              isSaved
+              isSaved || isQueued
                 ? "bg-[#f2f2f2] text-[#aeaeb2]"
                 : "bg-green-700 text-white hover:bg-green-800"
             }`}
           >
             <Save size={18} />
-            {saving ? t.saving : isSaved ? t.analysisSavedState : t.saveAnalysis}
+            {saving
+              ? t.saving
+              : isSaved
+                ? t.analysisSavedState
+                : isQueued
+                  ? t.analysisQueuedState
+                  : t.saveAnalysis}
           </button>
         </div>
       </div>

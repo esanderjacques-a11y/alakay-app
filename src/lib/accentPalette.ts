@@ -203,21 +203,19 @@ export function buildAccentCssVariables(
     "--dark-disabled-bg": isBlackDark ? "rgb(0 0 0 / 0.72)" : "rgb(255 255 255 / 0.03)",
     "--auth-card-bg": isDark
       ? isBlackDark
-        ? "linear-gradient(180deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.045))"
-        : "linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.09))"
-      : "linear-gradient(180deg, rgb(255 255 255 / 0.34), rgb(255 255 255 / 0.22))",
-    "--auth-card-border": isDark
-      ? (isBlackDark ? "rgb(255 255 255 / 0.16)" : "rgb(255 255 255 / 0.18)")
-      : "rgb(255 255 255 / 0.52)",
+        ? "rgb(255 255 255 / 0.085)"
+        : withAlpha(darkSurface, 0.82)
+      : "rgb(var(--accent-100-rgb) / 0.76)",
+    "--auth-card-border": isDark ? darkBorder : withAlpha(scale[200], 0.85),
     "--auth-card-shadow": isDark
       ? (isBlackDark ? "0 20px 52px rgba(0, 0, 0, 0.48)" : "0 18px 44px rgba(0, 0, 0, 0.3)")
-      : "0 18px 46px rgba(21, 128, 61, 0.12)",
+      : `0 8px 32px rgba(${glow.r}, ${glow.g}, ${glow.b}, 0.14)`,
     "--auth-chip-bg": isDark
       ? (isBlackDark ? "rgb(8 8 8 / 0.82)" : withAlpha(scale[900], 0.34))
-      : "rgb(255 255 255 / 0.42)",
+      : "rgb(var(--accent-50-rgb) / 0.68)",
     "--auth-chip-border": isDark
       ? (isBlackDark ? "rgb(255 255 255 / 0.16)" : "rgb(255 255 255 / 0.2)")
-      : "rgb(255 255 255 / 0.5)",
+      : withAlpha(scale[200], 0.85),
     "--glass-border": isDark
       ? darkBorder
       : withAlpha(scale[200], 0.85),

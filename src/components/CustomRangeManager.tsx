@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { Edit3, PlusCircle, RefreshCw, Trash2 } from "lucide-react";
 
 import AppModal from "@/components/AppModal";
+import MenuSelect from "@/components/ui/MenuSelect";
 import { supabase } from "@/lib/supabase";
 import { Language } from "@/lib/translations";
 import { customRangeManagerText } from "@/lib/i18n/componentText";
@@ -602,100 +603,96 @@ export default function CustomRangeManager({
         </div>
 
         <div className="app-modal-fields">
-          <label className="app-modal-field">
-            <span className="app-modal-label">{l.parameterType}</span>
-            <select
-              className="app-native-select"
-              value={parameterType}
-              onChange={(event) => {
-                setParameterType(event.target.value as "official" | "custom");
-                setSelectedParameterId("");
-                setUnitId("");
-              }}
-            >
-              <option value="official">{l.official}</option>
-              <option value="custom">{l.custom}</option>
-            </select>
-          </label>
+          <MenuSelect
+            label={l.parameterType}
+            value={parameterType}
+            heading={l.parameterType}
+            variant="field"
+            onChange={(next) => {
+              setParameterType(next as "official" | "custom");
+              setSelectedParameterId("");
+              setUnitId("");
+            }}
+            options={[
+              ["official", l.official],
+              ["custom", l.custom],
+            ]}
+          />
 
-          <label className="app-modal-field">
-            <span className="app-modal-label">{l.parameter}</span>
-            <select
-              className="app-native-select"
-              value={selectedParameterId}
-              onChange={(event) =>
-                selectParameter(
-                  event.target.value ? Number(event.target.value) : ""
-                )
-              }
-            >
-              <option value="">{l.selectParameter}</option>
-              {parameterOptions.map((parameter) => (
-                <option key={parameter.id} value={parameter.id}>
-                  {parameter.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <MenuSelect
+            label={l.parameter}
+            value={selectedParameterId === "" ? "" : String(selectedParameterId)}
+            heading={l.parameter}
+            variant="field"
+            placeholder={l.selectParameter}
+            onChange={(next) =>
+              selectParameter(next ? Number(next) : "")
+            }
+            options={[
+              { value: "", label: l.selectParameter },
+              ...parameterOptions.map((parameter) => ({
+                value: String(parameter.id),
+                label: parameter.name,
+              })),
+            ]}
+          />
 
-          <label className="app-modal-field">
-            <span className="app-modal-label">{l.cropScope}</span>
-            <select
-              className="app-native-select"
-              value={cropScope}
-              onChange={(event) =>
-                selectCropScope(
-                  event.target.value as "general" | "current" | "specific"
-                )
-              }
-            >
-              <option value="general">{l.generalRange}</option>
-              <option value="current" disabled={!currentCropId}>
-                {l.currentCrop}
-              </option>
-              <option value="specific">{l.specificCrop}</option>
-            </select>
-          </label>
+          <MenuSelect
+            label={l.cropScope}
+            value={cropScope}
+            heading={l.cropScope}
+            variant="field"
+            onChange={(next) =>
+              selectCropScope(next as "general" | "current" | "specific")
+            }
+            options={[
+              { value: "general", label: l.generalRange },
+              {
+                value: "current",
+                label: l.currentCrop,
+                disabled: !currentCropId,
+              },
+              { value: "specific", label: l.specificCrop },
+            ]}
+          />
 
           {cropScope === "specific" ? (
-            <label className="app-modal-field">
-              <span className="app-modal-label">{l.crop}</span>
-              <select
-                className="app-native-select"
-                value={selectedCropId}
-                onChange={(event) =>
-                  setSelectedCropId(
-                    event.target.value ? Number(event.target.value) : ""
-                  )
-                }
-              >
-                <option value="">{l.selectCrop}</option>
-                {crops.map((crop) => (
-                  <option key={crop.crop_id} value={crop.crop_id}>
-                    {crop.crop_name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <MenuSelect
+              label={l.crop}
+              value={selectedCropId === "" ? "" : String(selectedCropId)}
+              heading={l.crop}
+              variant="field"
+              placeholder={l.selectCrop}
+              onChange={(next) =>
+                setSelectedCropId(next ? Number(next) : "")
+              }
+              options={[
+                { value: "", label: l.selectCrop },
+                ...crops.map((crop) => ({
+                  value: String(crop.crop_id),
+                  label: crop.crop_name,
+                })),
+              ]}
+            />
           ) : null}
 
-          <label className="app-modal-field">
-            <span className="app-modal-label">{l.unit}</span>
-            <select
-              className="app-native-select"
-              value={unitId}
-              onChange={(event) =>
-                setUnitId(event.target.value ? Number(event.target.value) : "")
-              }
-            >
-              <option value="">{l.selectUnit}</option>
-              {units.map((unit) => (
-                <option key={unit.unit_id} value={unit.unit_id}>
-                  {unit.unit_symbol}
-                </option>
-              ))}
-            </select>
-          </label>
+          <MenuSelect
+            label={l.unit}
+            value={unitId === "" ? "" : String(unitId)}
+            heading={l.unit}
+            variant="field"
+            placeholder={l.selectUnit || "Select unit"}
+            onChange={(next) =>
+              setUnitId(next ? Number(next) : "")
+            }
+            options={[
+              { value: "", label: l.selectUnit || "Select unit" },
+              ...units.map((unit) => ({
+                value: String(unit.unit_id),
+                label: unit.unit_symbol,
+              })),
+            ]}
+          />
 
           <label className="app-modal-field">
             <span className="app-modal-label">{l.min}</span>

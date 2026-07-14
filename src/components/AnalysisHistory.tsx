@@ -9,12 +9,12 @@ import {
   GitBranch,
   RefreshCw,
   RotateCcw,
-  ArrowUpDown,
   Trash2,
   X,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import MenuSelect from "@/components/ui/MenuSelect";
 import {
   backfillMissingDeletedAt,
   deleteAnalysisPermanently,
@@ -768,24 +768,20 @@ export default function AnalysisHistory({
         </div>
 
         <div className="flex shrink-0 gap-1">
-          <label className="relative" title={l.sortBy} aria-label={l.sortBy}>
-            <select
-              value={sortKey}
-              onChange={(event) => setSortKey(event.target.value as HistorySortKey)}
-              className="history-sort-select pr-7"
-            >
-              <option value="date">{l.date}</option>
-              <option value="name">{l.name}</option>
-              <option value="crop">{l.crop}</option>
-              <option value="type">{l.sampleType}</option>
-              <option value="location">{l.location}</option>
-            </select>
-            <ArrowUpDown
-              aria-hidden="true"
-              size={14}
-              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#aeaeb2]"
-            />
-          </label>
+          <MenuSelect
+            value={sortKey}
+            heading={l.sortBy}
+            compact
+            variant="chip"
+            onChange={(next) => setSortKey(next as HistorySortKey)}
+            options={[
+              ["date", l.date],
+              ["name", l.name],
+              ["crop", l.crop],
+              ["type", l.sampleType],
+              ["location", l.location],
+            ]}
+          />
           <button
             type="button"
             title={sortDirection === "asc" ? l.ascending : l.descending}

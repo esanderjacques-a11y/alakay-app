@@ -1,3 +1,8 @@
+import {
+  TABLE_1_BY_EXTRACTANT,
+  type Extractant,
+} from "@/lib/soilFertilityTables";
+
 export type ExtractionMethod = "general" | "olsen" | "mehlich" | "bray";
 
 export const EXTRACTION_METHOD_OPTIONS: ExtractionMethod[] = [
@@ -7,14 +12,23 @@ export const EXTRACTION_METHOD_OPTIONS: ExtractionMethod[] = [
   "bray",
 ];
 
-/** General crop (999) on setup — no Bray */
-export const GENERAL_CROP_EXTRACTION_OPTIONS: ExtractionMethod[] = [
+/**
+ * Soil / foliar setup & values — always available for every crop (including General):
+ * crop-specific sufficiency ranges (`general`), Olsen, Mehlich.
+ */
+export const SOIL_EXTRACTION_OPTIONS: ExtractionMethod[] = [
   "general",
   "olsen",
   "mehlich",
 ];
 
-/** Skip crop + foliar on values — Olsen or Mehlich only */
+/** Same chips for foliar analyses. */
+export const FOLIAR_EXTRACTION_OPTIONS: ExtractionMethod[] = SOIL_EXTRACTION_OPTIONS;
+
+/** @deprecated Prefer SOIL_EXTRACTION_OPTIONS — same list, kept for callers. */
+export const GENERAL_CROP_EXTRACTION_OPTIONS = SOIL_EXTRACTION_OPTIONS;
+
+/** @deprecated Prefer FOLIAR_EXTRACTION_OPTIONS (includes General too). */
 export const FOLIAR_SKIP_CROP_EXTRACTION_OPTIONS: ExtractionMethod[] = [
   "olsen",
   "mehlich",
@@ -43,7 +57,7 @@ function normalizeToken(value: string) {
     .trim();
 }
 
-function isPhosphorusParameter(parameter: ParameterLike) {
+export function isPhosphorusParameter(parameter: ParameterLike) {
   const haystack = normalizeToken(
     `${parameter.parameter_name} ${parameter.display_name} ${parameter.symbol || ""}`
   );
@@ -54,8 +68,44 @@ export function getDefaultExtractionMethod(input: {
   isGeneralCrop: boolean;
   sampleType: "soil" | "foliar";
 }): ExtractionMethod {
-  if (!input.isGeneralCrop) return "general";
-  return input.sampleType === "foliar" ? "mehlich" : "olsen";
+  // Prefer method-specific P ranges by default for foliar and for General soil.
+  if (input.sampleType === "foliar") return "mehlich";
+  if (input.isGeneralCrop) return "olsen";
+  return "general";
+}
+
+export function extractionMethodToExtractant(
+  method: ExtractionMethod
+): Extractant | null {
+  if (method === "olsen") return "olsen_kcl";
+  if (method === "mehlich") return "mehlich3";
+  return null;
+}
+
+/** Tabla N.° 1 phosphate adequate band for the selected extractant. */
+export function table1PhosphorusSufficientRange(method: ExtractionMethod): {
+  min: number;
+  max: number;
+  unit: string;
+  extractant: Extractant;
+  sourceName: string;
+} | null {
+  const extractant = extractionMethodToExtractant(method);
+  if (!extractant) return null;
+  const row = TABLE_1_BY_EXTRACTANT[extractant].find(
+    (item) => item.parameter === "p"
+  );
+  if (!row) return null;
+  return {
+    min: row.adequateMin,
+    max: row.adequateMax,
+    unit: row.unit || "mg/kg",
+    extractant,
+    sourceName:
+      extractant === "olsen_kcl"
+        ? "Tabla N.° 1 — Olsen Modificado / KCl 1N"
+        : "Tabla N.° 1 — Mehlich III",
+  };
 }
 
 export function resolveInterpretationParameter(
@@ -84,4 +134,23 @@ export function extractionMethodUsesGeneralFallback(
   resolved: ParameterLike
 ) {
   return isPhosphorusParameter(parameter) && resolved.parameter_id === parameter.parameter_id;
+}
+
+/**
+ * Prefer Tabla 1 Olsen/Mehlich P bands for soil when the crop is General or the
+ * method-specific catalog parameter has no dedicated range.
+ * Foliar keeps DB / method-specific catalog ranges only (no soil Tabla 1).
+ */
+export function shouldApplyTable1PhosphorusRange(input: {
+  extractionMethod: ExtractionMethod;
+  isGeneralCrop: boolean;
+  parameter: ParameterLike;
+  resolved: ParameterLike;
+  sampleType?: "soil" | "foliar";
+}) {
+  if (input.sampleType === "foliar") return false;
+  if (!isPhosphorusParameter(input.parameter)) return false;
+  if (!extractionMethodToExtractant(input.extractionMethod)) return false;
+  if (input.isGeneralCrop) return true;
+  return extractionMethodUsesGeneralFallback(input.parameter, input.resolved);
 }

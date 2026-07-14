@@ -101,6 +101,10 @@
   labName: "Nom du laboratoire",
   farmName: "Nom de la ferme",
   lotName: "Nom / numéro de parcelle",
+  selectFarm: "Sélectionner une ferme",
+  newFarm: "Nouvelle ferme",
+  addLot: "Ajouter une autre parcelle",
+  noLots: "Cette ferme ne contient encore aucune parcelle enregistrée.",
   skip: "Passer",
   date: "Date",
   generalCropOther: "Général",
@@ -127,6 +131,7 @@
   enterValuesHelp:
     "Remplissez seulement les paramètres présents dans votre rapport. Utilisez l'unité indiquée à côté de chaque paramètre.",
   interpretAnalysis: "Interpréter l'analyse",
+  interpretShort: "Voir les résultats",
   interpreting: "Interprétation...",
   valuePlaceholder: "Entrer la valeur",
   selectCropFirst:
@@ -210,7 +215,8 @@
   selectCropMessage: "Sélectionnez d'abord une culture.",
   skipCropHint: "Vous pouvez choisir la culture plus tard sur l'écran des valeurs.",
   selectCropOnValues: "Choisissez la culture quand vous voulez.",
-  foliarExtractionHint: "Choisissez Olsen ou Mehlich pour le phosphore foliaire.",
+  foliarExtractionHint:
+    "Choisissez les plages de suffisance de la culture, Olsen ou Mehlich pour l'interprétation du phosphore foliaire.",
   enterOneValueMessage: "Entrez au moins une valeur du laboratoire.",
   noCropsLoaded:
     "Aucune culture chargée. Vérifiez l'accès à la base de données ou l'importation CSV.",
@@ -220,12 +226,38 @@
   generalReferenceMode:
     "Mode référence générale : ces plages sont approximatives.",
   generalReferenceModeTitle: "Mode référence générale",
-  extractionMethodLabel: "Méthode d'extraction du phosphore",
-  extractionMethodGeneral: "Général",
+  extractionMethodLabel: "Suffisance / extraction",
+  extractionMethodGeneral: "Spécifique à la culture",
+  extractionMethodCropSpecific: "Spécifique à la culture",
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
   extractionMethodActive: "Plages P : {method}",
+  generalCropExtractionHint:
+    "Choisissez les plages de suffisance Générales, ou Olsen / Mehlich (Tabla N.° 1) pour le phosphore.",
+  soilExtractionHint:
+    "Choisissez les plages de suffisance de la culture, ou Olsen / Mehlich pour les bandes de phosphore selon la méthode.",
+  exportGeneralCropExtractionNote:
+    "Culture générale avec {method} : les plages de suffisance du phosphore suivent la Tabla N.° 1 ({method}).",
+  exportExtractionMethodNote:
+    "Les plages de suffisance du phosphore utilisent les bandes d'extractant {method} quand les plages spécifiques à la culture manquent.",
+  exportFoliarExtractionNote:
+    "Analyse foliaire avec {method} : l'interprétation du phosphore privilégie les plages liées à {method} si disponibles.",
+  exportRecommendationsHint:
+    "Liste d'actions à la fin du rapport (sans formules).",
+  exportSectionFertilizerProducts: "Engrais et prix",
+
+  exportFertilizerPriceNote:
+    "Les prix sont ceux des sacs fournisseur ou des références en ligne si disponibles.",
+  exportFertilizerColProduct: "Produit",
+  exportFertilizerColGrade: "Formule",
+  exportFertilizerColRate: "Dose",
+  exportFertilizerColPrice: "Prix",
+  exportFertilizerColCost: "Coût/ha",
+  exportFertilizerTotalCost: "Total estimé",
+  exportSectionRecommendations: "Recommandations",
+  exportSectionFertilizerPlan: "Produits fertilisants",
+  fertilizerProductsTitle: "Engrais commerciaux et prix",
 
   noResultsYet: "Aucun résultat pour le moment",
   noResultsYetDesc:
@@ -287,11 +319,11 @@
   adviceBulkDensityOk:
     "La densité apparente est dans une plage acceptable pour de nombreux sols agricoles.",
   advicePhLow:
-    "Le pH du sol est bas. Cela peut réduire la disponibilité des nutriments et augmenter le risque de toxicité de l'aluminium. Confirmez l'acidité avant d'appliquer de la chaux.",
+    "Le pH du sol est bas. Cela peut réduire la disponibilité des nutriments et augmenter le risque de toxicité de l'aluminium. Vérifiez la saturation en bases (CICe) avant de chauler — recommandez chaux ou gypse seulement si V% ou les saturations sont hors de la plage suffisante.",
   advicePhHigh:
-    "Le pH du sol est élevé. Certains nutriments peuvent devenir moins disponibles. Évitez un chaulage inutile et vérifiez la tolérance de la culture.",
+    "Le pH du sol est élevé. Certains nutriments peuvent devenir moins disponibles. Évitez un chaulage inutile ; si une acidification est nécessaire, envisagez du soufre élémentaire et vérifiez la tolérance de la culture.",
   advicePhOk:
-    "Le pH du sol est dans la plage attendue pour cette culture ou cette référence.",
+    "Le pH du sol est dans la plage attendue pour cette culture ou cette référence. Le pH seul n'indique ni chaux ni soufre.",
   adviceEcVeryHigh:
     "La conductivité électrique est élevée. Cela suggère un risque de salinité. Vérifiez la qualité de l'eau d'irrigation, le drainage, le sodium et l'accumulation de sels avant correction.",
   adviceEcHigh:
@@ -299,15 +331,15 @@
   adviceEcOk:
     "La conductivité électrique n'indique pas de risque majeur de salinité selon la référence actuelle.",
   adviceSodiumHigh:
-    "Le sodium est sodique/problématique (>1.0 cmol(+)/kg). Il peut affecter la structure du sol, l'infiltration et le développement racinaire. Vérifiez CE, SAR/ESP si disponible, calcium, drainage et besoin éventuel de gypse.",
+    "Le sodium est sodique/problématique (>1.0 cmol(+)/kg). Il peut affecter la structure du sol, l'infiltration et le développement racinaire. Vérifiez CE, SAR/ESP si disponible, calcium, drainage et besoin en gypse.",
   adviceSodiumVeryHigh:
     "Le sodium est très sodique (>2.0 cmol(+)/kg). Des problèmes sévères de structure et d'infiltration sont probables. Vérifiez CE, SAR/ESP, drainage, calcium et besoin en gypse en priorité.",
   adviceSodiumModerate:
     "Le sodium est légèrement élevé (0.5-1.0 cmol(+)/kg). Surveillez la CE et le risque structural, surtout en sols sensibles.",
   adviceSodiumOk:
-    "Le sodium est dans la zone sûre (<0.5 cmol(+)/kg) selon la référence actuelle.",
+    "Le sodium est dans la zone sûre (<0.5 cmol(+)/kg) selon la référence actuelle. Le sodium seul n'indique pas d'amendement de gypse.",
   adviceAluminumHigh:
-    "L'aluminium est élevé. Il peut endommager les racines dans les sols acides et réduire l'absorption des nutriments. Vérifiez le pH et les options de correction de l'acidité comme le chaulage.",
+    "L'aluminium est élevé. Il peut endommager les racines dans les sols acides et réduire l'absorption des nutriments. Confirmez la saturation en bases (CICe) et l'acidité — chaulage seulement si V% ou la saturation en Ca est hors de la plage suffisante.",
   adviceAluminumOk:
     "L'aluminium est dans la plage attendue selon la référence actuelle.",
   adviceLow:
@@ -523,17 +555,54 @@
   featureRequestSending: "Envoi...",
   featureRequestSuccess: "Merci ! Votre demande a été envoyée.",
   featureRequestError: "Impossible d'envoyer votre demande.",
-  exportReportTitle: "Exporter le rapport",
-  exportReportDesc: "Choisissez les sections à inclure dans le PDF.",
-  exportSectionLogo: "Logo et en-tête",
+  exportReportTitle: "Télécharger le PDF résumé",
+  exportReportDesc:
+    "Choisissez le contenu. Ce rapport est un résumé à partager — il n'inclut pas les étapes de calcul.",
+  exportSectionCover: "Couverture (détails de l'analyse)",
+  exportSectionSoilStatus: "Résumé de l'état du sol",
+  exportSectionLogo: "Logo",
   exportSectionSummary: "Cartes résumé",
-  exportSectionInterpretation: "Résultats d'interprétation",
+  exportSectionInterpretation: "Détail complet des paramètres",
   exportSectionMissing: "Valeurs manquantes / sans plage",
   exportSectionTexture: "Texture du sol",
   exportSectionCalculations: "Résultats des calculateurs",
   exportSectionLabValues: "Valeurs labo originales",
   exportSectionDop: "DOP (foliaire)",
   exportSectionRatios: "Ratios nutritifs",
+  exportChecklistTitle: "Avant d'exporter",
+  exportChecklistHint:
+    "Certains détails manquent. Vous pouvez continuer — le PDF omettra les champs vides.",
+  exportContinueAnyway: "Continuer quand même",
+  exportDownloadSummary: "Télécharger le PDF résumé",
+  exportNoStepsDisclaimer:
+    "Ce PDF est un résumé à partager ; il n'inclut pas les étapes de calcul.",
+  exportSoilStatusLow: "Bas / à surveiller",
+  exportSoilStatusOk: "Adéquat",
+  exportSoilStatusHigh: "Élevé / excès",
+  exportGeneratedBy: "Généré par",
+  exportAnalysisName: "Analyse",
+  exportFarm: "Ferme",
+  exportLots: "Parcelle(s)",
+  exportPlace: "Lieu",
+  exportLab: "Labo",
+  exportDate: "Date",
+  exportCrop: "Culture",
+  exportMissingAnalysisName: "Nom d'analyse non défini",
+  exportMissingFarm: "Ferme non définie",
+  exportMissingLots: "Parcelle non définie",
+  exportMissingPlace: "Lieu / pays non défini",
+  exportMissingGenerator: "Nom du générateur indisponible",
+  exportMissingCalculators:
+    "Pas encore de réponses de calculateurs — ouvrez Calculateurs, lancez un outil, puis exportez à nouveau",
+  exportMissingResults: "Pas encore de résultats interprétés",
+  exportGroupSummary: "Résumé de l'analyse",
+  exportGroupCalculators: "Réponses des calculateurs",
+  exportGroupOptional: "Détails optionnels",
+  exportCalculatorsEmptyHint:
+    "Ouvrez Calculateurs, lancez les outils dont vous avez besoin, puis revenez ici. Leurs réponses apparaîtront comme sections optionnelles.",
+  exportOpenCalculators: "Ouvrir Calculateurs",
+  exportCalculatorAnswerOne: "1 réponse",
+  exportCalculatorAnswersCount: "{count} réponses",
   exportSelectAll: "Toutes les sections",
   exportSelectNone: "Aucune",
   exportCancel: "Annuler",

@@ -1,11 +1,12 @@
-﻿"use client";
+"use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Activity,
   BarChart3,
   Calculator,
+  CircleDollarSign,
   Download,
   Droplets,
   FlaskConical,
@@ -25,8 +26,11 @@ import {
   type CalculationOutput,
   type CalculatorValue,
 } from "@/lib/agronomicCalculators";
+import type { CalculatorOutputPack, PdfFertilizerProduct } from "@/lib/pdfReport";
+import { buildRecommendedFertilizerReport } from "@/lib/fertilizerReportPayload";
 import PhAmendmentCalculator from "@/components/PhAmendmentCalculator";
 import FertilizerPlanCalculator from "@/components/FertilizerPlanCalculator";
+import FertilizerProductPlanner from "@/components/FertilizerProductPlanner";
 import MenuSelect from "@/components/ui/MenuSelect";
 import type { Language } from "@/lib/translations";
 import { calculatorHubText } from "@/lib/i18n/componentText";
@@ -58,13 +62,18 @@ import {
   type CicRatioBand,
   type CicSaturationBand,
 } from "@/lib/cicInterpretation";
-import type {
-  CicRatioRangeTable,
-  CicSaturationBandTable,
+import type { FertilityDoseResult } from "@/lib/soilFertilityPlan";
+import {
+  TABLE_7_IRRIGATION_EFFICIENCY,
+  type CicRatioRangeTable,
+  type CicSaturationBandTable,
+  type IrrigationEfficiencyTable,
+  type IrrigationSystem,
 } from "@/lib/soilFertilityTables";
 import { useViewLayoutPreference } from "@/hooks/useViewLayoutPreference";
 import { ViewLayoutToggle } from "@/components/ui/ViewLayoutToggle";
 import BackButton from "@/components/ui/BackButton";
+import ExportPdfIconButton from "@/components/ExportPdfIconButton";
 import ChartExpandShell from "@/components/ui/ChartExpandShell";
 import type { ViewLayoutMode } from "@/lib/viewLayoutPreference";
 
@@ -94,11 +103,20 @@ type Props = {
   results: ResultLite[];
   sampleType: "soil" | "foliar";
   selectedCropName?: string | null;
+  selectedCountry?: string | null;
   /** Selected display unit per parameter_key (from Values). */
   parameterUnits?: Record<string, string>;
   goToValues?: () => void;
   onBack?: () => void;
-  onOutputsChange?: (outputs: CalculationOutput[]) => void;
+  onOutputsChange?: (packs: CalculatorOutputPack[]) => void;
+  onReportExtrasChange?: (extras: {
+    planRecommendations: string[];
+    fertilizerProducts: PdfFertilizerProduct[];
+    fertilizerApplyLines: string[];
+  }) => void;
+  onExportPdf?: () => void;
+  exportingPdf?: boolean;
+  exportPdfLabel?: string;
 };
 
 type CalculatorKey =
@@ -106,10 +124,19 @@ type CalculatorKey =
   | "cic"
   | "amendment"
   | "fertilizer"
+  | "fertilizerCost"
   | "dop"
   | "uptake"
   | "salinity"
   | "graphs";
+
+type FertilizerPlanSnapshot = {
+  doses: FertilityDoseResult[];
+  areaHa: number;
+  irrigationSystem: IrrigationSystem;
+  irrigationTable: IrrigationEfficiencyTable;
+  recommendations: string[];
+};
 
 const CalculatorFieldsLayoutContext = createContext<ViewLayoutMode>("grid");
 
@@ -118,6 +145,7 @@ const tabs: Array<{ key: CalculatorKey; icon: ReactNode }> = [
   { key: "cic", icon: <Percent size={17} /> },
   { key: "amendment", icon: <FlaskConical size={17} /> },
   { key: "fertilizer", icon: <Leaf size={17} /> },
+  { key: "fertilizerCost", icon: <CircleDollarSign size={17} /> },
   { key: "dop", icon: <Calculator size={17} /> },
   { key: "uptake", icon: <Sprout size={17} /> },
   { key: "salinity", icon: <Droplets size={17} /> },
@@ -128,7 +156,7 @@ function visibleCalculatorTabs(sampleType: "soil" | "foliar") {
   return tabs.filter(({ key }) => {
     if (key === "cic") return sampleType === "soil";
     if (key === "dop") return sampleType === "foliar";
-    if (key === "fertilizer") return sampleType === "soil";
+    if (key === "fertilizer" || key === "fertilizerCost") return sampleType === "soil";
     return true;
   });
 }
@@ -137,9 +165,18 @@ function visibleCalculatorTabs(sampleType: "soil" | "foliar") {
 type HubMode = "guided" | "explorer";
 
 const GUIDED_STEPS: Record<"soil" | "foliar", CalculatorKey[]> = {
-  soil: ["cic", "amendment", "fertilizer", "salinity"],
+  soil: ["cic", "amendment", "fertilizer", "fertilizerCost", "salinity"],
   foliar: ["dop", "uptake"],
 };
+
+function hasActiveFertilizerDoses(doses: FertilityDoseResult[]) {
+  return doses.some(
+    (dose) =>
+      !dose.notRequired &&
+      !dose.viaEncalado &&
+      (dose.dosisOxideKgHa || 0) > 0
+  );
+}
 
 export default function CalculatorHub({
   language,
@@ -148,10 +185,15 @@ export default function CalculatorHub({
   results,
   sampleType,
   selectedCropName,
+  selectedCountry,
   parameterUnits = {},
   goToValues,
   onBack,
   onOutputsChange,
+  onReportExtrasChange,
+  onExportPdf,
+  exportingPdf,
+  exportPdfLabel,
 }: Props) {
   const t = calculatorHubText[language] || calculatorHubText.en;
   const defaultCalculatorFilter: CalculatorKey = "priority";
@@ -171,11 +213,16 @@ export default function CalculatorHub({
         results={results}
         sampleType={sampleType}
         selectedCropName={selectedCropName}
+        selectedCountry={selectedCountry}
         hasLabData={hasLabData}
         suggestions={suggestions}
         goToValues={goToValues}
         onBack={onBack}
         onOutputsChange={onOutputsChange}
+        onReportExtrasChange={onReportExtrasChange}
+        onExportPdf={onExportPdf}
+        exportingPdf={exportingPdf}
+        exportPdfLabel={exportPdfLabel}
         defaultCalculatorFilter={defaultCalculatorFilter}
       />
     </CalculatorMemoryProvider>
@@ -189,11 +236,16 @@ function CalculatorHubBody({
   results,
   sampleType,
   selectedCropName,
+  selectedCountry,
   hasLabData,
   suggestions,
   goToValues,
   onBack,
   onOutputsChange,
+  onReportExtrasChange,
+  onExportPdf,
+  exportingPdf,
+  exportPdfLabel,
   defaultCalculatorFilter,
 }: {
   t: Record<string, string>;
@@ -202,11 +254,20 @@ function CalculatorHubBody({
   results: ResultLite[];
   sampleType: "soil" | "foliar";
   selectedCropName?: string | null;
+  selectedCountry?: string | null;
   hasLabData: boolean;
   suggestions: Array<{ key: CalculatorKey; title: string; desc: string }>;
   goToValues?: () => void;
   onBack?: () => void;
-  onOutputsChange?: (outputs: CalculationOutput[]) => void;
+  onOutputsChange?: (packs: CalculatorOutputPack[]) => void;
+  onReportExtrasChange?: (extras: {
+    planRecommendations: string[];
+    fertilizerProducts: PdfFertilizerProduct[];
+    fertilizerApplyLines: string[];
+  }) => void;
+  onExportPdf?: () => void;
+  exportingPdf?: boolean;
+  exportPdfLabel?: string;
   defaultCalculatorFilter: CalculatorKey;
 }) {
   const { importFromValues, valuesOutOfSync, lastImportFingerprint } = useCalculatorMemory();
@@ -237,6 +298,18 @@ function CalculatorHubBody({
     return GUIDED_STEPS[sampleType].filter((key) => visibleKeys.has(key));
   }, [sampleType, calculatorTabs]);
   const [guidedIndex, setGuidedIndex] = useState(0);
+  const [fertilizerPlan, setFertilizerPlan] = useState<FertilizerPlanSnapshot>({
+    doses: [],
+    areaHa: 0,
+    irrigationSystem: "aspersion_pivote",
+    irrigationTable: TABLE_7_IRRIGATION_EFFICIENCY,
+    recommendations: [],
+  });
+  const [fertilizerProducts, setFertilizerProducts] = useState<PdfFertilizerProduct[]>(
+    []
+  );
+  const [fertilizerApplyLines, setFertilizerApplyLines] = useState<string[]>([]);
+  const costFromPlannerRef = useRef(false);
 
   function switchHubMode(mode: HubMode) {
     setHubMode(mode);
@@ -268,15 +341,110 @@ function CalculatorHubBody({
     });
   }
 
+  const handleCostReportData = useCallback(
+    (payload: {
+      products: PdfFertilizerProduct[];
+      outputs: CalculationOutput[];
+      applyLines: string[];
+    }) => {
+      costFromPlannerRef.current = payload.products.length > 0;
+      setFertilizerProducts(payload.products);
+      setFertilizerApplyLines(payload.applyLines);
+      setCalculatorOutputs((previous) => {
+        const nextOutputs = payload.outputs.filter(Boolean);
+        const current = previous.fertilizerCost || [];
+        if (sameOutputs(current, nextOutputs)) return previous;
+        if (nextOutputs.length === 0) {
+          const { fertilizerCost: _removed, ...rest } = previous;
+          return rest;
+        }
+        return { ...previous, fertilizerCost: nextOutputs };
+      });
+    },
+    []
+  );
+
   useEffect(() => {
     if (!onOutputsChange) return;
+    const entries = Object.entries(calculatorOutputs);
+    // Skip the empty mount flush so navigating away/back to Calculators
+    // does not wipe packs already held by the parent page.
+    if (entries.length === 0) return;
     onOutputsChange(
-      Object.values(calculatorOutputs)
-        .flat()
-        .filter(Boolean)
-        .map((output) => translateCalculationOutput(output, t))
+      entries.map(([id, outputs]) => ({
+        id,
+        label: String(t[id as keyof typeof t] || id),
+        outputs: outputs.map((output) => translateCalculationOutput(output, t)),
+      }))
     );
   }, [calculatorOutputs, onOutputsChange, t]);
+
+  // Auto-build recommended products + prices when doses exist but cost planner
+  // was never opened (or was cleared).
+  useEffect(() => {
+    if (!hasActiveFertilizerDoses(fertilizerPlan.doses)) {
+      costFromPlannerRef.current = false;
+      setFertilizerProducts([]);
+      setFertilizerApplyLines([]);
+      setCalculatorOutputs((previous) => {
+        if (!previous.fertilizerCost) return previous;
+        const { fertilizerCost: _removed, ...rest } = previous;
+        return rest;
+      });
+      return;
+    }
+    if (costFromPlannerRef.current) return;
+
+    const controller = new AbortController();
+    void buildRecommendedFertilizerReport({
+      doses: fertilizerPlan.doses,
+      country: selectedCountry,
+      irrigationSystem: fertilizerPlan.irrigationSystem,
+      irrigationTable: fertilizerPlan.irrigationTable,
+      t,
+      signal: controller.signal,
+    })
+      .then((result) => {
+        if (controller.signal.aborted || costFromPlannerRef.current) return;
+        setFertilizerProducts(result.products);
+        setFertilizerApplyLines(result.applyLines);
+        setCalculatorOutputs((previous) => {
+          const nextOutputs = result.outputs.filter(Boolean);
+          const current = previous.fertilizerCost || [];
+          if (sameOutputs(current, nextOutputs)) return previous;
+          if (nextOutputs.length === 0) {
+            const { fertilizerCost: _removed, ...rest } = previous;
+            return rest;
+          }
+          return { ...previous, fertilizerCost: nextOutputs };
+        });
+      })
+      .catch(() => {
+        /* offline / API — products stay empty until cost planner opens */
+      });
+
+    return () => controller.abort();
+  }, [
+    fertilizerPlan.doses,
+    fertilizerPlan.irrigationSystem,
+    fertilizerPlan.irrigationTable,
+    selectedCountry,
+    t,
+  ]);
+
+  useEffect(() => {
+    if (!onReportExtrasChange) return;
+    onReportExtrasChange({
+      planRecommendations: fertilizerPlan.recommendations,
+      fertilizerProducts,
+      fertilizerApplyLines,
+    });
+  }, [
+    fertilizerApplyLines,
+    fertilizerPlan.recommendations,
+    fertilizerProducts,
+    onReportExtrasChange,
+  ]);
 
   function handleImportFromValues() {
     const { importedCount } = importFromValues();
@@ -324,6 +492,13 @@ function CalculatorHubBody({
             <h1 className="min-w-0 flex-1 truncate text-lg font-bold dark-text-primary">
               {t.title}
             </h1>
+            {onExportPdf ? (
+              <ExportPdfIconButton
+                onClick={onExportPdf}
+                busy={exportingPdf}
+                label={exportPdfLabel || "Export PDF"}
+              />
+            ) : null}
             <ViewLayoutToggle
               value={browseLayout}
               onChange={setBrowseLayout}
@@ -524,7 +699,59 @@ function CalculatorHubBody({
               selectedCropName={selectedCropName}
               layout={fieldsLayout}
               onOutputsChange={(outputs) => reportOutputs("fertilizer", outputs)}
+              onDosePlanChange={setFertilizerPlan}
+              onOpenCostPage={() => setActive("fertilizerCost")}
             />
+          ) : (
+            <CalculatorPage>
+              <p className="calc-surface p-4 text-sm font-semibold text-yellow-900">
+                {t.fertilizerSoilOnly || "The nutritional plan is available for soil analyses."}
+              </p>
+            </CalculatorPage>
+          )
+        ) : null}
+        {active === "fertilizerCost" ? (
+          sampleType === "soil" ? (
+            <CalculatorPage>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActive("fertilizer")}
+                  className="calc-guided-stepper__nav-btn text-xs"
+                >
+                  {t.fertilizerCostBack || "Back to nutritional plan"}
+                </button>
+              </div>
+              {hasActiveFertilizerDoses(fertilizerPlan.doses) ? (
+                <div className="fertilizer-cost-page">
+                  <FertilizerProductPlanner
+                    doses={fertilizerPlan.doses}
+                    areaHa={fertilizerPlan.areaHa}
+                    country={selectedCountry}
+                    irrigationSystem={fertilizerPlan.irrigationSystem}
+                    irrigationTable={fertilizerPlan.irrigationTable}
+                    t={t}
+                    showAsPage
+                    onReportData={handleCostReportData}
+                  />
+                </div>
+              ) : (
+                <div className="calc-surface p-4 space-y-3">
+                  <p className="text-sm text-slate-600 dark-text-primary">
+                    {t.fertilizerCostNeedPlan ||
+                      "Complete the nutritional plan first to estimate product costs."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActive("fertilizer")}
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800"
+                  >
+                    <Leaf size={14} aria-hidden />
+                    {t.fertilizerCostOpenPlan || "Open nutritional plan"}
+                  </button>
+                </div>
+              )}
+            </CalculatorPage>
           ) : (
             <CalculatorPage>
               <p className="calc-surface p-4 text-sm font-semibold text-yellow-900">
@@ -2099,6 +2326,11 @@ function getSuggestions(
       key: "fertilizer",
       title: t.fertilizerPlanTab || t.fertilizerRequirementTitle,
       desc: t.fertilizerPlanDoseDesc || t.fertilizerPlanDesc || t.fertilizerRequirementDesc,
+    });
+    suggestions.push({
+      key: "fertilizerCost",
+      title: t.fertilizerCost || "Fertilizer cost",
+      desc: t.fertilizerCostCta || "See prices & cost scenarios",
     });
   }
 

@@ -141,9 +141,9 @@ export default function ImpactSection({ t }: Props) {
   }, [data]);
 
   return (
-    <div className="about-flat-section impact-dashboard">
+    <div className="about-flow impact-dashboard">
       <div className="impact-hero">
-        <p className="about-flat-lead">{t.impactDesc}</p>
+        <p className="about-lede">{t.impactDesc}</p>
       </div>
 
       {loadState === "loading" ? (
@@ -156,14 +156,14 @@ export default function ImpactSection({ t }: Props) {
             <div className="impact-skeleton-card" />
             <div className="impact-skeleton-card" />
           </div>
-          <p className="about-flat-muted">{t.loadingApp}</p>
+          <p className="about-note">{t.loadingApp}</p>
         </div>
       ) : loadState === "unavailable" ? (
-        <p className="about-flat-banner about-flat-banner--error">{t.impactUnavailable}</p>
+        <p className="about-status about-status--err">{t.impactUnavailable}</p>
       ) : loadState === "error" ? (
-        <p className="about-flat-banner about-flat-banner--error">{t.impactError}</p>
+        <p className="about-status about-status--err">{t.impactError}</p>
       ) : !data || !hasImpactData ? (
-        <p className="about-flat-muted">{t.impactEmpty}</p>
+        <p className="about-note">{t.impactEmpty}</p>
       ) : (
         <>
           <div className="impact-stat-grid">
@@ -198,10 +198,10 @@ export default function ImpactSection({ t }: Props) {
           </div>
 
           {data.featured ? (
-            <blockquote className="about-flat-quote impact-quote">
-              <MessageSquareQuote size={18} className="about-flat-quote-icon" />
-              <p className="about-flat-quote-text">“{data.featured.message}”</p>
-              <footer className="about-flat-quote-footer">
+            <blockquote className="about-quote">
+              <MessageSquareQuote size={18} className="about-quote-icon" aria-hidden />
+              <p className="about-quote-text">“{data.featured.message}”</p>
+              <footer className="about-quote-foot">
                 — {data.featured.name || t.feedbackAnonymous}
                 {data.featured.country ? `, ${data.featured.country}` : ""}
                 {data.featured.rating ? ` · ${data.featured.rating}/5` : ""}
@@ -212,7 +212,7 @@ export default function ImpactSection({ t }: Props) {
           <div className="impact-panel-grid">
             <section className="impact-panel">
               <div className="impact-panel-head">
-                <h3 className="about-flat-subtitle">{t.impactSampleMix}</h3>
+                <h3 className="about-kicker">{t.impactSampleMix}</h3>
                 <p className="impact-panel-note">{t.impactSampleMixHint}</p>
               </div>
               <div className="impact-donut-wrap">
@@ -249,7 +249,7 @@ export default function ImpactSection({ t }: Props) {
             {data.months.some((m) => m.count > 0) ? (
               <section className="impact-panel">
                 <div className="impact-panel-head">
-                  <h3 className="about-flat-subtitle">{t.impactTrend}</h3>
+                  <h3 className="about-kicker">{t.impactTrend}</h3>
                   <p className="impact-panel-note">{t.impactTrendHint}</p>
                 </div>
                 <div className="impact-trend" role="img" aria-label={t.impactTrend}>
@@ -275,7 +275,7 @@ export default function ImpactSection({ t }: Props) {
           {data.countries.length > 0 ? (
             <section className="impact-panel">
               <div className="impact-panel-head">
-                <h3 className="about-flat-subtitle">{t.impactMapTitle}</h3>
+                <h3 className="about-kicker">{t.impactMapTitle}</h3>
                 <p className="impact-panel-note">{t.impactMapHint}</p>
               </div>
               <ul className="impact-bars">
@@ -309,7 +309,7 @@ export default function ImpactSection({ t }: Props) {
             {data.crops.length > 0 ? (
               <section className="impact-panel">
                 <div className="impact-panel-head">
-                  <h3 className="about-flat-subtitle">{t.impactTopCrops}</h3>
+                  <h3 className="about-kicker">{t.impactTopCrops}</h3>
                   <p className="impact-panel-note">{t.impactTopCropsHint}</p>
                 </div>
                 <ul className="impact-bars">
@@ -339,7 +339,7 @@ export default function ImpactSection({ t }: Props) {
             {data.languages.length > 0 ? (
               <section className="impact-panel">
                 <div className="impact-panel-head">
-                  <h3 className="about-flat-subtitle">{t.impactLanguages}</h3>
+                  <h3 className="about-kicker">{t.impactLanguages}</h3>
                   <p className="impact-panel-note">{t.impactLanguagesHint}</p>
                 </div>
                 <ul className="impact-bars">
@@ -367,7 +367,7 @@ export default function ImpactSection({ t }: Props) {
           {data.regions.length > 0 ? (
             <section className="impact-panel">
               <div className="impact-panel-head">
-                <h3 className="about-flat-subtitle">{t.impactTopRegions}</h3>
+                <h3 className="about-kicker">{t.impactTopRegions}</h3>
                 <p className="impact-panel-note">{t.impactTopRegionsHint}</p>
               </div>
               <ul className="about-flat-list about-flat-region-list">
@@ -399,11 +399,11 @@ function ImpactStat({
   hint?: string;
 }) {
   return (
-    <div className="about-flat-stat impact-stat">
-      <span className="about-flat-stat-icon">{icon}</span>
-      <p className="about-flat-stat-value">{value}</p>
-      <p className="about-flat-stat-label">{label}</p>
-      {hint ? <p className="impact-stat-hint">{hint}</p> : null}
+    <div className="about-metric">
+      <span className="about-metric-icon">{icon}</span>
+      <p className="about-metric-value">{value}</p>
+      <p className="about-metric-label">{label}</p>
+      {hint ? <p className="about-metric-hint">{hint}</p> : null}
     </div>
   );
 }

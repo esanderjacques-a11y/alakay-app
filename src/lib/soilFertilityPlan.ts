@@ -7,10 +7,19 @@ import {
   type CalculationOutput,
 } from "@/lib/agronomicCalculators";
 import {
+  assessAmendmentChemistry,
+  type SoilAmendmentInput,
+} from "@/lib/amendmentRecommendation";
+import {
+  calculateCalFromCaSaturation,
+  type PhAmendmentMaterial,
+} from "@/lib/phAmendmentCalculator";
+import {
   cmolToKgHa,
   cmolToMgKg,
   DEFAULT_SOIL_FERTILITY_REFERENCE,
   findCropExtraction,
+  TABLE_12_AMENDMENTS,
   type SoilFertilityReference,
 } from "@/lib/soilFertilityTables";
 
@@ -18,6 +27,77 @@ import {
 export type NutrientDisplayMode = "elemental" | "oxide";
 
 export type DoseNutrientKey = "n" | "p" | "k" | "mg" | "ca";
+
+/**
+ * N mineralization scenarios from SUE302 §2.5.1 (OM → mineralizable N).
+ * Literature ranges for the fraction of organic N mineralized in a season.
+ */
+export type MineralizationScenario = "conservative" | "temperate" | "tropical" | "custom";
+
+export type MineralizationScenarioDef = {
+  key: Exclude<MineralizationScenario, "custom">;
+  /** Inclusive lower bound of the published range (fraction). */
+  coefMin: number;
+  /** Inclusive upper bound of the published range (fraction). */
+  coefMax: number;
+  /** Representative coefficient used in calculations. */
+  defaultCoef: number;
+};
+
+export const MINERALIZATION_SCENARIOS: MineralizationScenarioDef[] = [
+  {
+    key: "conservative",
+    coefMin: 0.01,
+    coefMax: 0.02,
+    // Tutorial worked example uses 2%.
+    defaultCoef: 0.02,
+  },
+  {
+    key: "temperate",
+    coefMin: 0.02,
+    coefMax: 0.03,
+    defaultCoef: 0.025,
+  },
+  {
+    key: "tropical",
+    coefMin: 0.03,
+    coefMax: 0.05,
+    defaultCoef: 0.04,
+  },
+];
+
+export function mineralizationCoefForScenario(
+  scenario: MineralizationScenario | null | undefined,
+  customCoef?: number
+): number {
+  if (scenario === "custom") {
+    const custom = Number(customCoef);
+    return Number.isFinite(custom) && custom >= 0 ? custom : 0.02;
+  }
+  const match = MINERALIZATION_SCENARIOS.find((item) => item.key === scenario);
+  return match?.defaultCoef ?? 0.02;
+}
+
+export function mineralizationScenarioLabel(
+  scenario: MineralizationScenario,
+  t: Record<string, string> = {}
+): string {
+  if (scenario === "custom") {
+    return t.mineralizationCustom || "Custom coefficient";
+  }
+  const def = MINERALIZATION_SCENARIOS.find((item) => item.key === scenario);
+  const range = def
+    ? `${Math.round(def.coefMin * 100)}–${Math.round(def.coefMax * 100)}%`
+    : "";
+  const labels: Record<Exclude<MineralizationScenario, "custom">, string> = {
+    conservative:
+      t.mineralizationConservative || `Conservative (${range || "1–2%"})`,
+    temperate: t.mineralizationTemperate || `Temperate (${range || "2–3%"})`,
+    tropical:
+      t.mineralizationTropical || `Tropical / high biological activity (${range || "3–5%"})`,
+  };
+  return labels[scenario] || scenario;
+}
 
 /** Extraction coefficients as stored in Tabla N.° 5 (P/K/Ca/Mg = oxides). */
 export type ExtractionOxide = {
@@ -37,11 +117,23 @@ export type FertilityPlanDoseInput = {
   densidadAparente_g_cm3: number;
   /** Organic matter % (for N supply estimate). */
   materiaOrganica?: number;
-  /** Mineralization coefficient as fraction (default 0.02 = 2%). */
+  /** Preset mineralization climate / activity scenario (SUE302 §2.5.1). */
+  mineralizationScenario?: MineralizationScenario;
+  /** Mineralization coefficient as fraction (default 0.02 = 2%). Used for custom or override. */
   coeficienteMineralizacion?: number;
   K?: number;
   Mg?: number;
   P?: number;
+  /** Exchangeable Ca (cmol(+)/kg) — used to gate / compute Cal when liming is needed. */
+  Ca?: number;
+  Na?: number;
+  cec?: number;
+  ph?: number;
+  exchangeableAcidity?: number;
+  aluminum?: number;
+  aluminumUnit?: string;
+  /** PRNT / CCE % for liming product (default 100). */
+  prntPercent?: number;
   /** Efficiency as 0–100 (%). */
   eficienciaN?: number;
   eficienciaP?: number;
@@ -71,6 +163,8 @@ export type FertilityDoseResult = {
   eficiencia: number;
   /** Dose in kg/ha of the oxide form (N elemental); null when not required. */
   dosisKgHa: number | null;
+  /** Unconverted N/P₂O₅/K₂O/MgO dose used to calculate commercial product mass. */
+  dosisOxideKgHa: number | null;
   /** Dose scaled to plot area in display mode. */
   dosisPlot: number | null;
   notRequired: boolean;
@@ -90,6 +184,8 @@ export type FertilityDosePlanResult = {
   areaHa: number;
   areaUnit: AreaUnit;
   extractionUsed: ExtractionOxide;
+  mineralizationScenario: MineralizationScenario;
+  mineralizationCoef: number;
   doses: FertilityDoseResult[];
   recommendations: string[];
   sections: Array<{ id: string; title: string; steps: FertilityCalcStep[]; tableRef?: string }>;
@@ -166,22 +262,27 @@ function toDisplayKg(valueKgOxide: number, key: DoseNutrientKey, mode: NutrientD
 
 /**
  * Estimate mineralizable N (kg/ha) from organic matter % (SUE302 §2.5.1).
- * Assumes OM is ~5% N; mineralization coefficient default 2%.
+ * Assumes OM is ~5% N; mineralization coefficient depends on the chosen scenario.
  */
 export function estimateNSupplyFromOm(input: {
   organicMatterPercent: number;
   massTonsHa: number;
   mineralizationCoef?: number;
+  mineralizationScenario?: MineralizationScenario;
 }) {
   const om = Math.max(0, input.organicMatterPercent);
-  const miner = Math.max(0, input.mineralizationCoef ?? 0.02);
+  const miner = Math.max(
+    0,
+    input.mineralizationCoef ??
+      mineralizationCoefForScenario(input.mineralizationScenario ?? "conservative")
+  );
   const organicNPercent = om * 0.05;
   const mineralizablePercent = organicNPercent * miner;
   const mgKg = mineralizablePercent * 10000;
   // SUE302: Factor MS = MS(t/ha)/1000 → kg/ha = (mg/kg) × (MS/1000)
   const massFactor = input.massTonsHa / 1000;
   const kgHa = mgKg * massFactor;
-  return { organicNPercent, mineralizablePercent, mgKg, massFactor, kgHa };
+  return { organicNPercent, mineralizablePercent, mgKg, massFactor, kgHa, miner };
 }
 
 export function buildNutrientDosePlan(
@@ -222,12 +323,17 @@ export function buildNutrientDosePlan(
   const kCmol = num(input.K);
   const mgCmol = num(input.Mg);
   const om = num(input.materiaOrganica);
-  const minerCoef = num(input.coeficienteMineralizacion, 0.02);
+  const scenario: MineralizationScenario = input.mineralizationScenario || "conservative";
+  const minerCoef = mineralizationCoefForScenario(
+    scenario,
+    input.coeficienteMineralizacion
+  );
 
   const nFromOm = estimateNSupplyFromOm({
     organicMatterPercent: om,
     massTonsHa,
     mineralizationCoef: minerCoef,
+    mineralizationScenario: scenario,
   });
   const supplyN = nFromOm.kgHa;
 
@@ -246,6 +352,33 @@ export function buildNutrientDosePlan(
   const demandK2o = extractionUsed.k2o * yieldTarget;
   const demandMgo = extractionUsed.mgo * yieldTarget;
   const demandCao = extractionUsed.cao * yieldTarget;
+
+  const caCmol = num(input.Ca);
+  const naCmol = num(input.Na);
+  const cecIn = num(input.cec);
+  const phIn = num(input.ph);
+  const acidityIn = num(input.exchangeableAcidity);
+  const alIn = num(input.aluminum);
+  const prnt = Math.max(1, num(input.prntPercent, 100));
+
+  const amendmentInput: SoilAmendmentInput = {
+    ph: phIn > 0 ? phIn : null,
+    cec: cecIn > 0 ? cecIn : null,
+    ca: caCmol > 0 ? caCmol : null,
+    mg: mgCmol > 0 ? mgCmol : null,
+    k: kCmol > 0 ? kCmol : null,
+    na: naCmol > 0 ? naCmol : null,
+    exchangeableAcidity: acidityIn > 0 ? acidityIn : null,
+    aluminum: alIn > 0 ? alIn : null,
+    aluminumUnit: input.aluminumUnit,
+    organicMatterPercent: om > 0 ? om : null,
+  };
+  const chemGate = assessAmendmentChemistry(amendmentInput);
+  const limeMaterial: PhAmendmentMaterial = chemGate.mgLow ? "dolomitic_lime" : "calcitic_lime";
+  const limeCaoPercent =
+    limeMaterial === "dolomitic_lime"
+      ? TABLE_12_AMENDMENTS.dolomita.caoPercent
+      : TABLE_12_AMENDMENTS.cal_agricola.caoPercent;
 
   const effN = effFraction(input.eficienciaN, 60);
   const effP = effFraction(input.eficienciaP, 20);
@@ -323,6 +456,7 @@ export function buildNutrientDosePlan(
       suministroKgHa: round(suministroDisplay, 2),
       eficiencia,
       dosisKgHa: dosisDisplayHa,
+      dosisOxideKgHa: dosisKgHaOxide,
       dosisPlot,
       notRequired,
       viaEncalado: false,
@@ -344,9 +478,10 @@ export function buildNutrientDosePlan(
     {
       label: "N mineralizable",
       formula: "N mineralizable (%) = N orgánico × coeficiente de mineralización",
-      substitution: `${round(nFromOm.organicNPercent, 4)} × ${minerCoef}`,
+      substitution: `${round(nFromOm.organicNPercent, 4)} × ${minerCoef} (${mineralizationScenarioLabel(scenario)})`,
       result: String(round(nFromOm.mineralizablePercent, 6)),
       unit: "%",
+      interpretation: `Escenario SUE302 §2.5.1: ${mineralizationScenarioLabel(scenario)}.`,
     },
     {
       label: "N (mg/kg)",
@@ -469,6 +604,60 @@ export function buildNutrientDosePlan(
   });
 
   const demandCaDisplay = toDisplayKg(demandCao, "ca", mode, factors);
+
+  // Tutoría §§1.4–1.5: only compute Cal / gypsum product when CICe / V% chemistry indicates need.
+  let doseCaLimeKgHa: number | null = null;
+  let caInterpretation =
+    "No se requiere aplicación de cal o yeso: la distribución de bases en la CICe y/o V% está en rango suficiente.";
+  let caFormula = "Sin dosis — rangos de saturación suficientes";
+  let caSubstitution = "CICe / V% adecuados";
+  let caTableRef = "Tabla N.° 2 · Tutoría §§1.4–1.5";
+
+  if (chemGate.needsLime && chemGate.sat && chemGate.sat.cec > 0 && caCmol >= 0) {
+    const cal = calculateCalFromCaSaturation({
+      cice: chemGate.sat.cec,
+      caCmol,
+      depthCm,
+      bulkDensity,
+      material: limeMaterial,
+      prntPercent: prnt,
+    });
+    if (!cal.noRequirement && cal.adjustedProductKgHa > 0) {
+      doseCaLimeKgHa = cal.adjustedProductKgHa;
+      caInterpretation =
+        limeMaterial === "dolomitic_lime"
+          ? "Cal dolomítica (Tutoría §§1.4–1.5): déficit de saturación de Ca con acidez / V% baja y Mg bajo."
+          : "Cal agrícola (Tutoría §§1.4–1.5): déficit de saturación de Ca con acidez / V% baja.";
+      caFormula = cal.formula;
+      caSubstitution = `CICe ${cal.caTargetCmol.toFixed(3)} − Ca ${caCmol} → ${cal.caKgHa} kg Ca/ha → ${cal.caoKgHa} kg CaO/ha / ${limeCaoPercent}% / PRNT ${prnt}%`;
+      caTableRef = "Tabla N.° 2 / 4 / 12 · Tutoría §§1.4–1.5";
+    } else {
+      caInterpretation =
+        "No se requiere dosis de cal: la saturación de Ca ya alcanza o supera la meta (Tabla N.° 2).";
+      caSubstitution = `Sat Ca actual ≥ meta (${cal.caTargetPercent}%)`;
+    }
+  } else if (chemGate.needsGypsum && chemGate.sat && chemGate.sat.cec > 0 && caCmol >= 0) {
+    const cal = calculateCalFromCaSaturation({
+      cice: chemGate.sat.cec,
+      caCmol,
+      depthCm,
+      bulkDensity,
+      material: "calcitic_lime",
+      prntPercent: 100,
+    });
+    const gypsumCao = TABLE_12_AMENDMENTS.yeso.caoPercent;
+    const productKgHa =
+      !cal.noRequirement && gypsumCao > 0 ? cal.caoKgHa / (gypsumCao / 100) : 0;
+    if (productKgHa > 0) {
+      doseCaLimeKgHa = round(productKgHa, 1);
+      caInterpretation =
+        "Yeso (sin subir pH): déficit de Ca sin acidez y/o sodicidad — Tabla N.° 12 yeso.";
+      caFormula = "Yeso = (Ca déficit → CaO) / (14% CaO)";
+      caSubstitution = `${cal.caoKgHa} kg CaO/ha / (${gypsumCao} / 100)`;
+      caTableRef = "Tabla N.° 2 / 12 · Tutoría";
+    }
+  }
+
   const doseCa: FertilityDoseResult = {
     key: "ca",
     nutrient: labels.ca,
@@ -476,12 +665,16 @@ export function buildNutrientDosePlan(
     demandaKgHa: round(demandCaDisplay, 2),
     suministroKgHa: 0,
     eficiencia: 0,
-    dosisKgHa: null,
-    dosisPlot: null,
-    notRequired: true,
+    dosisKgHa: doseCaLimeKgHa,
+    dosisOxideKgHa: doseCaLimeKgHa != null && doseCaLimeKgHa > 0 ? round(demandCao, 2) : null,
+    dosisPlot:
+      doseCaLimeKgHa != null && areaHa > 0 ? round(doseCaLimeKgHa * areaHa, 1) : null,
+    notRequired: !(doseCaLimeKgHa != null && doseCaLimeKgHa > 0),
     viaEncalado: true,
-    unitHa: nutrientHaUnit("ca", mode),
-    unitPlot: nutrientPlotUnit("ca", mode, areaUnit),
+    unitHa: chemGate.needsGypsum && !chemGate.needsLime ? "kg yeso/ha" : "kg cal agrícola/ha",
+    unitPlot: chemGate.needsGypsum && !chemGate.needsLime
+      ? `kg yeso/${areaUnit}`
+      : `kg cal agrícola/${areaUnit}`,
     steps: [
       {
         label: `Demanda ${labels.ca}`,
@@ -492,12 +685,15 @@ export function buildNutrientDosePlan(
         tableRef: "Tabla N.° 5",
       },
       {
-        label: "Aporte de Ca",
-        formula: "Por encalado (SUE302 §2.5.4)",
-        substitution: "No se calcula dosis fertilizante de Ca",
-        result: "Encalado",
-        unit: "",
-        interpretation: "El calcio se aporta mediante enmienda calcárea — use la calculadora de Enmiendas.",
+        label: chemGate.needsGypsum && !chemGate.needsLime
+          ? "Aporte de Ca por yeso"
+          : "Aporte de Ca por encalado",
+        formula: caFormula,
+        substitution: caSubstitution,
+        result: doseCaLimeKgHa != null ? String(doseCaLimeKgHa) : "—",
+        unit: "kg/ha",
+        tableRef: caTableRef,
+        interpretation: caInterpretation,
       },
     ],
   };
@@ -509,11 +705,13 @@ export function buildNutrientDosePlan(
 
   const recommendations: string[] = [
     `Cultivo: ${cultivoLabel}${cropMatched ? "" : " (extracción manual)"}. Rendimiento objetivo: ${yieldTarget} t/ha.`,
+    `N desde MO: escenario ${mineralizationScenarioLabel(scenario)} (coef. ${round(minerCoef * 100, 2)}%) → suministro ≈ ${round(supplyN, 1)} kg N/ha.`,
     needed.length
       ? `Aplicar fertilizante para: ${needed.map((d) => `${d.nutrient} (${d.dosisPlot ?? d.dosisKgHa} ${d.dosisPlot != null && areaUnit !== "ha" ? d.unitPlot : d.unitHa})`).join(", ")}.`
       : "No se requieren dosis positivas de N, P, K ni Mg con los datos actuales.",
     ...notNeeded.map((d) => `No es necesario fertilizar ${d.nutrient} — el suministro del suelo cubre la demanda.`),
-    `Ca (${labels.ca}): aportar mediante encalado / enmienda — no como fertilizante NPK.`,
+    // Amendment kind (calcitic/dolomitic lime, gypsum, sulfur, OM, or "none") is
+    // appended by FertilizerPlanCalculator via recommendSoilAmendment + i18n.
   ];
 
   const sections = [
@@ -548,6 +746,8 @@ export function buildNutrientDosePlan(
     areaHa: round(areaHa, 4),
     areaUnit,
     extractionUsed,
+    mineralizationScenario: scenario,
+    mineralizationCoef: minerCoef,
     doses,
     recommendations,
     sections,
@@ -556,16 +756,26 @@ export function buildNutrientDosePlan(
 
 export function fertilityDosePlanToCalculationOutputs(plan: FertilityDosePlanResult): CalculationOutput[] {
   return plan.doses
-    .filter((d) => !d.viaEncalado)
+    .filter((d) => !d.viaEncalado || (d.dosisKgHa != null && d.dosisKgHa > 0))
     .map((dose) => ({
       value: dose.dosisPlot ?? dose.dosisKgHa ?? 0,
       unit: dose.dosisPlot != null && plan.areaUnit !== "ha" ? dose.unitPlot : dose.unitHa,
-      label: dose.notRequired ? `${dose.nutrient} — NF` : `Dosis ${dose.nutrient}`,
-      formula: "(Demanda − Suministro) / Eficiencia",
+      label: dose.viaEncalado
+        ? `${dose.nutrient} — liming`
+        : dose.notRequired
+          ? `${dose.nutrient} — NF`
+          : `Dosis ${dose.nutrient}`,
+      formula: dose.viaEncalado
+        ? "Cal = [(CICe×sat_meta − Ca) → kg Ca/ha × 1.4] / (CaO%/100) / (PRNT/100)"
+        : "(Demanda − Suministro) / Eficiencia",
       notes: [
-        dose.notRequired
-          ? "No requiere fertilización."
-          : `Demanda: ${dose.demandaKgHa} · Suministro: ${dose.suministroKgHa} · Eficiencia: ${round(dose.eficiencia * 100, 0)}%.`,
+        dose.viaEncalado
+          ? dose.notRequired
+            ? "No lime/gypsum application needed — CICe / V% within sufficient ranges."
+            : `Liming/gypsum product from Tutoría Ca-saturation method · ${dose.dosisKgHa} kg/ha.`
+          : dose.notRequired
+            ? "No requiere fertilización."
+            : `Demanda: ${dose.demandaKgHa} · Suministro: ${dose.suministroKgHa} · Eficiencia: ${round(dose.eficiencia * 100, 0)}%.`,
         `Cultivo: ${plan.cultivo}.`,
       ],
     }));

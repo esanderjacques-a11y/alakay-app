@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { Fraunces, Outfit } from "next/font/google";
 import BackButton from "@/components/ui/BackButton";
 import {
   Heart,
@@ -14,6 +15,18 @@ import {
 import FeedbackSection from "@/components/FeedbackSection";
 import ImpactSection from "@/components/ImpactSection";
 import type { Translation } from "@/lib/translations";
+
+const aboutDisplay = Fraunces({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-about-display",
+  display: "swap",
+});
+
+const aboutBody = Outfit({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-about-body",
+  display: "swap",
+});
 
 const CONTACT_EMAIL = "jesander@earth.ac.cr";
 const PHONE_CR = "+506 8828 7831";
@@ -48,12 +61,12 @@ function AboutDonateBar({ t }: { t: Translation }) {
       href={PAYPAL_DONATE_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="about-flat-donate-btn"
+      className="about-donate-link"
     >
-      <Heart size={16} />
-      <span className="about-flat-donate-copy">
+      <Heart size={15} aria-hidden />
+      <span>
         <strong>{t.aboutDonate}</strong>
-        <span className="about-flat-donate-hint">{t.aboutDonateSupport}</span>
+        <em>{t.aboutDonateSupport}</em>
       </span>
     </a>
   );
@@ -132,43 +145,45 @@ export default function AboutScreen({
   }
 
   return (
-    <section className="animate-slide-up about-screen-wrap">
-      <div className="about-flat-panel">
-        <div className="about-flat-header">
+    <section
+      className={`animate-slide-up about-screen-wrap ${aboutDisplay.variable} ${aboutBody.variable}`}
+    >
+      <div className="about-shell">
+        <div className="about-header">
           <div className="page-title-row page-title-row--centered">
             <BackButton variant="icon" onClick={onBack} label={t.home} />
-            <h1 className="about-flat-title page-title-row__title !mt-0">
+            <h1 className="about-page-title page-title-row__title !mt-0">
               {t.aboutTitle}
             </h1>
             <span className="page-title-row__spacer" aria-hidden="true" />
           </div>
 
-          <header className="about-flat-hero">
+          <header className="about-hero">
             {!photoError ? (
               <img
                 src={CREATOR_PHOTO}
                 alt={t.aboutCreatorFullName}
-                className="about-flat-avatar"
+                className="about-hero-photo"
                 onError={() => setPhotoError(true)}
               />
             ) : (
               <img
                 src="/app-icon.png"
                 alt={t.appName}
-                className="about-flat-avatar app-logo-frame object-contain"
+                className="about-hero-photo about-hero-photo--logo"
               />
             )}
-            <p className="about-flat-brand">{t.appName}</p>
-            <p className="about-flat-tagline">{t.aboutTagline}</p>
+            <p className="about-brand">{t.appName}</p>
+            <p className="about-tagline">{t.aboutTagline}</p>
           </header>
 
-          <nav className="about-flat-tabs" aria-label={t.aboutTitle}>
+          <nav className="about-tabs" aria-label={t.aboutTitle}>
             {tabs.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                className={`about-flat-tab ${tab === item.id ? "is-active" : ""}`}
+                className={`about-tab ${tab === item.id ? "is-active" : ""}`}
               >
                 {item.label}
               </button>
@@ -176,81 +191,80 @@ export default function AboutScreen({
           </nav>
         </div>
 
-        <div className="about-flat-scroll">
-          <div className="about-flat-content">
+        <div className="about-scroll">
+          <div className="about-content">
             {tab === "about" ? (
-              <div className="about-flat-section about-story">
-                <p className="about-flat-intro">{t.aboutIntro}</p>
+              <div className="about-flow">
+                <p className="about-lede">{t.aboutIntro}</p>
 
-                <div className="about-story-grid">
-                  <article className="about-story-card">
-                    <h2 className="about-flat-subtitle">{t.aboutMissionLabel}</h2>
-                    <p className="about-flat-body">{t.aboutMission}</p>
-                  </article>
-                  <article className="about-story-card">
-                    <h2 className="about-flat-subtitle">{t.aboutVisionLabel}</h2>
-                    <p className="about-flat-body">{t.aboutVision}</p>
-                  </article>
-                </div>
+                <section className="about-passage">
+                  <h2 className="about-kicker">{t.aboutMissionLabel}</h2>
+                  <p className="about-copy">{t.aboutMission}</p>
+                </section>
 
-                <div className="about-flat-block about-flat-block--contact">
-                  <h2 className="about-flat-subtitle">{t.aboutContactLabel}</h2>
-                  <ul className="about-flat-contact-list">
+                <section className="about-passage">
+                  <h2 className="about-kicker">{t.aboutVisionLabel}</h2>
+                  <p className="about-copy">{t.aboutVision}</p>
+                </section>
+
+                <section className="about-passage">
+                  <h2 className="about-kicker">{t.aboutContactLabel}</h2>
+                  <ul className="about-contact">
                     <li>
-                      <Mail size={16} />
+                      <Mail size={15} aria-hidden />
                       <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
                     </li>
                     <li>
-                      <Phone size={16} />
-                      <div className="about-contact-stack">
+                      <Phone size={15} aria-hidden />
+                      <div>
                         <a href={`tel:${PHONE_CR.replace(/\s/g, "")}`}>{PHONE_CR}</a>
                         <span>{t.aboutPhoneCr}</span>
                       </div>
                     </li>
                     <li>
-                      <Phone size={16} />
-                      <div className="about-contact-stack">
+                      <Phone size={15} aria-hidden />
+                      <div>
                         <a href={`tel:${PHONE_HT.replace(/\s/g, "")}`}>{PHONE_HT}</a>
                         <span>{t.aboutPhoneHt}</span>
                       </div>
                     </li>
                     <li>
-                      <Linkedin size={16} />
+                      <Linkedin size={15} aria-hidden />
                       <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer">
                         LinkedIn
                       </a>
                     </li>
                   </ul>
-                </div>
+                </section>
 
-                <p className="about-flat-disclaimer">{t.aboutDisclaimerShort}</p>
+                <p className="about-note">{t.aboutDisclaimerShort}</p>
 
-                <div className="about-action-row">
-                  <button type="button" onClick={openRequestForm} className="about-flat-btn">
-                    <Sparkles size={16} />
+                <div className="about-actions">
+                  <button type="button" onClick={openRequestForm} className="about-action">
+                    <Sparkles size={15} aria-hidden />
                     {t.aboutAddRequest}
                   </button>
                   <a
                     href={PAYPAL_DONATE_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="about-flat-btn about-flat-btn--secondary about-support-link"
+                    className="about-action about-action--ghost"
                   >
-                    <Heart size={16} />
+                    <Heart size={15} aria-hidden />
                     {t.aboutDonate}
                   </a>
                 </div>
 
                 {showRequestForm ? (
-                  <div ref={requestSectionRef} className="about-flat-form-frame mt-3">
-                    <h2 className="about-flat-subtitle">{t.featureRequest}</h2>
-                    <p className="about-flat-body">{t.featureRequestDesc}</p>
-                    <form className="about-flat-form mt-3" onSubmit={handleFeatureRequest}>
-                      <label className="about-flat-field">
+                  <section ref={requestSectionRef} className="about-passage">
+                    <h2 className="about-kicker">{t.featureRequest}</h2>
+                    <p className="about-copy">{t.featureRequestDesc}</p>
+                    <form className="about-form" onSubmit={handleFeatureRequest}>
+                      <label className="about-field">
                         <span>{t.featureRequestName}</span>
                         <input value={name} onChange={(e) => setName(e.target.value)} />
                       </label>
-                      <label className="about-flat-field">
+                      <label className="about-field">
                         <span>{t.featureRequestEmail}</span>
                         <input
                           type="email"
@@ -258,7 +272,7 @@ export default function AboutScreen({
                           onChange={(e) => setEmail(e.target.value)}
                         />
                       </label>
-                      <label className="about-flat-field">
+                      <label className="about-field">
                         <span>{t.featureRequestSubject}</span>
                         <input
                           required
@@ -266,7 +280,7 @@ export default function AboutScreen({
                           onChange={(e) => setSubject(e.target.value)}
                         />
                       </label>
-                      <label className="about-flat-field">
+                      <label className="about-field">
                         <span>{t.featureRequestMessage}</span>
                         <textarea
                           required
@@ -276,32 +290,32 @@ export default function AboutScreen({
                         />
                       </label>
                       {status === "success" ? (
-                        <p className="about-flat-banner about-flat-banner--success">
+                        <p className="about-status about-status--ok">
                           {t.featureRequestSuccess}
                         </p>
                       ) : null}
                       {status === "error" ? (
-                        <p className="about-flat-banner about-flat-banner--error">
-                          {errorMessage}
-                        </p>
+                        <p className="about-status about-status--err">{errorMessage}</p>
                       ) : null}
                       <button
                         type="submit"
                         disabled={status === "sending"}
-                        className="about-flat-btn about-flat-btn--secondary"
+                        className="about-action"
                       >
-                        <Send size={16} />
-                        {status === "sending" ? t.featureRequestSending : t.featureRequestSend}
+                        <Send size={15} aria-hidden />
+                        {status === "sending"
+                          ? t.featureRequestSending
+                          : t.featureRequestSend}
                       </button>
                     </form>
-                  </div>
+                  </section>
                 ) : null}
 
                 {isAdmin && onOpenAdmin ? (
                   <button
                     type="button"
                     onClick={onOpenAdmin}
-                    className="about-flat-btn about-flat-btn--secondary mt-3"
+                    className="about-action about-action--ghost"
                   >
                     {t.adminOpen}
                   </button>
@@ -317,25 +331,18 @@ export default function AboutScreen({
           </div>
         </div>
 
-        <div className="about-flat-bottom-bar" aria-label={t.aboutDeveloperLabel}>
-          <footer className="about-flat-developer-footer">
-            <p className="about-flat-developer-label">{t.aboutDeveloperLabel}</p>
-            <p className="about-flat-developer-line">
+        <div className="about-foot" aria-label={t.aboutDeveloperLabel}>
+          <footer className="about-credit">
+            <p className="about-credit-label">{t.aboutDeveloperLabel}</p>
+            <p className="about-credit-line">
               <span>{t.aboutCreatorFullName}</span>
-              <span className="about-flat-developer-sep" aria-hidden>
-                |
-              </span>
+              <span aria-hidden> · </span>
               <span>{t.aboutCreatorCountry}</span>
-              <span className="about-flat-developer-sep" aria-hidden>
-                |
-              </span>
+              <span aria-hidden> · </span>
               <span>{t.aboutDeveloperTitle}</span>
             </p>
           </footer>
-
-          <div className="about-flat-donate-bar">
-            <AboutDonateBar t={t} />
-          </div>
+          <AboutDonateBar t={t} />
         </div>
       </div>
     </section>

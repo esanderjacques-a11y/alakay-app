@@ -1,6 +1,13 @@
 import { round } from "@/lib/agronomicCalculators";
+import {
+  assessAmendmentChemistry,
+  type SoilAmendmentInput,
+} from "@/lib/amendmentRecommendation";
+import { CIC_ADEQUATE_SATURATION } from "@/lib/cicInterpretation";
+import { cmolToKgHa, TABLE_12_AMENDMENTS } from "@/lib/soilFertilityTables";
 
 export type PhAmendmentMethod =
+  | "ca_saturation"
   | "base_saturation"
   | "exchangeable_acidity"
   | "target_ph"
@@ -65,12 +72,16 @@ const OUTPUT_MASS_FROM_T: Record<PhAmendmentOutputUnit, number> = {
 };
 
 export const PH_AMENDMENT_METHODS: PhAmendmentMethod[] = [
+  "ca_saturation",
   "base_saturation",
   "exchangeable_acidity",
   "target_ph",
   "gypsum",
   "sulfur",
 ];
+
+/** Tabla N.° 2 adequate Ca% midpoint used as target in Tutoría worked example (68%). */
+export const DEFAULT_CA_SATURATION_TARGET = CIC_ADEQUATE_SATURATION.ca.target;
 
 export const LIME_TEXTURE_FACTORS: Record<SoilTexture, number> = {
   sand: 2.5,
@@ -93,8 +104,17 @@ export type PhAmendmentInput = {
   material?: PhAmendmentMaterial;
   ccePercent?: number;
   cec?: number;
+  /** Exchangeable Ca (cmol(+)/kg) — required for Tutoría Ca-saturation Cal method. */
+  caCmol?: number;
+  /** Mg/K/Na used only for chemistry gating (lime vs gypsum vs none). */
+  mgCmol?: number;
+  kCmol?: number;
+  naCmol?: number;
+  ph?: number;
   baseSaturationCurrent?: number;
   baseSaturationTarget?: number;
+  /** Target Ca saturation % (Tabla N.° 2 adequate midpoint default 68). */
+  caSaturationTarget?: number;
   exchangeableAcidity?: number;
   currentPh?: number;
   targetPh?: number;
@@ -124,16 +144,27 @@ export type PhAmendmentResult = {
     | "missing_current_v"
     | "missing_acidity"
     | "missing_aluminum"
+    | "missing_ca"
     | "ph_already_ok"
+    | "use_gypsum"
+    | "chemistry_sufficient"
     | "zero_dose";
   detailCurrent?: number;
   detailTarget?: number;
   detailCec?: number;
   ccePercent?: number;
+  /** Elemental Ca demand from Ca-sat method (kg/ha), when computed. */
+  detailCaKgHa?: number;
+  detailCaoKgHa?: number;
 };
 
 export function methodRaisesPh(method: PhAmendmentMethod) {
-  return method === "base_saturation" || method === "exchangeable_acidity" || method === "target_ph";
+  return (
+    method === "ca_saturation" ||
+    method === "base_saturation" ||
+    method === "exchangeable_acidity" ||
+    method === "target_ph"
+  );
 }
 
 function depthDensityFactor(depthCm: number, bulkDensity: number) {
@@ -158,6 +189,15 @@ export function validatePhAmendmentInput(input: PhAmendmentInput): PhAmendmentVa
   }
 
   switch (input.method) {
+    case "ca_saturation": {
+      if (!Number.isFinite(input.cec) || (input.cec ?? 0) <= 0) {
+        errors.push({ field: "cec", messageKey: "phAmendValidationCec" });
+      }
+      if (!Number.isFinite(input.caCmol) || (input.caCmol ?? 0) < 0) {
+        errors.push({ field: "caCmol", messageKey: "phAmendValidationCa" });
+      }
+      break;
+    }
     case "base_saturation": {
       if (!Number.isFinite(input.cec) || (input.cec ?? 0) <= 0) {
         errors.push({ field: "cec", messageKey: "phAmendValidationCec" });
@@ -197,9 +237,7 @@ export function validatePhAmendmentInput(input: PhAmendmentInput): PhAmendmentVa
       break;
     }
     case "gypsum": {
-      if (!Number.isFinite(input.exchangeableAl) || (input.exchangeableAl ?? 0) < 0) {
-        errors.push({ field: "exchangeableAl", messageKey: "phAmendValidationAl" });
-      }
+      // Chemistry gate may still return noRequirement; Al or Na/Ca inputs are optional here.
       break;
     }
     case "sulfur": {
@@ -219,6 +257,95 @@ export function validatePhAmendmentInput(input: PhAmendmentInput): PhAmendmentVa
   return errors;
 }
 
+function chemistryInputFromPhAmend(input: PhAmendmentInput): SoilAmendmentInput {
+  return {
+    ph: input.ph ?? input.currentPh,
+    cec: input.cec,
+    ca: input.caCmol,
+    mg: input.mgCmol,
+    k: input.kCmol,
+    na: input.naCmol,
+    exchangeableAcidity: input.exchangeableAcidity,
+    aluminum: input.exchangeableAl,
+  };
+}
+
+/**
+ * Tutoría Plan nutricional §§1.4–1.5 — Cálculo de Cal from Ca saturation deficit.
+ *
+ * Sat Ca actual = Ca / CICe × 100
+ * Ca objetivo (cmol) = CICe × (sat meta / 100)   (meta ≈ 68% = mid of Tabla N.° 2 61–75%)
+ * Déficit Ca (cmol) = Ca objetivo − Ca actual
+ * Ca kg/ha from cmol deficit × soil mass (depth × BD)
+ * CaO = Ca × 1.4
+ * Cal = CaO / (CaO% material / 100)
+ * Ajustada = Cal / (PRNT / 100)
+ */
+export function calculateCalFromCaSaturation(input: {
+  cice: number;
+  caCmol: number;
+  caSaturationTarget?: number;
+  depthCm?: number;
+  bulkDensity?: number;
+  material?: PhAmendmentMaterial;
+  prntPercent?: number;
+}): {
+  caCurrentPercent: number;
+  caTargetPercent: number;
+  caTargetCmol: number;
+  caDeficitCmol: number;
+  soilMassKgHa: number;
+  caKgHa: number;
+  caoKgHa: number;
+  baseProductKgHa: number;
+  adjustedProductKgHa: number;
+  adjustedProductTha: number;
+  caoPercent: number;
+  prntPercent: number;
+  formula: string;
+  noRequirement: boolean;
+} {
+  const cice = Number(input.cice);
+  const ca = Number(input.caCmol);
+  const targetPct = Number(input.caSaturationTarget) || DEFAULT_CA_SATURATION_TARGET;
+  const depthCm = Math.max(1, Number(input.depthCm) || 30);
+  const bulkDensity = Math.max(0.1, Number(input.bulkDensity) || 1);
+  const prnt = Math.max(1, Number(input.prntPercent) || 100);
+  const material = input.material || "calcitic_lime";
+  const caoPercent =
+    material === "dolomitic_lime"
+      ? TABLE_12_AMENDMENTS.dolomita.caoPercent
+      : TABLE_12_AMENDMENTS.cal_agricola.caoPercent;
+
+  const caCurrentPercent = cice > 0 ? (ca / cice) * 100 : 0;
+  const caTargetCmol = cice * (targetPct / 100);
+  const caDeficitCmol = Math.max(0, caTargetCmol - ca);
+  const soilMassKgHa = (depthCm / 100) * bulkDensity * 10_000 * 1000;
+  const caKgHa = cmolToKgHa({ cation: "ca", cmolKg: caDeficitCmol, soilMassKgHa }).kgHa;
+  const caoKgHa = caKgHa * 1.4;
+  const baseProductKgHa = caoPercent > 0 ? caoKgHa / (caoPercent / 100) : 0;
+  const adjustedProductKgHa = baseProductKgHa / (prnt / 100);
+  const adjustedProductTha = adjustedProductKgHa / 1000;
+
+  return {
+    caCurrentPercent: round(caCurrentPercent, 1),
+    caTargetPercent: targetPct,
+    caTargetCmol: round(caTargetCmol, 3),
+    caDeficitCmol: round(caDeficitCmol, 3),
+    soilMassKgHa: round(soilMassKgHa, 0),
+    caKgHa: round(caKgHa, 1),
+    caoKgHa: round(caoKgHa, 2),
+    baseProductKgHa: round(baseProductKgHa, 1),
+    adjustedProductKgHa: round(adjustedProductKgHa, 1),
+    adjustedProductTha: round(adjustedProductTha, 3),
+    caoPercent,
+    prntPercent: prnt,
+    formula:
+      "Cal = [(CICe×sat_meta − Ca) → kg Ca/ha × 1.4] / (CaO%/100) / (PRNT/100)  · Tutoría §§1.4–1.5",
+    noRequirement: caDeficitCmol <= 0,
+  };
+}
+
 export function calculatePhAmendment(input: PhAmendmentInput): {
   result: PhAmendmentResult | null;
   errors: PhAmendmentValidationError[];
@@ -231,6 +358,7 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
   const df = depthDensityFactor(depth, bulkDensity);
   const cce = input.ccePercent ?? 100;
   const texture = input.texture ?? "loam";
+  const gate = assessAmendmentChemistry(chemistryInputFromPhAmend(input));
 
   let baseRequirementTha = 0;
   let formula = "";
@@ -240,9 +368,81 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
   let detailCurrent: number | undefined;
   let detailTarget: number | undefined;
   let detailCec: number | undefined;
+  let detailCaKgHa: number | undefined;
+  let detailCaoKgHa: number | undefined;
 
   switch (input.method) {
+    case "ca_saturation": {
+      const cec = input.cec ?? 0;
+      const ca = input.caCmol ?? 0;
+      detailCec = cec;
+      detailCurrent = cec > 0 ? (ca / cec) * 100 : 0;
+      detailTarget = input.caSaturationTarget || DEFAULT_CA_SATURATION_TARGET;
+
+      if (!(cec > 0)) {
+        noRequirement = true;
+        noRequirementReason = "missing_cec";
+        formula = "Cal = f(CICe, Ca sat meta, PRNT) · Tutoría §§1.4–1.5";
+        explanationKey = "phAmendExplainCaSaturation";
+        break;
+      }
+      if (!(ca >= 0) || !Number.isFinite(ca)) {
+        noRequirement = true;
+        noRequirementReason = "missing_ca";
+        formula = "Cal = f(CICe, Ca sat meta, PRNT) · Tutoría §§1.4–1.5";
+        explanationKey = "phAmendExplainCaSaturation";
+        break;
+      }
+
+      // Gate: only compute Cal when liming is chemically warranted.
+      if (!gate.needsLime) {
+        noRequirement = true;
+        if (gate.needsGypsum) {
+          noRequirementReason = "use_gypsum";
+        } else if (gate.caDeficit === false && !gate.lowBaseSaturation && !gate.hasAcidity) {
+          noRequirementReason = "chemistry_sufficient";
+        } else {
+          noRequirementReason = "chemistry_sufficient";
+        }
+        formula = "Cal = f(CICe, Ca sat meta, PRNT) · Tutoría §§1.4–1.5";
+        explanationKey = "phAmendExplainCaSaturation";
+        break;
+      }
+
+      const cal = calculateCalFromCaSaturation({
+        cice: cec,
+        caCmol: ca,
+        caSaturationTarget: input.caSaturationTarget || DEFAULT_CA_SATURATION_TARGET,
+        depthCm: depth,
+        bulkDensity,
+        material: input.material || "calcitic_lime",
+        prntPercent: cce,
+      });
+      detailCurrent = cal.caCurrentPercent;
+      detailTarget = cal.caTargetPercent;
+      detailCaKgHa = cal.caKgHa;
+      detailCaoKgHa = cal.caoKgHa;
+      if (cal.noRequirement) {
+        noRequirement = true;
+        noRequirementReason = "current_meets_target";
+      } else {
+        // Base requirement in t/ha before PRNT (PRNT applied via adjustedRequirementTha below).
+        // calculateCalFromCaSaturation already folds PRNT into adjustedProductTha;
+        // keep base as pre-PRNT and adjusted as post-PRNT.
+        baseRequirementTha = cal.baseProductKgHa / 1000;
+      }
+      formula = cal.formula;
+      explanationKey = "phAmendExplainCaSaturation";
+      break;
+    }
     case "base_saturation": {
+      if (!gate.needsLime) {
+        noRequirement = true;
+        noRequirementReason = gate.needsGypsum ? "use_gypsum" : "chemistry_sufficient";
+        formula = "((V₂ − V₁) / 100) × CEC × 1.5 × (Depth / 10) × (BD / 1.3)";
+        explanationKey = "phAmendExplainBaseSaturation";
+        break;
+      }
       const current = input.baseSaturationCurrent ?? 0;
       const target = input.baseSaturationTarget ?? 0;
       const cec = input.cec ?? 0;
@@ -268,6 +468,13 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
       break;
     }
     case "exchangeable_acidity": {
+      if (!gate.needsLime) {
+        noRequirement = true;
+        noRequirementReason = gate.needsGypsum ? "use_gypsum" : "chemistry_sufficient";
+        formula = "Acidity × 1.5 × (Depth / 10) × (BD / 1.3)";
+        explanationKey = "phAmendExplainExchangeableAcidity";
+        break;
+      }
       const acidity = input.exchangeableAcidity ?? 0;
       detailCurrent = acidity;
       if (acidity <= 0) {
@@ -281,6 +488,13 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
       break;
     }
     case "target_ph": {
+      if (!gate.needsLime) {
+        noRequirement = true;
+        noRequirementReason = gate.needsGypsum ? "use_gypsum" : "chemistry_sufficient";
+        formula = "(Target pH − Current pH) × Texture factor";
+        explanationKey = "phAmendExplainTargetPh";
+        break;
+      }
       const current = input.currentPh ?? 0;
       const target = input.targetPh ?? 0;
       detailCurrent = current;
@@ -297,15 +511,49 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
       break;
     }
     case "gypsum": {
+      if (!gate.needsGypsum) {
+        noRequirement = true;
+        noRequirementReason = "chemistry_sufficient";
+        formula = "Al × 1.72 × (Depth / 10) × (BD / 1.3)  · only when gypsum is indicated";
+        explanationKey = "phAmendExplainGypsum";
+        break;
+      }
+      // Prefer Al-based gypsum rate when Al is present; otherwise Ca-deficit path uses cal method with gypsum CaO%.
       const al = input.exchangeableAl ?? 0;
       detailCurrent = al;
-      if (al <= 0) {
+      if (al > 0) {
+        baseRequirementTha = al * 1.72 * df;
+        formula = "Al × 1.72 × (Depth / 10) × (BD / 1.3)";
+      } else if (gate.caDeficit && (input.cec ?? 0) > 0 && Number.isFinite(input.caCmol)) {
+        const gypsumCal = calculateCalFromCaSaturation({
+          cice: input.cec!,
+          caCmol: input.caCmol!,
+          caSaturationTarget: input.caSaturationTarget || DEFAULT_CA_SATURATION_TARGET,
+          depthCm: depth,
+          bulkDensity,
+          material: "calcitic_lime",
+          prntPercent: 100,
+        });
+        // Convert to gypsum product using Tabla N.° 12 gypsum CaO%.
+        const caoKgHa = gypsumCal.caoKgHa;
+        const gypsumCao = TABLE_12_AMENDMENTS.yeso.caoPercent;
+        const productKgHa = gypsumCao > 0 ? caoKgHa / (gypsumCao / 100) : 0;
+        baseRequirementTha = productKgHa / 1000;
+        detailCaKgHa = gypsumCal.caKgHa;
+        detailCaoKgHa = caoKgHa;
+        detailCurrent = gypsumCal.caCurrentPercent;
+        detailTarget = gypsumCal.caTargetPercent;
+        detailCec = input.cec;
+        formula = "Gypsum = (Ca deficit → CaO) / (14% CaO) · Tabla N.° 12 yeso";
+        if (gypsumCal.noRequirement || productKgHa <= 0) {
+          noRequirement = true;
+          noRequirementReason = "current_meets_target";
+        }
+      } else if (al <= 0) {
         noRequirement = true;
         noRequirementReason = "missing_aluminum";
-      } else {
-        baseRequirementTha = al * 1.72 * df;
+        formula = "Al × 1.72 × (Depth / 10) × (BD / 1.3)";
       }
-      formula = "Al × 1.72 × (Depth / 10) × (BD / 1.3)";
       explanationKey = "phAmendExplainGypsum";
       break;
     }
@@ -332,6 +580,9 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
     noRequirementReason = "zero_dose";
   }
 
+  // ca_saturation already applies PRNT inside calculateCalFromCaSaturation for adjusted;
+  // for that method, fold PRNT here consistently with other lime methods:
+  // base = pre-PRNT, adjusted = base / (CCE/100).
   const adjustedRequirementTha =
     methodRaisesPh(input.method) && !noRequirement && baseRequirementTha > 0
       ? baseRequirementTha / (cce / 100)
@@ -351,9 +602,98 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
       detailCurrent,
       detailTarget,
       detailCec,
+      detailCaKgHa,
+      detailCaoKgHa,
       ccePercent: methodRaisesPh(input.method) ? cce : undefined,
     },
     errors: [],
+  };
+}
+
+/** Tabla N.° 12 CaO content used to convert crop CaO demand into product mass. */
+export const LIME_MATERIAL_CAO_PERCENT: Record<PhAmendmentMaterial, number> = {
+  calcitic_lime: 40,
+  dolomitic_lime: 30,
+};
+
+export type CropCaoLimeRequirement = {
+  cropLabel: string;
+  extractCaoKgPerT: number;
+  yieldTargetTHa: number;
+  demandCaoKgHa: number;
+  material: PhAmendmentMaterial;
+  caoPercent: number;
+  ccePercent: number;
+  baseProductKgHa: number;
+  adjustedProductKgHa: number;
+  adjustedProductTha: number;
+  formula: string;
+  steps: Array<{
+    label: string;
+    formula: string;
+    substitution: string;
+    result: string;
+    unit: string;
+  }>;
+};
+
+/**
+ * Crop Ca demand from Tabla N.° 5 is supplied by liming, not NPK fertilizer.
+ * Product = CaO demand / (material CaO%) / (CCE/100).
+ */
+export function calculateCropCaoLimeRequirement(input: {
+  cropLabel?: string | null;
+  extractCaoKgPerT: number;
+  yieldTargetTHa: number;
+  material: PhAmendmentMaterial;
+  ccePercent?: number;
+}): CropCaoLimeRequirement | null {
+  const extract = Number(input.extractCaoKgPerT);
+  const yieldTarget = Number(input.yieldTargetTHa);
+  if (!(extract > 0) || !(yieldTarget > 0)) return null;
+
+  const demandCaoKgHa = round(extract * yieldTarget, 2);
+  const caoPercent = LIME_MATERIAL_CAO_PERCENT[input.material];
+  const cce = Math.max(1, Number(input.ccePercent) || 100);
+  const baseProductKgHa = round(demandCaoKgHa / (caoPercent / 100), 1);
+  const adjustedProductKgHa = round(baseProductKgHa / (cce / 100), 1);
+  const adjustedProductTha = round(adjustedProductKgHa / 1000, 3);
+
+  return {
+    cropLabel: input.cropLabel?.trim() || "Crop",
+    extractCaoKgPerT: extract,
+    yieldTargetTHa: yieldTarget,
+    demandCaoKgHa,
+    material: input.material,
+    caoPercent,
+    ccePercent: cce,
+    baseProductKgHa,
+    adjustedProductKgHa,
+    adjustedProductTha,
+    formula: "Product = (CaO extract × yield) / (CaO% / 100) / (CCE / 100)",
+    steps: [
+      {
+        label: "Crop CaO demand",
+        formula: "Demand = Extraction × Yield",
+        substitution: `${extract} kg/t × ${yieldTarget} t/ha`,
+        result: String(demandCaoKgHa),
+        unit: "kg CaO/ha",
+      },
+      {
+        label: "Base lime product",
+        formula: "Product = Demand / (CaO% / 100)",
+        substitution: `${demandCaoKgHa} / (${caoPercent} / 100)`,
+        result: String(baseProductKgHa),
+        unit: "kg/ha",
+      },
+      {
+        label: "Adjusted for CCE",
+        formula: "Adjusted = Base / (CCE / 100)",
+        substitution: `${baseProductKgHa} / (${cce} / 100)`,
+        result: String(adjustedProductKgHa),
+        unit: "kg/ha",
+      },
+    ],
   };
 }
 

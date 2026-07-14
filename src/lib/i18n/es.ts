@@ -101,6 +101,10 @@
   labName: "Nombre del laboratorio",
   farmName: "Nombre de la finca",
   lotName: "Nombre / número de lote",
+  selectFarm: "Seleccionar finca",
+  newFarm: "Nueva finca",
+  addLot: "Agregar otro lote",
+  noLots: "Esta finca todavía no tiene lotes guardados.",
   skip: "Omitir",
   date: "Fecha",
   generalCropOther: "General",
@@ -127,6 +131,7 @@
   enterValuesHelp:
     "Complete solo los parámetros que aparecen en su análisis. Use la unidad indicada al lado de cada parámetro.",
   interpretAnalysis: "Interpretar análisis",
+  interpretShort: "Ver resultados",
   interpreting: "Interpretando...",
   valuePlaceholder: "Ingresar valor",
   selectCropFirst:
@@ -209,7 +214,8 @@
   selectCropMessage: "Seleccione un cultivo primero.",
   skipCropHint: "Puede elegir el cultivo después en la pantalla de valores.",
   selectCropOnValues: "Seleccione el cultivo cuando quiera.",
-  foliarExtractionHint: "Elija Olsen o Mehlich para el fósforo foliar.",
+  foliarExtractionHint:
+    "Elija rangos de suficiencia del cultivo, Olsen o Mehlich para la interpretación de fósforo foliar.",
   enterOneValueMessage: "Ingrese al menos un valor del laboratorio.",
   noCropsLoaded:
     "No se cargaron cultivos. Revise el acceso a la base de datos o la importación CSV.",
@@ -219,12 +225,38 @@
   generalReferenceMode:
     "Modo de referencia general: estos rangos son aproximados.",
   generalReferenceModeTitle: "Modo de referencia general",
-  extractionMethodLabel: "Método de extracción de fósforo",
-  extractionMethodGeneral: "General",
+  generalCropExtractionHint:
+    "Elija rangos de suficiencia General, u Olsen / Mehlich (Tabla N.° 1) para fósforo.",
+  soilExtractionHint:
+    "Elija rangos de suficiencia del cultivo, u Olsen / Mehlich para bandas de fósforo según el método.",
+  extractionMethodLabel: "Suficiencia / extracción",
+  extractionMethodGeneral: "Del cultivo",
+  extractionMethodCropSpecific: "Del cultivo",
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
   extractionMethodActive: "Rangos de P: {method}",
+  exportGeneralCropExtractionNote:
+    "Cultivo general con {method}: los rangos suficientes de fósforo siguen la Tabla N.° 1 ({method}).",
+  exportExtractionMethodNote:
+    "Los rangos suficientes de fósforo usan las bandas del extractante {method} cuando no hay rangos específicos del cultivo para ese método.",
+  exportFoliarExtractionNote:
+    "Análisis foliar con {method}: la interpretación de fósforo prioriza rangos vinculados a {method} cuando están disponibles.",
+  exportRecommendationsHint:
+    "Lista de acciones al final del informe (sin fórmulas).",
+  exportSectionFertilizerProducts: "Productos fertilizantes y precios",
+
+  exportFertilizerPriceNote:
+    "Los precios son de sacos del proveedor o referencias en línea cuando están disponibles.",
+  exportFertilizerColProduct: "Producto",
+  exportFertilizerColGrade: "Análisis",
+  exportFertilizerColRate: "Dosis",
+  exportFertilizerColPrice: "Precio",
+  exportFertilizerColCost: "Costo/ha",
+  exportFertilizerTotalCost: "Total estimado",
+  exportSectionRecommendations: "Recomendaciones",
+  exportSectionFertilizerPlan: "Productos fertilizantes",
+  fertilizerProductsTitle: "Fertilizantes comerciales y precios",
 
   noResultsYet: "Todavía no hay resultados",
   noResultsYetDesc:
@@ -286,11 +318,11 @@
   adviceBulkDensityOk:
     "La densidad aparente está dentro de un rango aceptable para muchos suelos agrícolas.",
   advicePhLow:
-    "El pH del suelo es bajo. Puede reducir la disponibilidad de nutrientes y aumentar el riesgo de toxicidad por aluminio. Confirme la acidez antes de aplicar cal.",
+    "El pH del suelo es bajo. Puede reducir la disponibilidad de nutrientes y aumentar el riesgo de toxicidad por aluminio. Revise la saturación de bases (CICe) antes de encalar — recomiende cal o yeso solo si V% o las saturaciones están fuera del rango suficiente.",
   advicePhHigh:
-    "El pH del suelo es alto. Algunos nutrientes pueden estar menos disponibles. Evite encalar sin necesidad y revise la tolerancia del cultivo.",
+    "El pH del suelo es alto. Algunos nutrientes pueden estar menos disponibles. Evite encalar sin necesidad; si se requiere acidificar, considere azufre elemental y revise la tolerancia del cultivo.",
   advicePhOk:
-    "El pH del suelo está dentro del rango esperado para este cultivo o referencia.",
+    "El pH del suelo está dentro del rango esperado para este cultivo o referencia. Por pH solo no se indica cal ni azufre.",
   adviceEcVeryHigh:
     "La conductividad eléctrica es alta. Sugiere riesgo de salinidad. Revise calidad del agua de riego, drenaje, sodio y acumulación de sales antes de corregir.",
   adviceEcHigh:
@@ -298,14 +330,14 @@
   adviceEcOk:
     "La conductividad eléctrica no indica un riesgo importante de salinidad según la referencia actual.",
   adviceSodiumHigh:
-    "El sodio es sódico/problemático (>1.0 cmol(+)/kg). Puede afectar la estructura del suelo, la infiltración y el desarrollo de raíces. Revise CE, SAR/ESP si está disponible, calcio, drenaje y posible necesidad de yeso.",
+    "El sodio es sódico/problemático (>1.0 cmol(+)/kg). Puede afectar la estructura del suelo, la infiltración y el desarrollo de raíces. Revise CE, SAR/ESP si está disponible, calcio, drenaje y requerimiento de yeso.",
   adviceSodiumVeryHigh:
     "El sodio es muy sódico (>2.0 cmol(+)/kg). Es probable que haya problemas severos de estructura e infiltración. Revise CE, SAR/ESP, drenaje, calcio y requerimiento de yeso con prioridad.",
   adviceSodiumModerate:
     "El sodio está ligeramente elevado (0.5-1.0 cmol(+)/kg). Vigile CE y riesgo estructural, sobre todo en suelos sensibles.",
-  adviceSodiumOk: "El sodio está en rango seguro (<0.5 cmol(+)/kg) según la referencia actual.",
+  adviceSodiumOk: "El sodio está en rango seguro (<0.5 cmol(+)/kg) según la referencia actual. Por sodio solo no se indica enmienda de yeso.",
   adviceAluminumHigh:
-    "El aluminio es alto. Puede dañar raíces en suelos ácidos y reducir la absorción de nutrientes. Revise el pH y opciones de corrección de acidez como encalado.",
+    "El aluminio es alto. Puede dañar raíces en suelos ácidos y reducir la absorción de nutrientes. Confirme la saturación de bases (CICe) y la acidez — encalado solo si V% o saturación de Ca están fuera del rango suficiente.",
   adviceAluminumOk:
     "El aluminio está dentro del rango esperado según la referencia actual.",
   adviceLow:
@@ -518,17 +550,54 @@
   featureRequestSending: "Enviando...",
   featureRequestSuccess: "¡Gracias! Tu solicitud fue enviada.",
   featureRequestError: "No se pudo enviar tu solicitud. Inténtalo más tarde.",
-  exportReportTitle: "Exportar reporte",
-  exportReportDesc: "Elige qué secciones incluir en el PDF.",
-  exportSectionLogo: "Logo y encabezado",
+  exportReportTitle: "Descargar PDF resumen",
+  exportReportDesc:
+    "Elige qué incluir. Este informe es un resumen para compartir — no incluye pasos de cálculo.",
+  exportSectionCover: "Portada (datos del análisis)",
+  exportSectionSoilStatus: "Resumen del estado del suelo",
+  exportSectionLogo: "Logo",
   exportSectionSummary: "Tarjetas resumen",
-  exportSectionInterpretation: "Resultados de interpretación",
+  exportSectionInterpretation: "Detalle completo de parámetros",
   exportSectionMissing: "Valores faltantes / sin rango",
   exportSectionTexture: "Textura del suelo",
   exportSectionCalculations: "Resultados de calculadoras",
   exportSectionLabValues: "Valores originales del laboratorio",
   exportSectionDop: "DOP (foliar)",
   exportSectionRatios: "Relaciones de nutrientes",
+  exportChecklistTitle: "Antes de exportar",
+  exportChecklistHint:
+    "Faltan algunos datos. Puedes continuar — el PDF omitirá los campos vacíos.",
+  exportContinueAnyway: "Continuar de todos modos",
+  exportDownloadSummary: "Descargar PDF resumen",
+  exportNoStepsDisclaimer:
+    "Este PDF es un resumen para compartir; no incluye pasos de cálculo.",
+  exportSoilStatusLow: "Bajo / necesita atención",
+  exportSoilStatusOk: "Adecuado",
+  exportSoilStatusHigh: "Alto / exceso",
+  exportGeneratedBy: "Generado por",
+  exportAnalysisName: "Análisis",
+  exportFarm: "Finca",
+  exportLots: "Lote(s)",
+  exportPlace: "Lugar",
+  exportLab: "Laboratorio",
+  exportDate: "Fecha",
+  exportCrop: "Cultivo",
+  exportMissingAnalysisName: "Nombre del análisis no definido",
+  exportMissingFarm: "Finca no definida",
+  exportMissingLots: "Lote no definido",
+  exportMissingPlace: "Lugar / país no definido",
+  exportMissingGenerator: "Nombre del generador no disponible",
+  exportMissingCalculators:
+    "Aún no hay respuestas de calculadoras — abre Calculadoras, ejecuta una herramienta y vuelve a exportar",
+  exportMissingResults: "Aún no hay resultados interpretados",
+  exportGroupSummary: "Resumen del análisis",
+  exportGroupCalculators: "Respuestas de calculadoras",
+  exportGroupOptional: "Detalles opcionales",
+  exportCalculatorsEmptyHint:
+    "Abre Calculadoras, ejecuta las herramientas que necesites y vuelve aquí. Sus respuestas aparecerán como secciones opcionales.",
+  exportOpenCalculators: "Abrir Calculadoras",
+  exportCalculatorAnswerOne: "1 respuesta",
+  exportCalculatorAnswersCount: "{count} respuestas",
   exportSelectAll: "Todas las secciones",
   exportSelectNone: "Ninguna",
   exportCancel: "Cancelar",

@@ -4,24 +4,31 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { AreaUnit, CalculationOutput, CalculatorValue } from "@/lib/agronomicCalculators";
 import { areaUnitLabel } from "@/lib/agronomicCalculators";
 import {
+  calculateCropCaoLimeRequirement,
   calculatePhAmendment,
   convertPhAmendmentPlotTotal,
   convertPhAmendmentUnit,
   formatPhAmendmentDisplay,
   methodRaisesPh,
   phAmendmentUnitLabel,
+  DEFAULT_CA_SATURATION_TARGET,
   PH_AMENDMENT_OUTPUT_UNITS,
   suggestBaseSaturationTarget,
+  type CropCaoLimeRequirement,
   type PhAmendmentMaterial,
   type PhAmendmentMethod,
   type PhAmendmentOutputUnit,
   type SoilTexture,
 } from "@/lib/phAmendmentCalculator";
+import { assessAmendmentChemistry } from "@/lib/amendmentRecommendation";
 import { useMemoryNumber, useSharedCationInputs } from "@/hooks/useCalculatorMemory";
 import MenuSelect, { type MenuSelectOption } from "@/components/ui/MenuSelect";
 import { getCicAcidityContribution } from "@/lib/baseSaturation";
+import { useSoilFertilityReference } from "@/lib/soilFertilityData";
+import { findCropExtractionVariants } from "@/lib/soilFertilityTables";
 import {
   Beaker,
+  ChevronDown,
   FlaskConical,
   Mountain,
   Percent,
@@ -36,6 +43,7 @@ type Props = {
 };
 
 const METHOD_OPTIONS: PhAmendmentMethod[] = [
+  "ca_saturation",
   "base_saturation",
   "exchangeable_acidity",
   "target_ph",
@@ -47,6 +55,7 @@ const METHOD_ICONS: Record<
   PhAmendmentMethod,
   NonNullable<MenuSelectOption<PhAmendmentMethod>["icon"]>
 > = {
+  ca_saturation: Percent,
   base_saturation: Percent,
   exchangeable_acidity: Beaker,
   target_ph: ThermometerSun,
@@ -75,15 +84,55 @@ function outputUnitLabel(unit: PhAmendmentOutputUnit, t: Record<string, string>)
 
 export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutputsChange }: Props) {
   const cropSuggestedTarget = suggestBaseSaturationTarget(selectedCropName);
+  const { reference } = useSoilFertilityReference();
+  const cropVariants = useMemo(
+    () => findCropExtractionVariants(selectedCropName, reference),
+    [selectedCropName, reference]
+  );
+  const matchedCrop = cropVariants.length === 1 ? cropVariants[0] : null;
+  const tableExtractCao = matchedCrop?.cao ?? reference.defaultExtraction.cao;
 
-  const [method, setMethod] = useState<PhAmendmentMethod>("base_saturation");
+  const [method, setMethod] = useState<PhAmendmentMethod>("ca_saturation");
   const [material, setMaterial] = useState<PhAmendmentMaterial>("calcitic_lime");
   const [ccePercent, setCcePercent] = useMemoryNumber("amendment", "ccePercent", 100);
   const [outputUnit, setOutputUnit] = useState<PhAmendmentOutputUnit>("t_ha");
   const [plotArea, setPlotArea] = useMemoryNumber("amendment", "plotArea", 0);
   const [plotAreaUnit, setPlotAreaUnit] = useState<AreaUnit>("ha");
+  const [caoCardOpen, setCaoCardOpen] = useState(false);
+  const [caSaturationTarget, setCaSaturationTarget] = useMemoryNumber(
+    "amendment",
+    "caSaturationTarget",
+    DEFAULT_CA_SATURATION_TARGET
+  );
+
+  const defaultYield =
+    matchedCrop?.yieldMin != null && matchedCrop?.yieldMax != null
+      ? (matchedCrop.yieldMin + matchedCrop.yieldMax) / 2
+      : matchedCrop?.yieldMin || 15;
+  const [cropYield, setCropYield] = useMemoryNumber("fertilizer", "yield", defaultYield);
+  const [extractCao, setExtractCao] = useMemoryNumber(
+    "fertilizer",
+    "extractCao",
+    tableExtractCao
+  );
+
+  useEffect(() => {
+    if (matchedCrop?.cao != null) setExtractCao(matchedCrop.cao);
+    if (matchedCrop?.yieldMin != null) {
+      setCropYield(
+        matchedCrop.yieldMax != null
+          ? (matchedCrop.yieldMin + matchedCrop.yieldMax) / 2
+          : matchedCrop.yieldMin
+      );
+    }
+  }, [matchedCrop?.cropKey, matchedCrop?.cao, matchedCrop?.yieldMin, matchedCrop?.yieldMax, setExtractCao, setCropYield]);
 
   const [cec, setCec] = useMemoryNumber("amendment", "cec", lab.get("cec")?.value || 0);
+  const [caCmol, setCaCmol] = useMemoryNumber(
+    "amendment",
+    "caCmol",
+    lab.get("calcium")?.value || 0
+  );
   const [baseSaturationCurrent, setBaseSaturationCurrent] = useMemoryNumber(
     "amendment",
     "baseSaturationCurrent",
@@ -149,8 +198,67 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
   const resolvedCurrentPh = currentPh > 0 ? currentPh : lab.get("ph")?.value || 0;
   const resolvedTargetPh =
     targetPh > 0 ? targetPh : method === "sulfur" ? 5.5 : 6.2;
-  const resolvedBulkDensity = bulkDensity > 0 ? bulkDensity : 1.3;
-  const resolvedDepthCm = depthCm > 0 ? depthCm : 15;
+  const resolvedBulkDensity = bulkDensity > 0 ? bulkDensity : method === "ca_saturation" ? 1 : 1.3;
+  const resolvedDepthCm = depthCm > 0 ? depthCm : method === "ca_saturation" ? 30 : 15;
+  const resolvedCa =
+    caCmol > 0 ? caCmol : shared.ca > 0 ? shared.ca : lab.get("calcium")?.value || 0;
+
+  const chemGate = useMemo(
+    () =>
+      assessAmendmentChemistry({
+        ph: resolvedCurrentPh || null,
+        cec: resolvedCec || null,
+        ca: resolvedCa || null,
+        mg: shared.mg || null,
+        k: shared.k || null,
+        na: shared.na || null,
+        exchangeableAcidity: resolvedAcidity || null,
+        aluminum: shared.aluminum || null,
+        aluminumUnit: shared.aluminumUnit,
+      }),
+    [
+      resolvedCurrentPh,
+      resolvedCec,
+      resolvedCa,
+      shared.mg,
+      shared.k,
+      shared.na,
+      resolvedAcidity,
+      shared.aluminum,
+      shared.aluminumUnit,
+    ]
+  );
+
+  useEffect(() => {
+    if (chemGate.needsLime && chemGate.mgLow) {
+      setMaterial("dolomitic_lime");
+    } else if (chemGate.needsLime && !chemGate.mgLow) {
+      setMaterial("calcitic_lime");
+    }
+  }, [chemGate.needsLime, chemGate.mgLow]);
+
+  const cropCaoRequirement = useMemo(
+    () => {
+      if (!chemGate.needsLime) return null;
+      return calculateCropCaoLimeRequirement({
+        cropLabel: matchedCrop?.label || selectedCropName,
+        extractCaoKgPerT: extractCao,
+        yieldTargetTHa: cropYield,
+        material: methodRaisesPh(method) ? material : "calcitic_lime",
+        ccePercent,
+      });
+    },
+    [
+      chemGate.needsLime,
+      matchedCrop?.label,
+      selectedCropName,
+      extractCao,
+      cropYield,
+      method,
+      material,
+      ccePercent,
+    ]
+  );
 
   const { result, errors } = useMemo(
     () =>
@@ -159,9 +267,16 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
         material: methodRaisesPh(method) ? material : undefined,
         ccePercent,
         cec: resolvedCec,
+        caCmol: resolvedCa,
+        mgCmol: shared.mg,
+        kCmol: shared.k,
+        naCmol: shared.na,
+        ph: resolvedCurrentPh,
         baseSaturationCurrent: resolvedBaseSaturationCurrent,
         baseSaturationTarget:
           baseSaturationTarget > 0 ? baseSaturationTarget : cropSuggestedTarget,
+        caSaturationTarget:
+          caSaturationTarget > 0 ? caSaturationTarget : DEFAULT_CA_SATURATION_TARGET,
         exchangeableAcidity: resolvedAcidity,
         currentPh: resolvedCurrentPh,
         targetPh: resolvedTargetPh,
@@ -175,9 +290,14 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
       material,
       ccePercent,
       resolvedCec,
+      resolvedCa,
+      shared.mg,
+      shared.k,
+      shared.na,
       resolvedBaseSaturationCurrent,
       baseSaturationTarget,
       cropSuggestedTarget,
+      caSaturationTarget,
       resolvedAcidity,
       resolvedCurrentPh,
       resolvedTargetPh,
@@ -189,7 +309,27 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
   );
 
   const outputs = useMemo(() => {
-    if (!result || result.noRequirement) return [];
+    const rows: CalculationOutput[] = [];
+
+    if (cropCaoRequirement) {
+      rows.push({
+        value: cropCaoRequirement.adjustedProductKgHa,
+        unit: "kg/ha",
+        label: t.phAmendCropCaoLimeLabel || "Crop CaO liming product",
+        formula: cropCaoRequirement.formula,
+        notes: [
+          `${t.phAmendCropCaoDemand || "Crop CaO demand"}: ${cropCaoRequirement.demandCaoKgHa} kg/ha`,
+          `${cropCaoRequirement.cropLabel} · ${cropCaoRequirement.yieldTargetTHa} t/ha`,
+          `${t.phAmendResultMaterial || "Amendment"}: ${
+            cropCaoRequirement.material === "dolomitic_lime"
+              ? t.phAmendMaterialDolomitic || "Dolomitic limestone"
+              : t.phAmendMaterialCalcitic || "Agricultural limestone"
+          } (${cropCaoRequirement.caoPercent}% CaO, CCE ${cropCaoRequirement.ccePercent}%)`,
+        ],
+      });
+    }
+
+    if (!result || result.noRequirement) return rows;
     const primaryValue =
       result.adjustedRequirementTha !== undefined ? result.adjustedRequirementTha : result.baseRequirementTha;
     const label =
@@ -212,26 +352,49 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
       );
     }
 
-    return [
-      {
-        value: convertPhAmendmentUnit(primaryValue, outputUnit),
-        unit: phAmendmentUnitLabel(outputUnit),
-        label,
-        formula: result.formula,
-        notes,
-      } satisfies CalculationOutput,
-    ];
-  }, [result, method, outputUnit, plotArea, plotAreaUnit, t]);
+    rows.push({
+      value: convertPhAmendmentUnit(primaryValue, outputUnit),
+      unit: phAmendmentUnitLabel(outputUnit),
+      label,
+      formula: result.formula,
+      notes,
+    });
+    return rows;
+  }, [
+    cropCaoRequirement,
+    result,
+    method,
+    outputUnit,
+    plotArea,
+    plotAreaUnit,
+    t,
+  ]);
 
   useEffect(() => {
     onOutputsChange?.(outputs);
   }, [onOutputsChange, outputs]);
 
-  const showMaterial = methodRaisesPh(method);
+  const showMaterial = methodRaisesPh(method) && chemGate.needsLime;
   const unitLabel = phAmendmentUnitLabel(outputUnit);
 
   return (
     <div className="calc-page px-3 sm:px-4 space-y-4">
+      <CropCaoLimeCard
+        t={t}
+        requirement={cropCaoRequirement}
+        open={caoCardOpen}
+        onToggle={() => setCaoCardOpen((value) => !value)}
+        yieldTarget={cropYield}
+        onYieldChange={setCropYield}
+        extractCao={extractCao}
+        onExtractCaoChange={setExtractCao}
+        cropLabel={matchedCrop?.label || selectedCropName}
+        material={methodRaisesPh(method) ? material : "calcitic_lime"}
+        outputUnit={outputUnit}
+        plotArea={plotArea}
+        plotAreaUnit={plotAreaUnit}
+      />
+
       <div className="calc-surface p-4 space-y-4">
         <section className="space-y-3">
           <h2 className="text-xs font-bold uppercase tracking-wide text-emerald-800">
@@ -282,6 +445,72 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
             {t.phAmendSectionInputs || "Inputs"}
           </h2>
           <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-2">
+            {method === "ca_saturation" ? (
+              <>
+                <NumberField
+                  label={t.effectiveCec || "CICe (cmol(+)/kg)"}
+                  value={cec}
+                  onChange={setCec}
+                  placeholder={
+                    estimatedCec > 0
+                      ? `${estimatedCec}${!(cec > 0) ? ` (${t.phAmendAuto || "auto"})` : ""}`
+                      : t.phAmendImportHint || "Import / auto if blank"
+                  }
+                />
+                <NumberField
+                  label={t.cicFieldCa || "Ca (cmol(+)/kg)"}
+                  value={caCmol}
+                  onChange={setCaCmol}
+                  placeholder={
+                    shared.ca > 0 && !(caCmol > 0)
+                      ? `${shared.ca} (${t.phAmendAuto || "auto"})`
+                      : t.phAmendImportHint || "Import / auto if blank"
+                  }
+                />
+                <NumberField
+                  label={t.phAmendCaSatTarget || "Target Ca saturation (%)"}
+                  value={caSaturationTarget}
+                  onChange={setCaSaturationTarget}
+                  placeholder={`${DEFAULT_CA_SATURATION_TARGET} (${t.phAmendDefault || "default"})`}
+                />
+                <NumberField
+                  label={t.phAmendExchangeableAcidity || "Exchangeable acidity (cmol(+)/kg)"}
+                  value={exchangeableAcidity}
+                  onChange={setExchangeableAcidity}
+                  placeholder={
+                    estimatedAcidity > 0
+                      ? `${estimatedAcidity} (${t.phAmendAuto || "auto"})`
+                      : t.phAmendImportHint || "Import / auto if blank"
+                  }
+                />
+                <NumberField
+                  label={`${t.bulkDensity || "Bulk density"}`}
+                  value={bulkDensity}
+                  onChange={setBulkDensity}
+                  placeholder={`1.0 (${t.phAmendDefault || "default"})`}
+                />
+                <NumberField
+                  label={`${t.incorporationDepth || "Sampling depth"} (cm)`}
+                  value={depthCm}
+                  onChange={setDepthCm}
+                  placeholder={`30 (${t.phAmendDefault || "default"})`}
+                />
+                <p className="text-xs text-slate-600 sm:col-span-2 dark:text-slate-300">
+                  {t.phAmendCaSatHint ||
+                    "Tutoría §§1.4–1.5: Cal is calculated only when CICe / V% / acidity indicate liming. Target Ca saturation defaults to 68% (mid of Tabla N.° 2 61–75%)."}
+                  {!chemGate.needsLime
+                    ? ` · ${
+                        chemGate.needsGypsum
+                          ? t.encaladoCaDeficitNoAcidity ||
+                            "Ca deficit without acidity — use gypsum."
+                          : t.amendRecNoLime ||
+                            "No lime needed: CICe / V% are within sufficient ranges."
+                      }`
+                    : ""}
+                </p>
+              </>
+            ) : null}
+
             {method === "base_saturation" ? (
               <>
                 <NumberField
@@ -462,6 +691,162 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
   );
 }
 
+function CropCaoLimeCard({
+  t,
+  requirement,
+  open,
+  onToggle,
+  yieldTarget,
+  onYieldChange,
+  extractCao,
+  onExtractCaoChange,
+  cropLabel,
+  material,
+  outputUnit,
+  plotArea,
+  plotAreaUnit,
+}: {
+  t: Record<string, string>;
+  requirement: CropCaoLimeRequirement | null;
+  open: boolean;
+  onToggle: () => void;
+  yieldTarget: number;
+  onYieldChange: (value: number) => void;
+  extractCao: number;
+  onExtractCaoChange: (value: number) => void;
+  cropLabel?: string | null;
+  material: PhAmendmentMaterial;
+  outputUnit: PhAmendmentOutputUnit;
+  plotArea: number;
+  plotAreaUnit: AreaUnit;
+}) {
+  const productDisplay = requirement
+    ? formatPhAmendmentDisplay(requirement.adjustedProductTha, outputUnit)
+    : "—";
+  const productUnit = phAmendmentUnitLabel(outputUnit);
+  const materialLabel =
+    material === "dolomitic_lime"
+      ? t.phAmendMaterialDolomitic || "Dolomitic limestone"
+      : t.phAmendMaterialCalcitic || "Agricultural limestone";
+  const plotTotal =
+    requirement && plotArea > 0
+      ? convertPhAmendmentPlotTotal(requirement.adjustedProductTha, plotArea, plotAreaUnit)
+      : 0;
+
+  return (
+    <div className="fertilizer-plan__results calc-surface p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
+          {t.phAmendCropCaoTitle || "Crop CaO demand (liming)"}
+        </h3>
+        {cropLabel ? (
+          <span className="text-xs font-semibold text-emerald-800">{cropLabel}</span>
+        ) : null}
+      </div>
+
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-pressed={open}
+        aria-expanded={open}
+        className={`calculator-action-card fertilizer-plan__dose-card text-left fertilizer-plan__dose-card--list w-full ${
+          open ? "calc-result-card--selected" : ""
+        }`}
+      >
+        <div className="calculator-action-card__copy flex-1">
+          <p className="calculator-action-card__title">CaO</p>
+          <p className="fertilizer-plan__dose-value">
+            {t.fertilizerPlanViaLime || "Via liming"}
+          </p>
+          <p className="fertilizer-plan__dose-sub">
+            {requirement
+              ? `${requirement.demandCaoKgHa} kg CaO/ha · ${productDisplay} ${productUnit} ${materialLabel}`
+              : t.phAmendCropCaoNeedInputs ||
+                "Enter yield and CaO extraction to calculate liming from crop demand."}
+          </p>
+        </div>
+        <ChevronDown
+          size={16}
+          aria-hidden
+          className={`shrink-0 text-emerald-800 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open ? (
+        <div className="space-y-3 border-t border-emerald-100/80 pt-3 dark:border-white/10">
+          <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-2">
+            <NumberField
+              label={t.fertilizerPlanYield || "Target yield (t/ha)"}
+              value={yieldTarget}
+              onChange={onYieldChange}
+            />
+            <NumberField
+              label={t.phAmendCropCaoExtract || "CaO extraction (kg/t)"}
+              value={extractCao}
+              onChange={onExtractCaoChange}
+            />
+          </div>
+
+          {requirement ? (
+            <>
+              <dl className="grid gap-2 sm:grid-cols-3">
+                <ResultRow
+                  label={t.phAmendCropCaoDemand || "Crop CaO demand"}
+                  value={`${requirement.demandCaoKgHa} kg/ha`}
+                />
+                <ResultRow
+                  label={t.phAmendCropCaoProduct || "Liming product"}
+                  value={`${productDisplay} ${productUnit}`}
+                  highlight
+                />
+                <ResultRow
+                  label={t.phAmendResultMaterial || "Amendment"}
+                  value={`${materialLabel} · ${requirement.caoPercent}% CaO`}
+                />
+              </dl>
+              {plotArea > 0 ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {`${t.phAmendPlotTotal || "Plot total"}: ${plotTotal.toLocaleString(undefined, {
+                    maximumFractionDigits: 2,
+                  })} t (${plotArea} ${areaUnitLabel(plotAreaUnit)})`}
+                </p>
+              ) : null}
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                  {t.phAmendResultFormula || "Formula used"}
+                </p>
+                {requirement.steps.map((step) => (
+                  <article key={step.label} className="fertilizer-plan__step">
+                    <p className="fertilizer-plan__step-label">{step.label}</p>
+                    <p className="fertilizer-plan__step-formula">{step.formula}</p>
+                    <p className="fertilizer-plan__step-meta">
+                      <span className="fertilizer-plan__step-meta-key">
+                        {t.substitution || "Substitution"}
+                      </span>
+                      <span className="fertilizer-plan__step-meta-value">{step.substitution}</span>
+                    </p>
+                    <p className="fertilizer-plan__step-meta">
+                      <span className="fertilizer-plan__step-meta-key">{t.result || "Result"}</span>
+                      <span className="fertilizer-plan__step-result">
+                        {step.result}
+                        {step.unit ? ` ${step.unit}` : ""}
+                      </span>
+                    </p>
+                  </article>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t.phAmendCropCaoNote ||
+                  "This dose covers crop calcium need with liming materials. Use the methods below for pH or base saturation correction when needed."}
+              </p>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function PhAmendmentResultsCard({
   t,
   result,
@@ -493,26 +878,36 @@ function PhAmendmentResultsCard({
   if (result.noRequirement) {
     const reason = result.noRequirementReason;
     const message =
-      reason === "current_meets_target"
-        ? t.phAmendNoReqMeetsTarget ||
-          "No lime needed: current base saturation is already at or above the target."
-        : reason === "missing_cec"
-          ? t.phAmendNoReqMissingCec ||
-            "Enter CEC (cmol(+)/kg) greater than 0 to calculate the dose."
-          : reason === "missing_current_v"
-            ? t.phAmendNoReqMissingV ||
-              "Enter current V%, or provide measured CIC / H+Al so V% can be estimated. Bases alone are not enough for this method."
-            : reason === "missing_acidity"
-              ? t.phAmendNoReqMissingAcidity ||
-                "Enter exchangeable acidity (H+Al) greater than 0 to calculate liming."
-              : reason === "missing_aluminum"
-                ? t.phAmendNoReqMissingAl ||
-                  "Enter exchangeable aluminum greater than 0 to calculate gypsum."
-                : reason === "ph_already_ok"
-                  ? t.phAmendNoReqPhOk ||
-                    "No amendment needed: soil pH already meets the selected target."
-                  : t.phAmendNoRequirement ||
-                    "No amendment is required based on the selected target.";
+      reason === "chemistry_sufficient"
+        ? t.amendRecNoLime ||
+          t.phAmendNoReqChemistryOk ||
+          "No amendment needed: CICe cation distribution and base saturation are within sufficient ranges."
+        : reason === "use_gypsum"
+          ? t.encaladoCaDeficitNoAcidity ||
+            "Ca deficit without exchangeable acidity — use gypsum or another Ca source; saturation-based liming does not apply."
+          : reason === "current_meets_target"
+            ? t.phAmendNoReqMeetsTarget ||
+              "No lime needed: current base saturation is already at or above the target."
+            : reason === "missing_cec"
+              ? t.phAmendNoReqMissingCec ||
+                "Enter CEC (cmol(+)/kg) greater than 0 to calculate the dose."
+              : reason === "missing_ca"
+                ? t.phAmendNoReqMissingCa ||
+                  "Enter exchangeable Ca (cmol(+)/kg) to calculate Cal from Ca saturation."
+                : reason === "missing_current_v"
+                  ? t.phAmendNoReqMissingV ||
+                    "Enter current V%, or provide measured CIC / H+Al so V% can be estimated. Bases alone are not enough for this method."
+                  : reason === "missing_acidity"
+                    ? t.phAmendNoReqMissingAcidity ||
+                      "Enter exchangeable acidity (H+Al) greater than 0 to calculate liming."
+                    : reason === "missing_aluminum"
+                      ? t.phAmendNoReqMissingAl ||
+                        "Enter exchangeable aluminum greater than 0 to calculate gypsum."
+                      : reason === "ph_already_ok"
+                        ? t.phAmendNoReqPhOk ||
+                          "No amendment needed: soil pH already meets the selected target."
+                        : t.phAmendNoRequirement ||
+                          "No amendment is required based on the selected target.";
 
     const detailParts: string[] = [];
     if (

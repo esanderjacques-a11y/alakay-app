@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -10,7 +10,6 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
-  Download,
   Eraser,
   FlaskConical,
   BarChart3,
@@ -43,13 +42,24 @@ import AppDock from "@/components/ui/AppDock";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import HomeScreen from "@/components/HomeScreen";
 import ImportDataScreen from "@/components/ImportDataScreen";
+import FarmLotSelector from "@/components/FarmLotSelector";
 
 import BackButton from "@/components/ui/BackButton";
 import { ViewLayoutToggle } from "@/components/ui/ViewLayoutToggle";
 import { AppStep } from "@/lib/appSteps";
 import { isAdminEmail } from "@/lib/admin";
-import { exportAnalysisPdf, type PdfReportSectionOptions } from "@/lib/pdfReport";
+import {
+  buildExportRecommendations,
+  buildPdfExportChecklist,
+  exportAnalysisPdf,
+  mergeCalculatorOutputPacks,
+  type CalculatorOutputPack,
+  type PdfFertilizerProduct,
+  type PdfReportMeta,
+  type PdfReportSectionOptions,
+} from "@/lib/pdfReport";
 import ExportReportModal from "@/components/ExportReportModal";
+import ExportPdfIconButton from "@/components/ExportPdfIconButton";
 import { RequestTimeoutError } from "@/lib/fetchWithTimeout";
 import { formatMessage, Language, translations } from "@/lib/translations";
 import { calculatorHubText } from "@/lib/i18n/componentText";
@@ -95,12 +105,14 @@ import {
 } from "@/lib/interpretationLogic";
 import { calculateSoilTexture } from "@/lib/soilTexture";
 import { canConvertLabUnit, convertLabUnit } from "@/lib/unitConversions";
-import type { CalculationOutput } from "@/lib/agronomicCalculators";
 import {
+  FOLIAR_EXTRACTION_OPTIONS,
   GENERAL_CROP_EXTRACTION_OPTIONS,
-  FOLIAR_SKIP_CROP_EXTRACTION_OPTIONS,
+  SOIL_EXTRACTION_OPTIONS,
   getDefaultExtractionMethod,
   resolveInterpretationParameter,
+  shouldApplyTable1PhosphorusRange,
+  table1PhosphorusSufficientRange,
   type ExtractionMethod,
 } from "@/lib/extractionMethod";
 
@@ -995,7 +1007,7 @@ export default function HomePage() {
 
   const [cropId, setCropId] = useState<number | "">(999);
   const [sampleType, setSampleType] = useState<"soil" | "foliar">("soil");
-  const [extractionMethod, setExtractionMethod] = useState<ExtractionMethod>("general");
+  const [extractionMethod, setExtractionMethod] = useState<ExtractionMethod>("olsen");
   const [values, setValues] = useState<Record<string, string>>({});
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
   const [selectedUnitDisplayKeys, setSelectedUnitDisplayKeys] = useState<
@@ -1036,7 +1048,18 @@ export default function HomePage() {
 
   const [results, setResults] = useState<InterpretationResult[]>([]);
   const [missingResults, setMissingResults] = useState<MissingResult[]>([]);
-  const [calculatorOutputs, setCalculatorOutputs] = useState<CalculationOutput[]>([]);
+  const [calculatorPacks, setCalculatorPacks] = useState<CalculatorOutputPack[]>([]);
+  const [reportExtras, setReportExtras] = useState<{
+    planRecommendations: string[];
+    fertilizerProducts: PdfFertilizerProduct[];
+    fertilizerApplyLines: string[];
+  }>({
+    planRecommendations: [],
+    fertilizerProducts: [],
+    fertilizerApplyLines: [],
+  });
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const [analysisName, setAnalysisName] = useState("");
   const [farmName, setFarmName] = useState("");
@@ -1969,7 +1992,13 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setEditingRootAnalysisId(null);
     setEditingNextVersionNumber(1);
     setPendingEditableAnalysis(null);
-    setExtractionMethod("general");
+    setExtractionMethod("olsen");
+    setCalculatorPacks([]);
+    setReportExtras({
+      planRecommendations: [],
+      fertilizerProducts: [],
+      fertilizerApplyLines: [],
+    });
     setCurrentStep("setup");
   }
 
@@ -2239,18 +2268,19 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       symbol: parameter.symbol,
     }));
 
-    const rpcOutcomes = await Promise.all(
+        const rpcOutcomes = await Promise.all(
       rpcQueue.map(async (item) => {
+        const parameterLike = {
+          parameter_id: item.parameter_id,
+          parameter_name: item.parameter_name,
+          display_name: item.display_name,
+          symbol:
+            parameters.find(
+              (parameter) => parameter.parameter_key === item.parameter_key
+            )?.symbol ?? null,
+        };
         const resolved = resolveInterpretationParameter(
-          {
-            parameter_id: item.parameter_id,
-            parameter_name: item.parameter_name,
-            display_name: item.display_name,
-            symbol:
-              parameters.find(
-                (parameter) => parameter.parameter_key === item.parameter_key
-              )?.symbol ?? null,
-          },
+          parameterLike,
           parameterCatalog,
           extractionMethod
         );
@@ -2261,18 +2291,28 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           input_parameter_id: resolved.parameter_id,
         });
 
-        return { item, data, error, resolved };
+        return { item, data, error, resolved, parameterLike };
       })
     );
 
     for (const outcome of rpcOutcomes) {
-      const { item, data, error } = outcome;
+      const { item, data, error, resolved, parameterLike } = outcome;
 
       if (error) {
         throw error;
       }
 
-      if (!data || data.length === 0) {
+      const table1P = shouldApplyTable1PhosphorusRange({
+        extractionMethod,
+        isGeneralCrop: interpretationCropId === 999,
+        parameter: parameterLike,
+        resolved,
+        sampleType,
+      })
+        ? table1PhosphorusSufficientRange(extractionMethod)
+        : null;
+
+      if ((!data || data.length === 0) && !table1P) {
         notFoundResults.push({
           parameter_key: item.parameter_key,
           parameter_id: item.parameter_id,
@@ -2284,18 +2324,39 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         continue;
       }
 
-      const range = data[0] as RangeMatch;
-      const convertedRange = convertRangeToUnit(
-        range.min,
-        range.max,
-        range.unit_symbol,
-        item.unit_symbol
-      );
-      const rangeMin = convertedRange.min;
-      const rangeMax = convertedRange.max;
-      const rangeUnitSymbol = convertedRange.converted
+      const range = (data?.[0] as RangeMatch | undefined) || null;
+      const convertedRange = range
+        ? convertRangeToUnit(
+            range.min,
+            range.max,
+            range.unit_symbol,
+            item.unit_symbol
+          )
+        : null;
+
+      let rangeMin = convertedRange?.min ?? null;
+      let rangeMax = convertedRange?.max ?? null;
+      let rangeUnitSymbol = convertedRange?.converted
         ? item.unit_symbol
-        : range.unit_symbol;
+        : range?.unit_symbol || item.unit_symbol;
+      let sourceName = range?.source_name ?? null;
+      let isProxy = Boolean(range?.is_proxy);
+
+      if (table1P) {
+        const convertedTable = convertRangeToUnit(
+          table1P.min,
+          table1P.max,
+          table1P.unit,
+          item.unit_symbol
+        );
+        rangeMin = convertedTable.min;
+        rangeMax = convertedTable.max;
+        rangeUnitSymbol = convertedTable.converted
+          ? item.unit_symbol
+          : table1P.unit;
+        sourceName = table1P.sourceName;
+        isProxy = Boolean(range);
+      }
 
       const logicInput = {
         parameter_id: item.parameter_id || 0,
@@ -2306,11 +2367,20 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       };
 
       interpretedResults.push({
-        ...range,
+        crop_id: range?.crop_id ?? interpretationCropId,
+        crop_name: range?.crop_name ?? null,
+        sample_type: range?.sample_type ?? sampleType,
+        parameter_id: range?.parameter_id ?? item.parameter_id,
         custom_parameter_id: null,
+        parameter_name: range?.parameter_name ?? item.parameter_name,
+        unit_id: range?.unit_id ?? item.unit_id,
         unit_symbol: rangeUnitSymbol,
         min: rangeMin,
         max: rangeMax,
+        confidence: range?.confidence ?? "medium",
+        is_proxy: isProxy,
+        source_name: sourceName,
+        interpretation_note: range?.interpretation_note ?? null,
         value: item.value,
         level_code: getLevelCode(logicInput),
         final_group_code: getFinalGroupCode(logicInput),
@@ -2572,19 +2642,21 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
   const selectedCrop = crops.find((crop) => crop.crop_id === cropId);
   const isGeneralCrop = cropId === 999;
-  const showFoliarExtractionPicker = !cropId && sampleType === "foliar";
+  const showFoliarExtractionPicker = sampleType === "foliar";
   const interpretationCropId = cropId || 999;
 
+  // Keep a valid extraction method when switching soil ↔ foliar.
   useEffect(() => {
-    if (showFoliarExtractionPicker) {
-      setExtractionMethod(
-        getDefaultExtractionMethod({ isGeneralCrop: true, sampleType })
-      );
-      return;
-    }
-
-    setExtractionMethod("general");
-  }, [showFoliarExtractionPicker, sampleType]);
+    setExtractionMethod((previous) => {
+      if (previous === "bray") {
+        return getDefaultExtractionMethod({
+          isGeneralCrop,
+          sampleType,
+        });
+      }
+      return previous;
+    });
+  }, [sampleType, isGeneralCrop]);
   const hasAccess = Boolean((session?.user && !showAuthScreen) || guestMode);
   const isAdmin = isAdminEmail(session?.user?.email);
 
@@ -2602,6 +2674,159 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     if (email) return email.split("@")[0];
     return t.account;
   }, [guestMode, session, t]);
+
+  const pdfReportMeta = useMemo<PdfReportMeta>(() => {
+    const place = [provinceState.trim(), finalCountry].filter(Boolean).join(", ");
+    const dateValue = reportDate.trim() || samplingDate.trim();
+    const methodLabel = extractionMethodLabel(extractionMethod, t);
+    const usesMethodBands =
+      extractionMethod === "olsen" || extractionMethod === "mehlich";
+    const extractionNote = usesMethodBands
+      ? sampleType === "soil"
+        ? isGeneralCrop
+          ? formatMessage(
+              t.exportGeneralCropExtractionNote ||
+                "General crop with {method}: phosphorus sufficient ranges follow Tabla N.° 1 ({method}).",
+              { method: methodLabel }
+            )
+          : formatMessage(
+              t.exportExtractionMethodNote ||
+                "Phosphorus sufficient ranges use the {method} extractant bands when crop-specific method ranges are unavailable.",
+              { method: methodLabel }
+            )
+        : formatMessage(
+            t.exportFoliarExtractionNote ||
+              "Foliar analysis with {method}: phosphorus interpretation prefers {method}-linked ranges when available.",
+            { method: methodLabel }
+          )
+      : undefined;
+    return {
+      title:
+        analysisName.trim() ||
+        `${sampleType === "soil" ? t.soil : t.foliar} ${t.analysisSummary}`,
+      analysisName: analysisName.trim() || undefined,
+      generatedBy: displayName || undefined,
+      farm: farmName.trim() || undefined,
+      lots: lotName.trim() || undefined,
+      lab: labName.trim() || undefined,
+      date: dateValue || undefined,
+      place: place || undefined,
+      crop: selectedCrop?.display_name || undefined,
+      sampleType: sampleType === "soil" ? t.soil : t.foliar,
+      extractionMethod: methodLabel,
+      extractionNote,
+      details: [
+        selectedCrop ? `${t.crop}: ${selectedCrop.display_name}` : "",
+        `${t.sampleType}: ${sampleType === "soil" ? t.soil : t.foliar}`,
+        `${t.extractionMethodLabel}: ${methodLabel}`,
+        farmName.trim() ? `${t.farmName}: ${farmName.trim()}` : "",
+        lotName.trim() ? `${t.lotName}: ${lotName.trim()}` : "",
+        labName.trim() ? `${t.labName}: ${labName.trim()}` : "",
+        place ? `${t.location}: ${place}` : "",
+      ].filter(Boolean),
+    };
+  }, [
+    analysisName,
+    displayName,
+    extractionMethod,
+    farmName,
+    finalCountry,
+    isGeneralCrop,
+    labName,
+    lotName,
+    provinceState,
+    reportDate,
+    sampleType,
+    samplingDate,
+    selectedCrop,
+    t,
+  ]);
+
+  const pdfExportChecklist = useMemo(
+    () =>
+      buildPdfExportChecklist({
+        meta: pdfReportMeta,
+        hasResults: results.length > 0,
+        calculatorPacks,
+        t,
+      }),
+    [calculatorPacks, pdfReportMeta, results.length, t]
+  );
+
+  async function handleExportSummaryPdf(sections: PdfReportSectionOptions) {
+    setExportingPdf(true);
+    try {
+      const locales = {
+        en: "en-US",
+        fr: "fr-FR",
+        es: "es-ES",
+        ht: "ht-HT",
+        pt: "pt-BR",
+        sw: "sw-TZ",
+      } as const;
+      const translatedResults = results.map((result) => ({
+        ...result,
+        level_code: translateLevelCode(result.level_code, t),
+        confidence: translateConfidence(result.confidence, t),
+        advice: translateAdvice(result, t),
+        source_name: translateSourceName(result.source_name, t),
+      }));
+      const translatedGroupedResults = {
+        negative: translatedResults.filter((r) => r.final_group_code === "negative"),
+        warning: translatedResults.filter((r) => r.final_group_code === "warning"),
+        normal: translatedResults.filter((r) => r.final_group_code === "normal"),
+        positive: translatedResults.filter((r) => r.final_group_code === "positive"),
+        neutral: translatedResults.filter((r) => r.final_group_code === "neutral"),
+        other: translatedResults.filter(
+          (r) =>
+            !["negative", "warning", "normal", "positive", "neutral"].includes(
+              r.final_group_code
+            )
+        ),
+      };
+
+      await exportAnalysisPdf({
+        t,
+        results: translatedResults,
+        groupedResults: translatedGroupedResults,
+        missingResults,
+        textureSummary,
+        calculatorPacks,
+        fertilizerProducts: sections.includeFertilizerPlan
+          ? reportExtras.fertilizerProducts
+          : [],
+        recommendations: sections.includeRecommendations
+          ? buildExportRecommendations({
+              planRecommendations: reportExtras.planRecommendations,
+              results: translatedResults,
+              fertilizerProducts: sections.includeFertilizerPlan
+                ? reportExtras.fertilizerProducts
+                : [],
+              fertilizerApplyLines: reportExtras.fertilizerApplyLines,
+              includeInterpretationAdvice: sections.includeInterpretation,
+              amendmentLabels: calculatorHubText[language] || calculatorHubText.en,
+            })
+          : [],
+        isGeneralCrop,
+        locale: locales[language] || "en-US",
+        reportMeta: pdfReportMeta,
+        reportOptions: getSettings().reports,
+        sections,
+      });
+      setExportModalOpen(false);
+    } catch (error) {
+      console.error("PDF export error:", error);
+      alert(t.pdfExportFailed);
+    } finally {
+      setExportingPdf(false);
+    }
+  }
+
+  const showExportPdfIcon =
+    currentStep === "setup" ||
+    currentStep === "values" ||
+    currentStep === "results" ||
+    currentStep === "calculators";
 
   const isBusy = loading || saving;
 
@@ -2759,6 +2984,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         ) : currentStep === "setup" ? (
           <SetupScreen
             t={t}
+            userId={session?.user.id}
             cropId={cropId}
             setCropId={setCropId}
             crops={crops}
@@ -2786,11 +3012,14 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             setSamplingDate={setSamplingDate}
             goHome={() => setCurrentStep("home")}
             goToValues={goToValues}
+            onExportPdf={() => setExportModalOpen(true)}
+            exportingPdf={exportingPdf}
           />
         ) : currentStep === "values" ? (
           <ValuesScreen
             t={t}
             language={language}
+            userId={session?.user.id}
             selectedCrop={selectedCrop}
             sampleType={sampleType}
             isGeneralCrop={isGeneralCrop}
@@ -2826,6 +3055,10 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             cropId={cropId}
             setCropId={setCropId}
             crops={crops}
+            farmName={farmName}
+            setFarmName={setFarmName}
+            lotName={lotName}
+            setLotName={setLotName}
             interpretAnalysis={interpretAnalysis}
             backToSetup={() => setCurrentStep("setup")}
             openImporter={() => {
@@ -2840,6 +3073,9 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               setShowCustomParameterManager(true)
             }
             openCustomRangeManager={() => setShowCustomRangeManager(true)}
+            results={results}
+            onExportPdf={() => setExportModalOpen(true)}
+            exportingPdf={exportingPdf}
           />
         ) : currentStep === "results" ? (
           <section>
@@ -2861,7 +3097,6 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                 groupedResults={groupedResults}
                 missingResults={missingResults}
                 textureSummary={textureSummary}
-                calculatorOutputs={calculatorOutputs}
                 language={language}
                 t={t}
                 saving={saving}
@@ -2870,29 +3105,14 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                 isSaved={isCurrentAnalysisSaved}
                 isQueued={isCurrentAnalysisQueued}
                 pendingOfflineSaves={pendingOfflineSaves}
-                reportMeta={{
-                  title:
-                    analysisName.trim() ||
-                    `${sampleType === "soil" ? t.soil : t.foliar} ${t.analysisSummary}`,
-                  details: [
-                    selectedCrop ? `${t.crop}: ${selectedCrop.display_name}` : "",
-                    `${t.sampleType}: ${sampleType === "soil" ? t.soil : t.foliar}`,
-                    farmName.trim() ? `${t.farmName}: ${farmName.trim()}` : "",
-                    lotName.trim() ? `${t.lotName}: ${lotName.trim()}` : "",
-                    labName.trim() ? `${t.labName}: ${labName.trim()}` : "",
-                    [provinceState.trim(), finalCountry].filter(Boolean).length
-                      ? `${t.location}: ${[provinceState.trim(), finalCountry]
-                          .filter(Boolean)
-                          .join(", ")}`
-                      : "",
-                  ].filter(Boolean),
-                }}
                 isGeneralCrop={isGeneralCrop}
                 sampleType={sampleType}
                 showFoliarExtractionPicker={showFoliarExtractionPicker}
                 extractionMethod={extractionMethod}
                 showHorizontalGraphs={appSettings.reports.includeHorizontalResultGraph}
                 backToValues={() => setCurrentStep("values")}
+                onExportPdf={() => setExportModalOpen(true)}
+                exportingPdf={exportingPdf}
               />
             )}
           </section>
@@ -2902,6 +3122,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             guestMode={guestMode}
             language={language}
             t={t}
+            generatedBy={displayName}
             enteredValuesCount={totalEnteredValues}
             interpretedResultsCount={results.length}
             hasCurrentResults={results.length > 0}
@@ -2917,6 +3138,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             results={results}
             sampleType={sampleType}
             selectedCropName={selectedCrop?.crop_name || selectedCrop?.display_name || null}
+            selectedCountry={finalCountry || null}
             parameterUnits={Object.fromEntries(
               parameters.map((parameter) => {
                 const { selectedUnit } = resolveParameterUnitState(
@@ -2934,7 +3156,15 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             )}
             goToValues={() => setCurrentStep("values")}
             onBack={() => setCurrentStep("home")}
-            onOutputsChange={setCalculatorOutputs}
+            onOutputsChange={(packs) =>
+              setCalculatorPacks((previous) =>
+                mergeCalculatorOutputPacks(previous, packs)
+              )
+            }
+            onReportExtrasChange={setReportExtras}
+            onExportPdf={() => setExportModalOpen(true)}
+            exportingPdf={exportingPdf}
+            exportPdfLabel={t.exportPdf}
           />
         ) : currentStep === "settings" ? (
           <AppSettingsScreen
@@ -3053,6 +3283,34 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         sampleType={sampleType}
         currentCropId={cropId}
       />
+
+      {showExportPdfIcon ? (
+        <ExportReportModal
+          open={exportModalOpen}
+          onClose={() => {
+            if (!exportingPdf) setExportModalOpen(false);
+          }}
+          onConfirm={(sections) => void handleExportSummaryPdf(sections)}
+          t={t}
+          isFoliar={sampleType === "foliar"}
+          exporting={exportingPdf}
+          checklist={pdfExportChecklist}
+          calculatorPacks={calculatorPacks.filter(
+            (pack) => pack.id !== "fertilizerCost"
+          )}
+          hasFertilizerProducts={reportExtras.fertilizerProducts.length > 0}
+          hasRecommendations={
+            reportExtras.planRecommendations.length > 0 ||
+            reportExtras.fertilizerApplyLines.length > 0 ||
+            reportExtras.fertilizerProducts.length > 0 ||
+            results.length > 0
+          }
+          onOpenCalculators={() => {
+            setExportModalOpen(false);
+            setCurrentStep("calculators");
+          }}
+        />
+      ) : null}
       </main>
     </>
   );
@@ -3060,6 +3318,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
 function SetupScreen({
   t,
+  userId,
   cropId,
   setCropId,
   crops,
@@ -3087,8 +3346,11 @@ function SetupScreen({
   setSamplingDate,
   goHome,
   goToValues,
+  onExportPdf,
+  exportingPdf,
 }: {
   t: (typeof translations)[Language];
+  userId?: string;
   cropId: number | "";
   setCropId: (value: number | "") => void;
   crops: Crop[];
@@ -3116,6 +3378,8 @@ function SetupScreen({
   setSamplingDate: (value: string) => void;
   goHome: () => void;
   goToValues: () => void;
+  onExportPdf?: () => void;
+  exportingPdf?: boolean;
 }) {
   const cropOptions = buildSetupCropOptions(crops, t.generalCropOther);
   const [additionalInfoOpen, setAdditionalInfoOpen] = useState(false);
@@ -3146,6 +3410,13 @@ function SetupScreen({
       <div className="flex items-center gap-3 px-1 pb-1 pt-2">
         <BackButton variant="icon" onClick={goHome} label={t.start} />
         <h1 className="flex-1 text-lg font-bold dark-text-primary">{t.setupTitle}</h1>
+        {onExportPdf ? (
+          <ExportPdfIconButton
+            onClick={onExportPdf}
+            busy={exportingPdf}
+            label={t.exportPdf}
+          />
+        ) : null}
         <button
           type="button"
           onClick={goToValues}
@@ -3192,20 +3463,32 @@ function SetupScreen({
           />
         </SetupInlineField>
 
+        <SetupInlineField label={t.extractionMethodLabel}>
+          <div className="setup-extraction-inline">
+            <ExtractionMethodChips
+              t={t}
+              value={extractionMethod}
+              onChange={setExtractionMethod}
+              options={
+                sampleType === "foliar"
+                  ? FOLIAR_EXTRACTION_OPTIONS
+                  : SOIL_EXTRACTION_OPTIONS
+              }
+            />
+          </div>
+        </SetupInlineField>
+        <p className="setup-inline-hint">
+          {sampleType === "foliar"
+            ? t.foliarExtractionHint ||
+              "Choose crop-specific sufficiency ranges, Olsen, or Mehlich for foliar phosphorus interpretation."
+            : isGeneralCrop
+              ? t.generalCropExtractionHint ||
+                "Choose General sufficiency ranges, or Olsen / Mehlich (Tabla N.° 1) for phosphorus."
+              : t.soilExtractionHint ||
+                "Choose crop-specific sufficiency ranges, or Olsen / Mehlich for method-specific phosphorus bands."}
+        </p>
         {isGeneralCrop ? (
-          <>
-            <SetupInlineField label={t.extractionMethodLabel}>
-              <div className="setup-extraction-inline">
-                <ExtractionMethodChips
-                  t={t}
-                  value={extractionMethod}
-                  onChange={setExtractionMethod}
-                  options={GENERAL_CROP_EXTRACTION_OPTIONS}
-                />
-              </div>
-            </SetupInlineField>
-            <p className="setup-inline-hint">{t.generalCropWarning}</p>
-          </>
+          <p className="setup-inline-hint">{t.generalCropWarning}</p>
         ) : null}
 
         <div className="setup-skip-row">
@@ -3238,6 +3521,25 @@ function SetupScreen({
         )}
       </div>
 
+      <div className="calc-surface calc-page px-4 py-3">
+        <h2 className="setup-section-heading mb-2">{t.farmName}</h2>
+        <FarmLotSelector
+          userId={userId}
+          farmName={farmName}
+          onFarmNameChange={setFarmName}
+          lotNames={lotName}
+          onLotNamesChange={setLotName}
+          labels={{
+            farm: t.farmName,
+            lots: t.lotName,
+            selectFarm: t.selectFarm,
+            newFarm: t.newFarm,
+            addLot: t.addLot,
+            noLots: t.noLots,
+          }}
+        />
+      </div>
+
       <div className="calc-surface calc-page px-4 py-1">
         <button
           type="button"
@@ -3257,10 +3559,6 @@ function SetupScreen({
           <ReportDetailsPanel
             analysisName={analysisName}
             setAnalysisName={setAnalysisName}
-            farmName={farmName}
-            setFarmName={setFarmName}
-            lotName={lotName}
-            setLotName={setLotName}
             country={country}
             setCountry={setCountry}
             customCountry={customCountry}
@@ -3293,6 +3591,7 @@ function SetupScreen({
 function ValuesScreen({
   t,
   language,
+  userId,
   selectedCrop,
   sampleType,
   isGeneralCrop,
@@ -3325,15 +3624,23 @@ function ValuesScreen({
   cropId,
   setCropId,
   crops,
+  farmName,
+  setFarmName,
+  lotName,
+  setLotName,
   interpretAnalysis,
   backToSetup,
   openImporter,
   openCustomParameterModal,
   openCustomParameterManager,
   openCustomRangeManager,
+  results,
+  onExportPdf,
+  exportingPdf,
 }: {
   t: (typeof translations)[Language];
   language: Language;
+  userId?: string;
   selectedCrop: Crop | undefined;
   sampleType: "soil" | "foliar";
   isGeneralCrop: boolean;
@@ -3366,12 +3673,19 @@ function ValuesScreen({
   cropId: number | "";
   setCropId: (value: number | "") => void;
   crops: Crop[];
+  farmName: string;
+  setFarmName: (value: string) => void;
+  lotName: string;
+  setLotName: (value: string) => void;
   interpretAnalysis: () => void;
   backToSetup: () => void;
   openImporter: () => void;
   openCustomParameterModal: () => void;
   openCustomParameterManager: () => void;
   openCustomRangeManager: () => void;
+  results: InterpretationResult[];
+  onExportPdf?: () => void;
+  exportingPdf?: boolean;
 }) {
   const [addDataMenuSource, setAddDataMenuSource] = useState<
     null | "toolbar" | "sticky"
@@ -3380,9 +3694,18 @@ function ValuesScreen({
   const [canRenderFloatingActions, setCanRenderFloatingActions] = useState(false);
   const parameterGridRef = useRef<HTMLDivElement | null>(null);
   const [valueEntryView, setValueEntryView] = useState<ValueEntryView>("cards");
+  const [farmLotsOpen, setFarmLotsOpen] = useState(
+    () => Boolean(farmName.trim() || lotName.trim())
+  );
   const hasVisibleParameters = filteredParameters.length > 0;
   const hasEnteredValues = totalEnteredValues > 0;
   const valuesChrome = calculatorHubText[language];
+
+  useEffect(() => {
+    if (farmName.trim() || lotName.trim()) {
+      setFarmLotsOpen(true);
+    }
+  }, [farmName, lotName]);
   const parameterGroups = useMemo(() => {
     if (sortMode !== "type") {
       return [
@@ -3410,6 +3733,7 @@ function ValuesScreen({
 
     return groups;
   }, [filteredParameters, sortMode]);
+
   const showStickyAddAction = hasVisibleParameters && showParameterActions;
   const showInterpretAction =
     hasVisibleParameters &&
@@ -3477,9 +3801,10 @@ function ValuesScreen({
   }, [showParameterActions]);
 
   return (
+    <>
     <section
       className={`values-screen-panel values-screen-panel--open px-0 pb-4 pt-0 md:px-0 md:pb-5 md:pt-0 ${
-        hasVisibleParameters ? "pb-28" : ""
+        hasVisibleParameters ? "pb-20" : ""
       }`}
     >
       {/* Page header + toolbar */}
@@ -3495,12 +3820,59 @@ function ValuesScreen({
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          {onExportPdf ? (
+            <ExportPdfIconButton
+              onClick={onExportPdf}
+              busy={exportingPdf}
+              label={t.exportPdf}
+            />
+          ) : null}
           {totalEnteredValues > 0 && (
             <span className="values-count-badge">
               {totalEnteredValues}
             </span>
           )}
         </div>
+      </div>
+
+      <div className="mx-3 mb-2 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-white/80 px-3 py-2 sm:mx-4">
+        <button
+          type="button"
+          onClick={() => setFarmLotsOpen((previous) => !previous)}
+          className="setup-section-toggle !px-0 !py-1"
+          aria-expanded={farmLotsOpen}
+        >
+          <span className="setup-section-heading text-sm">
+            {t.farmName}
+            {farmName.trim() || lotName.trim()
+              ? ` · ${[farmName.trim(), lotName.trim()].filter(Boolean).join(" · ")}`
+              : ""}
+          </span>
+          <ChevronDown
+            size={16}
+            className={`settings-section-chevron transition-transform duration-200 ${farmLotsOpen ? "rotate-180" : ""}`}
+            aria-hidden
+          />
+        </button>
+        {farmLotsOpen ? (
+          <div className="pb-1 pt-1">
+            <FarmLotSelector
+              userId={userId}
+              farmName={farmName}
+              onFarmNameChange={setFarmName}
+              lotNames={lotName}
+              onLotNamesChange={setLotName}
+              labels={{
+                farm: t.farmName,
+                lots: t.lotName,
+                selectFarm: t.selectFarm,
+                newFarm: t.newFarm,
+                addLot: t.addLot,
+                noLots: t.noLots,
+              }}
+            />
+          </div>
+        ) : null}
       </div>
 
       {/* Compact toolbar: search + controls */}
@@ -3601,16 +3973,29 @@ function ValuesScreen({
         </div>
       ) : null}
 
-      {showFoliarExtractionPicker ? (
+      {showFoliarExtractionPicker || sampleType === "soil" ? (
         <div className="values-skip-crop-block">
           <p className="values-block-label">{t.extractionMethodLabel}</p>
           <ExtractionMethodChips
             t={t}
             value={extractionMethod}
             onChange={setExtractionMethod}
-            options={FOLIAR_SKIP_CROP_EXTRACTION_OPTIONS}
+            options={
+              sampleType === "foliar"
+                ? FOLIAR_EXTRACTION_OPTIONS
+                : SOIL_EXTRACTION_OPTIONS
+            }
           />
-          <p className="values-block-hint">{t.foliarExtractionHint}</p>
+          <p className="values-block-hint">
+            {sampleType === "foliar"
+              ? t.foliarExtractionHint ||
+                "Choose crop-specific sufficiency ranges, Olsen, or Mehlich for foliar phosphorus interpretation."
+              : isGeneralCrop
+                ? t.generalCropExtractionHint ||
+                  "Choose General sufficiency ranges, or Olsen / Mehlich (Tabla N.° 1) for phosphorus."
+                : t.soilExtractionHint ||
+                  "Choose crop-specific sufficiency ranges, or Olsen / Mehlich for method-specific phosphorus bands."}
+          </p>
         </div>
       ) : null}
 
@@ -3641,23 +4026,34 @@ function ValuesScreen({
               )}
 
               {showInterpretAction && (
-                <div className="app-fixed-action-bar fixed inset-x-0 z-[14000] animate-slide-up">
-                  <div className="app-content-shell px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={interpretAnalysis}
-                      disabled={loading || Boolean(pendingEditableAnalysis)}
-                      className="touch-target flex w-full items-center justify-center gap-2 rounded-2xl bg-green-700 px-5 py-3.5 font-semibold text-white shadow-sm active:scale-[0.98] hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60 transition-all"
-                    >
-                      <FlaskConical size={18} strokeWidth={2} />
-                      {loading ? t.interpreting : t.interpretAnalysis}
-                      {hasEnteredValues && !loading && (
-                        <span className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold">
-                          {totalEnteredValues}
-                        </span>
-                      )}
-                    </button>
-                  </div>
+                <div className="values-interpret-fab fixed z-[14000] animate-slide-up">
+                  <button
+                    type="button"
+                    onClick={interpretAnalysis}
+                    disabled={loading || Boolean(pendingEditableAnalysis)}
+                    className="values-interpret-fab__btn"
+                    aria-label={
+                      loading
+                        ? t.interpreting
+                        : hasEnteredValues
+                          ? `${t.interpretShort} (${totalEnteredValues})`
+                          : t.interpretShort
+                    }
+                  >
+                    {hasEnteredValues && !loading ? (
+                      <span className="values-interpret-fab__count" aria-hidden>
+                        {totalEnteredValues}
+                      </span>
+                    ) : (
+                      <FlaskConical size={15} strokeWidth={2.25} aria-hidden />
+                    )}
+                    <span className="values-interpret-fab__label">
+                      {loading ? t.interpreting : t.interpretShort}
+                    </span>
+                    {!loading ? (
+                      <ArrowRight size={15} strokeWidth={2.5} aria-hidden />
+                    ) : null}
+                  </button>
                 </div>
               )}
             </>,
@@ -3911,6 +4307,7 @@ function ValuesScreen({
         </div>
       )}
     </section>
+    </>
   );
 }
 
@@ -3926,10 +4323,6 @@ function StatPill({ label, value }: { label: string; value: number }) {
 function ReportDetailsPanel({
   analysisName,
   setAnalysisName,
-  farmName,
-  setFarmName,
-  lotName,
-  setLotName,
   country,
   setCountry,
   customCountry,
@@ -3942,10 +4335,6 @@ function ReportDetailsPanel({
 }: {
   analysisName: string;
   setAnalysisName: (value: string) => void;
-  farmName: string;
-  setFarmName: (value: string) => void;
-  lotName: string;
-  setLotName: (value: string) => void;
   country: string;
   setCountry: (value: string) => void;
   customCountry: string;
@@ -3973,22 +4362,6 @@ function ReportDetailsPanel({
           className="setup-inline-input"
           value={analysisName}
           onChange={(e) => setAnalysisName(e.target.value)}
-        />
-      </SetupInlineField>
-
-      <SetupInlineField label={t.farmName}>
-        <input
-          className="setup-inline-input"
-          value={farmName}
-          onChange={(e) => setFarmName(e.target.value)}
-        />
-      </SetupInlineField>
-
-      <SetupInlineField label={t.lotName}>
-        <input
-          className="setup-inline-input"
-          value={lotName}
-          onChange={(e) => setLotName(e.target.value)}
         />
       </SetupInlineField>
 
@@ -4470,7 +4843,10 @@ function extractionMethodLabel(
   t: (typeof translations)[Language]
 ) {
   const labels: Record<ExtractionMethod, string> = {
-    general: t.extractionMethodGeneral,
+    general:
+      t.extractionMethodCropSpecific ||
+      t.extractionMethodGeneral ||
+      "Crop-specific",
     olsen: t.extractionMethodOlsen,
     mehlich: t.extractionMethodMehlich,
     bray: t.extractionMethodBray,
@@ -4517,7 +4893,6 @@ function ResultsSection({
   groupedResults,
   missingResults,
   textureSummary,
-  calculatorOutputs,
   language,
   t,
   saving,
@@ -4526,13 +4901,14 @@ function ResultsSection({
   isSaved,
   isQueued,
   pendingOfflineSaves,
-  reportMeta,
   isGeneralCrop,
   sampleType,
   showFoliarExtractionPicker,
   extractionMethod,
   showHorizontalGraphs,
   backToValues,
+  onExportPdf,
+  exportingPdf,
 }: {
   results: InterpretationResult[];
   groupedResults: {
@@ -4545,7 +4921,6 @@ function ResultsSection({
   };
   missingResults: MissingResult[];
   textureSummary: TextureSummary | null;
-  calculatorOutputs: CalculationOutput[];
   language: Language;
   t: (typeof translations)[Language];
   saving: boolean;
@@ -4554,77 +4929,18 @@ function ResultsSection({
   isSaved: boolean;
   isQueued: boolean;
   pendingOfflineSaves: number;
-  reportMeta: {
-    title?: string;
-    details?: string[];
-  };
   isGeneralCrop: boolean;
   sampleType: "soil" | "foliar";
   showFoliarExtractionPicker: boolean;
   extractionMethod: ExtractionMethod;
   showHorizontalGraphs: boolean;
   backToValues: () => void;
+  onExportPdf?: () => void;
+  exportingPdf?: boolean;
 }) {
   const [activeGroup, setActiveGroup] = useState<
     "all" | "negative" | "warning" | "normal" | "positive" | "neutral" | "other"
   >("all");
-
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportingPdf, setExportingPdf] = useState(false);
-
-  async function exportToPdf(sections: PdfReportSectionOptions) {
-    setExportingPdf(true);
-    try {
-      const locales = {
-        en: "en-US",
-        fr: "fr-FR",
-        es: "es-ES",
-        ht: "ht-HT",
-        pt: "pt-BR",
-        sw: "sw-TZ",
-      };
-      const translatedResults = results.map((result) => ({
-        ...result,
-        level_code: translateLevelCode(result.level_code, t),
-        confidence: translateConfidence(result.confidence, t),
-        advice: translateAdvice(result, t),
-        source_name: translateSourceName(result.source_name, t),
-      }));
-      const translatedGroupedResults = {
-        negative: translatedResults.filter((r) => r.final_group_code === "negative"),
-        warning: translatedResults.filter((r) => r.final_group_code === "warning"),
-        normal: translatedResults.filter((r) => r.final_group_code === "normal"),
-        positive: translatedResults.filter((r) => r.final_group_code === "positive"),
-        neutral: translatedResults.filter((r) => r.final_group_code === "neutral"),
-        other: translatedResults.filter(
-          (r) =>
-            !["negative", "warning", "normal", "positive", "neutral"].includes(
-              r.final_group_code
-            )
-        ),
-      };
-
-      await exportAnalysisPdf({
-        t,
-        results: translatedResults,
-        groupedResults: translatedGroupedResults,
-        missingResults,
-        textureSummary,
-        calculationValues: calculatorOutputs,
-        isGeneralCrop,
-        locale: locales[language] || "en-US",
-        reportMeta,
-        reportOptions: getSettings().reports,
-        sections,
-      });
-      setExportModalOpen(false);
-    } catch (error) {
-      console.error("PDF export error:", error);
-      alert(t.pdfExportFailed);
-    } finally {
-      setExportingPdf(false);
-    }
-  }
 
   const visibleGroups = {
     negative:
@@ -4671,22 +4987,18 @@ function ResultsSection({
             <h2 className="results-flat-title">{t.analysisSummary}</h2>
             <p className="results-flat-count">
               {formatMessage(t.interpretedValuesCount, { count: results.length })}
-              {showFoliarExtractionPicker ? (
-                <span className="ml-2 text-amber-600">
-                  · {extractionMethodLabel(extractionMethod, t)}
-                </span>
-              ) : null}
+              <span className="ml-2 text-amber-600">
+                · {extractionMethodLabel(extractionMethod, t)}
+              </span>
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setExportModalOpen(true)}
-            disabled={exportingPdf || results.length === 0}
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[rgba(0,0,0,0.08)] bg-white px-3 text-xs font-semibold text-[#3c3c43] shadow-sm transition hover:bg-[#f2f2f2] active:scale-95 disabled:opacity-40"
-          >
-            <Download size={14} />
-            {exportingPdf ? "…" : "PDF"}
-          </button>
+          {onExportPdf ? (
+            <ExportPdfIconButton
+              onClick={onExportPdf}
+              busy={exportingPdf}
+              label={t.exportPdf}
+            />
+          ) : null}
         </div>
 
         {/* Horizontal scrolling filter chips */}
@@ -4852,17 +5164,6 @@ function ResultsSection({
           </div>
         </section>
       )}
-
-      <ExportReportModal
-        open={exportModalOpen}
-        onClose={() => {
-          if (!exportingPdf) setExportModalOpen(false);
-        }}
-        onConfirm={(sections) => void exportToPdf(sections)}
-        t={t}
-        isFoliar={sampleType === "foliar"}
-        exporting={exportingPdf}
-      />
     </>
   );
 }

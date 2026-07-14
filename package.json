@@ -15,6 +15,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
     "country-flag-icons": "^1.6.17",
+    "country-to-currency": "^3.0.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.469.0",

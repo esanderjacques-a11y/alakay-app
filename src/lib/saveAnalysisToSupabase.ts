@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { parseLotNames } from "@/lib/farmLots";
 
 export type AnalysisResultValue = {
   parameter_id: number | null;
@@ -50,43 +51,74 @@ export async function saveAnalysisToSupabase(
 
   let farmId: number | null = null;
   let lotId: number | null = null;
+  let lotIds: number[] = [];
   let labId: number | null = null;
 
   if (input.farmName.trim()) {
-    const { data: farmData, error: farmError } = await supabase
+    const farmName = input.farmName.trim();
+    const { data: existingFarms, error: farmLookupError } = await supabase
       .from("farms")
-      .insert({
-        user_id: userId,
-        farm_name: input.farmName.trim(),
-        location: [(input.provinceState || "").trim(), input.country || ""]
-          .filter(Boolean)
-          .join(", "),
-      })
-      .select("farm_id")
-      .single();
+      .select("farm_id, farm_name")
+      .eq("user_id", userId);
+    if (farmLookupError) throw new Error(farmLookupError.message);
 
-    if (farmError) {
-      throw new Error(farmError.message);
+    const existingFarm = existingFarms?.find(
+      (farm) =>
+        farm.farm_name.trim().toLocaleLowerCase() ===
+        farmName.toLocaleLowerCase()
+    );
+    if (existingFarm) {
+      farmId = existingFarm.farm_id;
+    } else {
+      const { data: farmData, error: farmError } = await supabase
+        .from("farms")
+        .insert({
+          user_id: userId,
+          farm_name: farmName,
+          location: [(input.provinceState || "").trim(), input.country || ""]
+            .filter(Boolean)
+            .join(", "),
+        })
+        .select("farm_id")
+        .single();
+
+      if (farmError) throw new Error(farmError.message);
+      farmId = farmData.farm_id;
     }
-
-    farmId = farmData.farm_id;
   }
 
-  if (input.lotName.trim() && farmId) {
-    const { data: lotData, error: lotError } = await supabase
+  const requestedLotNames = parseLotNames(input.lotName);
+  if (requestedLotNames.length > 0 && farmId) {
+    const { data: existingLots, error: lotLookupError } = await supabase
       .from("lots")
-      .insert({
-        farm_id: farmId,
-        lot_name: input.lotName.trim(),
-      })
-      .select("lot_id")
-      .single();
+      .select("lot_id, lot_name")
+      .eq("farm_id", farmId);
+    if (lotLookupError) throw new Error(lotLookupError.message);
 
-    if (lotError) {
-      throw new Error(lotError.message);
+    const lotsByName = new Map(
+      (existingLots || []).map((lot) => [
+        lot.lot_name.trim().toLocaleLowerCase(),
+        lot,
+      ])
+    );
+    const missingNames = requestedLotNames.filter(
+      (name) => !lotsByName.has(name.toLocaleLowerCase())
+    );
+    if (missingNames.length > 0) {
+      const { data: insertedLots, error: lotError } = await supabase
+        .from("lots")
+        .insert(missingNames.map((name) => ({ farm_id: farmId, lot_name: name })))
+        .select("lot_id, lot_name");
+      if (lotError) throw new Error(lotError.message);
+      for (const lot of insertedLots || []) {
+        lotsByName.set(lot.lot_name.trim().toLocaleLowerCase(), lot);
+      }
     }
 
-    lotId = lotData.lot_id;
+    lotIds = requestedLotNames
+      .map((name) => lotsByName.get(name.toLocaleLowerCase())?.lot_id)
+      .filter((id): id is number => typeof id === "number");
+    lotId = lotIds[0] || null;
   }
 
   if (input.labName.trim()) {
@@ -143,6 +175,19 @@ export async function saveAnalysisToSupabase(
   }
 
   const analysisId = analysisData.analysis_id;
+
+  if (lotIds.length > 0) {
+    const { error: analysisLotsError } = await supabase
+      .from("analysis_lots")
+      .insert(
+        lotIds.map((assignedLotId, index) => ({
+          analysis_id: analysisId,
+          lot_id: assignedLotId,
+          is_primary: index === 0,
+        }))
+      );
+    if (analysisLotsError) throw new Error(analysisLotsError.message);
+  }
 
   const valuesToInsert = input.results.map((result) => ({
     analysis_id: analysisId,

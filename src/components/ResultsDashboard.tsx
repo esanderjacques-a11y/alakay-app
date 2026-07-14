@@ -14,6 +14,7 @@ type Props = {
   guestMode: boolean;
   language: Language;
   t: Translation;
+  generatedBy?: string;
   enteredValuesCount: number;
   interpretedResultsCount: number;
   hasCurrentResults: boolean;
@@ -27,6 +28,7 @@ export default function ResultsDashboard({
   guestMode,
   language,
   t,
+  generatedBy,
   enteredValuesCount,
   interpretedResultsCount,
   hasCurrentResults,
@@ -155,6 +157,7 @@ export default function ResultsDashboard({
               session={session}
               language={language}
               t={t}
+              generatedBy={generatedBy}
               onEditAnalysis={onEditAnalysis}
               onReadingChange={setReadingReport}
             />

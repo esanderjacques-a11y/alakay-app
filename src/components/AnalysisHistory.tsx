@@ -22,10 +22,12 @@ import {
   purgeExpiredDeletedAnalyses,
 } from "@/lib/analysisDeletion";
 import {
+  buildPdfExportChecklist,
   buildTextureSummaryFromResults,
   exportAnalysisPdf as exportStyledAnalysisPdf,
   groupPdfResults,
   normalizeGroupCode,
+  type PdfReportMeta,
   type PdfReportSectionOptions,
   type PdfResult,
 } from "@/lib/pdfReport";
@@ -86,6 +88,12 @@ type SavedAnalysis = {
   lots: RelationOne<{
     lot_name: string;
   }>;
+  analysis_lots: Array<{
+    is_primary: boolean;
+    lots: RelationOne<{
+      lot_name: string;
+    }>;
+  }> | null;
   labs: RelationOne<{
     lab_name: string;
   }>;
@@ -123,6 +131,7 @@ type Props = {
   session: Session | null;
   language: Language;
   t: Translation;
+  generatedBy?: string;
   onEditAnalysis?: (payload: EditableAnalysisPayload) => void;
   onReadingChange?: (reading: boolean) => void;
 };
@@ -178,7 +187,13 @@ function getFarmName(analysis: SavedAnalysis) {
 }
 
 function getLotName(analysis: SavedAnalysis) {
-  return getOne(analysis.lots)?.lot_name || "";
+  const assignedNames = (analysis.analysis_lots || [])
+    .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
+    .map((assignment) => getOne(assignment.lots)?.lot_name?.trim())
+    .filter((name): name is string => Boolean(name));
+  return assignedNames.length > 0
+    ? [...new Set(assignedNames)].join(", ")
+    : getOne(analysis.lots)?.lot_name || "";
 }
 
 function getLabName(analysis: SavedAnalysis) {
@@ -258,6 +273,7 @@ export default function AnalysisHistory({
   session,
   language,
   t,
+  generatedBy,
   onEditAnalysis,
   onReadingChange,
 }: Props) {
@@ -327,8 +343,14 @@ export default function AnalysisHistory({
         farms (
           farm_name
         ),
-        lots (
+        lots!analyses_lot_id_fkey (
           lot_name
+        ),
+        analysis_lots (
+          is_primary,
+          lots (
+            lot_name
+          )
         ),
         labs (
           lab_name
@@ -552,6 +574,41 @@ export default function AnalysisHistory({
     await loadAnalyses();
   }
 
+  function buildHistoryReportMeta(analysis: SavedAnalysis): PdfReportMeta {
+    const farmName = getFarmName(analysis);
+    const lotName = getLotName(analysis);
+    const labName = getLabName(analysis);
+    const place =
+      [analysis.province_state, analysis.country].filter(Boolean).join(", ");
+    const dateValue =
+      analysis.report_date || analysis.sampling_date || analysis.created_at || "";
+
+    return {
+      title: getAnalysisTitle(analysis),
+      analysisName: analysis.analysis_name?.trim() || getAnalysisTitle(analysis),
+      generatedBy: generatedBy?.trim() || undefined,
+      farm: farmName || undefined,
+      lots: lotName || undefined,
+      lab: labName || undefined,
+      place: place || undefined,
+      date: dateValue ? formatDate(dateValue) : undefined,
+      crop: getCropName(analysis) || undefined,
+      sampleType:
+        getSampleTypeCode(analysis) === "soil" ? l.soil : l.foliar,
+      details: [
+        `${l.crop}: ${getCropName(analysis)}`,
+        `${l.sampleType}: ${
+          getSampleTypeCode(analysis) === "soil" ? l.soil : l.foliar
+        }`,
+        `${l.date}: ${formatDate(dateValue)}`,
+        place ? `${l.location}: ${place}` : "",
+        farmName ? `${l.farm}: ${farmName}` : "",
+        lotName ? `${l.lot}: ${lotName}` : "",
+        labName ? `${l.lab}: ${labName}` : "",
+      ].filter(Boolean),
+    };
+  }
+
   function requestExportAnalysisPdf(analysis: SavedAnalysis) {
     setMessage("");
     setPendingExportAnalysis(analysis);
@@ -578,28 +635,7 @@ export default function AnalysisHistory({
 
       const groupedResults = groupPdfResults(results);
       const textureSummary = buildTextureSummaryFromResults(results);
-      const farmName = getFarmName(analysis);
-      const lotName = getLotName(analysis);
-      const labName = getLabName(analysis);
-      const location =
-        [analysis.province_state, analysis.country].filter(Boolean).join(", ") ||
-        "—";
-
-      const reportDetails = [
-        `${l.crop}: ${getCropName(analysis)}`,
-        `${l.sampleType}: ${
-          getSampleTypeCode(analysis) === "soil" ? l.soil : l.foliar
-        }`,
-        `${l.date}: ${formatDate(
-          analysis.report_date || analysis.sampling_date || analysis.created_at
-        )}`,
-        `${l.location}: ${location}`,
-      ];
-
-      if (farmName) reportDetails.push(`${l.farm}: ${farmName}`);
-      if (lotName) reportDetails.push(`${l.lot}: ${lotName}`);
-      if (labName) reportDetails.push(`${l.lab}: ${labName}`);
-
+      const reportMeta = buildHistoryReportMeta(analysis);
       const fileName = `${getAnalysisTitle(analysis).replace(/[^\w\d-]+/g, "-")}.pdf`;
 
       await exportStyledAnalysisPdf({
@@ -608,12 +644,10 @@ export default function AnalysisHistory({
         groupedResults,
         missingResults: [],
         textureSummary,
+        calculatorPacks: [],
         isGeneralCrop: analysis.crop_id === 999,
         locale: pdfLocales[language] || "en-US",
-        reportMeta: {
-          title: getAnalysisTitle(analysis),
-          details: reportDetails,
-        },
+        reportMeta,
         reportOptions: getSettings().reports,
         sections,
         fileName,
@@ -629,6 +663,16 @@ export default function AnalysisHistory({
       setExportingPdf(false);
     }
   }
+
+  const pendingExportChecklist = useMemo(() => {
+    if (!pendingExportAnalysis) return [];
+    return buildPdfExportChecklist({
+      meta: buildHistoryReportMeta(pendingExportAnalysis),
+      hasResults: true,
+      calculatorPacks: [],
+      t,
+    });
+  }, [pendingExportAnalysis, t, language, generatedBy]);
 
   const rootGroups = useMemo(() => {
     const map = new Map<
@@ -765,6 +809,8 @@ export default function AnalysisHistory({
               : false
           }
           exporting={exportingPdf}
+          checklist={pendingExportChecklist}
+          calculatorPacks={[]}
         />
       </>
     );
@@ -1046,6 +1092,8 @@ export default function AnalysisHistory({
             : false
         }
         exporting={exportingPdf}
+        checklist={pendingExportChecklist}
+        calculatorPacks={[]}
       />
     </section>
   );

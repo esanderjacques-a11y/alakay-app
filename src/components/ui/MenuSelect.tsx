@@ -34,6 +34,8 @@ type Props<T extends string> = {
   triggerClassName?: string;
   placeholder?: string;
   disabled?: boolean;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 };
 
 function normalizeOptions<T extends string>(
@@ -59,20 +61,43 @@ export default function MenuSelect<T extends string>({
   triggerClassName = "",
   placeholder,
   disabled = false,
+  searchable = false,
+  searchPlaceholder = "Search…",
 }: Props<T>) {
   const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const presence = useAnimatedPresence(open);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const [canPortal, setCanPortal] = useState(false);
   const normalized = normalizeOptions(options);
   const selected = normalized.find((option) => option.value === value);
+  const visibleOptions = searchable
+    ? normalized.filter((option) => {
+        if (!searchTerm.trim()) return true;
+        const needle = searchTerm.trim().toLowerCase();
+        return (
+          option.label.toLowerCase().includes(needle) ||
+          (option.description || "").toLowerCase().includes(needle)
+        );
+      })
+    : normalized;
 
   useEffect(() => {
     queueMicrotask(() => setCanPortal(true));
   }, []);
+
+  useEffect(() => {
+    if (!open) setSearchTerm("");
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !searchable) return;
+    searchInputRef.current?.focus();
+  }, [open, searchable]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -85,12 +110,19 @@ export default function MenuSelect<T extends string>({
       const padding = 12;
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
-      const estimatedHeight = Math.min(320, 56 + normalized.length * 56);
+      const estimatedHeight = Math.min(
+        360,
+        56 + (searchable ? 52 : 0) + Math.max(visibleOptions.length, 1) * 56
+      );
       const spaceBelow = viewportHeight - rect.bottom - padding;
       const spaceAbove = rect.top - padding;
       const openAbove = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
+      const maxHeight = Math.max(
+        140,
+        Math.min(openAbove ? spaceAbove - gap : spaceBelow - gap, 360)
+      );
       const width = Math.min(
-        Math.max(rect.width, variant === "chip" ? 160 : 240),
+        Math.max(rect.width, searchable ? 280 : rect.width),
         viewportWidth - padding * 2
       );
       const left = Math.min(
@@ -98,29 +130,39 @@ export default function MenuSelect<T extends string>({
         viewportWidth - width - padding
       );
 
-      setMenuStyle({
-        position: "fixed",
-        left,
-        width,
-        zIndex: 19000,
-        maxHeight: Math.min(
-          320,
-          openAbove ? spaceAbove : spaceBelow
-        ),
-        ...(openAbove
-          ? { bottom: viewportHeight - rect.top + gap }
-          : { top: rect.bottom + gap }),
-      });
+      setMenuStyle(
+        openAbove
+          ? {
+              position: "fixed",
+              bottom: viewportHeight - rect.top + gap,
+              top: "auto",
+              left,
+              width,
+              maxHeight,
+              zIndex: 19000,
+            }
+          : {
+              position: "fixed",
+              top: rect.bottom + gap,
+              bottom: "auto",
+              left,
+              width,
+              maxHeight,
+              zIndex: 19000,
+            }
+      );
     }
 
     updateMenuPosition();
+    const raf = requestAnimationFrame(updateMenuPosition);
     window.addEventListener("resize", updateMenuPosition);
     window.addEventListener("scroll", updateMenuPosition, true);
     return () => {
+      cancelAnimationFrame(raf);
       window.removeEventListener("resize", updateMenuPosition);
       window.removeEventListener("scroll", updateMenuPosition, true);
     };
-  }, [normalized.length, open, variant]);
+  }, [open, searchable, visibleOptions.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -186,7 +228,7 @@ export default function MenuSelect<T extends string>({
         </>
       ) : (
         <>
-          <span className="truncate font-semibold">
+          <span className={`truncate ${selected ? "font-semibold" : "font-medium text-slate-500"}`}>
             {selected?.label || placeholder || ""}
           </span>
           <ChevronDown
@@ -223,8 +265,25 @@ export default function MenuSelect<T extends string>({
               {heading ? (
                 <p className="add-data-menu__heading">{heading}</p>
               ) : null}
+              {searchable ? (
+                <div className="app-menu-select-search px-3 pb-2 pt-1">
+                  <input
+                    ref={searchInputRef}
+                    type="search"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder={searchPlaceholder}
+                    className="calc-field-input w-full rounded-xl px-3 py-2 text-sm"
+                    aria-label={searchPlaceholder}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  />
+                </div>
+              ) : null}
               <div className="app-menu-select-menu__scroll max-h-full overflow-y-auto">
-                {normalized.map((option) => {
+                {visibleOptions.length === 0 ? (
+                  <p className="px-3 py-3 text-sm text-slate-500">No matches</p>
+                ) : null}
+                {visibleOptions.map((option) => {
                   const isSelected = option.value === value;
                   const Icon = option.icon;
 

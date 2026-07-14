@@ -54,6 +54,18 @@ function countryName(code: string) {
   return displayNames.of(code) || code;
 }
 
+export function countryCodeForName(name: string) {
+  const normalized = name.trim().toLocaleLowerCase();
+  if (!normalized || normalized === "other") return null;
+  for (const codes of Object.values(countryCodesByRegion)) {
+    const match = codes.find(
+      (code) => countryName(code).toLocaleLowerCase() === normalized
+    );
+    if (match) return match;
+  }
+  return null;
+}
+
 export const countryRegions = Object.entries(countryCodesByRegion).map(
   ([region, codes]) => ({
     region: region as CountryRegion,

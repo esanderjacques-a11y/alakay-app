@@ -142,14 +142,14 @@ export function getSimpleAdvice(input: LogicInput) {
 
   if (isPH(name)) {
     if (level === "acidic" || level === "low") {
-      return "Soil pH is acidic. This can reduce nutrient availability and increase aluminum toxicity risk. Consider confirming acidity with exchangeable acidity or aluminum data before applying lime.";
+      return "Soil pH is acidic. This can reduce nutrient availability and increase aluminum toxicity risk. Check CICe base saturation before liming — recommend lime or gypsum only if V% or cation sats are outside the sufficient range.";
     }
 
     if (level === "alkaline" || level === "high") {
-      return "Soil pH is alkaline. Some nutrients such as phosphorus, iron, zinc, manganese, and copper may become less available. Avoid unnecessary liming and review crop-specific tolerance.";
+      return "Soil pH is alkaline. Some nutrients such as phosphorus, iron, zinc, manganese, and copper may become less available. Avoid unnecessary liming; if acidification is required, consider elemental sulfur and review crop-specific tolerance.";
     }
 
-    return "Soil pH is near neutral in the current context.";
+    return "Soil pH is near neutral in the current context. No lime or sulfur amendment is indicated by pH alone.";
   }
 
   if (isElectricalConductivity(name)) {
@@ -177,12 +177,12 @@ export function getSimpleAdvice(input: LogicInput) {
       return "Sodium is slightly elevated (0.5-1.0 cmol(+)/kg). Monitor EC and structure risk, especially in sensitive soils or low-drainage conditions.";
     }
 
-    return "Sodium is in the safe range (<0.5 cmol(+)/kg) based on the current reference.";
+    return "Sodium is in the safe range (<0.5 cmol(+)/kg) based on the current reference. No gypsum amendment is indicated by sodium alone.";
   }
 
   if (isAluminum(name)) {
     if (level === "high") {
-      return "Aluminum is high. This can damage roots in acidic soils and reduce nutrient uptake. Review soil pH and acidity correction options such as liming.";
+      return "Aluminum is high. This can damage roots in acidic soils and reduce nutrient uptake. Confirm CICe base saturation and acidity — liming only if V% or Ca sat is outside the sufficient range.";
     }
 
     return "Aluminum is within the expected range based on the current reference.";

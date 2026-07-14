@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, CircleDollarSign } from "lucide-react";
 import {
   areaUnitLabel,
   type AreaUnit,
@@ -13,18 +14,28 @@ import MenuSelect from "@/components/ui/MenuSelect";
 import { useSoilFertilityReference } from "@/lib/soilFertilityData";
 import {
   IRRIGATION_SYSTEM_OPTIONS,
-  findCropExtraction,
+  findCropExtractionVariants,
   irrigationEfficiencyDefaults,
+  type IrrigationEfficiencyTable,
   type IrrigationSystem,
 } from "@/lib/soilFertilityTables";
+import {
+  formatAmendmentRecommendationLines,
+  recommendSoilAmendment,
+  soilAmendmentInputFromLabLike,
+} from "@/lib/amendmentRecommendation";
 import {
   buildNutrientDosePlan,
   displayExtractionLabels,
   elementalToOxideExtraction,
   fertilityDosePlanToCalculationOutputs,
+  mineralizationCoefForScenario,
+  mineralizationScenarioLabel,
+  MINERALIZATION_SCENARIOS,
   oxideToElementalExtraction,
   type FertilityCalcStep,
   type FertilityDoseResult,
+  type MineralizationScenario,
   type NutrientDisplayMode,
   type ExtractionOxide,
 } from "@/lib/soilFertilityPlan";
@@ -35,6 +46,14 @@ type Props = {
   selectedCropName?: string | null;
   layout?: "grid" | "list";
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
+  onOpenCostPage?: () => void;
+  onDosePlanChange?: (payload: {
+    doses: FertilityDoseResult[];
+    areaHa: number;
+    irrigationSystem: IrrigationSystem;
+    irrigationTable: IrrigationEfficiencyTable;
+    recommendations: string[];
+  }) => void;
 };
 
 const AREA_UNITS: AreaUnit[] = ["ha", "acre", "carreau", "m2"];
@@ -57,14 +76,18 @@ export default function FertilizerPlanCalculator({
   selectedCropName,
   layout: layoutProp,
   onOutputsChange,
+  onOpenCostPage,
+  onDosePlanChange,
 }: Props) {
   const { reference } = useSoilFertilityReference();
   const [storedLayout] = useViewLayoutPreference("calculator-hub");
   const resultsLayout = layoutProp ?? storedLayout;
-  const sourceMatchedCrop = useMemo(
-    () => findCropExtraction(selectedCropName, reference),
+  const cropVariants = useMemo(
+    () => findCropExtractionVariants(selectedCropName, reference),
     [selectedCropName, reference]
   );
+  const needsVariantChoice = cropVariants.length > 1;
+  const sourceMatchedCrop = cropVariants.length === 1 ? cropVariants[0] : null;
   const [selectedTableCropKey, setSelectedTableCropKey] = useState("");
   const selectedTableCrop = useMemo(
     () => reference.cropExtraction.find((crop) => crop.cropKey === selectedTableCropKey) || null,
@@ -72,20 +95,27 @@ export default function FertilizerPlanCalculator({
   );
   const matchedCrop = selectedTableCrop || sourceMatchedCrop;
   const effectiveCropName = matchedCrop?.label || selectedCropName;
-  const showCropPicker = !sourceMatchedCrop;
-  const cropOptions = useMemo<Array<[string, string]>>(
-    () => [
-      ["", t.fertilizerPlanSelectCrop || "Select a crop from Tabla N.° 5"],
-      ...reference.cropExtraction
-        .map((crop) => [crop.cropKey, crop.label] as [string, string])
-        .sort((a, b) => a[1].localeCompare(b[1])),
-    ],
-    [reference.cropExtraction, t.fertilizerPlanSelectCrop]
-  );
+  const showCropPicker = cropVariants.length !== 1;
+  const cropOptions = useMemo<Array<[string, string]>>(() => {
+    const pool = needsVariantChoice ? cropVariants : reference.cropExtraction;
+    return pool
+      .map((crop) => [crop.cropKey, crop.label] as [string, string])
+      .sort((a, b) => a[1].localeCompare(b[1]));
+  }, [cropVariants, needsVariantChoice, reference.cropExtraction]);
 
   useEffect(() => {
-    if (sourceMatchedCrop) setSelectedTableCropKey("");
-  }, [sourceMatchedCrop]);
+    if (cropVariants.length === 1) {
+      setSelectedTableCropKey("");
+      return;
+    }
+    if (
+      selectedTableCropKey &&
+      cropVariants.length > 1 &&
+      !cropVariants.some((crop) => crop.cropKey === selectedTableCropKey)
+    ) {
+      setSelectedTableCropKey("");
+    }
+  }, [cropVariants, selectedTableCropKey]);
 
   const [displayMode, setDisplayMode] = useState<NutrientDisplayMode>("oxide");
   const [irrigationSystem, setIrrigationSystem] = useState<IrrigationSystem>("aspersion_pivote");
@@ -109,6 +139,60 @@ export default function FertilizerPlanCalculator({
     "fertilizer",
     "organicMatter",
     lab.get("organic_matter")?.value || 0
+  );
+  const [mineralizationScenario, setMineralizationScenario] =
+    useState<MineralizationScenario>("conservative");
+  const [customMinerCoefPercent, setCustomMinerCoefPercent] = useState(2);
+  const mineralizationStorageReady = useRef(false);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("cultosol_n_mineralization_v1");
+      if (stored) {
+        const parsed = JSON.parse(stored) as {
+          scenario?: MineralizationScenario;
+          customPercent?: number;
+        };
+        if (
+          parsed.scenario === "conservative" ||
+          parsed.scenario === "temperate" ||
+          parsed.scenario === "tropical" ||
+          parsed.scenario === "custom"
+        ) {
+          setMineralizationScenario(parsed.scenario);
+        }
+        if (
+          typeof parsed.customPercent === "number" &&
+          Number.isFinite(parsed.customPercent) &&
+          parsed.customPercent >= 0
+        ) {
+          setCustomMinerCoefPercent(parsed.customPercent);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    mineralizationStorageReady.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!mineralizationStorageReady.current) return;
+    try {
+      window.localStorage.setItem(
+        "cultosol_n_mineralization_v1",
+        JSON.stringify({
+          scenario: mineralizationScenario,
+          customPercent: customMinerCoefPercent,
+        })
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [customMinerCoefPercent, mineralizationScenario]);
+
+  const mineralizationCoef = mineralizationCoefForScenario(
+    mineralizationScenario,
+    customMinerCoefPercent / 100
   );
   const [pLab, setPLab] = useMemoryNumber("fertilizer", "p", lab.get("phosphorus")?.value || 0);
   const [kLab, setKLab] = useMemoryNumber("fertilizer", "k", lab.get("potassium")?.value || 0);
@@ -234,9 +318,18 @@ export default function FertilizerPlanCalculator({
         profundidadMuestreo_cm: depthCm,
         densidadAparente_g_cm3: bulkDensity,
         materiaOrganica: organicMatter,
+        mineralizationScenario,
+        coeficienteMineralizacion: mineralizationCoef,
         P: pLab,
         K: kLab,
         Mg: mgLab,
+        Ca: lab.get("calcium")?.value || 0,
+        Na: lab.get("sodium")?.value || 0,
+        cec: lab.get("cec")?.value || 0,
+        ph: lab.get("ph")?.value || 0,
+        exchangeableAcidity: lab.get("exchangeable_acidity")?.value || 0,
+        aluminum: lab.get("aluminum")?.value || 0,
+        aluminumUnit: lab.get("aluminum")?.unit,
         eficienciaN: effN,
         eficienciaP: effP,
         eficienciaK: effK,
@@ -254,9 +347,12 @@ export default function FertilizerPlanCalculator({
     depthCm,
     bulkDensity,
     organicMatter,
+    mineralizationScenario,
+    mineralizationCoef,
     pLab,
     kLab,
     mgLab,
+    lab,
     effN,
     effP,
     effK,
@@ -267,12 +363,65 @@ export default function FertilizerPlanCalculator({
     reference,
   ]);
 
+  const planRecommendations = useMemo(() => {
+    if (!plan) return [];
+    const amendmentInput = soilAmendmentInputFromLabLike(
+      (keys) => {
+        for (const key of keys) {
+          const hit = lab.get(key);
+          if (hit && Number.isFinite(hit.value)) return hit.value;
+        }
+        return null;
+      },
+      {
+        aluminumUnit: lab.get("aluminum")?.unit,
+      }
+    );
+    if (
+      amendmentInput.organicMatterPercent == null &&
+      Number.isFinite(organicMatter) &&
+      organicMatter > 0
+    ) {
+      amendmentInput.organicMatterPercent = organicMatter;
+    }
+    const amendmentLines = formatAmendmentRecommendationLines(
+      recommendSoilAmendment(amendmentInput),
+      t
+    );
+    return [...plan.recommendations, ...amendmentLines];
+  }, [plan, lab, organicMatter, t]);
+
   useEffect(() => {
     if (!onOutputsChange) return;
     onOutputsChange(plan ? fertilityDosePlanToCalculationOutputs(plan) : []);
   }, [plan, onOutputsChange]);
 
+  useEffect(() => {
+    if (!onDosePlanChange) return;
+    onDosePlanChange({
+      doses: plan?.doses ?? [],
+      areaHa: plan?.areaHa ?? 0,
+      irrigationSystem,
+      irrigationTable: reference.irrigationEfficiency,
+      recommendations: planRecommendations,
+    });
+  }, [
+    plan,
+    planRecommendations,
+    irrigationSystem,
+    reference.irrigationEfficiency,
+    onDosePlanChange,
+  ]);
+
   const selectedDose = plan?.doses.find((d) => d.key === selectedDoseKey) || null;
+  const hasActiveDoses = Boolean(
+    plan?.doses.some(
+      (dose) =>
+        !dose.notRequired &&
+        !dose.viaEncalado &&
+        (dose.dosisOxideKgHa || 0) > 0
+    )
+  );
 
   const yieldHint =
     matchedCrop?.yieldMin != null && matchedCrop?.yieldMax != null
@@ -282,10 +431,15 @@ export default function FertilizerPlanCalculator({
         })
       : null;
 
+  const cropSummary =
+    matchedCrop?.label ||
+    (!showCropPicker && effectiveCropName) ||
+    null;
+
   return (
     <div className="fertilizer-plan calc-page px-3 sm:px-4 space-y-4">
-      <div className="fertilizer-plan__params calc-surface p-4 space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="fertilizer-plan__params calc-surface p-4 space-y-2">
+        <div className="flex flex-wrap items-start justify-between gap-3 pb-2">
           <div>
             <h2 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
               {t.fertilizerPlanTab || "Nutritional plan"}
@@ -307,87 +461,142 @@ export default function FertilizerPlanCalculator({
           />
         </div>
 
-        {showCropPicker ? (
-          <div className="calc-page__crop grid gap-2 px-3 py-3">
-            <SelectField
-              label={t.fertilizerPlanCrop || "Crop"}
-              value={selectedTableCropKey}
-              onChange={setSelectedTableCropKey}
-              options={cropOptions}
-              fullWidth
-            />
-            <p className="text-xs text-slate-600 dark:text-slate-300">
-              {t.fertilizerPlanCropPickerHint ||
-                "Select a Tabla N.° 5 crop to fill extraction values and the typical yield automatically."}
-            </p>
-          </div>
-        ) : null}
+        <PlanSection
+          title={t.fertilizerPlanCropPlot || t.fertilizerPlanCrop || "Crop & plot"}
+          summary={
+            cropSummary
+              ? `${cropSummary}${yieldTarget > 0 ? ` · ${yieldTarget} t/ha` : ""}`
+              : undefined
+          }
+          defaultOpen
+        >
+          {showCropPicker ? (
+            <div className="calc-page__crop grid gap-2 px-3 py-3">
+              <SelectField
+                label={t.fertilizerPlanCrop || "Crop"}
+                value={selectedTableCropKey}
+                onChange={setSelectedTableCropKey}
+                options={cropOptions}
+                placeholder={t.fertilizerPlanSelectCrop || "Select a crop"}
+                searchable
+                searchPlaceholder={t.fertilizerPlanSearchCrop || "Type to search…"}
+                fullWidth
+              />
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                {needsVariantChoice
+                  ? t.fertilizerPlanCropVariantHint ||
+                    "This crop has more than one form. Choose the one that matches your planting."
+                  : t.fertilizerPlanCropPickerHint ||
+                    "Select a crop to fill extraction values and the typical yield automatically."}
+              </p>
+            </div>
+          ) : null}
 
-        {matchedCrop || (!showCropPicker && effectiveCropName) ? (
-          <div className="calc-page__crop flex items-center gap-2 px-3 py-2.5">
-            <span className="text-xs font-bold uppercase tracking-wide text-emerald-800">
-              {t.fertilizerPlanCrop || "Crop"}
-            </span>
-            <span className="text-sm font-semibold text-green-950 dark:text-emerald-50">
-              {matchedCrop?.label || effectiveCropName}
-            </span>
-            {!matchedCrop ? (
-              <span className="text-xs text-amber-800 dark:text-amber-200">
-                {t.fertilizerPlanCropUnknown ||
-                  "Crop not in Tabla N.° 5 — enter extraction values below."}
+          {matchedCrop || (!showCropPicker && effectiveCropName) ? (
+            <div className="calc-page__crop flex items-center gap-2 px-3 py-2.5">
+              <span className="text-xs font-bold uppercase tracking-wide text-emerald-800">
+                {t.fertilizerPlanCrop || "Crop"}
               </span>
-            ) : null}
-          </div>
-        ) : (
-          <p className="fertilizer-plan__hint" role="status">
-            {t.fertilizerPlanCropUnknown ||
-              "No crop selected — enter extraction coefficients (kg/t) manually."}
-          </p>
-        )}
+              <span className="text-sm font-semibold text-green-950 dark:text-emerald-50">
+                {matchedCrop?.label || effectiveCropName}
+              </span>
+              {!matchedCrop ? (
+                <span className="text-xs text-amber-800 dark:text-amber-200">
+                  {t.fertilizerPlanCropUnknown ||
+                    "This crop isn't in our list — enter nutrient extraction values below."}
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <p className="fertilizer-plan__hint" role="status">
+              {t.fertilizerPlanCropUnknown ||
+                "No crop selected — enter extraction coefficients (kg/t) manually."}
+            </p>
+          )}
 
-        <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-2">
-          <NumberField
-            label={t.fertilizerPlanYield || "Target yield (t/ha)"}
-            value={yieldTarget}
-            onChange={setYieldTarget}
-          />
-          <NumberField
-            label={`${t.bulkDensity || "Bulk density"} (g/cm³)`}
-            value={bulkDensity}
-            onChange={setBulkDensity}
-          />
-          <NumberField
-            label={`${t.incorporationDepth || t.samplingDepth || "Sampling depth"} (cm)`}
-            value={depthCm}
-            onChange={setDepthCm}
-          />
-          <NumberField
-            label={`${t.organicMatter || "Organic matter"} (%)`}
-            value={organicMatter}
-            onChange={setOrganicMatter}
-          />
-          <div className="col-span-full grid gap-3 sm:grid-cols-[1fr_auto]">
-            <NumberField label={t.area || "Area"} value={area} onChange={setArea} />
-            <SelectField
-              label={t.areaUnit || "Unit"}
-              value={areaUnit}
-              onChange={(value) => setAreaUnit(value as AreaUnit)}
-              options={AREA_UNITS.map((unit) => [
-                unit,
-                t[`areaUnit_${unit}`] || areaUnitLabel(unit),
-              ])}
+          <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-2">
+            <NumberField
+              label={t.fertilizerPlanYield || "Target yield (t/ha)"}
+              value={yieldTarget}
+              onChange={setYieldTarget}
             />
+            <NumberField
+              label={`${t.bulkDensity || "Bulk density"} (g/cm³)`}
+              value={bulkDensity}
+              onChange={setBulkDensity}
+            />
+            <NumberField
+              label={`${t.incorporationDepth || t.samplingDepth || "Sampling depth"} (cm)`}
+              value={depthCm}
+              onChange={setDepthCm}
+            />
+            <NumberField
+              label={`${t.organicMatter || "Organic matter"} (%)`}
+              value={organicMatter}
+              onChange={setOrganicMatter}
+            />
+            <SelectField
+              label={t.mineralizationScenario || "N mineralization scenario"}
+              value={mineralizationScenario}
+              onChange={(value) =>
+                setMineralizationScenario(value as MineralizationScenario)
+              }
+              options={[
+                ...MINERALIZATION_SCENARIOS.map((item) => [
+                  item.key,
+                  mineralizationScenarioLabel(item.key, t),
+                ] as [string, string]),
+                [
+                  "custom",
+                  mineralizationScenarioLabel("custom", t),
+                ] as [string, string],
+              ]}
+            />
+            {mineralizationScenario === "custom" ? (
+              <NumberField
+                label={t.mineralizationCustomCoef || "Mineralization coefficient (%)"}
+                value={customMinerCoefPercent}
+                onChange={setCustomMinerCoefPercent}
+              />
+            ) : (
+              <p className="col-span-full text-xs text-slate-500 dark:text-slate-400">
+                {(
+                  t.mineralizationScenarioHint ||
+                  "SUE302 §2.5.1 — N supply from OM uses {coef}% mineralization ({label}). Changing the scenario changes the N dose."
+                )
+                  .replace("{coef}", String(round3(mineralizationCoef * 100)))
+                  .replace(
+                    "{label}",
+                    mineralizationScenarioLabel(mineralizationScenario, t)
+                  )}
+              </p>
+            )}
+            <div className="col-span-full grid gap-3 sm:grid-cols-[1fr_auto]">
+              <NumberField label={t.area || "Area"} value={area} onChange={setArea} />
+              <SelectField
+                label={t.areaUnit || "Unit"}
+                value={areaUnit}
+                onChange={(value) => setAreaUnit(value as AreaUnit)}
+                options={AREA_UNITS.map((unit) => [
+                  unit,
+                  t[`areaUnit_${unit}`] || areaUnitLabel(unit),
+                ])}
+              />
+            </div>
           </div>
-        </div>
-        {yieldHint ? <p className="text-xs text-slate-500 dark:text-slate-400">{yieldHint}</p> : null}
+          {yieldHint ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">{yieldHint}</p>
+          ) : null}
+        </PlanSection>
 
-        <section className="space-y-2 border-t border-emerald-100/80 pt-4 dark:border-white/10">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-emerald-800">
-            {t.fertilizerPlanExtraction || "Extraction (kg/t)"}
-          </h3>
+        <PlanSection
+          title={t.fertilizerPlanExtraction || "Extraction (kg/t)"}
+          summary={`${labels.n} ${displayExtract.n} · ${labels.p} ${round3(displayExtract.p2o5)} · ${labels.k} ${round3(displayExtract.k2o)}`}
+          defaultOpen={false}
+        >
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {t.fertilizerPlanExtractionHint ||
-              "From Tabla N.° 5 for the selected crop. Edit to override."}
+              "Typical nutrient extraction for the selected crop. You can edit these values."}
           </p>
           <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <NumberField
@@ -421,14 +630,20 @@ export default function FertilizerPlanCalculator({
               preserveCase
             />
           </div>
-        </section>
+        </PlanSection>
 
-        <section className="space-y-2 border-t border-emerald-100/80 pt-4 dark:border-white/10">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-emerald-800">
-            {t.fertilizerPlanLabSupply || "Soil lab values"}
-          </h3>
+        <PlanSection
+          title={t.fertilizerPlanLabSupply || "Soil lab values"}
+          summary={`P ${pLab} · K ${kLab} · Mg ${mgLab}`}
+          defaultOpen={false}
+        >
           <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-3">
-            <NumberField label={`${t.phosphorus || "P"} (mg/kg)`} value={pLab} onChange={setPLab} preserveCase />
+            <NumberField
+              label={`${t.phosphorus || "P"} (mg/kg)`}
+              value={pLab}
+              onChange={setPLab}
+              preserveCase
+            />
             <NumberField
               label={`${t.potassium || "K"} (cmol(+)/kg)`}
               value={kLab}
@@ -442,67 +657,73 @@ export default function FertilizerPlanCalculator({
               preserveCase
             />
           </div>
-        </section>
+        </PlanSection>
 
-        <div className="calc-irrigation-picker">
-          <div className="calc-irrigation-picker__row">
-            <SelectField
-              label={t.irrigationSystemLabel || "Irrigation system"}
-              value={irrigationSystem}
-              onChange={(value) => {
-                irrigationTouched.current = false;
-                setIrrigationSystem(value as IrrigationSystem);
-              }}
-              options={IRRIGATION_SYSTEM_OPTIONS.map((system) => [
-                system,
-                t[`irrigation_${system}`] || system,
-              ])}
-              fullWidth
-            />
+        <PlanSection
+          title={t.irrigationSystemLabel || "Irrigation system"}
+          summary={`${t[`irrigation_${irrigationSystem}`] || irrigationSystem} · N ${effN}%`}
+          defaultOpen={false}
+        >
+          <div className="calc-irrigation-picker">
+            <div className="calc-irrigation-picker__row">
+              <SelectField
+                label={t.irrigationSystemLabel || "Irrigation system"}
+                value={irrigationSystem}
+                onChange={(value) => {
+                  irrigationTouched.current = false;
+                  setIrrigationSystem(value as IrrigationSystem);
+                }}
+                options={IRRIGATION_SYSTEM_OPTIONS.map((system) => [
+                  system,
+                  t[`irrigation_${system}`] || system,
+                ])}
+                fullWidth
+              />
+            </div>
+            <div className="calc-form-fields calc-form-fields--grid mt-3 grid gap-3 sm:grid-cols-4">
+              <NumberField
+                label={`${labels.n} %`}
+                value={effN}
+                onChange={(v) => {
+                  irrigationTouched.current = true;
+                  setEffN(v);
+                }}
+                preserveCase
+              />
+              <NumberField
+                label={`${labels.p} %`}
+                value={effP}
+                onChange={(v) => {
+                  irrigationTouched.current = true;
+                  setEffP(v);
+                }}
+                preserveCase
+              />
+              <NumberField
+                label={`${labels.k} %`}
+                value={effK}
+                onChange={(v) => {
+                  irrigationTouched.current = true;
+                  setEffK(v);
+                }}
+                preserveCase
+              />
+              <NumberField
+                label={`${labels.mg} %`}
+                value={effMg}
+                onChange={(v) => {
+                  irrigationTouched.current = true;
+                  setEffMg(v);
+                }}
+                preserveCase
+              />
+            </div>
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              {t.fertilizerPlanEffHint ||
+                "Efficiency is set from your irrigation type. You can edit it."}
+            </p>
           </div>
-          <div className="calc-form-fields calc-form-fields--grid mt-3 grid gap-3 sm:grid-cols-4">
-            <NumberField
-              label={`${labels.n} %`}
-              value={effN}
-              onChange={(v) => {
-                irrigationTouched.current = true;
-                setEffN(v);
-              }}
-              preserveCase
-            />
-            <NumberField
-              label={`${labels.p} %`}
-              value={effP}
-              onChange={(v) => {
-                irrigationTouched.current = true;
-                setEffP(v);
-              }}
-              preserveCase
-            />
-            <NumberField
-              label={`${labels.k} %`}
-              value={effK}
-              onChange={(v) => {
-                irrigationTouched.current = true;
-                setEffK(v);
-              }}
-              preserveCase
-            />
-            <NumberField
-              label={`${labels.mg} %`}
-              value={effMg}
-              onChange={(v) => {
-                irrigationTouched.current = true;
-                setEffMg(v);
-              }}
-              preserveCase
-            />
-          </div>
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            {t.fertilizerPlanEffHint ||
-              "Efficiency defaults to the midpoint of Tabla N.° 7 for the selected irrigation system."}
-          </p>
-        </div>
+        </PlanSection>
       </div>
 
       {plan ? (
@@ -590,7 +811,7 @@ export default function FertilizerPlanCalculator({
             </summary>
             <div className="fertilizer-plan__recommendations-body space-y-2 px-4 pb-4 pt-1">
               <ul className="space-y-2">
-                {plan.recommendations.map((line) => (
+                {planRecommendations.map((line) => (
                   <li key={line} className="text-sm leading-relaxed text-slate-700 dark:text-slate-200">
                     {line}
                   </li>
@@ -602,6 +823,26 @@ export default function FertilizerPlanCalculator({
               </p>
             </div>
           </details>
+
+          {hasActiveDoses && onOpenCostPage ? (
+            <button
+              type="button"
+              onClick={onOpenCostPage}
+              className="calculator-action-card text-left"
+            >
+              <span className="calculator-action-card__icon" aria-hidden="true">
+                <CircleDollarSign size={18} />
+              </span>
+              <span className="calculator-action-card__copy">
+                <span className="calculator-action-card__title">
+                  {t.fertilizerCost || "Fertilizer cost"}
+                </span>
+                <span className="calculator-action-card__desc">
+                  {t.fertilizerCostCta || "See prices & cost scenarios"}
+                </span>
+              </span>
+            </button>
+          ) : null}
         </>
       ) : (
         <div className="calc-surface p-4">
@@ -629,12 +870,16 @@ function DoseResultCard({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const showPlot = areaUnit !== "ha" && dose.dosisPlot != null && !dose.notRequired && !dose.viaEncalado;
+  const showPlot = areaUnit !== "ha" && dose.dosisPlot != null && dose.viaEncalado
+    ? true
+    : areaUnit !== "ha" && dose.dosisPlot != null && !dose.notRequired && !dose.viaEncalado;
   const valueText = dose.viaEncalado
-    ? t.fertilizerPlanViaLime || "Via liming"
+    ? dose.dosisKgHa != null
+      ? `${dose.dosisKgHa} ${dose.unitHa}`
+      : t.fertilizerPlanViaLime || "Via liming"
     : dose.notRequired
       ? t.fertilizerPlanNotRequired || "No fertilizer needed"
-      : showPlot
+      : showPlot && !dose.viaEncalado
         ? `${dose.dosisPlot} ${dose.unitPlot}`
         : `${dose.dosisKgHa} ${dose.unitHa}`;
 
@@ -659,13 +904,15 @@ function DoseResultCard({
         >
           {valueText}
         </p>
-        {!dose.notRequired && !dose.viaEncalado && showPlot ? (
-          <p className="fertilizer-plan__dose-sub">{`${dose.dosisKgHa} ${dose.unitHa}`}</p>
-        ) : null}
         {dose.viaEncalado ? (
           <p className="fertilizer-plan__dose-sub">
-            {t.fertilizerPlanCaNote || "Supply Ca with the Amendment calculator."}
+            {dose.dosisOxideKgHa != null
+              ? `${t.fertilizerPlanViaLime || "Via liming"} · ${dose.demandaKgHa} ${dose.nutrientOxide}/ha`
+              : t.fertilizerPlanCaNote || "Supply Ca with the Amendment calculator."}
           </p>
+        ) : null}
+        {!dose.notRequired && !dose.viaEncalado && showPlot ? (
+          <p className="fertilizer-plan__dose-sub">{`${dose.dosisKgHa} ${dose.unitHa}`}</p>
         ) : null}
       </div>
     </button>
@@ -693,6 +940,48 @@ function DoseStepRow({ step, t }: { step: FertilityCalcStep; t: Record<string, s
       {step.tableRef ? <p className="fertilizer-plan__step-ref">{step.tableRef}</p> : null}
       {step.interpretation ? <p className="fertilizer-plan__step-note">{step.interpretation}</p> : null}
     </article>
+  );
+}
+
+function PlanSection({
+  title,
+  summary,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  summary?: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <section
+      className={`fertilizer-plan__section ${open ? "fertilizer-plan__section--open" : ""}`}
+    >
+      <button
+        type="button"
+        className="fertilizer-plan__section-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="fertilizer-plan__section-heading">
+          <span className="fertilizer-plan__section-title">{title}</span>
+          {!open && summary ? (
+            <span className="fertilizer-plan__section-summary">{summary}</span>
+          ) : null}
+        </span>
+        <ChevronDown
+          size={16}
+          aria-hidden
+          className={`fertilizer-plan__section-chevron shrink-0 transition-transform duration-200 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      {open ? <div className="fertilizer-plan__section-body space-y-3">{children}</div> : null}
+    </section>
   );
 }
 
@@ -753,12 +1042,18 @@ function SelectField({
   onChange,
   options,
   fullWidth,
+  placeholder,
+  searchable,
+  searchPlaceholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: Array<[string, string]>;
   fullWidth?: boolean;
+  placeholder?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }) {
   return (
     <MenuSelect
@@ -768,6 +1063,9 @@ function SelectField({
       options={options}
       fullWidth={fullWidth}
       variant="field"
+      placeholder={placeholder}
+      searchable={searchable}
+      searchPlaceholder={searchPlaceholder}
     />
   );
 }

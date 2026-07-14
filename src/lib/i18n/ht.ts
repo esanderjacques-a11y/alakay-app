@@ -97,6 +97,10 @@
   labName: "Non laboratwa a",
   farmName: "Non fèm nan",
   lotName: "Non / nimewo lot la",
+  selectFarm: "Chwazi fèm",
+  newFarm: "Nouvo fèm",
+  addLot: "Ajoute yon lòt lot",
+  noLots: "Fèm sa a poko gen lot ki anrejistre.",
   skip: "Sote",
   date: "Dat",
   generalCropOther: "Jeneral",
@@ -123,6 +127,7 @@
   enterValuesHelp:
     "Ranpli sèlman paramèt ki parèt nan rapò laboratwa a. Sèvi ak inite ki parèt bò kote chak paramèt.",
   interpretAnalysis: "Entèprete analiz la",
+  interpretShort: "Wè rezilta yo",
   interpreting: "Ap entèprete...",
   valuePlaceholder: "Antre valè",
   selectCropFirst:
@@ -203,7 +208,8 @@
   selectCropMessage: "Chwazi yon plant anvan.",
   skipCropHint: "Ou ka chwazi plant lan pita sou ekran valè yo.",
   selectCropOnValues: "Chwazi plant lè w pare.",
-  foliarExtractionHint: "Chwazi Olsen oswa Mehlich pou fosfò fèy.",
+  foliarExtractionHint:
+    "Chwazi entèval sufizans rekòt la, Olsen oswa Mehlich pou entèpretasyon fosfò fèy.",
   enterOneValueMessage: "Antre omwen yon valè laboratwa.",
   noCropsLoaded:
     "Pa gen plant ki chaje. Verifye aksè baz done a oswa enpòtasyon CSV la.",
@@ -212,12 +218,38 @@
     "Ou chwazi yon referans jeneral. Rezilta yo apwoksimatif, sèvi avè yo sèlman l plant espesifik la pa disponib.",
   generalReferenceMode: "Mòd referans jeneral: entèval sa yo apwoksimatif.",
   generalReferenceModeTitle: "Mòd referans jeneral",
-  extractionMethodLabel: "Metòd ekstraksyon fosfò",
-  extractionMethodGeneral: "Jeneral",
+  extractionMethodLabel: "Sufizans / ekstraksyon",
+  extractionMethodGeneral: "Selon rekòt la",
+  extractionMethodCropSpecific: "Selon rekòt la",
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
   extractionMethodActive: "Entèval P: {method}",
+  generalCropExtractionHint:
+    "Chwazi entèval sufizans Jeneral, oswa Olsen / Mehlich (Tabla N.° 1) pou fosfò.",
+  soilExtractionHint:
+    "Chwazi entèval sufizans rekòt la, oswa Olsen / Mehlich pou bann fosfò selon metòd la.",
+  exportGeneralCropExtractionNote:
+    "Rekòt jeneral ak {method}: entèval sufizans fosfò swiv Tabla N.° 1 ({method}).",
+  exportExtractionMethodNote:
+    "Entèval sufizans fosfò itilize bann ekstraktan {method} lè pa gen entèval spesifik pou rekòt la.",
+  exportFoliarExtractionNote:
+    "Analiz fèy ak {method}: entèpretasyon fosfò prefere entèval ki mare ak {method} lè yo disponib.",
+  exportRecommendationsHint:
+    "Lis aksyon nan fen rapò a (san fòmil).",
+  exportSectionFertilizerProducts: "Angrè ak pri",
+
+  exportFertilizerPriceNote:
+    "Pri yo se sa sak founisè oswa referans sou entènèt lè yo disponib.",
+  exportFertilizerColProduct: "Pwodui",
+  exportFertilizerColGrade: "Fòmil",
+  exportFertilizerColRate: "Dòz",
+  exportFertilizerColPrice: "Pri",
+  exportFertilizerColCost: "Pri/ha",
+  exportFertilizerTotalCost: "Total estime",
+  exportSectionRecommendations: "Rekòmandasyon",
+  exportSectionFertilizerPlan: "Pwodui angrè",
+  fertilizerProductsTitle: "Angrè komèsyal ak pri",
 
   noResultsYet: "Pa gen rezilta ankò",
   noResultsYetDesc:
@@ -279,11 +311,11 @@
   adviceBulkDensityOk:
     "Dansite tè a nan yon nivo akseptab pou anpil tè agrikl.",
   advicePhLow:
-    "pH tè a ba. Sa ka diminye disponiblite elèman nitritif epi ogmante risk toksisite aliminym. Konfime asidite a anvan ou mete lacho.",
+    "pH tè a ba. Sa ka diminye disponiblite elèman nitritif epi ogmante risk toksisite aliminym. Verifye saturasyon baz (CICe) anvan kalk — rekòmande kalk oswa jips sèlman si V% oswa saturasyon yo deyò ranje sifizan an.",
   advicePhHigh:
-    "pH tè a wo. Kk elèman nitritif ka vin mwens disponib. Evite mete lacho san nesesite epi verifye tolèrans plant a.",
+    "pH tè a wo. Kk elèman nitritif ka vin mwens disponib. Evite mete lacho san nesesite; si bezwen asidifye, konsidere souf elemantè epi verifye tolèrans plant a.",
   advicePhOk:
-    "pH tè a nan nivo ki espere pou plant sa a oswa referans sa a.",
+    "pH tè a nan nivo ki espere pou plant sa a oswa referans sa a. pH sèlman pa endike kalk ni souf.",
   adviceEcVeryHigh:
     "Kondiktivite elèktrik la wo. Sa montre risk salinite. Verifye kalite dlo irigasyon, drenaj, sodym ak akimilasyon sl anvan koreksyon.",
   adviceEcHigh:
@@ -296,9 +328,9 @@
     "Sodym nan trè sodik (>2.0 cmol(+)/kg). Gwo pwoblèm estrikti tè ak enfiltrasyon posib. Verifye EC, SAR/ESP, drenaj, kalsym ak bezwen jips rapidman.",
   adviceSodiumModerate:
     "Sodym nan yon ti kras wo (0.5-1.0 cmol(+)/kg). Siveye EC ak risk estrikti, espesyalman nan tè sansib.",
-  adviceSodiumOk: "Sodym nan nan zòn sekirite (<0.5 cmol(+)/kg) selon referans aktyèl la.",
+  adviceSodiumOk: "Sodym nan nan zòn sekirite (<0.5 cmol(+)/kg) selon referans aktyèl la. Sodym sèlman pa endike amandman jips.",
   adviceAluminumHigh:
-    "Aliminyòm nan wo. Sa ka domaje rasin nan tè asid epi diminye absòpsyon eleman nitritif. Verifye pH tè a ak opsyon koreksyon asidite tankou lacho.",
+    "Aliminyòm nan wo. Sa ka domaje rasin nan tè asid epi diminye absòpsyon eleman nitritif. Konfime saturasyon baz (CICe) ak asidite — kalk sèlman si V% oswa saturasyon Ca deyò ranje sifizan an.",
   adviceAluminumOk:
     "Aliminyòm nan nan nivo ki espere selon referans aktyèl la.",
   adviceLow:
@@ -510,17 +542,54 @@
   featureRequestSending: "Ap voye...",
   featureRequestSuccess: "Mèsi! Demann ou te voye.",
   featureRequestError: "Pa t kapab voye demann lan.",
-  exportReportTitle: "Ekspòte rapò",
-  exportReportDesc: "Chwazi seksyon yo pou mete nan PDF la.",
-  exportSectionLogo: "Logo ak antèt",
+  exportReportTitle: "Telechaje PDF rezime",
+  exportReportDesc:
+    "Chwazi sa pou mete. Rapò sa a se yon rezime pou pataje — li pa gen etap kalkilasyon.",
+  exportSectionCover: "Kouvèti (detay analiz)",
+  exportSectionSoilStatus: "Rezime eta tè a",
+  exportSectionLogo: "Logo",
   exportSectionSummary: "Kat rezime",
-  exportSectionInterpretation: "Rezilta entèpretasyon",
+  exportSectionInterpretation: "Detay konplè paramèt yo",
   exportSectionMissing: "Valè ki manke / san ranje",
   exportSectionTexture: "Teksti tè a",
   exportSectionCalculations: "Rezilta kalkilatè yo",
   exportSectionLabValues: "Valè laboratwa orijinal yo",
   exportSectionDop: "DOP (fey)",
   exportSectionRatios: "Rapò eleman nitritif",
+  exportChecklistTitle: "Anvan ou ekspòte",
+  exportChecklistHint:
+    "Gen kèk detay ki manke. Ou ka kontinye kanmenm — PDF la ap kite chan vid yo.",
+  exportContinueAnyway: "Kontinye kanmenm",
+  exportDownloadSummary: "Telechaje PDF rezime",
+  exportNoStepsDisclaimer:
+    "PDF sa a se yon rezime pou pataje; li pa gen etap kalkilasyon.",
+  exportSoilStatusLow: "Ba / bezwen atansyon",
+  exportSoilStatusOk: "Adekwat",
+  exportSoilStatusHigh: "Wo / ekstra",
+  exportGeneratedBy: "Jenere pa",
+  exportAnalysisName: "Analiz",
+  exportFarm: "Jaden",
+  exportLots: "Lòt(yo)",
+  exportPlace: "Kote",
+  exportLab: "Laboratwa",
+  exportDate: "Dat",
+  exportCrop: "Rekòt",
+  exportMissingAnalysisName: "Non analiz la pa defini",
+  exportMissingFarm: "Jaden pa defini",
+  exportMissingLots: "Lòt pa defini",
+  exportMissingPlace: "Kote / peyi pa defini",
+  exportMissingGenerator: "Non jenèratè a pa disponib",
+  exportMissingCalculators:
+    "Pokò repons kalkilatè — louvri Kalkilatè, kouri yon zouti, epi ekspòte ankò",
+  exportMissingResults: "Pokò rezilta entèprete",
+  exportGroupSummary: "Rezime analiz la",
+  exportGroupCalculators: "Repons kalkilatè yo",
+  exportGroupOptional: "Detay opsyonèl",
+  exportCalculatorsEmptyHint:
+    "Louvri Kalkilatè, kouri zouti ou bezwen yo, epi tounen isit la. Repons yo ap parèt kòm seksyon opsyonèl.",
+  exportOpenCalculators: "Louvri Kalkilatè",
+  exportCalculatorAnswerOne: "1 repons",
+  exportCalculatorAnswersCount: "{count} repons",
   exportSelectAll: "Tout seksyon yo",
   exportSelectNone: "Okenn",
   exportCancel: "Anile",

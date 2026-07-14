@@ -460,6 +460,35 @@ function normalizeCropName(cropName?: string | null) {
     .trim();
 }
 
+function patternSearchText(pattern: unknown) {
+  if (pattern instanceof RegExp) {
+    return normalizeCropName(
+      pattern.source
+        .replace(/^\(\?:\^\|\\b\)/, "")
+        .replace(/\(\?:\$\|\\b\)$/, "")
+        .replace(/\\([-.*+?^${}()|[\]\\])/g, "$1")
+    );
+  }
+  if (typeof pattern === "string") return normalizeCropName(pattern);
+  return "";
+}
+
+function significantCropTokens(normalized: string) {
+  const stop = new Set(["de", "del", "la", "el", "los", "las", "the", "and", "y", "of", "a"]);
+  return normalized
+    .split(/[^a-z0-9]+/i)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3 && !stop.has(token))
+    .sort((a, b) => b.length - a.length);
+}
+
+function textHasCropToken(text: string, token: string) {
+  return new RegExp(
+    `(?:^|\\b)${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:$|\\b)`,
+    "i"
+  ).test(text);
+}
+
 function matchesCropPattern(pattern: unknown, normalized: string): boolean {
   if (pattern instanceof RegExp) return pattern.test(normalized);
   if (typeof pattern === "string" && pattern.trim()) {
@@ -472,20 +501,72 @@ function matchesCropPattern(pattern: unknown, normalized: string): boolean {
   return false;
 }
 
+function cropMatchedViaSpecificAlias(
+  crop: CropExtractionCoefficients,
+  normalized: string
+) {
+  return (crop.patterns || []).some((pattern) => {
+    if (!matchesCropPattern(pattern, normalized)) return false;
+    return significantCropTokens(patternSearchText(pattern)).length > 1;
+  });
+}
+
+function findCropFamilyByToken(
+  token: string,
+  refs: Pick<SoilFertilityReference, "cropExtraction">
+) {
+  return refs.cropExtraction.filter((crop) => {
+    const haystacks = [
+      normalizeCropName(crop.label),
+      normalizeCropName(crop.cropKey.replace(/_/g, " ")),
+      ...(crop.patterns || []).map(patternSearchText),
+    ];
+    return haystacks.some((text) => textHasCropToken(text, token));
+  });
+}
+
 /** Exact Tabla N.° 5 match, or null when the crop is unknown (caller should collect manual extraction). */
 export function findCropExtraction(
   cropName?: string | null,
   refs: Pick<SoilFertilityReference, "cropExtraction"> = DEFAULT_SOIL_FERTILITY_REFERENCE
 ): CropExtractionCoefficients | null {
+  const variants = findCropExtractionVariants(cropName, refs);
+  return variants.length === 1 ? variants[0] : null;
+}
+
+/**
+ * Returns Tabla N.° 5 forms for a setup crop name.
+ * A generic name like "maíz" / "tomate" expands to all related forms;
+ * a specific name like "maíz grano" returns only that row.
+ */
+export function findCropExtractionVariants(
+  cropName?: string | null,
+  refs: Pick<SoilFertilityReference, "cropExtraction"> = DEFAULT_SOIL_FERTILITY_REFERENCE
+): CropExtractionCoefficients[] {
   const normalized = normalizeCropName(cropName);
-  if (!normalized) return null;
-  for (const crop of refs.cropExtraction) {
-    const patterns = crop.patterns || [];
-    if (patterns.some((pattern) => matchesCropPattern(pattern, normalized))) {
-      return crop;
-    }
+  if (!normalized) return [];
+
+  const exactMatches = refs.cropExtraction.filter((crop) =>
+    (crop.patterns || []).some((pattern) => matchesCropPattern(pattern, normalized))
+  );
+
+  if (exactMatches.length === 1) {
+    const crop = exactMatches[0];
+    if (cropMatchedViaSpecificAlias(crop, normalized)) return [crop];
+
+    const primaryToken = significantCropTokens(normalized)[0];
+    if (!primaryToken) return [crop];
+
+    const family = findCropFamilyByToken(primaryToken, refs);
+    return family.length > 1 ? family : [crop];
   }
-  return null;
+
+  if (exactMatches.length > 1) return exactMatches;
+
+  const primaryToken = significantCropTokens(normalized)[0];
+  if (!primaryToken) return [];
+  const family = findCropFamilyByToken(primaryToken, refs);
+  return family.length > 1 ? family : [];
 }
 
 export function matchCropExtraction(

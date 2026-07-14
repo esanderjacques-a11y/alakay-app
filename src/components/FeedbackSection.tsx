@@ -90,16 +90,16 @@ export default function FeedbackSection({ t, language, session, country }: Props
   }
 
   return (
-    <div className="about-flat-section">
-      <p className="about-flat-lead">{t.feedbackDesc}</p>
+    <div className="about-flow">
+      <p className="about-lede">{t.feedbackDesc}</p>
 
-      <form className="about-flat-form about-flat-form-frame" onSubmit={handleSubmit}>
-        <label className="about-flat-field">
+      <form className="about-form" onSubmit={handleSubmit}>
+        <label className="about-field">
           <span>{t.featureRequestName}</span>
           <input value={name} onChange={(e) => setName(e.target.value)} />
         </label>
 
-        <label className="about-flat-field">
+        <label className="about-field">
           <span>{t.featureRequestEmail}</span>
           <input
             type="email"
@@ -108,26 +108,24 @@ export default function FeedbackSection({ t, language, session, country }: Props
           />
         </label>
 
-        <div className="about-flat-field about-flat-field--rating">
+        <div className="about-field about-field--rating">
           <span>{t.feedbackRating}</span>
-          <div className="about-flat-rating">
+          <div className="about-rating">
             {[1, 2, 3, 4, 5].map((value) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setRating(value)}
-                className={`about-flat-rating-star ${
-                  rating >= value ? "is-active" : ""
-                }`}
+                className={`about-rating-star ${rating >= value ? "is-active" : ""}`}
                 aria-label={`${value}`}
               >
-                <Star size={14} fill={rating >= value ? "currentColor" : "none"} />
+                <Star size={15} fill={rating >= value ? "currentColor" : "none"} />
               </button>
             ))}
           </div>
         </div>
 
-        <label className="about-flat-field">
+        <label className="about-field">
           <span>{t.feedbackMessage}</span>
           <textarea
             required
@@ -139,33 +137,33 @@ export default function FeedbackSection({ t, language, session, country }: Props
         </label>
 
         {status === "success" ? (
-          <p className="about-flat-banner about-flat-banner--success">{t.feedbackSuccess}</p>
+          <p className="about-status about-status--ok">{t.feedbackSuccess}</p>
         ) : null}
         {status === "error" ? (
-          <p className="about-flat-banner about-flat-banner--error">{errorMessage}</p>
+          <p className="about-status about-status--err">{errorMessage}</p>
         ) : null}
 
-        <button type="submit" disabled={status === "sending"} className="about-flat-btn">
-          <Send size={16} />
+        <button type="submit" disabled={status === "sending"} className="about-action">
+          <Send size={15} />
           {status === "sending" ? t.feedbackSending : t.feedbackSubmit}
         </button>
       </form>
 
       {comments.length > 0 ? (
-        <div className="about-flat-section-group">
-          <h3 className="about-flat-subtitle">{t.feedbackRecent}</h3>
-          <ul className="about-flat-list about-flat-comment-list about-flat-section-list">
+        <section className="about-passage">
+          <h3 className="about-kicker">{t.feedbackRecent}</h3>
+          <ul className="about-comments">
             {comments.map((comment) => (
-              <li key={comment.id} className="about-flat-comment-item">
-                <p className="about-flat-comment-author">
+              <li key={comment.id}>
+                <p className="about-comment-meta">
                   {comment.name || t.feedbackAnonymous}
                   {comment.country ? ` · ${comment.country}` : ""}
                 </p>
-                <p className="about-flat-comment-body">{comment.message}</p>
+                <p className="about-comment-body">{comment.message}</p>
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       ) : null}
     </div>
   );

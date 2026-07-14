@@ -92,6 +92,10 @@
   labName: "Lab name",
   farmName: "Farm name",
   lotName: "Lot name/number",
+  selectFarm: "Select farm",
+  newFarm: "New farm",
+  addLot: "Add another lot",
+  noLots: "No saved lots for this farm yet.",
   skip: "Skip",
   date: "Date",
   generalCropOther: "General",
@@ -118,6 +122,7 @@
   enterValuesHelp:
     "Fill only the parameters that appear in your lab report. Use the unit shown beside each parameter.",
   interpretAnalysis: "Interpret Analysis",
+  interpretShort: "Get results",
   interpreting: "Interpreting...",
   valuePlaceholder: "Enter value",
   selectCropFirst: "Select a crop to load the available parameters and units.",
@@ -195,7 +200,8 @@
   selectCropMessage: "Select a crop first.",
   skipCropHint: "You can add the crop name later on the Values screen.",
   selectCropOnValues: "Add crop name when ready.",
-  foliarExtractionHint: "Choose Olsen or Mehlich for foliar phosphorus interpretation.",
+  foliarExtractionHint:
+    "Choose crop-specific sufficiency ranges, Olsen, or Mehlich for foliar phosphorus interpretation.",
   enterOneValueMessage: "Enter at least one lab value.",
   noCropsLoaded: "No crops loaded. Check database access or CSV import.",
   noParametersCategory: "No parameters found in this category.",
@@ -204,12 +210,38 @@
   generalReferenceMode:
     "General reference mode: these ranges are approximate.",
   generalReferenceModeTitle: "General reference mode",
-  extractionMethodLabel: "Phosphorus extraction method",
-  extractionMethodGeneral: "General",
+  generalCropExtractionHint:
+    "Choose General sufficiency ranges, or Olsen / Mehlich (Tabla N.° 1) for phosphorus.",
+  soilExtractionHint:
+    "Choose crop-specific sufficiency ranges, or Olsen / Mehlich for method-specific phosphorus bands.",
+  extractionMethodLabel: "Sufficiency / extraction",
+  extractionMethodGeneral: "Crop-specific",
+  extractionMethodCropSpecific: "Crop-specific",
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
   extractionMethodActive: "P ranges: {method}",
+  exportGeneralCropExtractionNote:
+    "General crop with {method}: phosphorus sufficient ranges follow Tabla N.° 1 ({method}).",
+  exportExtractionMethodNote:
+    "Phosphorus sufficient ranges use the {method} extractant bands when crop-specific method ranges are unavailable.",
+  exportFoliarExtractionNote:
+    "Foliar analysis with {method}: phosphorus interpretation prefers {method}-linked ranges when available.",
+  exportRecommendationsHint:
+    "Action list at the end of the report (no formulas).",
+  exportSectionFertilizerProducts: "Fertilizer products & prices",
+
+  exportFertilizerPriceNote:
+    "Prices are supplier bags or online benchmarks when available.",
+  exportFertilizerColProduct: "Product",
+  exportFertilizerColGrade: "Grade",
+  exportFertilizerColRate: "Rate",
+  exportFertilizerColPrice: "Price",
+  exportFertilizerColCost: "Cost/ha",
+  exportFertilizerTotalCost: "Estimated total",
+  exportSectionRecommendations: "Recommendations",
+  exportSectionFertilizerPlan: "Fertilizer products",
+  fertilizerProductsTitle: "Commercial fertilizers and prices",
 
   noResultsYet: "No results yet",
   noResultsYetDesc: "Enter lab values and interpret the analysis first.",
@@ -270,10 +302,10 @@
   adviceBulkDensityOk:
     "Bulk density is within an acceptable range for many agricultural soils.",
   advicePhLow:
-    "Soil pH is low. This can reduce nutrient availability and increase aluminum toxicity risk. Confirm acidity before applying lime.",
+    "Soil pH is low. This can reduce nutrient availability and increase aluminum toxicity risk. Check CICe base saturation before liming — recommend lime or gypsum only if V% or cation sats are outside the sufficient range.",
   advicePhHigh:
-    "Soil pH is high. Some nutrients may become less available. Avoid unnecessary liming and review crop-specific tolerance.",
-  advicePhOk: "Soil pH is within the expected range for this crop or reference range.",
+    "Soil pH is high. Some nutrients may become less available. Avoid unnecessary liming; if acidification is required, consider elemental sulfur and review crop-specific tolerance.",
+  advicePhOk: "Soil pH is within the expected range for this crop or reference range. No lime or sulfur amendment is indicated by pH alone.",
   adviceEcVeryHigh:
     "Electrical conductivity is high. This suggests salinity risk. Check irrigation water quality, drainage, sodium, and salt accumulation before correction.",
   adviceEcHigh:
@@ -281,14 +313,14 @@
   adviceEcOk:
     "Electrical conductivity does not indicate major salinity risk based on the current reference range.",
   adviceSodiumHigh:
-    "Sodium is sodic/problematic (>1.0 cmol(+)/kg). This can affect soil structure, infiltration, and root development. Check EC, SAR/ESP if available, calcium, drainage, and possible gypsum need.",
+    "Sodium is sodic/problematic (>1.0 cmol(+)/kg). This can affect soil structure, infiltration, and root development. Check EC, SAR/ESP if available, calcium, drainage, and gypsum requirement.",
   adviceSodiumVeryHigh:
     "Sodium is highly sodic (>2.0 cmol(+)/kg). Severe structure and infiltration problems are likely. Review EC, SAR/ESP, drainage, calcium, and gypsum requirement urgently.",
   adviceSodiumModerate:
     "Sodium is slightly elevated (0.5-1.0 cmol(+)/kg). Monitor EC and structure risk, especially in sensitive soils.",
-  adviceSodiumOk: "Sodium is in the safe range (<0.5 cmol(+)/kg) based on the current reference.",
+  adviceSodiumOk: "Sodium is in the safe range (<0.5 cmol(+)/kg) based on the current reference. No gypsum amendment is indicated by sodium alone.",
   adviceAluminumHigh:
-    "Aluminum is high. This can damage roots in acidic soils and reduce nutrient uptake. Review soil pH and acidity correction options such as liming.",
+    "Aluminum is high. This can damage roots in acidic soils and reduce nutrient uptake. Confirm CICe base saturation and acidity — liming only if V% or Ca sat is outside the sufficient range.",
   adviceAluminumOk:
     "Aluminum is within the expected range based on the current reference.",
   adviceLow:
@@ -500,17 +532,54 @@
   featureRequestSending: "Sending...",
   featureRequestSuccess: "Thank you! Your request was sent.",
   featureRequestError: "Could not send your request. Please try again later.",
-  exportReportTitle: "Export report",
-  exportReportDesc: "Choose which sections to include in the PDF.",
-  exportSectionLogo: "Logo & header",
+  exportReportTitle: "Download summary PDF",
+  exportReportDesc:
+    "Choose what to include. This report is a shareable summary — it does not include calculation steps.",
+  exportSectionCover: "Cover (analysis details)",
+  exportSectionSoilStatus: "Soil status summary",
+  exportSectionLogo: "Logo",
   exportSectionSummary: "Summary cards",
-  exportSectionInterpretation: "Interpretation results",
+  exportSectionInterpretation: "Full parameter detail",
   exportSectionMissing: "Missing / no range values",
   exportSectionTexture: "Soil texture",
   exportSectionCalculations: "Calculator outputs",
   exportSectionLabValues: "Original lab values",
   exportSectionDop: "DOP (foliar)",
   exportSectionRatios: "Nutrient ratios",
+  exportChecklistTitle: "Before you export",
+  exportChecklistHint:
+    "Some details are missing. You can continue anyway — the PDF will omit blank fields.",
+  exportContinueAnyway: "Continue anyway",
+  exportDownloadSummary: "Download summary PDF",
+  exportNoStepsDisclaimer:
+    "This PDF is a summary for sharing; it does not include calculation steps.",
+  exportSoilStatusLow: "Low / needs attention",
+  exportSoilStatusOk: "Adequate",
+  exportSoilStatusHigh: "High / excess",
+  exportGeneratedBy: "Generated by",
+  exportAnalysisName: "Analysis",
+  exportFarm: "Farm",
+  exportLots: "Lot(s)",
+  exportPlace: "Place",
+  exportLab: "Lab",
+  exportDate: "Date",
+  exportCrop: "Crop",
+  exportMissingAnalysisName: "Analysis name not set",
+  exportMissingFarm: "Farm not set",
+  exportMissingLots: "Lot not set",
+  exportMissingPlace: "Place / country not set",
+  exportMissingGenerator: "Generator name not available",
+  exportMissingCalculators:
+    "No calculator answers yet — open Calculators, run a tool, then export again",
+  exportMissingResults: "No interpreted results yet",
+  exportGroupSummary: "Analysis summary",
+  exportGroupCalculators: "Calculator answers",
+  exportGroupOptional: "Optional details",
+  exportCalculatorsEmptyHint:
+    "Open Calculators, run the tools you need, then come back here. Their answers will appear as optional sections.",
+  exportOpenCalculators: "Open Calculators",
+  exportCalculatorAnswerOne: "1 answer",
+  exportCalculatorAnswersCount: "{count} answers",
   exportSelectAll: "All sections",
   exportSelectNone: "None",
   exportCancel: "Cancel",

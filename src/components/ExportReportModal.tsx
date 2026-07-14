@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Calculator, Download } from "lucide-react";
+import AppModal from "@/components/AppModal";
 import {
   defaultPdfReportSections,
+  type CalculatorOutputPack,
   type PdfReportSectionOptions,
 } from "@/lib/pdfReport";
 import { getSettings } from "@/lib/appSettings";
@@ -16,6 +18,20 @@ type Props = {
   t: Translation;
   isFoliar: boolean;
   exporting?: boolean;
+  checklist?: string[];
+  calculatorPacks?: CalculatorOutputPack[];
+  hasFertilizerProducts?: boolean;
+  hasRecommendations?: boolean;
+  onOpenCalculators?: () => void;
+};
+
+type ToggleItem = {
+  key: string;
+  label: string;
+  checked: boolean;
+  onChange: () => void;
+  locked?: boolean;
+  hint?: string;
 };
 
 export default function ExportReportModal({
@@ -23,147 +39,299 @@ export default function ExportReportModal({
   onClose,
   onConfirm,
   t,
-  isFoliar,
+  isFoliar: _isFoliar,
   exporting,
+  checklist = [],
+  calculatorPacks = [],
+  hasFertilizerProducts = false,
+  hasRecommendations = false,
+  onOpenCalculators,
 }: Props) {
-  const [sections, setSections] = useState<PdfReportSectionOptions>(() =>
-    defaultPdfReportSections(getSettings().reports)
+  const defaults = useMemo(
+    () => defaultPdfReportSections(getSettings().reports),
+    []
   );
+
+  const [includeLogo, setIncludeLogo] = useState(defaults.includeLogo);
+  const [includeSoilStatus, setIncludeSoilStatus] = useState(
+    defaults.includeSoilStatus
+  );
+  const [includeTexture, setIncludeTexture] = useState(defaults.includeTexture);
+  const [includeInterpretation, setIncludeInterpretation] = useState(
+    defaults.includeInterpretation
+  );
+  const [includeLabValues, setIncludeLabValues] = useState(
+    defaults.includeLabValues
+  );
+  const [includeFertilizerPlan, setIncludeFertilizerPlan] = useState(
+    defaults.includeFertilizerPlan
+  );
+  const [includeRecommendations, setIncludeRecommendations] = useState(
+    defaults.includeRecommendations
+  );
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
-    setSections(defaultPdfReportSections(getSettings().reports));
-  }, [open]);
+    const next = defaultPdfReportSections(getSettings().reports);
+    setIncludeLogo(next.includeLogo);
+    setIncludeSoilStatus(next.includeSoilStatus);
+    setIncludeTexture(next.includeTexture);
+    setIncludeInterpretation(next.includeInterpretation);
+    setIncludeLabValues(next.includeLabValues);
+    setIncludeFertilizerPlan(next.includeFertilizerPlan);
+    setIncludeRecommendations(next.includeRecommendations);
+    setSelectedIds(calculatorPacks.map((pack) => pack.id));
+  }, [open, calculatorPacks]);
 
-  if (!open) return null;
-
-  function toggle(key: keyof PdfReportSectionOptions) {
-    setSections((previous) => ({ ...previous, [key]: !previous[key] }));
+  function togglePack(id: string) {
+    setSelectedIds((previous) =>
+      previous.includes(id)
+        ? previous.filter((item) => item !== id)
+        : [...previous, id]
+    );
   }
 
-  function selectAll(value: boolean) {
-    setSections({
-      includeLogo: value,
-      includeSummary: value,
-      includeInterpretation: value,
-      includeMissingValues: value,
-      includeTexture: value,
-      includeCalculations: value,
-      includeLabValues: value,
-      includeDop: value,
-      includeRatios: value,
+  function handleConfirm() {
+    onConfirm({
+      includeLogo,
+      includeCover: true,
+      includeSoilStatus,
+      includeTexture,
+      includeInterpretation,
+      includeMissingValues: false,
+      includeLabValues,
+      includeSummary: false,
+      includeCalculations: selectedIds.length > 0,
+      includeDop: true,
+      includeRatios: true,
+      includeFertilizerPlan: includeFertilizerPlan && hasFertilizerProducts,
+      includeRecommendations: includeRecommendations && hasRecommendations,
+      selectedCalculatorIds: selectedIds,
     });
   }
 
-  const items: Array<{
-    key: keyof PdfReportSectionOptions;
-    label: string;
-    foliarOnly?: boolean;
-  }> = [
-    { key: "includeLogo", label: t.exportSectionLogo || "Logo & header" },
-    { key: "includeSummary", label: t.exportSectionSummary || "Summary cards" },
+  const summaryItems: ToggleItem[] = [
     {
-      key: "includeInterpretation",
-      label: t.exportSectionInterpretation || "Interpretation results",
+      key: "cover",
+      label: t.exportSectionCover || "Cover (analysis details)",
+      checked: true,
+      onChange: () => undefined,
+      locked: true,
     },
     {
-      key: "includeMissingValues",
-      label: t.exportSectionMissing || "Missing / no range values",
+      key: "soil",
+      label: t.exportSectionSoilStatus || "Soil status summary",
+      checked: includeSoilStatus,
+      onChange: () => setIncludeSoilStatus((value) => !value),
     },
-    { key: "includeTexture", label: t.exportSectionTexture || "Soil texture" },
-    {
-      key: "includeCalculations",
-      label: t.exportSectionCalculations || "Calculator outputs",
-    },
-    {
-      key: "includeLabValues",
-      label: t.exportSectionLabValues || "Original lab values",
-    },
-    { key: "includeDop", label: t.exportSectionDop || "DOP (foliar)", foliarOnly: true },
-    { key: "includeRatios", label: t.exportSectionRatios || "Nutrient ratios" },
   ];
 
+  if (hasFertilizerProducts) {
+    summaryItems.push({
+      key: "fertilizer",
+      label:
+        t.exportSectionFertilizerProducts ||
+        t.exportSectionFertilizerPlan ||
+        "Fertilizer products & prices",
+      checked: includeFertilizerPlan,
+      onChange: () => setIncludeFertilizerPlan((value) => !value),
+      hint:
+        t.exportFertilizerPriceNote ||
+        "Includes product type, grade, rate, and price.",
+    });
+  }
+
+  if (hasRecommendations) {
+    summaryItems.push({
+      key: "recommendations",
+      label: t.exportSectionRecommendations || "Recommendations",
+      checked: includeRecommendations,
+      onChange: () => setIncludeRecommendations((value) => !value),
+      hint:
+        t.exportRecommendationsHint ||
+        "Action list at the end of the report (no formulas).",
+    });
+  }
+
+  const optionalItems: ToggleItem[] = [
+    {
+      key: "texture",
+      label: t.exportSectionTexture || "Soil texture",
+      checked: includeTexture,
+      onChange: () => setIncludeTexture((value) => !value),
+    },
+    {
+      key: "interpretation",
+      label: t.exportSectionInterpretation || "Full parameter detail",
+      checked: includeInterpretation,
+      onChange: () => setIncludeInterpretation((value) => !value),
+    },
+    {
+      key: "lab",
+      label: t.exportSectionLabValues || "Original lab values",
+      checked: includeLabValues,
+      onChange: () => setIncludeLabValues((value) => !value),
+    },
+    {
+      key: "logo",
+      label: t.exportSectionLogo || "Logo",
+      checked: includeLogo,
+      onChange: () => setIncludeLogo((value) => !value),
+    },
+  ];
+
+  const hasCalculatorPacks = calculatorPacks.length > 0;
+
   return (
-    <div className="fixed inset-0 z-[200] flex items-end justify-center bg-slate-950/45 p-4 sm:items-center">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="export-report-title"
-        className="glass-modal-shell w-full max-w-md rounded-3xl p-5"
-      >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h2 id="export-report-title" className="app-section-title text-green-950">
-              {t.exportReportTitle || "Export report"}
-            </h2>
-            <p className="app-section-desc mt-1">
-              {t.exportReportDesc || "Choose which sections to include in the PDF."}
-            </p>
-          </div>
+    <AppModal
+      open={open}
+      onClose={() => {
+        if (!exporting) onClose();
+      }}
+      title={t.exportReportTitle || "Download summary PDF"}
+      description={
+        t.exportReportDesc ||
+        "Choose what to include. This report is a shareable summary — it does not include calculation steps."
+      }
+      size="md"
+      closeLabel={t.close || "Close"}
+      footer={
+        <>
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600"
-            aria-label={t.close || "Close"}
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="mb-3 flex gap-2">
-          <button
-            type="button"
-            onClick={() => selectAll(true)}
-            className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800"
-          >
-            {t.exportSelectAll || "All sections"}
-          </button>
-          <button
-            type="button"
-            onClick={() => selectAll(false)}
-            className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700"
-          >
-            {t.exportSelectNone || "None"}
-          </button>
-        </div>
-
-        <ul className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
-          {items.map((item) => {
-            if (item.foliarOnly && !isFoliar) return null;
-            return (
-              <li key={item.key}>
-                <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-emerald-900/10 bg-white/80 px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(sections[item.key])}
-                    onChange={() => toggle(item.key)}
-                    className="h-4 w-4 accent-emerald-700"
-                  />
-                  <span className="text-sm font-semibold text-green-950">{item.label}</span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700"
+            disabled={exporting}
+            className="app-modal-btn app-modal-btn--secondary"
           >
             {t.exportCancel || "Cancel"}
           </button>
           <button
             type="button"
             disabled={exporting}
-            onClick={() => onConfirm(sections)}
-            className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
+            onClick={handleConfirm}
+            className="app-modal-btn app-modal-btn--primary"
           >
-            {exporting ? t.exportingPdf || "Exporting…" : t.exportPdf || "Export PDF"}
+            <Download size={16} aria-hidden />
+            {exporting
+              ? t.exportingPdf || "Exporting…"
+              : t.exportDownloadSummary || t.exportPdf || "Download summary PDF"}
           </button>
+        </>
+      }
+    >
+      {checklist.length > 0 ? (
+        <section className="app-modal-section export-checklist">
+          <h3 className="app-modal-section__title">
+            {t.exportChecklistTitle || "Before you export"}
+          </h3>
+          <p className="app-modal-section__desc">
+            {t.exportChecklistHint ||
+              "Some details are missing. You can continue anyway — the PDF will omit blank fields."}
+          </p>
+          <ul className="export-checklist__list">
+            {checklist.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <section className="app-modal-section">
+        <h3 className="app-modal-section__title">
+          {t.exportGroupSummary || "Analysis summary"}
+        </h3>
+        <div className="export-toggle-list">
+          {summaryItems.map((item) => (
+            <ExportToggleRow key={item.key} item={item} />
+          ))}
         </div>
-      </div>
-    </div>
+      </section>
+
+      <section className="app-modal-section">
+        <h3 className="app-modal-section__title">
+          {t.exportGroupCalculators || "Calculator answers"}
+        </h3>
+        {hasCalculatorPacks ? (
+          <div className="export-toggle-list">
+            {calculatorPacks.map((pack) => (
+              <ExportToggleRow
+                key={pack.id}
+                item={{
+                  key: pack.id,
+                  label: pack.label,
+                  checked: selectedIds.includes(pack.id),
+                  onChange: () => togglePack(pack.id),
+                  hint:
+                    pack.outputs.length === 1
+                      ? t.exportCalculatorAnswerOne || "1 answer"
+                      : (
+                          t.exportCalculatorAnswersCount || "{count} answers"
+                        ).replace("{count}", String(pack.outputs.length)),
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="export-empty-calculators">
+            <p className="app-modal-section__desc">
+              {t.exportCalculatorsEmptyHint ||
+                "Open Calculators, run the tools you need, then come back here. Their answers will appear as optional sections."}
+            </p>
+            {onOpenCalculators ? (
+              <button
+                type="button"
+                className="export-open-calculators-btn"
+                onClick={() => {
+                  onClose();
+                  onOpenCalculators();
+                }}
+              >
+                <Calculator size={15} aria-hidden />
+                {t.exportOpenCalculators || "Open Calculators"}
+              </button>
+            ) : null}
+          </div>
+        )}
+      </section>
+
+      <section className="app-modal-section">
+        <h3 className="app-modal-section__title">
+          {t.exportGroupOptional || "Optional details"}
+        </h3>
+        <div className="export-toggle-list">
+          {optionalItems.map((item) => (
+            <ExportToggleRow key={item.key} item={item} />
+          ))}
+        </div>
+      </section>
+
+      <p className="export-disclaimer">
+        {t.exportNoStepsDisclaimer ||
+          "This PDF is a summary for sharing; it does not include calculation steps."}
+      </p>
+    </AppModal>
+  );
+}
+
+function ExportToggleRow({ item }: { item: ToggleItem }) {
+  return (
+    <label
+      className={`export-toggle-row ${item.locked ? "export-toggle-row--locked" : ""}`}
+    >
+      <input
+        type="checkbox"
+        checked={item.checked}
+        disabled={item.locked}
+        onChange={item.onChange}
+        className="export-toggle-row__input"
+      />
+      <span className="export-toggle-row__text">
+        <span className="export-toggle-row__label">{item.label}</span>
+        {item.hint ? (
+          <span className="export-toggle-row__hint">{item.hint}</span>
+        ) : null}
+      </span>
+    </label>
   );
 }

@@ -26,9 +26,11 @@ import {
   exportAnalysisPdf as exportStyledAnalysisPdf,
   groupPdfResults,
   normalizeGroupCode,
+  type PdfReportSectionOptions,
   type PdfResult,
 } from "@/lib/pdfReport";
 import { getSettings } from "@/lib/appSettings";
+import ExportReportModal from "@/components/ExportReportModal";
 
 type PreviewGroupKey =
   | "all"
@@ -278,6 +280,10 @@ export default function AnalysisHistory({
   const [valuesLoading, setValuesLoading] = useState(false);
   const [editingLoading, setEditingLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [pendingExportAnalysis, setPendingExportAnalysis] =
+    useState<SavedAnalysis | null>(null);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -546,8 +552,18 @@ export default function AnalysisHistory({
     await loadAnalyses();
   }
 
-  async function exportAnalysisPdf(analysis: SavedAnalysis) {
+  function requestExportAnalysisPdf(analysis: SavedAnalysis) {
     setMessage("");
+    setPendingExportAnalysis(analysis);
+    setExportModalOpen(true);
+  }
+
+  async function exportAnalysisPdf(
+    analysis: SavedAnalysis,
+    sections: PdfReportSectionOptions
+  ) {
+    setMessage("");
+    setExportingPdf(true);
 
     try {
       const values = await loadValuesForAnalysis(analysis.analysis_id);
@@ -599,13 +615,18 @@ export default function AnalysisHistory({
           details: reportDetails,
         },
         reportOptions: getSettings().reports,
+        sections,
         fileName,
       });
 
       setMessage(l.exported);
+      setExportModalOpen(false);
+      setPendingExportAnalysis(null);
     } catch (error) {
       console.error("PDF export error:", error);
       setMessage(error instanceof Error ? error.message : t.pdfExportFailed);
+    } finally {
+      setExportingPdf(false);
     }
   }
 
@@ -710,7 +731,7 @@ export default function AnalysisHistory({
             setSelectedValues([]);
           }}
           onEdit={() => editAnalysis(selectedAnalysis)}
-          onExport={() => exportAnalysisPdf(selectedAnalysis)}
+          onExport={() => requestExportAnalysisPdf(selectedAnalysis)}
         />
 
         {selectedVersionGroup && (
@@ -720,11 +741,31 @@ export default function AnalysisHistory({
             onClose={() => setVersionRootId(null)}
             onView={viewAnalysis}
             onEdit={editAnalysis}
-            onExport={exportAnalysisPdf}
+            onExport={requestExportAnalysisPdf}
             onDelete={handleDeleteAnalysis}
             onRestore={restoreAnalysis}
           />
         )}
+
+        <ExportReportModal
+          open={exportModalOpen}
+          onClose={() => {
+            if (exportingPdf) return;
+            setExportModalOpen(false);
+            setPendingExportAnalysis(null);
+          }}
+          onConfirm={(sections) => {
+            if (!pendingExportAnalysis) return;
+            void exportAnalysisPdf(pendingExportAnalysis, sections);
+          }}
+          t={t}
+          isFoliar={
+            pendingExportAnalysis
+              ? getSampleTypeCode(pendingExportAnalysis) === "foliar"
+              : false
+          }
+          exporting={exportingPdf}
+        />
       </>
     );
   }
@@ -928,7 +969,7 @@ export default function AnalysisHistory({
 
                     <IconButton
                       title={l.export}
-                      onClick={() => exportAnalysisPdf(analysis)}
+                      onClick={() => requestExportAnalysisPdf(analysis)}
                     >
                       <Download size={17} />
                     </IconButton>
@@ -981,11 +1022,31 @@ export default function AnalysisHistory({
           onClose={() => setVersionRootId(null)}
           onView={viewAnalysis}
           onEdit={editAnalysis}
-          onExport={exportAnalysisPdf}
+          onExport={requestExportAnalysisPdf}
           onDelete={handleDeleteAnalysis}
           onRestore={restoreAnalysis}
         />
       )}
+
+      <ExportReportModal
+        open={exportModalOpen}
+        onClose={() => {
+          if (exportingPdf) return;
+          setExportModalOpen(false);
+          setPendingExportAnalysis(null);
+        }}
+        onConfirm={(sections) => {
+          if (!pendingExportAnalysis) return;
+          void exportAnalysisPdf(pendingExportAnalysis, sections);
+        }}
+        t={t}
+        isFoliar={
+          pendingExportAnalysis
+            ? getSampleTypeCode(pendingExportAnalysis) === "foliar"
+            : false
+        }
+        exporting={exportingPdf}
+      />
     </section>
   );
 }

@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import type { PdfReportSectionOptions } from "@/lib/pdfReport";
+import {
+  defaultPdfReportSections,
+  type PdfReportSectionOptions,
+} from "@/lib/pdfReport";
+import { getSettings } from "@/lib/appSettings";
 import type { Translation } from "@/lib/translations";
 
 type Props = {
@@ -14,18 +18,6 @@ type Props = {
   exporting?: boolean;
 };
 
-const defaultSections = (): PdfReportSectionOptions => ({
-  includeLogo: true,
-  includeSummary: true,
-  includeInterpretation: true,
-  includeMissingValues: true,
-  includeTexture: true,
-  includeCalculations: true,
-  includeLabValues: true,
-  includeDop: true,
-  includeRatios: true,
-});
-
 export default function ExportReportModal({
   open,
   onClose,
@@ -34,7 +26,14 @@ export default function ExportReportModal({
   isFoliar,
   exporting,
 }: Props) {
-  const [sections, setSections] = useState<PdfReportSectionOptions>(defaultSections);
+  const [sections, setSections] = useState<PdfReportSectionOptions>(() =>
+    defaultPdfReportSections(getSettings().reports)
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    setSections(defaultPdfReportSections(getSettings().reports));
+  }, [open]);
 
   if (!open) return null;
 
@@ -56,14 +55,30 @@ export default function ExportReportModal({
     });
   }
 
-  const items: Array<{ key: keyof PdfReportSectionOptions; label: string; foliarOnly?: boolean }> = [
+  const items: Array<{
+    key: keyof PdfReportSectionOptions;
+    label: string;
+    foliarOnly?: boolean;
+  }> = [
     { key: "includeLogo", label: t.exportSectionLogo || "Logo & header" },
     { key: "includeSummary", label: t.exportSectionSummary || "Summary cards" },
-    { key: "includeInterpretation", label: t.exportSectionInterpretation || "Interpretation results" },
-    { key: "includeMissingValues", label: t.exportSectionMissing || "Missing / no range values" },
+    {
+      key: "includeInterpretation",
+      label: t.exportSectionInterpretation || "Interpretation results",
+    },
+    {
+      key: "includeMissingValues",
+      label: t.exportSectionMissing || "Missing / no range values",
+    },
     { key: "includeTexture", label: t.exportSectionTexture || "Soil texture" },
-    { key: "includeCalculations", label: t.exportSectionCalculations || "Calculator outputs" },
-    { key: "includeLabValues", label: t.exportSectionLabValues || "Original lab values" },
+    {
+      key: "includeCalculations",
+      label: t.exportSectionCalculations || "Calculator outputs",
+    },
+    {
+      key: "includeLabValues",
+      label: t.exportSectionLabValues || "Original lab values",
+    },
     { key: "includeDop", label: t.exportSectionDop || "DOP (foliar)", foliarOnly: true },
     { key: "includeRatios", label: t.exportSectionRatios || "Nutrient ratios" },
   ];
@@ -73,11 +88,12 @@ export default function ExportReportModal({
       <div
         role="dialog"
         aria-modal="true"
+        aria-labelledby="export-report-title"
         className="glass-modal-shell w-full max-w-md rounded-3xl p-5"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="app-section-title text-green-950">
+            <h2 id="export-report-title" className="app-section-title text-green-950">
               {t.exportReportTitle || "Export report"}
             </h2>
             <p className="app-section-desc mt-1">

@@ -48,7 +48,8 @@ import BackButton from "@/components/ui/BackButton";
 import { ViewLayoutToggle } from "@/components/ui/ViewLayoutToggle";
 import { AppStep } from "@/lib/appSteps";
 import { isAdminEmail } from "@/lib/admin";
-import { exportAnalysisPdf } from "@/lib/pdfReport";
+import { exportAnalysisPdf, type PdfReportSectionOptions } from "@/lib/pdfReport";
+import ExportReportModal from "@/components/ExportReportModal";
 import { RequestTimeoutError } from "@/lib/fetchWithTimeout";
 import { formatMessage, Language, translations } from "@/lib/translations";
 import { calculatorHubText } from "@/lib/i18n/componentText";
@@ -2887,6 +2888,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                   ].filter(Boolean),
                 }}
                 isGeneralCrop={isGeneralCrop}
+                sampleType={sampleType}
                 showFoliarExtractionPicker={showFoliarExtractionPicker}
                 extractionMethod={extractionMethod}
                 showHorizontalGraphs={appSettings.reports.includeHorizontalResultGraph}
@@ -2914,7 +2916,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             values={values}
             results={results}
             sampleType={sampleType}
-            selectedCropName={selectedCrop?.display_name || selectedCrop?.crop_name || null}
+            selectedCropName={selectedCrop?.crop_name || selectedCrop?.display_name || null}
             parameterUnits={Object.fromEntries(
               parameters.map((parameter) => {
                 const { selectedUnit } = resolveParameterUnitState(
@@ -4526,6 +4528,7 @@ function ResultsSection({
   pendingOfflineSaves,
   reportMeta,
   isGeneralCrop,
+  sampleType,
   showFoliarExtractionPicker,
   extractionMethod,
   showHorizontalGraphs,
@@ -4556,6 +4559,7 @@ function ResultsSection({
     details?: string[];
   };
   isGeneralCrop: boolean;
+  sampleType: "soil" | "foliar";
   showFoliarExtractionPicker: boolean;
   extractionMethod: ExtractionMethod;
   showHorizontalGraphs: boolean;
@@ -4565,9 +4569,10 @@ function ResultsSection({
     "all" | "negative" | "warning" | "normal" | "positive" | "neutral" | "other"
   >("all");
 
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
 
-  async function exportToPdf() {
+  async function exportToPdf(sections: PdfReportSectionOptions) {
     setExportingPdf(true);
     try {
       const locales = {
@@ -4610,7 +4615,9 @@ function ResultsSection({
         locale: locales[language] || "en-US",
         reportMeta,
         reportOptions: getSettings().reports,
+        sections,
       });
+      setExportModalOpen(false);
     } catch (error) {
       console.error("PDF export error:", error);
       alert(t.pdfExportFailed);
@@ -4673,7 +4680,7 @@ function ResultsSection({
           </div>
           <button
             type="button"
-            onClick={exportToPdf}
+            onClick={() => setExportModalOpen(true)}
             disabled={exportingPdf || results.length === 0}
             className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[rgba(0,0,0,0.08)] bg-white px-3 text-xs font-semibold text-[#3c3c43] shadow-sm transition hover:bg-[#f2f2f2] active:scale-95 disabled:opacity-40"
           >
@@ -4845,6 +4852,17 @@ function ResultsSection({
           </div>
         </section>
       )}
+
+      <ExportReportModal
+        open={exportModalOpen}
+        onClose={() => {
+          if (!exportingPdf) setExportModalOpen(false);
+        }}
+        onConfirm={(sections) => void exportToPdf(sections)}
+        t={t}
+        isFoliar={sampleType === "foliar"}
+        exporting={exportingPdf}
+      />
     </>
   );
 }

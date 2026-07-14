@@ -1045,6 +1045,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanDemandK: "Manual K₂O demand (kg/ha)",
     fertilizerPlanDemandMg: "Manual MgO demand (kg/ha)",
     fertilizerPlanCrop: "Crop",
+    fertilizerPlanSelectCrop: "Select a crop from Tabla N.° 5",
+    fertilizerPlanCropPickerHint:
+      "Select a Tabla N.° 5 crop to fill extraction values and the typical yield automatically.",
     fertilizerPlanSummary: "Dose summary",
     fertilizerPlanConclusions: "Interpretation",
     fertilizerPlanStepsTitle: "Calculation steps",
@@ -1409,6 +1412,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanDemandK: "Demanda K₂O manual (kg/ha)",
     fertilizerPlanDemandMg: "Demanda MgO manual (kg/ha)",
     fertilizerPlanCrop: "Cultivo",
+    fertilizerPlanSelectCrop: "Seleccione un cultivo de la Tabla N.° 5",
+    fertilizerPlanCropPickerHint:
+      "Seleccione un cultivo para completar automáticamente la extracción y el rendimiento típico.",
     fertilizerPlanSummary: "Resumen de dosis",
     fertilizerPlanConclusions: "Interpretación",
     fertilizerPlanStepsTitle: "Pasos del cálculo",
@@ -1776,6 +1782,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanDemandK: "Demande K₂O manuelle (kg/ha)",
     fertilizerPlanDemandMg: "Demande MgO manuelle (kg/ha)",
     fertilizerPlanCrop: "Culture",
+    fertilizerPlanSelectCrop: "Sélectionner une culture du Tableau N.° 5",
+    fertilizerPlanCropPickerHint:
+      "Sélectionnez une culture pour remplir automatiquement l’extraction et le rendement typique.",
     fertilizerPlanSummary: "Résumé des doses",
     fertilizerPlanConclusions: "Interprétation",
     fertilizerPlanStepsTitle: "Étapes du calcul",
@@ -2143,6 +2152,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanDemandK: "Demann K₂O manyèl (kg/ha)",
     fertilizerPlanDemandMg: "Demann MgO manyèl (kg/ha)",
     fertilizerPlanCrop: "Kilti",
+    fertilizerPlanSelectCrop: "Chwazi yon kilti nan Tablo N.° 5",
+    fertilizerPlanCropPickerHint:
+      "Chwazi yon kilti pou ranpli valè ekstraksyon yo ak rannman tipik la otomatikman.",
     fertilizerPlanSummary: "Rezime dòz",
     fertilizerPlanConclusions: "Entèpretasyon",
     fertilizerPlanStepsTitle: "Etap kalkil yo",
@@ -2508,6 +2520,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanDemandK: "Demanda K₂O manual (kg/ha)",
     fertilizerPlanDemandMg: "Demanda MgO manual (kg/ha)",
     fertilizerPlanCrop: "Cultura",
+    fertilizerPlanSelectCrop: "Selecione uma cultura da Tabela N.° 5",
+    fertilizerPlanCropPickerHint:
+      "Selecione uma cultura para preencher automaticamente a extração e a produtividade típica.",
     fertilizerPlanSummary: "Resumo de doses",
     fertilizerPlanConclusions: "Interpretação",
     fertilizerPlanStepsTitle: "Etapas do cálculo",
@@ -2874,6 +2889,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanDemandK: "Mahitaji ya K₂O kwa mkono (kg/ha)",
     fertilizerPlanDemandMg: "Mahitaji ya MgO kwa mkono (kg/ha)",
     fertilizerPlanCrop: "Zao",
+    fertilizerPlanSelectCrop: "Chagua zao kutoka Jedwali N.° 5",
+    fertilizerPlanCropPickerHint:
+      "Chagua zao ili kujaza kiotomatiki thamani za uchimbaji na mavuno ya kawaida.",
     fertilizerPlanSummary: "Muhtasari wa dozi",
     fertilizerPlanConclusions: "Tafsiri",
     fertilizerPlanStepsTitle: "Hatua za hesabu",

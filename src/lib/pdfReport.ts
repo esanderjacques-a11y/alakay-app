@@ -48,6 +48,8 @@ export type PdfReportOptions = {
   includeCharts?: boolean;
   includeOriginalLabValues?: boolean;
   includeCalculationValues?: boolean;
+  includeDopInReport?: boolean;
+  includeNutrientRatiosInReport?: boolean;
 };
 
 export type PdfReportSectionOptions = {
@@ -61,6 +63,54 @@ export type PdfReportSectionOptions = {
   includeDop: boolean;
   includeRatios: boolean;
 };
+
+/** Merge per-export picks with saved report defaults. */
+export function resolvePdfReportSections(
+  sections?: Partial<PdfReportSectionOptions> | null,
+  reportOptions?: PdfReportOptions | null
+): PdfReportSectionOptions {
+  return {
+    includeLogo: sections?.includeLogo ?? reportOptions?.includeLogo ?? true,
+    includeSummary: sections?.includeSummary ?? reportOptions?.includeSummary ?? true,
+    includeInterpretation: sections?.includeInterpretation ?? true,
+    includeMissingValues: sections?.includeMissingValues ?? true,
+    includeTexture: sections?.includeTexture ?? true,
+    includeCalculations:
+      sections?.includeCalculations ?? reportOptions?.includeCalculationValues ?? true,
+    includeLabValues:
+      sections?.includeLabValues ?? reportOptions?.includeOriginalLabValues ?? true,
+    includeDop: sections?.includeDop ?? reportOptions?.includeDopInReport ?? true,
+    includeRatios:
+      sections?.includeRatios ?? reportOptions?.includeNutrientRatiosInReport ?? true,
+  };
+}
+
+export function defaultPdfReportSections(
+  reportOptions?: PdfReportOptions | null
+): PdfReportSectionOptions {
+  return resolvePdfReportSections(null, reportOptions);
+}
+
+function isDopCalculation(label: string) {
+  return /\bdop\b/i.test(label);
+}
+
+function isRatioCalculation(label: string) {
+  return /\/|\bratio\b|\bca\s*\/\s*mg\b|\bmg\s*\/\s*k\b|\bk\s*\/\s*na\b|\bca\s*\/\s*k\b|\bca\s*\/\s*na\b/i.test(
+    label
+  );
+}
+
+function filterCalculationValues(
+  values: CalculationOutput[],
+  sections: PdfReportSectionOptions
+) {
+  return values.filter((item) => {
+    if (!sections.includeDop && isDopCalculation(item.label)) return false;
+    if (!sections.includeRatios && isRatioCalculation(item.label)) return false;
+    return true;
+  });
+}
 
 const GROUP_KEYS = [
   "negative",
@@ -153,6 +203,7 @@ export async function exportAnalysisPdf(options: {
   locale: string;
   reportMeta?: PdfReportMeta;
   reportOptions?: PdfReportOptions;
+  sections?: Partial<PdfReportSectionOptions>;
   fileName?: string;
 }) {
   const { jsPDF } = await import("jspdf");
@@ -167,16 +218,13 @@ export async function exportAnalysisPdf(options: {
     locale,
     reportMeta,
     reportOptions,
+    sections,
     fileName = "cultosol-analysis-report.pdf",
   } = options;
 
-  const exportOptions: Required<PdfReportOptions> = {
-    includeLogo: reportOptions?.includeLogo ?? true,
-    includeSummary: reportOptions?.includeSummary ?? true,
-    includeCharts: reportOptions?.includeCharts ?? true,
-    includeOriginalLabValues: reportOptions?.includeOriginalLabValues ?? true,
-    includeCalculationValues: reportOptions?.includeCalculationValues ?? true,
-  };
+  const exportSections = resolvePdfReportSections(sections, reportOptions);
+  const includeCharts = reportOptions?.includeCharts ?? true;
+  const visibleCalculations = filterCalculationValues(calculationValues, exportSections);
 
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -222,11 +270,11 @@ export async function exportAnalysisPdf(options: {
     pdf.setLineWidth(0.4);
     pdf.line(0, 46, pageWidth, 46);
 
-    if (logoData && exportOptions.includeLogo) {
+    if (logoData && exportSections.includeLogo) {
       pdf.addImage(logoData, "PNG", margin, 8, 20, 20);
     }
 
-    const titleX = logoData && exportOptions.includeLogo ? margin + 26 : margin;
+    const titleX = logoData && exportSections.includeLogo ? margin + 26 : margin;
     pdf.setTextColor(22, 101, 52);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(18);
@@ -382,7 +430,7 @@ export async function exportAnalysisPdf(options: {
     y += 4;
   }
 
-  if (exportOptions.includeSummary) {
+  if (exportSections.includeSummary) {
     drawSummaryCards();
   }
 
@@ -391,7 +439,7 @@ export async function exportAnalysisPdf(options: {
     drawParagraph(t.generalCropWarning);
   }
 
-  if (textureSummary) {
+  if (exportSections.includeTexture && textureSummary) {
     drawSectionTitle(t.soilTexture);
     drawParagraph(
       `${t.textureClass}: ${textureSummary.className}`,
@@ -404,7 +452,7 @@ export async function exportAnalysisPdf(options: {
     drawParagraph(textureSummary.explanation);
   }
 
-  if (exportOptions.includeCharts && results.length > 0) {
+  if (exportSections.includeInterpretation && includeCharts && results.length > 0) {
     drawSectionTitle(t.resultGraphs);
     drawParagraph(t.resultGraphsDesc, 9);
     for (const result of results.slice(0, 18)) {
@@ -412,29 +460,35 @@ export async function exportAnalysisPdf(options: {
     }
   }
 
-  const sections: { key: keyof GroupedPdfResults; title: string; desc: string }[] = [
-    { key: "negative", title: t.needsAttention, desc: t.needsAttentionDesc },
-    { key: "warning", title: t.warning, desc: t.warningDesc },
-    { key: "normal", title: t.normal, desc: t.normalDesc },
-    { key: "positive", title: t.positive, desc: t.positiveDesc },
-    { key: "neutral", title: t.neutral, desc: t.neutralDesc },
-    { key: "other", title: t.other, desc: t.otherDesc },
-  ];
+  if (exportSections.includeInterpretation) {
+    const interpretationSections: {
+      key: keyof GroupedPdfResults;
+      title: string;
+      desc: string;
+    }[] = [
+      { key: "negative", title: t.needsAttention, desc: t.needsAttentionDesc },
+      { key: "warning", title: t.warning, desc: t.warningDesc },
+      { key: "normal", title: t.normal, desc: t.normalDesc },
+      { key: "positive", title: t.positive, desc: t.positiveDesc },
+      { key: "neutral", title: t.neutral, desc: t.neutralDesc },
+      { key: "other", title: t.other, desc: t.otherDesc },
+    ];
 
-  for (const section of sections) {
-    const items = groupedResults[section.key];
-    if (items.length === 0) continue;
+    for (const section of interpretationSections) {
+      const items = groupedResults[section.key];
+      if (items.length === 0) continue;
 
-    drawSectionTitle(`${section.title} (${items.length})`);
-    drawParagraph(section.desc, 9);
-    y += 2;
+      drawSectionTitle(`${section.title} (${items.length})`);
+      drawParagraph(section.desc, 9);
+      y += 2;
 
-    for (const item of items) {
-      drawResultCard(item, section.key);
+      for (const item of items) {
+        drawResultCard(item, section.key);
+      }
     }
   }
 
-  if (missingResults.length > 0) {
+  if (exportSections.includeMissingValues && missingResults.length > 0) {
     drawSectionTitle(t.noRangeFound);
     drawParagraph(t.noRangeFoundDesc, 9);
     for (const item of missingResults) {
@@ -445,9 +499,9 @@ export async function exportAnalysisPdf(options: {
     }
   }
 
-  if (exportOptions.includeCalculationValues && calculationValues.length > 0) {
+  if (exportSections.includeCalculations && visibleCalculations.length > 0) {
     drawSectionTitle(t.calculators);
-    for (const result of calculationValues) {
+    for (const result of visibleCalculations) {
       drawParagraph(`${result.label}: ${result.value} ${result.unit}`, 9, true);
       for (const alternative of result.alternatives || []) {
         drawParagraph(`= ${alternative.value} ${alternative.unit}`, 9);
@@ -460,7 +514,7 @@ export async function exportAnalysisPdf(options: {
     }
   }
 
-  if (exportOptions.includeOriginalLabValues && results.length > 0) {
+  if (exportSections.includeLabValues && results.length > 0) {
     drawSectionTitle(t.values);
     for (const result of results) {
       drawParagraph(

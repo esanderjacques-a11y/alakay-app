@@ -20,7 +20,7 @@ import {
 } from "@/lib/soilFertilityTables";
 
 export const SOIL_FERTILITY_SOURCE_KEY = "sue302_villasenor";
-const SOIL_FERTILITY_CACHE_KEY = "cultosol_sf_reference_v1";
+const SOIL_FERTILITY_CACHE_KEY = "cultosol_sf_reference_v2";
 
 type NutrientRow = {
   parameter_key: string;
@@ -49,6 +49,8 @@ type CropRow = {
   k2o_kg_per_t: number;
   cao_kg_per_t: number;
   mgo_kg_per_t: number;
+  yield_min_t_ha: number | null;
+  yield_max_t_ha: number | null;
   is_default: boolean;
   sort_order: number;
 };
@@ -197,6 +199,8 @@ function mapCropRows(rows: CropRow[]) {
       k2o: row.k2o_kg_per_t,
       cao: row.cao_kg_per_t,
       mgo: row.mgo_kg_per_t,
+      yieldMin: row.yield_min_t_ha ?? undefined,
+      yieldMax: row.yield_max_t_ha ?? undefined,
     }));
 
   const defaultExtraction = defaultRow
@@ -422,7 +426,7 @@ export async function fetchSoilFertilityReference(
         supabase
           .from("sf_crop_extraction")
           .select(
-            "crop_key, label, match_patterns, n_kg_per_t, p2o5_kg_per_t, k2o_kg_per_t, cao_kg_per_t, mgo_kg_per_t, is_default, sort_order"
+            "crop_key, label, match_patterns, n_kg_per_t, p2o5_kg_per_t, k2o_kg_per_t, cao_kg_per_t, mgo_kg_per_t, yield_min_t_ha, yield_max_t_ha, is_default, sort_order"
           )
           .eq("source_key", sourceKey)
           .order("sort_order"),

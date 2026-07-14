@@ -61,10 +61,31 @@ export default function FertilizerPlanCalculator({
   const { reference } = useSoilFertilityReference();
   const [storedLayout] = useViewLayoutPreference("calculator-hub");
   const resultsLayout = layoutProp ?? storedLayout;
-  const matchedCrop = useMemo(
+  const sourceMatchedCrop = useMemo(
     () => findCropExtraction(selectedCropName, reference),
     [selectedCropName, reference]
   );
+  const [selectedTableCropKey, setSelectedTableCropKey] = useState("");
+  const selectedTableCrop = useMemo(
+    () => reference.cropExtraction.find((crop) => crop.cropKey === selectedTableCropKey) || null,
+    [reference.cropExtraction, selectedTableCropKey]
+  );
+  const matchedCrop = selectedTableCrop || sourceMatchedCrop;
+  const effectiveCropName = matchedCrop?.label || selectedCropName;
+  const showCropPicker = !sourceMatchedCrop;
+  const cropOptions = useMemo<Array<[string, string]>>(
+    () => [
+      ["", t.fertilizerPlanSelectCrop || "Select a crop from Tabla N.° 5"],
+      ...reference.cropExtraction
+        .map((crop) => [crop.cropKey, crop.label] as [string, string])
+        .sort((a, b) => a[1].localeCompare(b[1])),
+    ],
+    [reference.cropExtraction, t.fertilizerPlanSelectCrop]
+  );
+
+  useEffect(() => {
+    if (sourceMatchedCrop) setSelectedTableCropKey("");
+  }, [sourceMatchedCrop]);
 
   const [displayMode, setDisplayMode] = useState<NutrientDisplayMode>("oxide");
   const [irrigationSystem, setIrrigationSystem] = useState<IrrigationSystem>("aspersion_pivote");
@@ -111,24 +132,8 @@ export default function FertilizerPlanCalculator({
 
   const factors = reference.oxideFactors;
 
-  const [extractOxide, setExtractOxide] = useState<ExtractionOxide>(() =>
-    matchedCrop
-      ? {
-          n: matchedCrop.n,
-          p2o5: matchedCrop.p2o5,
-          k2o: matchedCrop.k2o,
-          cao: matchedCrop.cao,
-          mgo: matchedCrop.mgo,
-        }
-      : { n: 0, p2o5: 0, k2o: 0, cao: 0, mgo: 0 }
-  );
-  const cropKeyRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const key = matchedCrop?.cropKey ?? `manual:${selectedCropName || ""}`;
-    if (cropKeyRef.current === key) return;
-    cropKeyRef.current = key;
-    setExtractOxide(
+  const tableExtract = useMemo<ExtractionOxide>(
+    () =>
       matchedCrop
         ? {
             n: matchedCrop.n,
@@ -137,28 +142,93 @@ export default function FertilizerPlanCalculator({
             cao: matchedCrop.cao,
             mgo: matchedCrop.mgo,
           }
-        : { n: 0, p2o5: 0, k2o: 0, cao: 0, mgo: 0 }
-    );
-  }, [matchedCrop, selectedCropName]);
+        : { n: 0, p2o5: 0, k2o: 0, cao: 0, mgo: 0 },
+    [matchedCrop]
+  );
+
+  const [extractN, setExtractN] = useMemoryNumber("fertilizer", "extractN", tableExtract.n);
+  const [extractP2o5, setExtractP2o5] = useMemoryNumber(
+    "fertilizer",
+    "extractP2o5",
+    tableExtract.p2o5
+  );
+  const [extractK2o, setExtractK2o] = useMemoryNumber("fertilizer", "extractK2o", tableExtract.k2o);
+  const [extractCao, setExtractCao] = useMemoryNumber("fertilizer", "extractCao", tableExtract.cao);
+  const [extractMgo, setExtractMgo] = useMemoryNumber("fertilizer", "extractMgo", tableExtract.mgo);
+  const [extractCropCode, setExtractCropCode] = useMemoryNumber(
+    "fertilizer",
+    "extractCropCode",
+    0
+  );
+
+  const extractOxide = useMemo<ExtractionOxide>(
+    () => ({
+      n: extractN,
+      p2o5: extractP2o5,
+      k2o: extractK2o,
+      cao: extractCao,
+      mgo: extractMgo,
+    }),
+    [extractN, extractP2o5, extractK2o, extractCao, extractMgo]
+  );
+
+  useEffect(() => {
+    const key = matchedCrop?.cropKey ?? `manual:${selectedCropName || ""}`;
+    const cropCode = hashCropKey(key);
+    if (extractCropCode === cropCode) return;
+    setExtractN(tableExtract.n);
+    setExtractP2o5(tableExtract.p2o5);
+    setExtractK2o(tableExtract.k2o);
+    setExtractCao(tableExtract.cao);
+    setExtractMgo(tableExtract.mgo);
+    if (matchedCrop?.yieldMin != null) {
+      setYieldTarget(
+        matchedCrop.yieldMax != null
+          ? (matchedCrop.yieldMin + matchedCrop.yieldMax) / 2
+          : matchedCrop.yieldMin
+      );
+    }
+    setExtractCropCode(cropCode);
+  }, [
+    extractCropCode,
+    matchedCrop,
+    selectedCropName,
+    tableExtract,
+    setExtractN,
+    setExtractP2o5,
+    setExtractK2o,
+    setExtractCao,
+    setExtractMgo,
+    setExtractCropCode,
+    setYieldTarget,
+  ]);
 
   const displayExtract =
     displayMode === "elemental" ? oxideToElementalExtraction(extractOxide, factors) : extractOxide;
 
   const labels = displayExtractionLabels(displayMode);
 
+  function applyExtractionOxide(next: ExtractionOxide) {
+    setExtractN(next.n);
+    setExtractP2o5(next.p2o5);
+    setExtractK2o(next.k2o);
+    setExtractCao(next.cao);
+    setExtractMgo(next.mgo);
+  }
+
   function updateExtractionField(field: keyof ExtractionOxide, displayValue: number) {
     if (displayMode === "elemental") {
       const asElemental = { ...displayExtract, [field]: displayValue };
-      setExtractOxide(elementalToOxideExtraction(asElemental, factors));
+      applyExtractionOxide(elementalToOxideExtraction(asElemental, factors));
       return;
     }
-    setExtractOxide((prev) => ({ ...prev, [field]: displayValue }));
+    applyExtractionOxide({ ...extractOxide, [field]: displayValue });
   }
 
   const plan = useMemo(() => {
     return buildNutrientDosePlan(
       {
-        cultivo: selectedCropName,
+        cultivo: effectiveCropName,
         extraction: extractOxide,
         rendimientoObjetivo: yieldTarget,
         profundidadMuestreo_cm: depthCm,
@@ -178,7 +248,7 @@ export default function FertilizerPlanCalculator({
       reference
     );
   }, [
-    selectedCropName,
+    effectiveCropName,
     extractOxide,
     yieldTarget,
     depthCm,
@@ -237,13 +307,29 @@ export default function FertilizerPlanCalculator({
           />
         </div>
 
-        {selectedCropName || matchedCrop ? (
+        {showCropPicker ? (
+          <div className="calc-page__crop grid gap-2 px-3 py-3">
+            <SelectField
+              label={t.fertilizerPlanCrop || "Crop"}
+              value={selectedTableCropKey}
+              onChange={setSelectedTableCropKey}
+              options={cropOptions}
+              fullWidth
+            />
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              {t.fertilizerPlanCropPickerHint ||
+                "Select a Tabla N.° 5 crop to fill extraction values and the typical yield automatically."}
+            </p>
+          </div>
+        ) : null}
+
+        {matchedCrop || (!showCropPicker && effectiveCropName) ? (
           <div className="calc-page__crop flex items-center gap-2 px-3 py-2.5">
             <span className="text-xs font-bold uppercase tracking-wide text-emerald-800">
               {t.fertilizerPlanCrop || "Crop"}
             </span>
             <span className="text-sm font-semibold text-green-950 dark:text-emerald-50">
-              {matchedCrop?.label || selectedCropName}
+              {matchedCrop?.label || effectiveCropName}
             </span>
             {!matchedCrop ? (
               <span className="text-xs text-amber-800 dark:text-amber-200">
@@ -688,6 +774,15 @@ function SelectField({
 
 function round3(value: number) {
   return Math.round(value * 1000) / 1000;
+}
+
+function hashCropKey(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 
 function formatMessage(template: string, values: Record<string, string | number>) {

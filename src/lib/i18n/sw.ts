@@ -74,9 +74,9 @@ const sw = {
   soilExtractionHint:
     "Chagua viwango vya kutosha vya zao, au Olsen / Mehlich kwa bendi za fosforasi kulingana na mbinu.",
   exportGeneralCropExtractionNote:
-    "Zao la jumla na {method}: viwango vya kutosha vya fosforasi hufuata Tabla N.° 1 ({method}).",
+    "Zao la jumla na {method}: viwango vya virutubisho vya Tabla N.° 1 hufuata {method} (si utoshelezi wa zao).",
   exportExtractionMethodNote:
-    "Viwango vya kutosha vya fosforasi hufuata Tabla N.° 1 ya extractant {method} (si utoshelezi wa zao).",
+    "Viwango vya virutubisho vya Tabla N.° 1 hufuata extractant {method} (si utoshelezi wa zao).",
   exportFoliarExtractionNote:
     "Uchambuzi wa majani na {method}: tafsiri ya fosforasi inapendelea viwango vilivyounganishwa na {method} vinapopatikana.",
   exportRecommendationsHint:

@@ -111,8 +111,7 @@ import {
   SOIL_EXTRACTION_OPTIONS,
   getDefaultExtractionMethod,
   resolveInterpretationParameter,
-  shouldApplyTable1PhosphorusRange,
-  table1PhosphorusSufficientRange,
+  table1SufficientRange,
   type ExtractionMethod,
 } from "@/lib/extractionMethod";
 
@@ -1048,6 +1047,9 @@ export default function HomePage() {
 
   const [results, setResults] = useState<InterpretationResult[]>([]);
   const [missingResults, setMissingResults] = useState<MissingResult[]>([]);
+  /** Method used for the current Results set (avoids chip/header drift after interpret). */
+  const [resultsExtractionMethod, setResultsExtractionMethod] =
+    useState<ExtractionMethod | null>(null);
   const [calculatorPacks, setCalculatorPacks] = useState<CalculatorOutputPack[]>([]);
   const [reportExtras, setReportExtras] = useState<{
     planRecommendations: string[];
@@ -1789,6 +1791,7 @@ export default function HomePage() {
       [parameterKey]: newValue,
     }));
     setResults([]);
+    setResultsExtractionMethod(null);
     setMissingResults([]);
     setSavedAnalysisSignature(null);
     setSaveMessage("");
@@ -1807,6 +1810,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       }));
     }
     setResults([]);
+    setResultsExtractionMethod(null);
     setMissingResults([]);
     setSavedAnalysisSignature(null);
     setSaveMessage("");
@@ -1815,6 +1819,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
   function clearAllValues() {
     setValues({});
     setResults([]);
+    setResultsExtractionMethod(null);
     setMissingResults([]);
     setSavedAnalysisSignature(null);
     setSaveMessage("");
@@ -1842,6 +1847,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setSelectedUnits({});
     setSelectedUnitDisplayKeys({});
     setResults([]);
+    setResultsExtractionMethod(null);
     setMissingResults([]);
     setSelectedCategory("All");
     setShowAllParameters(true);
@@ -1888,6 +1894,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     });
 
     setResults([]);
+    setResultsExtractionMethod(null);
     setMissingResults([]);
     setSaveMessage("");
     setSavedAnalysisSignature(null);
@@ -1976,6 +1983,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setParameterSearch("");
     setSortMode("type");
     setResults([]);
+    setResultsExtractionMethod(null);
     setMissingResults([]);
     setAnalysisName("");
     setFarmName("");
@@ -2015,6 +2023,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setReportDate(payload.reportDate);
 
     setResults([]);
+    setResultsExtractionMethod(null);
     setMissingResults([]);
     setSaveMessage("");
 
@@ -2125,6 +2134,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setMessage("");
     setSaveMessage("");
     setResults([]);
+    setResultsExtractionMethod(null);
     setMissingResults([]);
 
     if (!cropId) {
@@ -2274,6 +2284,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           parameter_id: item.parameter_id,
           parameter_name: item.parameter_name,
           display_name: item.display_name,
+          parameter_key: item.parameter_key,
           symbol:
             parameters.find(
               (parameter) => parameter.parameter_key === item.parameter_key
@@ -2296,23 +2307,18 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     );
 
     for (const outcome of rpcOutcomes) {
-      const { item, data, error, resolved, parameterLike } = outcome;
+      const { item, data, error, parameterLike } = outcome;
 
       if (error) {
         throw error;
       }
 
-      const table1P = shouldApplyTable1PhosphorusRange({
-        extractionMethod,
-        isGeneralCrop: interpretationCropId === 999,
-        parameter: parameterLike,
-        resolved,
-        sampleType,
-      })
-        ? table1PhosphorusSufficientRange(extractionMethod)
-        : null;
+      const table1Range =
+        sampleType === "soil"
+          ? table1SufficientRange(extractionMethod, parameterLike)
+          : null;
 
-      if ((!data || data.length === 0) && !table1P) {
+      if ((!data || data.length === 0) && !table1Range) {
         notFoundResults.push({
           parameter_key: item.parameter_key,
           parameter_id: item.parameter_id,
@@ -2342,19 +2348,19 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       let sourceName = range?.source_name ?? null;
       let isProxy = Boolean(range?.is_proxy);
 
-      if (table1P) {
+      if (table1Range) {
         const convertedTable = convertRangeToUnit(
-          table1P.min,
-          table1P.max,
-          table1P.unit,
+          table1Range.min,
+          table1Range.max,
+          table1Range.unit,
           item.unit_symbol
         );
         rangeMin = convertedTable.min;
         rangeMax = convertedTable.max;
         rangeUnitSymbol = convertedTable.converted
           ? item.unit_symbol
-          : table1P.unit;
-        sourceName = table1P.sourceName;
+          : table1Range.unit;
+        sourceName = table1Range.sourceName;
         isProxy = Boolean(range);
       }
 
@@ -2390,6 +2396,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     }
 
     setResults(interpretedResults);
+    setResultsExtractionMethod(extractionMethod);
     setMissingResults(notFoundResults);
     setSavedAnalysisSignature(null);
     setSaveMessage("");
@@ -2678,17 +2685,18 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
   const pdfReportMeta = useMemo<PdfReportMeta>(() => {
     const place = [provinceState.trim(), finalCountry].filter(Boolean).join(", ");
     const dateValue = reportDate.trim() || samplingDate.trim();
-    const methodLabel = extractionMethodLabel(extractionMethod, t);
+    const methodForReport = resultsExtractionMethod ?? extractionMethod;
+    const methodLabel = extractionMethodLabel(methodForReport, t);
     const usesMethodBands =
-      extractionMethod === "olsen" || extractionMethod === "mehlich";
+      methodForReport === "olsen" || methodForReport === "mehlich";
     const extractionNote = usesMethodBands
       ? sampleType === "soil"
         ? formatMessage(
             isGeneralCrop
               ? t.exportGeneralCropExtractionNote ||
-                  "General crop with {method}: phosphorus sufficient ranges follow Tabla N.° 1 ({method})."
+                  "General crop with {method}: nutrient ranges in Tabla N.° 1 follow {method} (not crop sufficiency)."
               : t.exportExtractionMethodNote ||
-                  "Phosphorus sufficient ranges follow Tabla N.° 1 for the {method} extractant (not crop sufficiency).",
+                  "Nutrient ranges in Tabla N.° 1 follow the {method} extractant (not crop sufficiency).",
             { method: methodLabel }
           )
         : formatMessage(
@@ -2733,6 +2741,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     lotName,
     provinceState,
     reportDate,
+    resultsExtractionMethod,
     sampleType,
     samplingDate,
     selectedCrop,
@@ -3105,7 +3114,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                 isGeneralCrop={isGeneralCrop}
                 sampleType={sampleType}
                 showFoliarExtractionPicker={showFoliarExtractionPicker}
-                extractionMethod={extractionMethod}
+                extractionMethod={resultsExtractionMethod ?? extractionMethod}
                 showHorizontalGraphs={appSettings.reports.includeHorizontalResultGraph}
                 backToValues={() => setCurrentStep("values")}
                 onExportPdf={() => setExportModalOpen(true)}

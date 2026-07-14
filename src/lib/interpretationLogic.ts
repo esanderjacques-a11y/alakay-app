@@ -17,7 +17,11 @@ function isBulkDensity(name: string) {
 
 function isPH(name: string) {
   const n = normalizeName(name);
-  return n === "ph" || n.includes("soil ph") || n.includes("pH".toLowerCase());
+  // Word-boundary only — never match "phosphorus" via substring "ph".
+  return (
+    /\bph\b/.test(n) &&
+    !/\b(phosphorus|phosphate|phosphore|fosforo|fosfato)\b/.test(n)
+  );
 }
 
 function isElectricalConductivity(name: string) {
@@ -64,12 +68,23 @@ export function getLevelCode(input: LogicInput) {
   }
 
   if (isPH(name)) {
+    // Prefer an explicit sufficiency band (e.g. Tabla N.° 1) when present.
+    if (min !== null && max !== null) {
+      if (value < min) return "acidic";
+      if (value > max) return "alkaline";
+      return "neutral_ph";
+    }
     if (value < 6.5) return "acidic";
     if (value > 7.5) return "alkaline";
     return "neutral_ph";
   }
 
   if (isSodium(name)) {
+    if (min !== null && max !== null) {
+      if (value < min) return "low";
+      if (value > max) return "high";
+      return "normal";
+    }
     if (value > 2) return "very_high";
     if (value > 1) return "high";
     if (value >= 0.5) return "moderate";

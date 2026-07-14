@@ -222,9 +222,9 @@
   extractionMethodBray: "Bray",
   extractionMethodActive: "P ranges: {method}",
   exportGeneralCropExtractionNote:
-    "General crop with {method}: phosphorus sufficient ranges follow Tabla N.° 1 ({method}).",
+    "General crop with {method}: nutrient ranges in Tabla N.° 1 follow {method} (not crop sufficiency).",
   exportExtractionMethodNote:
-    "Phosphorus sufficient ranges follow Tabla N.° 1 for the {method} extractant (not crop sufficiency).",
+    "Nutrient ranges in Tabla N.° 1 follow the {method} extractant (not crop sufficiency).",
   exportFoliarExtractionNote:
     "Foliar analysis with {method}: phosphorus interpretation prefers {method}-linked ranges when available.",
   exportRecommendationsHint:

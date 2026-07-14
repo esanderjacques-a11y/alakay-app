@@ -238,9 +238,9 @@
   soilExtractionHint:
     "Choisissez les plages de suffisance de la culture, ou Olsen / Mehlich pour les bandes de phosphore selon la méthode.",
   exportGeneralCropExtractionNote:
-    "Culture générale avec {method} : les plages de suffisance du phosphore suivent la Tabla N.° 1 ({method}).",
+    "Culture générale avec {method} : les plages de nutriments de la Tabla N.° 1 suivent {method} (pas la suffisance de la culture).",
   exportExtractionMethodNote:
-    "Les plages de suffisance du phosphore suivent la Tabla N.° 1 de l'extractant {method} (pas la suffisance de la culture).",
+    "Les plages de nutriments de la Tabla N.° 1 suivent l'extractant {method} (pas la suffisance de la culture).",
   exportFoliarExtractionNote:
     "Analyse foliaire avec {method} : l'interprétation du phosphore privilégie les plages liées à {method} si disponibles.",
   exportRecommendationsHint:

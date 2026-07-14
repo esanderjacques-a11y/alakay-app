@@ -76,9 +76,9 @@ const pt = {
   soilExtractionHint:
     "Escolha faixas de suficiência da cultura, ou Olsen / Mehlich para bandas de fósforo conforme o método.",
   exportGeneralCropExtractionNote:
-    "Cultura geral com {method}: as faixas suficientes de fósforo seguem a Tabla N.° 1 ({method}).",
+    "Cultura geral com {method}: as faixas de nutrientes da Tabla N.° 1 seguem {method} (não a suficiência da cultura).",
   exportExtractionMethodNote:
-    "As faixas suficientes de fósforo seguem a Tabla N.° 1 do extrator {method} (não a suficiência da cultura).",
+    "As faixas de nutrientes da Tabla N.° 1 seguem o extrator {method} (não a suficiência da cultura).",
   exportFoliarExtractionNote:
     "Análise foliar com {method}: a interpretação de fósforo prioriza faixas ligadas a {method} quando disponíveis.",
   exportRecommendationsHint:

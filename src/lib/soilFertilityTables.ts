@@ -52,7 +52,7 @@ export const TABLE_1_OLSEN_KCL: Table1Row[] = [
 export const TABLE_1_MEHLICH3: Table1Row[] = [
   { parameter: "ph", label: "pH", unit: "", lowMax: 5.4, adequateMin: 5.5, adequateMax: 6.5, highMin: 6.6 },
   { parameter: "acidez_extraible", label: "Acidez extraíble (H+Al)", unit: "cmol(+)/kg", adequateMin: 0, adequateMax: 0.5, highMin: 0.51 },
-  { parameter: "ca", label: "Ca", unit: "cmol(+)/kg", lowMax: 3.9, adequateMin: 4, adequateMax: 16, highMin: 16.1 },
+  { parameter: "ca", label: "Ca", unit: "cmol(+)/kg", lowMax: 5.9, adequateMin: 6, adequateMax: 16, highMin: 16.1 },
   { parameter: "k", label: "K", unit: "cmol(+)/kg", lowMax: 0.49, adequateMin: 0.5, adequateMax: 0.8, highMin: 0.81 },
   { parameter: "mg", label: "Mg", unit: "cmol(+)/kg", lowMax: 2.9, adequateMin: 3, adequateMax: 6, highMin: 6.1 },
   { parameter: "na", label: "Na", unit: "cmol(+)/kg", lowMax: 0.29, adequateMin: 0.3, adequateMax: 0.7, highMin: 0.71 },

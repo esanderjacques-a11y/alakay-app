@@ -237,9 +237,9 @@
   extractionMethodBray: "Bray",
   extractionMethodActive: "Rangos de P: {method}",
   exportGeneralCropExtractionNote:
-    "Cultivo general con {method}: los rangos suficientes de fósforo siguen la Tabla N.° 1 ({method}).",
+    "Cultivo general con {method}: los rangos de nutrientes de la Tabla N.° 1 siguen {method} (no la suficiencia del cultivo).",
   exportExtractionMethodNote:
-    "Los rangos suficientes de fósforo siguen la Tabla N.° 1 del extractante {method} (no la suficiencia del cultivo).",
+    "Los rangos de nutrientes de la Tabla N.° 1 siguen el extractante {method} (no la suficiencia del cultivo).",
   exportFoliarExtractionNote:
     "Análisis foliar con {method}: la interpretación de fósforo prioriza rangos vinculados a {method} cuando están disponibles.",
   exportRecommendationsHint:

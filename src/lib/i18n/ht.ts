@@ -230,9 +230,9 @@
   soilExtractionHint:
     "Chwazi entèval sufizans rekòt la, oswa Olsen / Mehlich pou bann fosfò selon metòd la.",
   exportGeneralCropExtractionNote:
-    "Rekòt jeneral ak {method}: entèval sufizans fosfò swiv Tabla N.° 1 ({method}).",
+    "Rekòt jeneral ak {method}: entèval nitritif Tabla N.° 1 swiv {method} (pa sufizans rekòt la).",
   exportExtractionMethodNote:
-    "Entèval sufizans fosfò swiv Tabla N.° 1 pou ekstraktan {method} (pa sufizans rekòt la).",
+    "Entèval nitritif Tabla N.° 1 swiv ekstraktan {method} (pa sufizans rekòt la).",
   exportFoliarExtractionNote:
     "Analiz fèy ak {method}: entèpretasyon fosfò prefere entèval ki mare ak {method} lè yo disponib.",
   exportRecommendationsHint:

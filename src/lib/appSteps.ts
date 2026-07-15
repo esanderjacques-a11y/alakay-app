@@ -8,4 +8,8 @@ export type AppStep =
   | "history"
   | "about"
   | "recycle"
-  | "settings";
+  | "settings"
+  | "farms"
+  | "calendar"
+  | "notes"
+  | "notifications";

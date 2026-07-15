@@ -3,6 +3,12 @@ import type { Language } from "@/lib/translations";
 export const APP_SETTINGS_STORAGE_KEY = "cultosol_app_settings";
 
 export type AppThemePreference = "system" | "light" | "dark" | "dark_black";
+export type AppFontPreference =
+  | "system"
+  | "nunito"
+  | "source_sans"
+  | "dm_sans"
+  | "manrope";
 export type AccentColor =
   | "green"
   | "teal"
@@ -33,6 +39,8 @@ export type AiReader =
   | "openai_vision"
   | "manual_review";
 export type DefaultExportFormat = "pdf" | "excel" | "csv";
+/** Foundation for future billing — gates advanced calculator features. */
+export type PlanTier = "free" | "pro" | "business";
 
 export type AppSettings = {
   general: {
@@ -42,6 +50,7 @@ export type AppSettings = {
     saturation: number;
     contrast: number;
     appFontSizeDelta: number;
+    appFont: AppFontPreference;
     accentColor: AccentColor;
     defaultSampleType: DefaultSampleType;
     defaultCrop: DefaultCrop;
@@ -52,6 +61,10 @@ export type AppSettings = {
     warningSensitivity: WarningSensitivity;
     enableNutrientRatios: boolean;
     enablePhWarnings: boolean;
+    showCalculatorFormulas: boolean;
+  };
+  billing: {
+    planTier: PlanTier;
   };
   importAi: {
     defaultImportType: DefaultImportType;
@@ -87,6 +100,7 @@ export const defaultAppSettings: AppSettings = {
     saturation: 100,
     contrast: 100,
     appFontSizeDelta: 0,
+    appFont: "system",
     accentColor: "green",
     defaultSampleType: "soil",
     defaultCrop: "banana",
@@ -97,6 +111,10 @@ export const defaultAppSettings: AppSettings = {
     warningSensitivity: "normal",
     enableNutrientRatios: true,
     enablePhWarnings: true,
+    showCalculatorFormulas: false,
+  },
+  billing: {
+    planTier: "free",
   },
   importAi: {
     defaultImportType: "pdf",
@@ -172,6 +190,7 @@ function mergeSettings(settings: Partial<AppSettings>): AppSettings {
   const merged = {
     general: { ...defaultAppSettings.general, ...settings.general },
     analysis: { ...defaultAppSettings.analysis, ...settings.analysis },
+    billing: { ...defaultAppSettings.billing, ...settings.billing },
     importAi: {
       ...defaultAppSettings.importAi,
       ...settings.importAi,
@@ -228,10 +247,28 @@ function mergeSettings(settings: Partial<AppSettings>): AppSettings {
     Math.max(70, Number(merged.general.contrast) || 100)
   );
   merged.general.glassUi = merged.general.glassUi !== false;
+  merged.analysis.showCalculatorFormulas =
+    merged.analysis.showCalculatorFormulas === true;
+  if (
+    merged.billing.planTier !== "free" &&
+    merged.billing.planTier !== "pro" &&
+    merged.billing.planTier !== "business"
+  ) {
+    merged.billing.planTier = "free";
+  }
   merged.general.appFontSizeDelta = Math.min(
     3,
     Math.max(-2, Number(merged.general.appFontSizeDelta) || 0)
   );
+  if (
+    merged.general.appFont !== "system" &&
+    merged.general.appFont !== "nunito" &&
+    merged.general.appFont !== "source_sans" &&
+    merged.general.appFont !== "dm_sans" &&
+    merged.general.appFont !== "manrope"
+  ) {
+    merged.general.appFont = "system";
+  }
 
   return merged;
 }
@@ -241,4 +278,27 @@ export function getPermanentDeleteDays() {
     MAX_PERMANENT_DELETE_DAYS,
     Math.max(1, getSettings().data.permanentDeleteDays || MAX_PERMANENT_DELETE_DAYS)
   );
+}
+
+/** Formulas require an enabled setting and a paid plan tier. */
+export function planAllowsCalculatorFormulas(planTier: PlanTier) {
+  return planTier === "pro" || planTier === "business";
+}
+
+export function planAllowsJacko(planTier: PlanTier) {
+  return planTier === "pro" || planTier === "business";
+}
+
+export function effectiveShowCalculatorFormulas(settings: AppSettings = getSettings()) {
+  return (
+    settings.analysis.showCalculatorFormulas &&
+    planAllowsCalculatorFormulas(settings.billing.planTier)
+  );
+}
+
+export function canUseJacko(
+  settings: AppSettings = getSettings(),
+  isAdmin = false
+) {
+  return isAdmin || planAllowsJacko(settings.billing.planTier);
 }

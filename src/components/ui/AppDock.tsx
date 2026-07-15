@@ -134,8 +134,8 @@ export default function AppDock({
                     active
                       ? "app-dock-tab-active"
                       : disabled
-                        ? "cursor-not-allowed opacity-30"
-                        : "text-slate-500 hover:text-slate-700 active:scale-95"
+                        ? "app-dock-tab cursor-not-allowed opacity-30"
+                        : "app-dock-tab hover:text-slate-700 active:scale-95"
                   }`}
                 >
                   <span
@@ -146,9 +146,9 @@ export default function AppDock({
                     {step.icon}
                   </span>
                   <span
-                    className={`text-[10px] font-semibold leading-tight transition-all ${
-                      active ? "" : "text-slate-500"
-                    } ${disabled ? "opacity-50" : ""}`}
+                    className={`app-dock-tab__label text-[10px] font-semibold leading-tight transition-all ${
+                      disabled ? "opacity-50" : ""
+                    }`}
                   >
                     {step.label}
                   </span>

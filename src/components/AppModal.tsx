@@ -13,6 +13,8 @@ type Props = {
   children: React.ReactNode;
   footer?: React.ReactNode;
   closeLabel?: string;
+  /** Extra classes on the dialog panel (e.g. export-report-modal). */
+  className?: string;
 };
 
 export default function AppModal({
@@ -24,6 +26,7 @@ export default function AppModal({
   children,
   footer,
   closeLabel = "Close",
+  className = "",
 }: Props) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const [canPortal, setCanPortal] = useState(false);
@@ -65,7 +68,7 @@ export default function AppModal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`glass-modal-shell app-modal-panel app-modal-panel--${size} animate-scale-in`}
+        className={`glass-modal-shell app-modal-panel app-modal-panel--${size} animate-scale-in${className ? ` ${className}` : ""}`}
         onClick={(event) => event.stopPropagation()}
       >
         <header className="app-modal-header">
@@ -78,10 +81,10 @@ export default function AppModal({
           <button
             type="button"
             onClick={onClose}
-            className="glass-icon-btn shrink-0 rounded-xl p-2"
+            className="app-modal-close shrink-0"
             aria-label={closeLabel}
           >
-            <X size={17} />
+            <X size={18} />
           </button>
         </header>
 

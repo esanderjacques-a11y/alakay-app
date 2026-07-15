@@ -25,6 +25,7 @@ type Props = {
   onFarmNameChange: (value: string) => void;
   lotNames: string;
   onLotNamesChange: (value: string) => void;
+  layout?: "stacked" | "inline";
   labels: {
     farm: string;
     lots: string;
@@ -41,6 +42,7 @@ export default function FarmLotSelector({
   onFarmNameChange,
   lotNames,
   onLotNamesChange,
+  layout = "stacked",
   labels,
 }: Props) {
   const [farms, setFarms] = useState<Farm[]>([]);
@@ -131,6 +133,128 @@ export default function FarmLotSelector({
     ["__new", labels.newFarm || "New farm"],
     ...farms.map((farm) => [String(farm.farm_id), farm.farm_name] as [string, string]),
   ];
+
+  if (layout === "inline") {
+    return (
+      <div className="farm-lot-inline">
+        <div className="setup-inline-row">
+          <span className="setup-inline-row__label">{labels.farm}</span>
+          <div className="setup-inline-row__control">
+            {userId && farms.length > 0 ? (
+              <MenuSelect
+                value={farmValue}
+                options={farmOptions}
+                onChange={(value) => {
+                  const farm = farms.find((item) => String(item.farm_id) === value);
+                  onFarmNameChange(farm?.farm_name || "");
+                  onLotNamesChange("");
+                }}
+                fullWidth
+                compact
+                variant="field"
+                disabled={loading}
+              />
+            ) : (
+              <input
+                className="setup-inline-input"
+                value={farmName}
+                onChange={(event) => {
+                  onFarmNameChange(event.target.value);
+                  onLotNamesChange("");
+                }}
+                placeholder={labels.newFarm || "New farm"}
+              />
+            )}
+          </div>
+        </div>
+
+        {!selectedFarm && userId && farms.length > 0 ? (
+          <div className="setup-inline-row">
+            <span className="setup-inline-row__label">{labels.newFarm || labels.farm}</span>
+            <div className="setup-inline-row__control">
+              <input
+                className="setup-inline-input"
+                value={farmName}
+                onChange={(event) => {
+                  onFarmNameChange(event.target.value);
+                  onLotNamesChange("");
+                }}
+                placeholder={labels.newFarm || "New farm"}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        <div className="setup-inline-row">
+          <span className="setup-inline-row__label">{labels.lots}</span>
+          <div className="setup-inline-row__control farm-lot-inline__lot">
+            <input
+              className="setup-inline-input"
+              value={lotDraft}
+              onChange={(event) => setLotDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== ",") return;
+                event.preventDefault();
+                addLot();
+              }}
+              placeholder={labels.addLot || "Add lot"}
+            />
+            <button
+              type="button"
+              onClick={addLot}
+              disabled={!lotDraft.trim()}
+              className="farm-lot-inline__add"
+              aria-label={labels.addLot || "Add lot"}
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+        </div>
+
+        {lots.length > 0 ? (
+          <div className="farm-lot-inline__chips">
+            {lots.map((lot) => {
+              const active = selectedLots.some(
+                (name) =>
+                  name.toLocaleLowerCase() === lot.lot_name.toLocaleLowerCase()
+              );
+              return (
+                <button
+                  key={lot.lot_id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => toggleLot(lot.lot_name)}
+                  className={`farm-lot-inline__chip ${
+                    active ? "farm-lot-inline__chip--active" : ""
+                  }`}
+                >
+                  {lot.lot_name}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {selectedLots.length > 0 ? (
+          <div className="farm-lot-inline__chips">
+            {selectedLots.map((name) => (
+              <span key={name} className="farm-lot-inline__chip farm-lot-inline__chip--active">
+                {name}
+                <button
+                  type="button"
+                  onClick={() => toggleLot(name)}
+                  aria-label={`Remove ${name}`}
+                  className="farm-lot-inline__remove"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-3 py-2">
@@ -248,4 +372,3 @@ export default function FarmLotSelector({
     </div>
   );
 }
-

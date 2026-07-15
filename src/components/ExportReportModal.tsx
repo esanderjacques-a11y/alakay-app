@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Calculator, Download } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Download } from "lucide-react";
 import AppModal from "@/components/AppModal";
 import {
   defaultPdfReportSections,
@@ -21,6 +21,7 @@ type Props = {
   checklist?: string[];
   calculatorPacks?: CalculatorOutputPack[];
   hasFertilizerProducts?: boolean;
+  hasCalendar?: boolean;
   hasRecommendations?: boolean;
   onOpenCalculators?: () => void;
 };
@@ -32,6 +33,7 @@ type ToggleItem = {
   onChange: () => void;
   locked?: boolean;
   hint?: string;
+  disabled?: boolean;
 };
 
 export default function ExportReportModal({
@@ -39,11 +41,12 @@ export default function ExportReportModal({
   onClose,
   onConfirm,
   t,
-  isFoliar: _isFoliar,
+  isFoliar,
   exporting,
   checklist = [],
   calculatorPacks = [],
   hasFertilizerProducts = false,
+  hasCalendar = false,
   hasRecommendations = false,
   onOpenCalculators,
 }: Props) {
@@ -52,24 +55,38 @@ export default function ExportReportModal({
     []
   );
 
+  const hasCic = calculatorPacks.some((p) => p.id === "cic" && p.outputs.length > 0);
+  const hasAmendment = calculatorPacks.some(
+    (p) => p.id === "amendment" && p.outputs.length > 0
+  );
+  const hasNutrient = calculatorPacks.some(
+    (p) => p.id === "fertilizer" && p.outputs.length > 0
+  );
+
   const [includeLogo, setIncludeLogo] = useState(defaults.includeLogo);
   const [includeSoilStatus, setIncludeSoilStatus] = useState(
     defaults.includeSoilStatus
   );
   const [includeTexture, setIncludeTexture] = useState(defaults.includeTexture);
-  const [includeInterpretation, setIncludeInterpretation] = useState(
-    defaults.includeInterpretation
-  );
   const [includeLabValues, setIncludeLabValues] = useState(
     defaults.includeLabValues
+  );
+  const [includeCicBases, setIncludeCicBases] = useState(defaults.includeCicBases);
+  const [includePhAmendments, setIncludePhAmendments] = useState(
+    defaults.includePhAmendments
+  );
+  const [includeNutrientPlan, setIncludeNutrientPlan] = useState(
+    defaults.includeNutrientPlan
   );
   const [includeFertilizerPlan, setIncludeFertilizerPlan] = useState(
     defaults.includeFertilizerPlan
   );
+  const [includeCalendar, setIncludeCalendar] = useState(
+    defaults.includeCalendar
+  );
   const [includeRecommendations, setIncludeRecommendations] = useState(
     defaults.includeRecommendations
   );
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -77,41 +94,45 @@ export default function ExportReportModal({
     setIncludeLogo(next.includeLogo);
     setIncludeSoilStatus(next.includeSoilStatus);
     setIncludeTexture(next.includeTexture);
-    setIncludeInterpretation(next.includeInterpretation);
     setIncludeLabValues(next.includeLabValues);
+    setIncludeCicBases(next.includeCicBases);
+    setIncludePhAmendments(next.includePhAmendments);
+    setIncludeNutrientPlan(next.includeNutrientPlan);
     setIncludeFertilizerPlan(next.includeFertilizerPlan);
+    setIncludeCalendar(next.includeCalendar);
     setIncludeRecommendations(next.includeRecommendations);
-    setSelectedIds(calculatorPacks.map((pack) => pack.id));
-  }, [open, calculatorPacks]);
-
-  function togglePack(id: string) {
-    setSelectedIds((previous) =>
-      previous.includes(id)
-        ? previous.filter((item) => item !== id)
-        : [...previous, id]
-    );
-  }
+  }, [open]);
 
   function handleConfirm() {
+    const selectedCalculatorIds = [
+      includeCicBases && hasCic ? "cic" : null,
+      includePhAmendments && hasAmendment ? "amendment" : null,
+      includeNutrientPlan && hasNutrient ? "fertilizer" : null,
+    ].filter(Boolean) as string[];
+
     onConfirm({
       includeLogo,
       includeCover: true,
       includeSoilStatus,
       includeTexture,
-      includeInterpretation,
+      includeInterpretation: false,
       includeMissingValues: false,
       includeLabValues,
       includeSummary: false,
-      includeCalculations: selectedIds.length > 0,
+      includeCalculations: selectedCalculatorIds.length > 0,
       includeDop: true,
       includeRatios: true,
+      includeCicBases: includeCicBases && hasCic,
+      includePhAmendments: includePhAmendments && hasAmendment,
+      includeNutrientPlan: includeNutrientPlan && hasNutrient,
       includeFertilizerPlan: includeFertilizerPlan && hasFertilizerProducts,
+      includeCalendar: includeCalendar && hasCalendar,
       includeRecommendations: includeRecommendations && hasRecommendations,
-      selectedCalculatorIds: selectedIds,
+      selectedCalculatorIds,
     });
   }
 
-  const summaryItems: ToggleItem[] = [
+  const mainItems: ToggleItem[] = [
     {
       key: "cover",
       label: t.exportSectionCover || "Cover (analysis details)",
@@ -123,65 +144,89 @@ export default function ExportReportModal({
       key: "soil",
       label: t.exportSectionSoilStatus || "Soil status summary",
       checked: includeSoilStatus,
-      onChange: () => setIncludeSoilStatus((value) => !value),
+      onChange: () => setIncludeSoilStatus((v) => !v),
     },
-  ];
-
-  if (hasFertilizerProducts) {
-    summaryItems.push({
+    {
+      key: "cic",
+      label: t.exportSectionCicBases || "CIC, bases and ratios",
+      checked: includeCicBases && hasCic,
+      onChange: () => setIncludeCicBases((v) => !v),
+      disabled: !hasCic,
+      hint: hasCic
+        ? undefined
+        : t.exportNeedCalculatorsHint || "Run CIC in Calculators first",
+    },
+    {
+      key: "amendment",
+      label: t.exportSectionPhAmendments || "pH and amendments",
+      checked: includePhAmendments && hasAmendment,
+      onChange: () => setIncludePhAmendments((v) => !v),
+      disabled: !hasAmendment,
+      hint: hasAmendment
+        ? undefined
+        : t.exportNeedCalculatorsHint || "Run amendments in Calculators first",
+    },
+    {
+      key: "nutrient",
+      label: t.exportSectionNutrientPlan || "Nutrient plan",
+      checked: includeNutrientPlan && hasNutrient,
+      onChange: () => setIncludeNutrientPlan((v) => !v),
+      disabled: !hasNutrient || isFoliar,
+      hint: hasNutrient
+        ? undefined
+        : t.exportNeedCalculatorsHint || "Run nutrient plan in Calculators first",
+    },
+    {
       key: "fertilizer",
       label:
         t.exportSectionFertilizerProducts ||
-        t.exportSectionFertilizerPlan ||
-        "Fertilizer products & prices",
-      checked: includeFertilizerPlan,
-      onChange: () => setIncludeFertilizerPlan((value) => !value),
-      hint:
-        t.exportFertilizerPriceNote ||
-        "Includes product type, grade, rate, and price.",
-    });
-  }
-
-  if (hasRecommendations) {
-    summaryItems.push({
+        "Fertilizer products & costs",
+      checked: includeFertilizerPlan && hasFertilizerProducts,
+      onChange: () => setIncludeFertilizerPlan((v) => !v),
+      disabled: !hasFertilizerProducts,
+      hint: hasFertilizerProducts
+        ? t.exportFertilizerPriceNote || "Product table with rates and costs"
+        : t.exportNeedCostsHint || "Build fertilizer costs in Calculators first",
+    },
+    {
+      key: "calendar",
+      label: t.exportSectionCalendar || "Fertilization calendar",
+      checked: includeCalendar && hasCalendar,
+      onChange: () => setIncludeCalendar((v) => !v),
+      disabled: !hasCalendar,
+      hint: hasCalendar
+        ? undefined
+        : t.exportNeedCalendarHint || "Save a farm calendar first",
+    },
+    {
       key: "recommendations",
-      label: t.exportSectionRecommendations || "Recommendations",
-      checked: includeRecommendations,
-      onChange: () => setIncludeRecommendations((value) => !value),
-      hint:
-        t.exportRecommendationsHint ||
-        "Action list at the end of the report (no formulas).",
-    });
-  }
+      label: t.exportSectionRecommendations || "General recommendations",
+      checked: includeRecommendations && hasRecommendations,
+      onChange: () => setIncludeRecommendations((v) => !v),
+      disabled: !hasRecommendations,
+    },
+  ];
 
   const optionalItems: ToggleItem[] = [
     {
       key: "texture",
       label: t.exportSectionTexture || "Soil texture",
       checked: includeTexture,
-      onChange: () => setIncludeTexture((value) => !value),
-    },
-    {
-      key: "interpretation",
-      label: t.exportSectionInterpretation || "Full parameter detail",
-      checked: includeInterpretation,
-      onChange: () => setIncludeInterpretation((value) => !value),
+      onChange: () => setIncludeTexture((v) => !v),
     },
     {
       key: "lab",
       label: t.exportSectionLabValues || "Original lab values",
       checked: includeLabValues,
-      onChange: () => setIncludeLabValues((value) => !value),
+      onChange: () => setIncludeLabValues((v) => !v),
     },
     {
       key: "logo",
       label: t.exportSectionLogo || "Logo",
       checked: includeLogo,
-      onChange: () => setIncludeLogo((value) => !value),
+      onChange: () => setIncludeLogo((v) => !v),
     },
   ];
-
-  const hasCalculatorPacks = calculatorPacks.length > 0;
 
   return (
     <AppModal
@@ -191,10 +236,10 @@ export default function ExportReportModal({
       }}
       title={t.exportReportTitle || "Download summary PDF"}
       description={
-        t.exportReportDesc ||
-        "Choose what to include. This report is a shareable summary — it does not include calculation steps."
+        t.exportReportDesc || "Choose what to include in this shareable summary."
       }
       size="md"
+      className="export-report-modal"
       closeLabel={t.close || "Close"}
       footer={
         <>
@@ -212,7 +257,7 @@ export default function ExportReportModal({
             onClick={handleConfirm}
             className="app-modal-btn app-modal-btn--primary"
           >
-            <Download size={16} aria-hidden />
+            <Download size={15} aria-hidden />
             {exporting
               ? t.exportingPdf || "Exporting…"
               : t.exportDownloadSummary || t.exportPdf || "Download summary PDF"}
@@ -220,109 +265,83 @@ export default function ExportReportModal({
         </>
       }
     >
-      {checklist.length > 0 ? (
-        <section className="app-modal-section export-checklist">
-          <h3 className="app-modal-section__title">
-            {t.exportChecklistTitle || "Before you export"}
-          </h3>
-          <p className="app-modal-section__desc">
-            {t.exportChecklistHint ||
-              "Some details are missing. You can continue anyway — the PDF will omit blank fields."}
-          </p>
-          <ul className="export-checklist__list">
-            {checklist.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <div className="export-report">
+        {checklist.length > 0 ? (
+          <div className="export-report__alert" role="status">
+            <p className="export-report__alert-title">
+              {t.exportChecklistTitle || "Before you export"}
+            </p>
+            <p className="export-report__alert-desc">
+              {t.exportChecklistHint ||
+                "Some details are missing. You can continue — blank fields will be omitted."}
+            </p>
+            <ul className="export-report__alert-list">
+              {checklist.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
-      <section className="app-modal-section">
-        <h3 className="app-modal-section__title">
-          {t.exportGroupSummary || "Analysis summary"}
-        </h3>
-        <div className="export-toggle-list">
-          {summaryItems.map((item) => (
+        <ExportGroup title={t.exportGroupSummary || "Report content"}>
+          {mainItems.map((item) => (
             <ExportToggleRow key={item.key} item={item} />
           ))}
-        </div>
-      </section>
+        </ExportGroup>
 
-      <section className="app-modal-section">
-        <h3 className="app-modal-section__title">
-          {t.exportGroupCalculators || "Calculator answers"}
-        </h3>
-        {hasCalculatorPacks ? (
-          <div className="export-toggle-list">
-            {calculatorPacks.map((pack) => (
-              <ExportToggleRow
-                key={pack.id}
-                item={{
-                  key: pack.id,
-                  label: pack.label,
-                  checked: selectedIds.includes(pack.id),
-                  onChange: () => togglePack(pack.id),
-                  hint:
-                    pack.outputs.length === 1
-                      ? t.exportCalculatorAnswerOne || "1 answer"
-                      : (
-                          t.exportCalculatorAnswersCount || "{count} answers"
-                        ).replace("{count}", String(pack.outputs.length)),
-                }}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="export-empty-calculators">
-            <p className="app-modal-section__desc">
+        {!hasCic && !hasAmendment && !hasNutrient && onOpenCalculators ? (
+          <div className="export-report__empty">
+            <p>
               {t.exportCalculatorsEmptyHint ||
-                "Open Calculators, run the tools you need, then come back here. Their answers will appear as optional sections."}
+                "Run calculators first — CIC, amendments and nutrient plan will appear here."}
             </p>
-            {onOpenCalculators ? (
-              <button
-                type="button"
-                className="export-open-calculators-btn"
-                onClick={() => {
-                  onClose();
-                  onOpenCalculators();
-                }}
-              >
-                <Calculator size={15} aria-hidden />
-                {t.exportOpenCalculators || "Open Calculators"}
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className="export-report__link-btn"
+              onClick={() => {
+                onClose();
+                onOpenCalculators();
+              }}
+            >
+              {t.exportOpenCalculators || "Open Calculators"}
+            </button>
           </div>
-        )}
-      </section>
+        ) : null}
 
-      <section className="app-modal-section">
-        <h3 className="app-modal-section__title">
-          {t.exportGroupOptional || "Optional details"}
-        </h3>
-        <div className="export-toggle-list">
+        <ExportGroup title={t.exportGroupOptional || "Optional details"}>
           {optionalItems.map((item) => (
             <ExportToggleRow key={item.key} item={item} />
           ))}
-        </div>
-      </section>
-
-      <p className="export-disclaimer">
-        {t.exportNoStepsDisclaimer ||
-          "This PDF is a summary for sharing; it does not include calculation steps."}
-      </p>
+        </ExportGroup>
+      </div>
     </AppModal>
+  );
+}
+
+function ExportGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="export-report__group">
+      <h3 className="export-report__group-title">{title}</h3>
+      <div className="export-report__list">{children}</div>
+    </section>
   );
 }
 
 function ExportToggleRow({ item }: { item: ToggleItem }) {
   return (
     <label
-      className={`export-toggle-row ${item.locked ? "export-toggle-row--locked" : ""}`}
+      className={`export-toggle-row${item.locked ? " export-toggle-row--locked" : ""}${item.checked ? " export-toggle-row--on" : ""}${item.disabled ? " export-toggle-row--disabled" : ""}`}
     >
       <input
         type="checkbox"
         checked={item.checked}
-        disabled={item.locked}
+        disabled={item.locked || item.disabled}
         onChange={item.onChange}
         className="export-toggle-row__input"
       />

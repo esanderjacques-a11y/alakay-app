@@ -9,6 +9,9 @@ import {
   recommendSoilAmendment,
   soilAmendmentInputFromPdfResults,
 } from "@/lib/amendmentRecommendation";
+import { interpretCationRatio } from "@/lib/cicInterpretation";
+import { eventsToPlanRows } from "@/lib/fertilizationPlanPdf";
+import type { CalendarEvent } from "@/lib/planningTypes";
 
 export type { PdfFertilizerProduct };
 
@@ -106,7 +109,11 @@ export type PdfReportSectionOptions = {
   includeCalculations: boolean;
   includeDop: boolean;
   includeRatios: boolean;
+  includeCicBases: boolean;
+  includePhAmendments: boolean;
+  includeNutrientPlan: boolean;
   includeFertilizerPlan: boolean;
+  includeCalendar: boolean;
   includeRecommendations: boolean;
   selectedCalculatorIds: string[];
 };
@@ -116,6 +123,15 @@ export function resolvePdfReportSections(
   sections?: Partial<PdfReportSectionOptions> | null,
   reportOptions?: PdfReportOptions | null
 ): PdfReportSectionOptions {
+  const includeCicBases = sections?.includeCicBases ?? true;
+  const includePhAmendments = sections?.includePhAmendments ?? true;
+  const includeNutrientPlan = sections?.includeNutrientPlan ?? true;
+  const selectedFromFlags = [
+    includeCicBases ? "cic" : null,
+    includePhAmendments ? "amendment" : null,
+    includeNutrientPlan ? "fertilizer" : null,
+  ].filter(Boolean) as string[];
+
   return {
     includeLogo: sections?.includeLogo ?? reportOptions?.includeLogo ?? true,
     includeCover: sections?.includeCover ?? true,
@@ -130,13 +146,20 @@ export function resolvePdfReportSections(
     includeCalculations:
       sections?.includeCalculations ??
       reportOptions?.includeCalculationValues ??
-      false,
+      true,
     includeDop: sections?.includeDop ?? reportOptions?.includeDopInReport ?? true,
     includeRatios:
       sections?.includeRatios ?? reportOptions?.includeNutrientRatiosInReport ?? true,
+    includeCicBases,
+    includePhAmendments,
+    includeNutrientPlan,
     includeFertilizerPlan: sections?.includeFertilizerPlan ?? true,
+    includeCalendar: sections?.includeCalendar ?? true,
     includeRecommendations: sections?.includeRecommendations ?? true,
-    selectedCalculatorIds: sections?.selectedCalculatorIds ?? [],
+    selectedCalculatorIds:
+      sections?.selectedCalculatorIds && sections.selectedCalculatorIds.length > 0
+        ? sections.selectedCalculatorIds
+        : selectedFromFlags,
   };
 }
 
@@ -460,6 +483,65 @@ const STATUS_COLORS: Record<"low" | "ok" | "high", [number, number, number]> = {
   high: [13, 148, 136],
 };
 
+const PDF_CONTACTS = [
+  "jesander@earth.ac.cr",
+  "+506 8828 7831",
+  "+509 4422 9395",
+] as const;
+
+function pdfSafe(text: string): string {
+  return String(text ?? "")
+    .replace(/\u2013|\u2014|\u2212/g, "-")
+    .replace(/\u2022|\u00B7|\u2023/g, "-")
+    .replace(/\u00A0/g, " ")
+    .replace(/[₀₁₂₃₄₅₆₇₈₉]/g, (ch) => String("₀₁₂₃₄₅₆₇₈₉".indexOf(ch)))
+    .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, (ch) => {
+      const map = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+      return String(map.indexOf(ch));
+    })
+    .replace(/₂/g, "2")
+    .replace(/₃/g, "3")
+    .replace(/₅/g, "5")
+    .replace(/₁/g, "1")
+    .replace(/₄/g, "4")
+    .replace(/₆/g, "6")
+    .replace(/₇/g, "7")
+    .replace(/₈/g, "8")
+    .replace(/₉/g, "9")
+    .replace(/₀/g, "0")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findPack(
+  packs: CalculatorOutputPack[],
+  id: string
+): CalculatorOutputPack | null {
+  return packs.find((pack) => pack.id === id && pack.outputs.length > 0) || null;
+}
+
+function findOutput(
+  pack: CalculatorOutputPack | null | undefined,
+  patterns: string[]
+): CalculationOutput | null {
+  if (!pack) return null;
+  const normalized = patterns.map((p) => p.toLowerCase());
+  return (
+    pack.outputs.find((output) => {
+      const label = String(output.label || "").toLowerCase();
+      return normalized.some((pattern) => label.includes(pattern));
+    }) || null
+  );
+}
+
+function formatCompact(value: number): string {
+  if (!Number.isFinite(value)) return "-";
+  const abs = Math.abs(value);
+  if (abs >= 100) return value.toFixed(0);
+  if (abs >= 10) return value.toFixed(1);
+  return Number(value.toFixed(2)).toString();
+}
+
 export async function exportAnalysisPdf(options: {
   t: Translation;
   results: PdfResult[];
@@ -470,6 +552,8 @@ export async function exportAnalysisPdf(options: {
   calculationValues?: CalculationOutput[];
   fertilizerProducts?: PdfFertilizerProduct[];
   recommendations?: string[];
+  calendarEvents?: CalendarEvent[];
+  labels?: Record<string, string>;
   isGeneralCrop: boolean;
   locale: string;
   reportMeta?: PdfReportMeta;
@@ -481,13 +565,14 @@ export async function exportAnalysisPdf(options: {
   const {
     t,
     results,
-    groupedResults,
     missingResults,
     textureSummary,
     calculatorPacks = [],
     calculationValues = [],
     fertilizerProducts = [],
     recommendations = [],
+    calendarEvents = [],
+    labels = {},
     isGeneralCrop,
     locale,
     reportMeta,
@@ -500,18 +585,23 @@ export async function exportAnalysisPdf(options: {
   exportSections.includeCover = true;
 
   const allPacks = resolveCalculatorPacks(calculatorPacks, calculationValues, t);
-  // Fertilizer product table owns the "fertilizerCost" pack; avoid double-drawing it.
-  const packsForCards = allPacks.filter((pack) => pack.id !== "fertilizerCost");
-  const visiblePacks = selectCalculatorPacks(packsForCards, exportSections);
+  const cicPack = findPack(allPacks, "cic");
+  const amendmentPack = findPack(allPacks, "amendment");
+  const fertilizerPack = findPack(allPacks, "fertilizer");
 
-  const recommendationLines =
+  const recommendationLines = (
     recommendations.length > 0
       ? recommendations.filter((line) => !looksLikeFormula(line))
       : buildExportRecommendations({
           results,
           fertilizerProducts,
-          includeInterpretationAdvice: exportSections.includeInterpretation,
-        });
+          includeInterpretationAdvice: false,
+          amendmentLabels: labels,
+        })
+  )
+    .map((line) => pdfSafe(line))
+    .filter(Boolean)
+    .slice(0, 12);
 
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -527,8 +617,12 @@ export async function exportAnalysisPdf(options: {
   const CARD: [number, number, number] = [248, 250, 252];
   const LINE: [number, number, number] = [226, 232, 240];
 
+  function L(key: string, fallback: string) {
+    return pdfSafe(labels[key] || (t as any)[key] || fallback);
+  }
+
   function money(value: number | null | undefined, currency: string) {
-    if (value == null || !Number.isFinite(value)) return "—";
+    if (value == null || !Number.isFinite(value)) return "-";
     try {
       return new Intl.NumberFormat(locale, {
         style: "currency",
@@ -579,62 +673,85 @@ export async function exportAnalysisPdf(options: {
     });
   }
 
-  function drawParagraph(text: string, size = 10, bold = false) {
+  function drawParagraph(text: string, size = 11, bold = false) {
+    const safe = pdfSafe(text);
+    if (!safe) return;
     pdf.setFont("helvetica", bold ? "bold" : "normal");
     pdf.setFontSize(size);
     pdf.setTextColor(INK[0], INK[1], INK[2]);
-    const lines = pdf.splitTextToSize(text, contentWidth);
+    const lines = pdf.splitTextToSize(safe, contentWidth);
     for (const line of lines) {
       ensureSpace(6);
       pdf.text(line, margin, y);
-      y += size * 0.45 + 2;
+      y += size * 0.45 + 2.2;
     }
   }
 
   function drawSectionTitle(title: string) {
-    ensureSpace(16);
+    ensureSpace(18);
     y += 3;
     pdf.setFillColor(BRAND[0], BRAND[1], BRAND[2]);
-    pdf.roundedRect(margin, y, 2.2, 6, 0.6, 0.6, "F");
+    pdf.roundedRect(margin, y, 2.4, 7, 0.6, 0.6, "F");
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(12);
+    pdf.setFontSize(13);
     pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-    pdf.text(title, margin + 5, y + 5);
-    y += 11;
+    pdf.text(pdfSafe(title), margin + 5.5, y + 5.5);
+    y += 13;
     pdf.setTextColor(INK[0], INK[1], INK[2]);
+  }
+
+  function drawKvRow(label: string, value: string, unit = "") {
+    const left = pdfSafe(label);
+    const right = pdfSafe(`${value}${unit ? ` ${unit}` : ""}`);
+    ensureSpace(12);
+    pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
+    pdf.roundedRect(margin, y, contentWidth, 10, 1.5, 1.5, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.setTextColor(INK[0], INK[1], INK[2]);
+    const labelLines = pdf.splitTextToSize(left, contentWidth * 0.58);
+    pdf.text(labelLines[0], margin + 3, y + 6.5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.text(right, pageWidth - margin - 3, y + 6.5, { align: "right" });
+    y += 12;
   }
 
   function drawCover() {
     pdf.setFillColor(BRAND[0], BRAND[1], BRAND[2]);
-    pdf.rect(0, 0, pageWidth, 28, "F");
+    pdf.rect(0, 0, pageWidth, 32, "F");
 
+    let titleX = margin;
     if (logoData && exportSections.includeLogo) {
-      pdf.addImage(logoData, "PNG", margin, 5, 16, 16);
+      // Logo is a black-bg icon — sit it on a white rounded plate.
+      pdf.setFillColor(255, 255, 255);
+      pdf.roundedRect(margin, 5, 22, 22, 3.5, 3.5, "F");
+      pdf.addImage(logoData, "PNG", margin + 3, 8, 16, 16);
+      titleX = margin + 26;
     }
 
-    const titleX = logoData && exportSections.includeLogo ? margin + 20 : margin;
     pdf.setTextColor(255, 255, 255);
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(16);
-    pdf.text(t.appName, titleX, 12);
+    pdf.setFontSize(18);
+    pdf.text(pdfSafe(t.appName), titleX, 14);
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(9);
-    pdf.text(t.reportSubtitle, titleX, 18);
+    pdf.setFontSize(11);
+    pdf.text(pdfSafe(t.reportSubtitle), titleX, 22);
 
-    y = 36;
+    y = 42;
 
     const analysisTitle =
       reportMeta?.analysisName?.trim() ||
       reportMeta?.title?.trim() ||
       t.analysisSummary;
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(15);
+    pdf.setFontSize(16);
     pdf.setTextColor(INK[0], INK[1], INK[2]);
-    const titleLines = pdf.splitTextToSize(analysisTitle, contentWidth);
+    const titleLines = pdf.splitTextToSize(pdfSafe(analysisTitle), contentWidth);
     for (const line of titleLines) {
-      ensureSpace(7);
+      ensureSpace(8);
       pdf.text(line, margin, y);
-      y += 7;
+      y += 8;
     }
     y += 3;
 
@@ -642,16 +759,16 @@ export async function exportAnalysisPdf(options: {
       reportMeta?.date?.trim() || new Date().toLocaleDateString(locale);
 
     const metaPairs: Array<[string, string | undefined]> = [
-      [t.exportGeneratedBy || "Generated by", reportMeta?.generatedBy],
-      [t.exportDate || t.generatedOn || "Date", dateValue],
-      [t.exportFarm || "Farm", reportMeta?.farm],
-      [t.exportLots || "Lot(s)", reportMeta?.lots],
-      [t.exportPlace || "Place", reportMeta?.place],
-      [t.exportLab || "Lab", reportMeta?.lab],
-      [t.exportCrop || "Crop", reportMeta?.crop],
-      [t.sampleType || "Sample type", reportMeta?.sampleType],
+      [L("exportGeneratedBy", "Generated by"), reportMeta?.generatedBy],
+      [L("exportDate", t.generatedOn || "Date"), dateValue],
+      [L("exportFarm", "Farm"), reportMeta?.farm],
+      [L("exportLots", "Lot(s)"), reportMeta?.lots],
+      [L("exportPlace", "Place"), reportMeta?.place],
+      [L("exportLab", "Lab"), reportMeta?.lab],
+      [L("exportCrop", "Crop"), reportMeta?.crop],
+      [L("sampleType", "Sample type"), reportMeta?.sampleType],
       [
-        t.extractionMethodLabel || "Phosphorus extraction method",
+        L("extractionMethodLabel", "Phosphorus extraction method"),
         reportMeta?.extractionMethod,
       ],
     ];
@@ -659,7 +776,7 @@ export async function exportAnalysisPdf(options: {
     const usable = metaPairs.filter(([, value]) => Boolean(value?.trim()));
     const gap = 3;
     const colW = (contentWidth - gap) / 2;
-    const rowH = 12;
+    const rowH = 14;
     let col = 0;
     let rowY = y;
 
@@ -670,29 +787,26 @@ export async function exportAnalysisPdf(options: {
       pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
       pdf.roundedRect(x, rowY, colW, rowH, 1.5, 1.5, "F");
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(7);
+      pdf.setFontSize(8);
       pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-      pdf.text(label.toUpperCase(), x + 3, rowY + 4.2);
+      pdf.text(pdfSafe(label).toUpperCase(), x + 3, rowY + 4.8);
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
+      pdf.setFontSize(11);
       pdf.setTextColor(INK[0], INK[1], INK[2]);
-      const clipped = pdf.splitTextToSize(String(value), colW - 6);
-      pdf.text(clipped[0], x + 3, rowY + 9);
+      const clipped = pdf.splitTextToSize(pdfSafe(String(value)), colW - 6);
+      pdf.text(clipped[0], x + 3, rowY + 10.5);
 
       col += 1;
       if (col >= 2) {
         col = 0;
-        y = rowY + rowH + 2;
+        y = rowY + rowH + 2.5;
       }
     }
-    if (col !== 0) y = rowY + rowH + 2;
+    if (col !== 0) y = rowY + rowH + 2.5;
 
-    if (
-      usable.length === 0 &&
-      reportMeta?.details?.length
-    ) {
+    if (usable.length === 0 && reportMeta?.details?.length) {
       for (const detail of reportMeta.details) {
-        drawParagraph(detail, 9);
+        drawParagraph(detail, 11);
       }
     }
 
@@ -702,7 +816,7 @@ export async function exportAnalysisPdf(options: {
   function drawSoilStatusDashboard() {
     if (results.length === 0) return;
 
-    drawSectionTitle(t.exportSectionSoilStatus || t.analysisSummary);
+    drawSectionTitle(L("exportSectionSoilStatus", t.analysisSummary || "Soil status"));
 
     const buckets: Record<"low" | "ok" | "high", PdfResult[]> = {
       low: [],
@@ -714,18 +828,15 @@ export async function exportAnalysisPdf(options: {
       buckets[soilStatusBucket(result)].push(result);
     }
 
-    const cards: Array<{
-      key: "low" | "ok" | "high";
-      title: string;
-    }> = [
-      { key: "low", title: t.exportSoilStatusLow || "Low / needs attention" },
-      { key: "ok", title: t.exportSoilStatusOk || "Adequate" },
-      { key: "high", title: t.exportSoilStatusHigh || "High / excess" },
+    const cards: Array<{ key: "low" | "ok" | "high"; title: string }> = [
+      { key: "low", title: L("exportSoilStatusLow", "Low / needs attention") },
+      { key: "ok", title: L("exportSoilStatusOk", "Adequate") },
+      { key: "high", title: L("exportSoilStatusHigh", "High / excess") },
     ];
 
     const gap = 3;
     const cardW = (contentWidth - gap * 2) / 3;
-    const cardH = 28;
+    const cardH = 30;
     ensureSpace(cardH + 4);
     const top = y;
 
@@ -738,18 +849,18 @@ export async function exportAnalysisPdf(options: {
       pdf.setLineWidth(0.4);
       pdf.roundedRect(x, top, cardW, cardH, 2, 2, "FD");
       pdf.setFillColor(color[0], color[1], color[2]);
-      pdf.roundedRect(x, top, cardW, 2.2, 1, 1, "F");
+      pdf.roundedRect(x, top, cardW, 2.4, 1, 1, "F");
 
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(18);
+      pdf.setFontSize(20);
       pdf.setTextColor(color[0], color[1], color[2]);
-      pdf.text(String(items.length), x + 4, top + 14);
+      pdf.text(String(items.length), x + 4, top + 15);
 
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(7.5);
+      pdf.setFontSize(8);
       pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
       const titleLines = pdf.splitTextToSize(card.title, cardW - 8);
-      pdf.text(titleLines.slice(0, 2), x + 4, top + 20);
+      pdf.text(titleLines.slice(0, 2), x + 4, top + 22);
     });
 
     y = top + cardH + 6;
@@ -760,156 +871,254 @@ export async function exportAnalysisPdf(options: {
       const color = STATUS_COLORS[card.key];
       ensureSpace(10);
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9);
+      pdf.setFontSize(10);
       pdf.setTextColor(color[0], color[1], color[2]);
       pdf.text(`${card.title} (${items.length})`, margin, y);
       y += 5;
       pdf.setTextColor(INK[0], INK[1], INK[2]);
-      for (const item of items.slice(0, 12)) {
+      for (const item of items) {
         const name = item.display_parameter_name || item.parameter_name;
-        drawParagraph(
-          `• ${name} · ${item.value} ${item.unit_symbol} · ${item.level_code || item.final_group_code || "—"}`,
-          8.5
-        );
-      }
-      if (items.length > 12) {
-        drawParagraph(`• +${items.length - 12} more`, 8);
+        drawParagraph(`- ${name}`, 10);
       }
       y += 1;
     }
 
-    if (exportSections.includeSummary) {
-      y += 1;
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
-      pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-      pdf.text(
-        formatMessage(t.interpretedValuesCount, { count: results.length }),
-        margin,
-        y
+    // One quick interpretation box (no full per-parameter advice cards).
+    const lowNames = buckets.low
+      .map((r) => r.display_parameter_name || r.parameter_name)
+      .slice(0, 8);
+    const highNames = buckets.high
+      .map((r) => r.display_parameter_name || r.parameter_name)
+      .slice(0, 6);
+    let quick = "";
+    if (lowNames.length > 0) {
+      quick = L("exportSoilQuickLow", "Prioritize correcting: {list}.").replace(
+        "{list}",
+        lowNames.join(", ")
       );
-      y += 6;
+      if (highNames.length > 0) {
+        quick +=
+          " " +
+          L("exportSoilQuickHigh", "Monitor excess of: {list}.").replace(
+            "{list}",
+            highNames.join(", ")
+          );
+      }
+    } else if (highNames.length > 0) {
+      quick = L("exportSoilQuickHigh", "Monitor excess of: {list}.").replace(
+        "{list}",
+        highNames.join(", ")
+      );
+    } else if (results.length > 0) {
+      quick = L(
+        "exportSoilQuickOk",
+        "Most parameters are within adequate ranges."
+      );
     }
-  }
-
-  function drawResultCard(result: PdfResult, tone: string) {
-    const rgb = GROUP_COLORS[tone] || GROUP_COLORS.other;
-    const fill = GROUP_FILLS[tone] || GROUP_FILLS.other;
-    const advice = looksLikeFormula(result.advice) ? "" : result.advice;
-    const adviceLines = advice
-      ? pdf.splitTextToSize(advice, contentWidth - 12).slice(0, 2)
-      : [];
-    const cardH = 26 + adviceLines.length * 4;
-    ensureSpace(cardH + 4);
-
-    pdf.setFillColor(fill[0], fill[1], fill[2]);
-    pdf.roundedRect(margin, y, contentWidth, cardH, 2, 2, "F");
-    pdf.setFillColor(rgb[0], rgb[1], rgb[2]);
-    pdf.roundedRect(margin, y, 2.5, cardH, 1, 1, "F");
-
-    const name = result.display_parameter_name || result.parameter_name;
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(10);
-    pdf.setTextColor(INK[0], INK[1], INK[2]);
-    pdf.text(name, margin + 6, y + 7);
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(8.5);
-    pdf.text(
-      `${result.value} ${result.unit_symbol} · ${result.level_code} · ${t.confidence}: ${result.confidence}`,
-      margin + 6,
-      y + 13
-    );
-
-    if (adviceLines.length > 0) {
-      pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-      pdf.text(adviceLines, margin + 6, y + 19);
-    }
-
-    y += cardH + 3;
-  }
-
-  function drawCalculatorPack(pack: CalculatorOutputPack) {
-    drawSectionTitle(pack.label);
-    for (const result of pack.outputs) {
-      ensureSpace(16);
-      pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
-      pdf.roundedRect(margin, y, contentWidth, 12, 1.5, 1.5, "F");
+    if (quick) {
+      ensureSpace(22);
+      pdf.setFillColor(236, 253, 245);
+      pdf.setDrawColor(BRAND[0], BRAND[1], BRAND[2]);
+      pdf.setLineWidth(0.4);
+      const wrap = pdf.splitTextToSize(pdfSafe(quick), contentWidth - 10);
+      const boxH = Math.max(16, wrap.length * 5 + 8);
+      pdf.roundedRect(margin, y, contentWidth, boxH, 2, 2, "FD");
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(9);
-      pdf.setTextColor(INK[0], INK[1], INK[2]);
-      pdf.text(result.label, margin + 3, y + 5);
+      pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
+      pdf.text(L("exportQuickInterpretation", "Quick interpretation"), margin + 4, y + 5);
       pdf.setFont("helvetica", "normal");
-      pdf.text(
-        `${result.value} ${result.unit}`,
-        pageWidth - margin - 3,
-        y + 5,
-        { align: "right" }
-      );
-      y += 14;
+      pdf.setFontSize(10);
+      pdf.setTextColor(INK[0], INK[1], INK[2]);
+      pdf.text(wrap, margin + 4, y + 11);
+      y += boxH + 4;
+    }
+  }
 
-      for (const alternative of result.alternatives || []) {
-        drawParagraph(`= ${alternative.value} ${alternative.unit}`, 8);
+  function drawCicBasesSection(pack: CalculatorOutputPack) {
+    drawSectionTitle(
+      L("exportSectionCicBases", "CIC, bases and ratios")
+    );
+
+    const ordered: Array<{
+      patterns: string[];
+      onlyIfPositive?: boolean;
+      fallbackLabel: string;
+    }> = [
+      {
+        patterns: ["total base", "v%", "base saturation", "saturacion de bases", "saturation totale"],
+        fallbackLabel: L("cicTotalBases", "Total base saturation V%"),
+      },
+      {
+        patterns: ["ca saturation", "%ca", "saturacion de ca", "saturation ca"],
+        fallbackLabel: L("cicCaSaturation", "%Ca"),
+      },
+      {
+        patterns: ["mg saturation", "%mg", "saturacion de mg", "saturation mg"],
+        fallbackLabel: L("cicMgSaturation", "%Mg"),
+      },
+      {
+        patterns: ["k saturation", "%k", "saturacion de k", "saturation k"],
+        fallbackLabel: L("cicKSaturation", "%K"),
+      },
+      {
+        patterns: ["na saturation", "%na", "saturacion de na", "saturation na"],
+        onlyIfPositive: true,
+        fallbackLabel: L("cicNaSaturation", "%Na"),
+      },
+      {
+        patterns: [
+          "h+al",
+          "al saturation",
+          "extractable acidity",
+          "acidity",
+          "acidez",
+        ],
+        onlyIfPositive: true,
+        fallbackLabel: L("cicFieldHal", "% extractable acidity (H+Al)"),
+      },
+    ];
+
+    for (const row of ordered) {
+      const output = findOutput(pack, row.patterns);
+      if (!output) continue;
+      if (row.onlyIfPositive && !(output.value > 0)) continue;
+      drawKvRow(
+        row.fallbackLabel,
+        formatCompact(output.value),
+        output.unit
+      );
+    }
+
+    const ratioSpecs: Array<{
+      key: "ca_mg" | "mg_k" | "ca_k";
+      patterns: string[];
+      label: string;
+    }> = [
+      { key: "ca_mg", patterns: ["ca/mg"], label: "Ca/Mg" },
+      { key: "mg_k", patterns: ["mg/k"], label: "Mg/K" },
+      { key: "ca_k", patterns: ["ca/k"], label: "Ca/K" },
+    ];
+
+    const attention: Array<{ label: string; message: string; value: string }> = [];
+    for (const spec of ratioSpecs) {
+      const output = findOutput(pack, spec.patterns);
+      if (!output) continue;
+      const interpretation = interpretCationRatio(spec.key, output.value);
+      if (interpretation.band === "optimal" || interpretation.band === "unknown") {
+        continue;
       }
-      for (const note of filterSafeNotes(result.notes, 2)) {
-        drawParagraph(`• ${note}`, 8);
+      attention.push({
+        label: output.label || spec.label,
+        value: `${formatCompact(output.value)} ${output.unit || ":1"}`.trim(),
+        message: L(interpretation.messageKey, interpretation.messageKey),
+      });
+    }
+
+    if (attention.length > 0) {
+      y += 1;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      pdf.setTextColor(STATUS_COLORS.low[0], STATUS_COLORS.low[1], STATUS_COLORS.low[2]);
+      ensureSpace(8);
+      pdf.text(L("exportCicRatiosAttention", "Ratios needing attention"), margin, y);
+      y += 5;
+      for (const item of attention) {
+        ensureSpace(16);
+        pdf.setFillColor(254, 226, 226);
+        const wrap = pdf.splitTextToSize(
+          pdfSafe(`${item.label} (${item.value}): ${item.message}`),
+          contentWidth - 8
+        );
+        const h = Math.max(12, wrap.length * 4.8 + 4);
+        pdf.roundedRect(margin, y, contentWidth, h, 1.5, 1.5, "F");
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.setTextColor(INK[0], INK[1], INK[2]);
+        pdf.text(wrap, margin + 3, y + 5);
+        y += h + 2;
       }
+    }
+  }
+
+  function drawAmendmentSection(pack: CalculatorOutputPack) {
+    drawSectionTitle(
+      L("exportSectionPhAmendments", "pH and amendments")
+    );
+    for (const output of pack.outputs) {
+      if (!Number.isFinite(output.value)) continue;
+      drawKvRow(output.label, formatCompact(output.value), output.unit);
+      for (const note of output.notes || []) {
+        if (!note || looksLikeFormula(note)) continue;
+        // Prefer material / why notes; skip base requirement math detail
+        if (/base requirement|requerimiento base|cce\s*\d/i.test(note)) continue;
+        drawParagraph(note, 10);
+      }
+    }
+  }
+
+  function drawNutrientPlanSection(pack: CalculatorOutputPack) {
+    drawSectionTitle(L("exportSectionNutrientPlan", "Nutrient plan"));
+    let drawn = 0;
+    for (const output of pack.outputs) {
+      const label = String(output.label || "")
+        .replace(/^Dosis\s+/i, "")
+        .replace(/\s*[—-]\s*liming.*/i, " (liming)");
+      if (/\bnf\b/i.test(label)) continue;
+      if (!Number.isFinite(output.value) || output.value === 0) continue;
+      drawKvRow(label, formatCompact(output.value), output.unit);
+      drawn += 1;
+    }
+    if (drawn === 0) {
+      drawParagraph(L("exportNutrientPlanEmpty", "No nutrient doses required."), 10);
     }
   }
 
   function drawFertilizerProductsTable(products: PdfFertilizerProduct[]) {
     if (products.length === 0) return;
     drawSectionTitle(
-      t.exportSectionFertilizerProducts ||
-        t.fertilizerProductsTitle ||
-        "Fertilizer products & prices"
+      L(
+        "exportSectionFertilizerProducts",
+        t.exportSectionFertilizerProducts ||
+          t.fertilizerProductsTitle ||
+          "Fertilizer products & costs"
+      )
     );
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(8);
-    pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-    drawParagraph(
-      t.exportFertilizerPriceNote ||
-        "Prices are supplier bags or online benchmarks when available.",
-      8
-    );
-    y += 1;
-
     const cols = [
-      { key: "product", label: t.exportFertilizerColProduct || "Product", w: 48 },
-      { key: "grade", label: t.exportFertilizerColGrade || "Grade", w: 22 },
-      { key: "rate", label: t.exportFertilizerColRate || "Rate", w: 28 },
-      { key: "price", label: t.exportFertilizerColPrice || "Price", w: 32 },
-      { key: "cost", label: t.exportFertilizerColCost || "Cost/ha", w: 28 },
+      { key: "product", label: L("exportFertilizerColProduct", "Product"), w: 48 },
+      { key: "grade", label: L("exportFertilizerColGrade", "Grade"), w: 22 },
+      { key: "rate", label: L("exportFertilizerColRate", "Rate"), w: 28 },
+      { key: "price", label: L("exportFertilizerColPrice", "Price"), w: 32 },
+      { key: "cost", label: L("exportFertilizerColCost", "Cost/ha"), w: 28 },
     ] as const;
     const tableW = cols.reduce((sum, col) => sum + col.w, 0);
     const scale = contentWidth / tableW;
 
     function drawHeader() {
-      ensureSpace(10);
+      ensureSpace(11);
       pdf.setFillColor(BRAND[0], BRAND[1], BRAND[2]);
-      pdf.roundedRect(margin, y, contentWidth, 8, 1, 1, "F");
+      pdf.roundedRect(margin, y, contentWidth, 9, 1, 1, "F");
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(7.5);
+      pdf.setFontSize(9);
       pdf.setTextColor(255, 255, 255);
       let x = margin;
       for (const col of cols) {
-        pdf.text(col.label, x + 2, y + 5.2);
+        pdf.text(col.label, x + 2, y + 6);
         x += col.w * scale;
       }
-      y += 9;
+      y += 10;
     }
 
     drawHeader();
 
     products.forEach((product, index) => {
-      ensureSpace(11);
+      ensureSpace(12);
       if (index % 2 === 0) {
         pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
-        pdf.rect(margin, y - 1, contentWidth, 10, "F");
+        pdf.rect(margin, y - 1, contentWidth, 11, "F");
       }
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8);
+      pdf.setFontSize(9.5);
       pdf.setTextColor(INK[0], INK[1], INK[2]);
 
       const rate =
@@ -921,23 +1130,23 @@ export async function exportAnalysisPdf(options: {
           ? money(product.pricePerBag, product.currency)
           : product.pricePerTonne != null
             ? `${money(product.pricePerTonne, product.currency)}/t`
-            : "—";
+            : "-";
       const cost = money(product.costPerHa, product.currency);
       const cells = [
-        product.name,
-        product.analysis,
-        rate,
-        price,
-        cost,
+        pdfSafe(product.name),
+        pdfSafe(product.analysis),
+        pdfSafe(rate),
+        pdfSafe(price),
+        pdfSafe(cost),
       ];
       let x = margin;
       cells.forEach((cell, i) => {
         const w = cols[i].w * scale;
         const lines = pdf.splitTextToSize(cell, w - 3);
-        pdf.text(lines[0], x + 2, y + 5);
+        pdf.text(lines[0], x + 2, y + 5.5);
         x += w;
       });
-      y += 10;
+      y += 11;
     });
 
     const totalCost = products.reduce(
@@ -947,51 +1156,137 @@ export async function exportAnalysisPdf(options: {
     if (totalCost > 0) {
       y += 1;
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9);
+      pdf.setFontSize(11);
       pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
       pdf.text(
-        `${t.exportFertilizerTotalCost || "Estimated total"}: ${money(
+        `${L("exportFertilizerTotalCost", "Estimated total")}: ${money(
           totalCost,
           products[0]?.currency || "USD"
         )}/ha`,
         margin,
         y
       );
-      y += 7;
+      y += 8;
     }
+  }
+
+  function drawCalendarTable(events: CalendarEvent[]) {
+    const rows = eventsToPlanRows(events);
+    if (rows.length === 0) return;
+
+    const planning = (t as any).planning || {};
+    drawSectionTitle(
+      L("exportSectionCalendar", planning.pdfScheduleTable || "Fertilization calendar")
+    );
+
+    const colDate = margin;
+    const colQty = margin + 28;
+    const colFert = margin + 58;
+    const colMethod = margin + 118;
+    const widths = {
+      date: 26,
+      qty: 28,
+      fert: 58,
+      method: contentWidth - 112,
+    };
+
+    function drawHeader() {
+      ensureSpace(10);
+      pdf.setFillColor(240, 253, 244);
+      pdf.rect(margin, y - 4, contentWidth, 9, "F");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
+      pdf.text(L("pdfColDate", planning.pdfColDate || "Date"), colDate, y);
+      pdf.text(L("pdfColQuantity", planning.pdfColQuantity || "Quantity"), colQty, y);
+      pdf.text(
+        L("pdfColFertilizer", planning.pdfColFertilizer || "Fertilizer"),
+        colFert,
+        y
+      );
+      pdf.text(L("pdfColMethod", planning.pdfColMethod || "Method"), colMethod, y);
+      y += 6;
+      pdf.setDrawColor(LINE[0], LINE[1], LINE[2]);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 4;
+    }
+
+    drawHeader();
+
+    for (const row of rows) {
+      ensureSpace(12);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9.5);
+      pdf.setTextColor(INK[0], INK[1], INK[2]);
+      const dateLines = pdf.splitTextToSize(pdfSafe(row.date), widths.date);
+      const qtyLines = pdf.splitTextToSize(pdfSafe(row.quantity), widths.qty);
+      const fertLines = pdf.splitTextToSize(pdfSafe(row.fertilizer), widths.fert);
+      const methodLines = pdf.splitTextToSize(pdfSafe(row.method), widths.method);
+      const lineCount = Math.max(
+        dateLines.length,
+        qtyLines.length,
+        fertLines.length,
+        methodLines.length,
+        1
+      );
+      pdf.text(dateLines[0], colDate, y);
+      pdf.text(qtyLines[0], colQty, y);
+      pdf.text(fertLines[0], colFert, y);
+      pdf.text(methodLines[0], colMethod, y);
+      y += Math.max(6, lineCount * 4.2);
+    }
+    y += 3;
   }
 
   function drawRecommendations(list: string[]) {
     if (list.length === 0) return;
-    drawSectionTitle(
-      t.exportSectionRecommendations || "Recommendations"
-    );
+    drawSectionTitle(L("exportSectionRecommendations", "Recommendations"));
     list.forEach((line, index) => {
-      ensureSpace(10);
-      pdf.setFillColor(index % 2 === 0 ? CARD[0] : 255, index % 2 === 0 ? CARD[1] : 255, index % 2 === 0 ? CARD[2] : 255);
-      const wrap = pdf.splitTextToSize(`${index + 1}. ${line}`, contentWidth - 6);
-      const h = Math.max(8, wrap.length * 4.2 + 3);
+      ensureSpace(12);
+      const fill = index % 2 === 0 ? CARD : ([255, 255, 255] as [number, number, number]);
+      pdf.setFillColor(fill[0], fill[1], fill[2]);
+      const wrap = pdf.splitTextToSize(
+        pdfSafe(`${index + 1}. ${line}`),
+        contentWidth - 6
+      );
+      const h = Math.max(9, wrap.length * 4.6 + 3);
       pdf.roundedRect(margin, y, contentWidth, h, 1.2, 1.2, "F");
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
+      pdf.setFontSize(10);
       pdf.setTextColor(INK[0], INK[1], INK[2]);
-      pdf.text(wrap, margin + 3, y + 5);
+      pdf.text(wrap, margin + 3, y + 5.5);
       y += h + 2;
     });
   }
 
+  function drawContacts() {
+    drawSectionTitle(L("exportSectionContacts", "Questions? Contact us"));
+    drawParagraph(
+      L(
+        "exportContactsIntro",
+        "If you have questions about this report, reach Cultosol:"
+      ),
+      11
+    );
+    drawKvRow("Email", PDF_CONTACTS[0]);
+    drawKvRow(L("aboutPhoneCr", "Costa Rica"), PDF_CONTACTS[1]);
+    drawKvRow(L("aboutPhoneHt", "Haiti"), PDF_CONTACTS[2]);
+  }
+
+  // —— Report body ——
   drawCover();
 
   if (isGeneralCrop) {
-    drawSectionTitle(t.generalReferenceModeTitle);
-    drawParagraph(t.generalCropWarning);
-    // Only Olsen/Mehlich carry Tabla N.° 1 notes (set by the app); crop-specific does not.
+    drawSectionTitle(L("generalReferenceModeTitle", t.generalReferenceModeTitle));
+    drawParagraph(t.generalCropWarning, 11);
     if (reportMeta?.extractionNote) {
-      drawParagraph(reportMeta.extractionNote, 9);
+      drawParagraph(reportMeta.extractionNote, 10);
     }
   } else if (reportMeta?.extractionNote) {
-    drawSectionTitle(t.extractionMethodLabel || "Sufficiency / extraction");
-    drawParagraph(reportMeta.extractionNote, 9);
+    drawSectionTitle(
+      L("extractionMethodLabel", "Sufficiency / extraction")
+    );
+    drawParagraph(reportMeta.extractionNote, 10);
   }
 
   if (exportSections.includeSoilStatus) {
@@ -999,77 +1294,65 @@ export async function exportAnalysisPdf(options: {
   }
 
   if (exportSections.includeTexture && textureSummary) {
-    drawSectionTitle(t.exportSectionTexture || t.soilTexture);
-    drawParagraph(`${t.textureClass}: ${textureSummary.className}`, 11, true);
+    drawSectionTitle(L("exportSectionTexture", t.soilTexture || "Soil texture"));
     drawParagraph(
-      `${t.sand}: ${textureSummary.sand}% · ${t.silt}: ${textureSummary.silt}% · ${t.clay}: ${textureSummary.clay}%`
+      `${L("textureClass", t.textureClass || "Class")}: ${textureSummary.className}`,
+      12,
+      true
     );
-    drawParagraph(textureSummary.explanation);
+    drawParagraph(
+      `${L("sand", t.sand || "Sand")}: ${textureSummary.sand}% · ${L("silt", t.silt || "Silt")}: ${textureSummary.silt}% · ${L("clay", t.clay || "Clay")}: ${textureSummary.clay}%`,
+      11
+    );
+    drawParagraph(textureSummary.explanation, 10);
   }
 
-  if (
-    exportSections.includeFertilizerPlan &&
-    fertilizerProducts.length > 0
-  ) {
+  if (exportSections.includeCicBases && cicPack) {
+    drawCicBasesSection(cicPack);
+  }
+
+  if (exportSections.includePhAmendments && amendmentPack) {
+    drawAmendmentSection(amendmentPack);
+  }
+
+  if (exportSections.includeNutrientPlan && fertilizerPack) {
+    drawNutrientPlanSection(fertilizerPack);
+  }
+
+  if (exportSections.includeFertilizerPlan && fertilizerProducts.length > 0) {
     drawFertilizerProductsTable(fertilizerProducts);
   }
 
-  for (const pack of visiblePacks) {
-    drawCalculatorPack(pack);
-  }
-
-  if (exportSections.includeInterpretation) {
-    const interpretationSections: {
-      key: keyof GroupedPdfResults;
-      title: string;
-      desc: string;
-    }[] = [
-      { key: "negative", title: t.needsAttention, desc: t.needsAttentionDesc },
-      { key: "warning", title: t.warning, desc: t.warningDesc },
-      { key: "normal", title: t.normal, desc: t.normalDesc },
-      { key: "positive", title: t.positive, desc: t.positiveDesc },
-      { key: "neutral", title: t.neutral, desc: t.neutralDesc },
-      { key: "other", title: t.other, desc: t.otherDesc },
-    ];
-
-    for (const section of interpretationSections) {
-      const items = groupedResults[section.key];
-      if (items.length === 0) continue;
-
-      drawSectionTitle(`${section.title} (${items.length})`);
-      drawParagraph(section.desc, 9);
-      y += 2;
-
-      for (const item of items) {
-        drawResultCard(item, section.key);
-      }
-    }
-  }
-
-  if (exportSections.includeMissingValues && missingResults.length > 0) {
-    drawSectionTitle(t.noRangeFound);
-    drawParagraph(t.noRangeFoundDesc, 9);
-    for (const item of missingResults) {
-      drawParagraph(
-        `• ${item.display_name || item.parameter_name}: ${item.value}`,
-        9
-      );
-    }
-  }
-
-  if (exportSections.includeLabValues && results.length > 0) {
-    drawSectionTitle(t.exportSectionLabValues || t.values);
-    for (const result of results) {
-      drawParagraph(
-        `${result.display_parameter_name || result.parameter_name}: ${result.value} ${result.unit_symbol}`,
-        9
-      );
-    }
+  if (exportSections.includeCalendar && calendarEvents.length > 0) {
+    drawCalendarTable(calendarEvents);
   }
 
   if (exportSections.includeRecommendations) {
     drawRecommendations(recommendationLines);
   }
+
+  if (exportSections.includeMissingValues && missingResults.length > 0) {
+    drawSectionTitle(L("noRangeFound", t.noRangeFound || "Missing / no range"));
+    drawParagraph(t.noRangeFoundDesc || "", 10);
+    for (const item of missingResults) {
+      drawParagraph(
+        `- ${item.display_name || item.parameter_name}: ${item.value}`,
+        10
+      );
+    }
+  }
+
+  if (exportSections.includeLabValues && results.length > 0) {
+    drawSectionTitle(L("exportSectionLabValues", t.values || "Lab values"));
+    for (const result of results) {
+      drawParagraph(
+        `${result.display_parameter_name || result.parameter_name}: ${result.value} ${result.unit_symbol}`,
+        10
+      );
+    }
+  }
+
+  drawContacts();
 
   drawFooter();
   const pdfBlob = new Blob([pdf.output("arraybuffer")], {
@@ -1083,4 +1366,3 @@ export async function exportAnalysisPdf(options: {
     () => pdf.save(fileName)
   );
 }
-

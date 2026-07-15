@@ -3,12 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
+  CheckSquare,
   Download,
   Edit3,
   Eye,
   GitBranch,
+  MoreHorizontal,
   RefreshCw,
   RotateCcw,
+  Square,
   Trash2,
   X,
 } from "lucide-react";
@@ -134,6 +137,8 @@ type Props = {
   generatedBy?: string;
   onEditAnalysis?: (payload: EditableAnalysisPayload) => void;
   onReadingChange?: (reading: boolean) => void;
+  focusAnalysisId?: number | null;
+  onFocusAnalysisConsumed?: () => void;
 };
 
 
@@ -276,6 +281,8 @@ export default function AnalysisHistory({
   generatedBy,
   onEditAnalysis,
   onReadingChange,
+  focusAnalysisId = null,
+  onFocusAnalysisConsumed,
 }: Props) {
   const l = analysisHistoryText[language as keyof typeof analysisHistoryText] || analysisHistoryText.en;
 
@@ -285,11 +292,10 @@ export default function AnalysisHistory({
   );
   const [selectedValues, setSelectedValues] = useState<AnalysisValue[]>([]);
   const [versionRootId, setVersionRootId] = useState<number | null>(null);
-  const [expandedRootId, setExpandedRootId] = useState<number | null>(null);
 
-  const [historyFilter, setHistoryFilter] = useState<
-    "active" | "deleted" | "versions"
-  >("active");
+  const [historyFilter, setHistoryFilter] = useState<"active" | "deleted">(
+    "active"
+  );
   const [sortKey, setSortKey] = useState<HistorySortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [loading, setLoading] = useState(false);
@@ -300,6 +306,9 @@ export default function AnalysisHistory({
   const [exportingPdf, setExportingPdf] = useState(false);
   const [pendingExportAnalysis, setPendingExportAnalysis] =
     useState<SavedAnalysis | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -310,6 +319,24 @@ export default function AnalysisHistory({
   useEffect(() => {
     onReadingChange?.(Boolean(selectedAnalysis));
   }, [onReadingChange, selectedAnalysis]);
+
+  useEffect(() => {
+    if (!focusAnalysisId || analyses.length === 0) return;
+    const match = analyses.find((item) => item.analysis_id === focusAnalysisId);
+    if (!match) {
+      onFocusAnalysisConsumed?.();
+      return;
+    }
+    void viewAnalysis(match).finally(() => {
+      onFocusAnalysisConsumed?.();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusAnalysisId, analyses]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }, [historyFilter]);
 
   async function loadAnalyses() {
     if (!session?.user) return;
@@ -546,6 +573,10 @@ export default function AnalysisHistory({
       return;
     }
 
+    if (selectedAnalysis?.analysis_id === analysis.analysis_id) {
+      setSelectedAnalysis(null);
+      setSelectedValues([]);
+    }
     setMessage(l.deletedMessage);
     setHistoryFilter("deleted");
     await loadAnalyses();
@@ -572,6 +603,104 @@ export default function AnalysisHistory({
 
     setMessage(l.restored);
     await loadAnalyses();
+  }
+
+  function toggleSelected(analysisId: number) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(analysisId)) next.delete(analysisId);
+      else next.add(analysisId);
+      return next;
+    });
+  }
+
+  function selectAllIds(ids: number[]) {
+    setSelectedIds(new Set(ids));
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
+  async function handleBulkDelete() {
+    if (!session?.user || selectedIds.size === 0) return;
+    const ids = [...selectedIds];
+    const permanent = historyFilter === "deleted";
+    const confirmed = window.confirm(
+      (permanent ? l.confirmBulkPermanentDelete : l.confirmBulkDelete).replace(
+        "{count}",
+        String(ids.length)
+      )
+    );
+    if (!confirmed) return;
+
+    setBulkBusy(true);
+    setMessage("");
+    try {
+      if (permanent) {
+        for (const analysisId of ids) {
+          await deleteAnalysisPermanently(analysisId, session.user.id);
+        }
+        if (
+          selectedAnalysis &&
+          ids.includes(selectedAnalysis.analysis_id)
+        ) {
+          setSelectedAnalysis(null);
+          setSelectedValues([]);
+        }
+        setMessage(
+          l.bulkPermanentlyDeleted.replace("{count}", String(ids.length))
+        );
+      } else {
+        const { error } = await supabase
+          .from("analyses")
+          .update({
+            is_deleted: true,
+            deleted_at: new Date().toISOString(),
+          })
+          .in("analysis_id", ids)
+          .eq("user_id", session.user.id);
+        if (error) throw new Error(error.message);
+        setMessage(l.bulkDeletedMessage.replace("{count}", String(ids.length)));
+        setHistoryFilter("deleted");
+      }
+      clearSelection();
+      await loadAnalyses();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : l.couldNotLoad);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function handleBulkRestore() {
+    if (!session?.user || selectedIds.size === 0) return;
+    const ids = [...selectedIds];
+    setBulkBusy(true);
+    setMessage("");
+    try {
+      const { error } = await supabase
+        .from("analyses")
+        .update({
+          is_deleted: false,
+          deleted_at: null,
+        })
+        .in("analysis_id", ids)
+        .eq("user_id", session.user.id);
+      if (error) throw new Error(error.message);
+      setMessage(l.bulkRestored.replace("{count}", String(ids.length)));
+      clearSelection();
+      await loadAnalyses();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : l.couldNotLoad);
+    } finally {
+      setBulkBusy(false);
+    }
   }
 
   function buildHistoryReportMeta(analysis: SavedAnalysis): PdfReportMeta {
@@ -716,17 +845,10 @@ export default function AnalysisHistory({
   }, [analyses]);
 
   const visibleGroups = useMemo(() => {
-    let groups = rootGroups;
-
-    if (historyFilter === "deleted") {
-      groups = rootGroups.filter((group) => group.latest.is_deleted);
-    } else if (historyFilter === "versions") {
-      groups = rootGroups.filter(
-        (group) => !group.latest.is_deleted && group.versions.length > 1
-      );
-    } else {
-      groups = rootGroups.filter((group) => !group.latest.is_deleted);
-    }
+    const groups =
+      historyFilter === "deleted"
+        ? rootGroups.filter((group) => group.latest.is_deleted)
+        : rootGroups.filter((group) => !group.latest.is_deleted);
 
     return [...groups].sort((left, right) => {
       const leftValue = getHistorySortValue(left.latest, sortKey);
@@ -743,12 +865,15 @@ export default function AnalysisHistory({
   const activeCount = rootGroups.filter(
     (group) => !group.latest.is_deleted
   ).length;
-  const versionedCount = rootGroups.filter(
-    (group) => !group.latest.is_deleted && group.versions.length > 1
-  ).length;
   const deletedCount = rootGroups.filter(
     (group) => group.latest.is_deleted
   ).length;
+
+  const openGroup = selectedAnalysis
+    ? rootGroups.find(
+        (group) => group.rootId === getRootAnalysisId(selectedAnalysis)
+      ) || null
+    : null;
 
   const selectedVersionGroup = versionRootId
     ? rootGroups.find((group) => group.rootId === versionRootId)
@@ -763,6 +888,7 @@ export default function AnalysisHistory({
   }
 
   if (selectedAnalysis) {
+    const versionCount = openGroup?.versions.length || 1;
     return (
       <>
         <ReportPreviewModal
@@ -770,20 +896,33 @@ export default function AnalysisHistory({
           values={selectedValues}
           loading={valuesLoading}
           language={language}
+          versionCount={versionCount}
           onClose={() => {
             setSelectedAnalysis(null);
             setSelectedValues([]);
+            setVersionRootId(null);
           }}
           onEdit={() => editAnalysis(selectedAnalysis)}
           onExport={() => requestExportAnalysisPdf(selectedAnalysis)}
+          onDelete={() => handleDeleteAnalysis(selectedAnalysis)}
+          onRestore={() => restoreAnalysis(selectedAnalysis)}
+          onOpenVersions={
+            versionCount > 1
+              ? () => setVersionRootId(getRootAnalysisId(selectedAnalysis))
+              : undefined
+          }
         />
 
         {selectedVersionGroup && (
           <VersionsModal
             group={selectedVersionGroup}
             language={language}
+            latestId={selectedVersionGroup.latest.analysis_id}
             onClose={() => setVersionRootId(null)}
-            onView={viewAnalysis}
+            onView={(analysis) => {
+              setVersionRootId(null);
+              void viewAnalysis(analysis);
+            }}
             onEdit={editAnalysis}
             onExport={requestExportAnalysisPdf}
             onDelete={handleDeleteAnalysis}
@@ -816,45 +955,35 @@ export default function AnalysisHistory({
     );
   }
 
-  return (
-    <section className="flex flex-col gap-3">
-      <div className="flex items-center gap-2 px-1 pb-1">
-        <h2 className="flex-1 text-lg font-bold text-[#1c1c1e]">{l.title}</h2>
-        <button
-          type="button"
-          title={l.refresh}
-          aria-label={l.refresh}
-          onClick={loadAnalyses}
-          className="history-icon-button shrink-0"
-        >
-          <RefreshCw size={16} />
-        </button>
-      </div>
+  const visibleIds = visibleGroups.map((group) => group.latest.analysis_id);
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
 
-      {/* Filter chips + sort */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
-          <HistoryFilterButton
-            label={l.activeReports}
-            value={activeCount}
-            active={historyFilter === "active"}
+  return (
+    <section className="history-screen flex flex-col gap-2">
+      <div className="history-toolbar">
+        <div className="history-seg">
+          <button
+            type="button"
+            className={`history-seg__btn${
+              historyFilter === "active" ? " history-seg__btn--active" : ""
+            }`}
             onClick={() => setHistoryFilter("active")}
-          />
-          <HistoryFilterButton
-            label={l.versions}
-            value={versionedCount}
-            active={historyFilter === "versions"}
-            onClick={() => setHistoryFilter("versions")}
-          />
-          <HistoryFilterButton
-            label={l.showDeleted}
-            value={deletedCount}
-            active={historyFilter === "deleted"}
+          >
+            {l.active} {activeCount}
+          </button>
+          <button
+            type="button"
+            className={`history-seg__btn${
+              historyFilter === "deleted" ? " history-seg__btn--active" : ""
+            }`}
             onClick={() => setHistoryFilter("deleted")}
-          />
+          >
+            {l.deleted} {deletedCount}
+          </button>
         </div>
 
-        <div className="flex shrink-0 gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <MenuSelect
             value={sortKey}
             heading={l.sortBy}
@@ -876,12 +1005,87 @@ export default function AnalysisHistory({
             onClick={() =>
               setSortDirection((current) => (current === "asc" ? "desc" : "asc"))
             }
-            className="history-icon-button shrink-0"
+            className="history-icon-button history-icon-button--sm shrink-0"
           >
             {sortDirection === "asc" ? "↑" : "↓"}
           </button>
+          {visibleGroups.length > 0 ? (
+            <button
+              type="button"
+              title={selectMode ? l.exitSelectMode : l.selectMode}
+              aria-label={selectMode ? l.exitSelectMode : l.selectMode}
+              aria-pressed={selectMode}
+              onClick={() =>
+                selectMode ? exitSelectMode() : setSelectMode(true)
+              }
+              className={`history-icon-button history-icon-button--sm shrink-0${
+                selectMode ? " history-icon-button-active" : ""
+              }`}
+              disabled={bulkBusy}
+            >
+              {selectMode ? <X size={15} /> : <CheckSquare size={15} />}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            title={l.refresh}
+            aria-label={l.refresh}
+            onClick={loadAnalyses}
+            className="history-icon-button history-icon-button--sm shrink-0"
+            disabled={loading || bulkBusy}
+          >
+            <RefreshCw size={15} />
+          </button>
         </div>
       </div>
+
+      {selectMode && visibleGroups.length > 0 ? (
+        <div
+          className="history-bulk-bar"
+          role="toolbar"
+          aria-label={l.selectMode}
+        >
+          <div className="history-bulk-selection">
+            <button
+              type="button"
+              className="history-bulk-link"
+              onClick={() =>
+                allVisibleSelected
+                  ? clearSelection()
+                  : selectAllIds(visibleIds)
+              }
+              disabled={bulkBusy}
+            >
+              {allVisibleSelected ? l.clearSelection : l.selectAll}
+            </button>
+            <span className="history-bulk-count">
+              {l.selectedCount.replace("{count}", String(selectedIds.size))}
+            </span>
+          </div>
+          <div className="history-bulk-actions">
+            {historyFilter === "deleted" ? (
+              <button
+                type="button"
+                className="history-bulk-btn history-bulk-btn-restore"
+                onClick={() => void handleBulkRestore()}
+                disabled={bulkBusy || selectedIds.size === 0}
+              >
+                <RotateCcw size={15} />
+                {l.restoreSelected}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="history-bulk-btn history-bulk-btn-delete"
+              onClick={() => void handleBulkDelete()}
+              disabled={bulkBusy || selectedIds.size === 0}
+            >
+              <Trash2 size={15} />
+              {l.deleteSelected}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {message && (
         <div className="rounded-2xl bg-yellow-50 p-4 text-sm text-yellow-900">
@@ -901,161 +1105,85 @@ export default function AnalysisHistory({
         </div>
       )}
 
-      <div className="grid gap-3">
+      <div className="history-list">
         {visibleGroups.map((group) => {
           const analysis = group.latest;
           const versionCount = group.versions.length;
-          const isExpanded = expandedRootId === group.rootId;
+          const isChecked = selectedIds.has(analysis.analysis_id);
+          const sampleLabel =
+            getSampleTypeCode(analysis) === "soil" ? l.soil : l.foliar;
+          const dateLabel = formatDate(
+            analysis.report_date ||
+              analysis.sampling_date ||
+              analysis.created_at
+          );
+          const meta = [
+            sampleLabel,
+            getCropName(analysis),
+            dateLabel,
+            versionCount > 1
+              ? `${versionCount} ${l.versions}`
+              : getVersionLabel(analysis, language),
+          ]
+            .filter((part) => part && part !== "—")
+            .join(" · ");
 
           return (
             <article
               key={group.rootId}
               role="button"
               tabIndex={0}
-              onClick={() =>
-                setExpandedRootId((current) =>
-                  current === group.rootId ? null : group.rootId
-                )
-              }
+              onClick={() => {
+                if (selectMode) {
+                  toggleSelected(analysis.analysis_id);
+                  return;
+                }
+                void viewAnalysis(analysis);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  setExpandedRootId((current) =>
-                    current === group.rootId ? null : group.rootId
-                  );
+                  if (selectMode) {
+                    toggleSelected(analysis.analysis_id);
+                    return;
+                  }
+                  void viewAnalysis(analysis);
                 }
               }}
-              className={`history-report-card cursor-pointer rounded-xl px-4 py-3 transition ${
-                analysis.is_deleted
-                  ? "history-report-card-deleted"
-                  : isExpanded
-                    ? "history-report-card-expanded"
-                    : ""
-              }`}
+              className={`history-report-row${
+                analysis.is_deleted ? " history-report-row--deleted" : ""
+              }${selectMode && isChecked ? " history-report-row--selected" : ""}`}
+              aria-pressed={selectMode ? isChecked : undefined}
             >
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="min-w-0 truncate text-left text-base font-extrabold leading-tight text-green-900">
-                      {getAnalysisTitle(analysis)}
-                    </span>
-
-                    <span className="history-badge history-badge-neutral">
-                      {getVersionLabel(analysis, language)}
-                    </span>
-
-                    {versionCount > 1 && (
-                      <span className="history-badge history-badge-accent">
-                        {versionCount} {l.versions}
-                      </span>
-                    )}
-
-                    {analysis.is_deleted ? (
-                      <span className="history-badge history-badge-danger">
-                        {l.deleted}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
-                    <p className="min-w-0">
-                      <strong>{l.crop}:</strong> {getCropName(analysis)}
-                    </p>
-                    <p className="min-w-0">
-                      <strong>{l.sampleType}:</strong>{" "}
-                      {getSampleTypeCode(analysis) === "soil"
-                        ? l.soil
-                        : l.foliar}
-                    </p>
-                    <p className="min-w-0">
-                      <strong>{l.date}:</strong>{" "}
-                      {formatDate(
-                        analysis.report_date ||
-                          analysis.sampling_date ||
-                        analysis.created_at
-                      )}
-                    </p>
-                    <p className="min-w-0">
-                      <strong>{l.location}:</strong>{" "}
-                      {[analysis.province_state, analysis.country]
-                        .filter(Boolean)
-                        .join(", ") || "—"}
-                    </p>
-                    {analysis.is_deleted ? (
-                      <p className="text-xs font-semibold text-red-700">
-                        {formatPurgeCountdown(
-                          l.purgeCountdown,
-                          getDaysUntilPermanentDelete(analysis.deleted_at)
-                        )}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-
-                {isExpanded ? (
-                  <div
-                    className="flex flex-wrap gap-1.5 md:justify-end"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <IconButton
-                      title={l.view}
-                      onClick={() => viewAnalysis(analysis)}
-                      tone="green"
-                    >
-                      <Eye size={17} />
-                    </IconButton>
-
-                    <IconButton
-                      title={l.edit}
-                      onClick={() => editAnalysis(analysis)}
-                      disabled={Boolean(analysis.is_deleted)}
-                    >
-                      <Edit3 size={17} />
-                    </IconButton>
-
-                    <IconButton
-                      title={l.export}
-                      onClick={() => requestExportAnalysisPdf(analysis)}
-                    >
-                      <Download size={17} />
-                    </IconButton>
-
-                    <IconButton
-                      title={l.versions}
-                      onClick={() => setVersionRootId(group.rootId)}
-                    >
-                      <GitBranch size={17} />
-                    </IconButton>
-
-                    {analysis.is_deleted ? (
-                      <>
-                        <IconButton
-                          title={l.restore}
-                          onClick={() => restoreAnalysis(analysis)}
-                          tone="green"
-                        >
-                          <RotateCcw size={17} />
-                        </IconButton>
-                        <IconButton
-                          title={l.deletePermanently}
-                          onClick={() => handleDeleteAnalysis(analysis)}
-                          tone="red"
-                        >
-                          <Trash2 size={17} />
-                        </IconButton>
-                      </>
-                    ) : (
-                      <IconButton
-                        title={l.delete}
-                        onClick={() => handleDeleteAnalysis(analysis)}
-                        tone="mutedRed"
-                      >
-                        <Trash2 size={17} />
-                      </IconButton>
-                    )}
-                  </div>
-                ) : null}
+              {selectMode ? (
+                <span
+                  className={`history-select-checkbox shrink-0${
+                    isChecked ? " is-checked" : ""
+                  }`}
+                  aria-hidden="true"
+                >
+                  {isChecked ? <CheckSquare size={18} /> : <Square size={18} />}
+                </span>
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <p className="history-report-row__title">
+                  {getAnalysisTitle(analysis)}
+                </p>
+                <p className="history-report-row__meta">
+                  {meta}
+                  {analysis.is_deleted
+                    ? ` · ${formatPurgeCountdown(
+                        l.purgeCountdown,
+                        getDaysUntilPermanentDelete(analysis.deleted_at)
+                      )}`
+                    : ""}
+                </p>
               </div>
+              {!selectMode ? (
+                <span className="history-report-row__chevron" aria-hidden="true">
+                  ›
+                </span>
+              ) : null}
             </article>
           );
         })}
@@ -1065,8 +1193,12 @@ export default function AnalysisHistory({
         <VersionsModal
           group={selectedVersionGroup}
           language={language}
+          latestId={selectedVersionGroup.latest.analysis_id}
           onClose={() => setVersionRootId(null)}
-          onView={viewAnalysis}
+          onView={(analysis) => {
+            setVersionRootId(null);
+            void viewAnalysis(analysis);
+          }}
           onEdit={editAnalysis}
           onExport={requestExportAnalysisPdf}
           onDelete={handleDeleteAnalysis}
@@ -1096,36 +1228,6 @@ export default function AnalysisHistory({
         calculatorPacks={[]}
       />
     </section>
-  );
-}
-
-function HistoryFilterButton({
-  label,
-  value,
-  active,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-        active
-          ? "bg-green-700 text-white"
-          : "glass-chip text-[#3c3c43] shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-      }`}
-    >
-      {label}
-      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-        active ? "bg-white/25" : "bg-[#f2f2f2] text-[#6c6c70]"
-      }`}>{value}</span>
-    </button>
   );
 }
 
@@ -1281,20 +1383,29 @@ function ReportPreviewModal({
   values,
   loading,
   language,
+  versionCount = 1,
   onClose,
   onEdit,
   onExport,
+  onDelete,
+  onRestore,
+  onOpenVersions,
 }: {
   analysis: SavedAnalysis;
   values: AnalysisValue[];
   loading: boolean;
   language: Language;
+  versionCount?: number;
   onClose: () => void;
   onEdit: () => void;
   onExport: () => void;
+  onDelete: () => void;
+  onRestore: () => void;
+  onOpenVersions?: () => void;
 }) {
   const l = analysisHistoryText[language as keyof typeof analysisHistoryText] || analysisHistoryText.en;
   const [activeFilter, setActiveFilter] = useState<PreviewGroupKey>("all");
+  const [actionsOpen, setActionsOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -1414,24 +1525,29 @@ function ReportPreviewModal({
 
   return (
     <section className="animate-slide-up">
-      <div className="values-screen-panel flex max-h-[calc(100dvh-7.5rem)] w-full flex-col overflow-hidden rounded-3xl">
-        <header className="values-screen-panel__header shrink-0 px-4 py-3 sm:px-5">
-          <div className="flex items-center justify-between gap-3">
+      <div className="history-preview values-screen-panel flex max-h-[calc(100dvh-7.5rem)] w-full flex-col overflow-hidden rounded-2xl">
+        <header className="values-screen-panel__header shrink-0 px-3 py-2.5 sm:px-4">
+          <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <BackButton onClick={onClose} label={l.back} className="mb-2" />
-              <h2 className="dark-text-primary truncate text-lg font-extrabold sm:text-xl">
+              <BackButton onClick={onClose} label={l.back} className="mb-1.5" />
+              <h2 className="dark-text-primary truncate text-base font-extrabold sm:text-lg">
                 {getAnalysisTitle(analysis)}
               </h2>
-              <p className="glass-text-muted text-xs">
-                {getVersionLabel(analysis, language)} ·{" "}
+              <p className="glass-text-muted truncate text-[11px]">
+                {getVersionLabel(analysis, language)}
+                {versionCount > 1 ? ` / ${versionCount}` : ""}
+                {" · "}
                 {getSampleTypeCode(analysis) === "soil" ? l.soil : l.foliar}
                 {metaItems.length > 0
-                  ? ` · ${metaItems.map((item) => item.value).join(" · ")}`
+                  ? ` · ${metaItems
+                      .slice(0, 3)
+                      .map((item) => item.value)
+                      .join(" · ")}`
                   : ""}
               </p>
             </div>
 
-            <div className="flex shrink-0 gap-1.5">
+            <div className="relative flex shrink-0 gap-1">
               <IconButton
                 title={l.edit}
                 onClick={onEdit}
@@ -1439,41 +1555,93 @@ function ReportPreviewModal({
               >
                 <Edit3 size={16} />
               </IconButton>
-
-              <IconButton title={l.export} onClick={onExport}>
-                <Download size={16} />
+              <IconButton
+                title={actionsOpen ? l.close : l.moreActions}
+                onClick={() => setActionsOpen((open) => !open)}
+              >
+                {actionsOpen ? <X size={16} /> : <MoreHorizontal size={16} />}
               </IconButton>
-
-              <IconButton title={l.close} onClick={onClose}>
-                <X size={16} />
-              </IconButton>
+              {actionsOpen ? (
+                <div className="history-preview-menu">
+                  <button type="button" onClick={onExport}>
+                    <Download size={14} />
+                    {l.export}
+                  </button>
+                  {onOpenVersions ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionsOpen(false);
+                        onOpenVersions();
+                      }}
+                    >
+                      <GitBranch size={14} />
+                      {l.versions}
+                    </button>
+                  ) : null}
+                  {analysis.is_deleted ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionsOpen(false);
+                        onRestore();
+                      }}
+                    >
+                      <RotateCcw size={14} />
+                      {l.restore}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="history-preview-menu__danger"
+                      onClick={() => {
+                        setActionsOpen(false);
+                        onDelete();
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      {l.delete}
+                    </button>
+                  )}
+                  {analysis.is_deleted ? (
+                    <button
+                      type="button"
+                      className="history-preview-menu__danger"
+                      onClick={() => {
+                        setActionsOpen(false);
+                        onDelete();
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      {l.deletePermanently}
+                    </button>
+                  ) : null}
+                  <p className="history-preview-menu__hint">{l.saveCreatesVersion}</p>
+                </div>
+              ) : null}
             </div>
           </div>
         </header>
 
-        <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+        <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4">
           {loading ? (
-            <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
+            <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
               {l.loading}
             </div>
           ) : values.length === 0 ? (
-            <div className="rounded-2xl bg-yellow-50 p-4 text-sm text-yellow-900">
+            <div className="rounded-xl bg-yellow-50 p-3 text-sm text-yellow-900">
               {l.noValues}
             </div>
           ) : (
             <>
-              <section className="calc-surface-muted mx-auto w-full max-w-3xl rounded-2xl p-3">
-                <div>
-                  <h3 className="text-sm font-bold text-green-900">{l.analysisSummary}</h3>
-                  <p className="text-xs text-slate-600">
-                    {values.length} {l.interpretedValues}
-                    {attentionCount > 0
-                      ? ` · ${attentionCount} ${l.needReview}`
-                      : ` · ${l.noMajorAlerts}`}
-                  </p>
-                </div>
-
-                <div className="mt-2.5 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="history-preview-filters">
+                <p className="history-preview-filters__summary">
+                  {values.length} {l.interpretedValues}
+                  {attentionCount > 0
+                    ? ` · ${attentionCount} ${l.needReview}`
+                    : ` · ${l.noMajorAlerts}`}
+                </p>
+                <div className="history-preview-filters__chips">
                   {filterChips.map((chip) => (
                     <SummaryFilterChip
                       key={chip.key}
@@ -1490,11 +1658,11 @@ function ReportPreviewModal({
                     />
                   ))}
                 </div>
-              </section>
+              </div>
 
-              <section className="mx-auto mt-3 grid w-full max-w-3xl gap-3">
+              <section className="mx-auto mt-2.5 grid w-full max-w-3xl gap-2">
                 {visiblePreviewGroups.length === 0 ? (
-                  <p className="rounded-2xl bg-slate-50 p-4 text-center text-sm text-slate-600">
+                  <p className="rounded-xl bg-slate-50 p-3 text-center text-sm text-slate-600">
                     {l.noValues}
                   </p>
                 ) : (
@@ -1511,23 +1679,23 @@ function ReportPreviewModal({
                 )}
               </section>
 
-              <details className="preview-details-panel mx-auto mt-4 w-full max-w-5xl rounded-2xl p-3">
+              <details className="preview-details-panel mx-auto mt-3 w-full max-w-5xl rounded-xl p-2.5">
                 <summary className="cursor-pointer text-sm font-bold text-green-900">
                   {l.viewFullTable}
                 </summary>
 
-                <div className="preview-table-wrap mt-3 overflow-x-auto rounded-xl">
+                <div className="preview-table-wrap mt-2 overflow-x-auto rounded-xl">
                   <table className="w-full min-w-[720px] border-collapse text-xs sm:text-sm">
                     <thead className="glass-section-muted text-left glass-text-muted">
                       <tr>
-                        <th className="border-b border-slate-200 p-2.5">Parameter</th>
-                        <th className="border-b border-slate-200 p-2.5">Value</th>
-                        <th className="border-b border-slate-200 p-2.5">{l.range}</th>
-                        <th className="border-b border-slate-200 p-2.5">{l.level}</th>
-                        <th className="border-b border-slate-200 p-2.5">
+                        <th className="border-b border-slate-200 p-2">Parameter</th>
+                        <th className="border-b border-slate-200 p-2">Value</th>
+                        <th className="border-b border-slate-200 p-2">{l.range}</th>
+                        <th className="border-b border-slate-200 p-2">{l.level}</th>
+                        <th className="border-b border-slate-200 p-2">
                           {l.confidence}
                         </th>
-                        <th className="border-b border-slate-200 p-2.5">{l.source}</th>
+                        <th className="border-b border-slate-200 p-2">{l.source}</th>
                       </tr>
                     </thead>
 
@@ -1540,23 +1708,23 @@ function ReportPreviewModal({
                           <tr
                             key={`${item.parameter_id}-${item.custom_parameter_id}-${index}`}
                           >
-                            <td className="border-b border-slate-100 p-2.5 font-semibold">
+                            <td className="border-b border-slate-100 p-2 font-semibold">
                               {getValueParameterName(item)}
                               {symbol ? ` (${symbol})` : ""}
                             </td>
-                            <td className="border-b border-slate-100 p-2.5">
+                            <td className="border-b border-slate-100 p-2">
                               {item.value ?? "—"} {unit}
                             </td>
-                            <td className="border-b border-slate-100 p-2.5">
+                            <td className="border-b border-slate-100 p-2">
                               {item.min ?? "—"} - {item.max ?? "—"} {unit}
                             </td>
-                            <td className="border-b border-slate-100 p-2.5">
+                            <td className="border-b border-slate-100 p-2">
                               {item.level_code || "—"}
                             </td>
-                            <td className="border-b border-slate-100 p-2.5">
+                            <td className="border-b border-slate-100 p-2">
                               {item.confidence || "—"}
                             </td>
-                            <td className="border-b border-slate-100 p-2.5">
+                            <td className="border-b border-slate-100 p-2">
                               {item.source_name || "—"}
                             </td>
                           </tr>
@@ -1577,6 +1745,7 @@ function ReportPreviewModal({
 function VersionsModal({
   group,
   language,
+  latestId,
   onClose,
   onView,
   onEdit,
@@ -1590,6 +1759,7 @@ function VersionsModal({
     latest: SavedAnalysis;
   };
   language: Language;
+  latestId: number;
   onClose: () => void;
   onView: (analysis: SavedAnalysis) => void;
   onEdit: (analysis: SavedAnalysis) => void;
@@ -1666,14 +1836,15 @@ function VersionsModal({
                     <span>{l.view}</span>
                   </ActionButton>
 
-                  <ActionButton
-                    title={l.edit}
-                    onClick={() => onEdit(analysis)}
-                    disabled={Boolean(analysis.is_deleted)}
-                  >
-                    <Edit3 size={17} />
-                    <span>{l.edit}</span>
-                  </ActionButton>
+                  {analysis.analysis_id === latestId && !analysis.is_deleted ? (
+                    <ActionButton
+                      title={l.edit}
+                      onClick={() => onEdit(analysis)}
+                    >
+                      <Edit3 size={17} />
+                      <span>{l.edit}</span>
+                    </ActionButton>
+                  ) : null}
 
                   <IconButton title={l.export} onClick={() => onExport(analysis)}>
                     <Download size={17} />

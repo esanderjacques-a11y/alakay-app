@@ -14,6 +14,8 @@ export type CalculatorSampleScope = "soil" | "foliar";
 export type CalculatorMemorySlice = {
   /** Nested: section id → field key → numeric value */
   fields: Record<string, Record<string, number>>;
+  /** Nested: section id → field key → string value (crop keys, modes, …) */
+  textFields?: Record<string, Record<string, string>>;
   /** Last lab fingerprint applied via Import (or auto-seed). */
   lastImportFingerprint?: string;
   lastImportAt?: string;
@@ -266,6 +268,34 @@ export function setMemoryFields(
     next = setMemoryField(next, sampleType, section, key, value);
   }
   return next;
+}
+
+export function getMemoryTextField(
+  slice: CalculatorMemorySlice,
+  section: string,
+  key: string
+): string | undefined {
+  const value = slice.textFields?.[section]?.[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+export function setMemoryTextField(
+  store: CalculatorMemoryStore,
+  sampleType: CalculatorSampleScope,
+  section: string,
+  key: string,
+  value: string
+): CalculatorMemoryStore {
+  const slice = getMemorySlice(store, sampleType);
+  const sectionFields = { ...(slice.textFields?.[section] || {}), [key]: value };
+  const nextSlice: CalculatorMemorySlice = {
+    ...slice,
+    textFields: { ...(slice.textFields || {}), [section]: sectionFields },
+  };
+  return {
+    ...store,
+    bySample: { ...store.bySample, [sampleType]: nextSlice },
+  };
 }
 
 export function markLabImport(

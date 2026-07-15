@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { AreaUnit, CalculationOutput, CalculatorValue } from "@/lib/agronomicCalculators";
 import { areaUnitLabel } from "@/lib/agronomicCalculators";
 import {
-  calculateCropCaoLimeRequirement,
   calculatePhAmendment,
   convertPhAmendmentPlotTotal,
   convertPhAmendmentUnit,
@@ -14,7 +13,6 @@ import {
   DEFAULT_CA_SATURATION_TARGET,
   PH_AMENDMENT_OUTPUT_UNITS,
   suggestBaseSaturationTarget,
-  type CropCaoLimeRequirement,
   type PhAmendmentMaterial,
   type PhAmendmentMethod,
   type PhAmendmentOutputUnit,
@@ -24,11 +22,8 @@ import { assessAmendmentChemistry } from "@/lib/amendmentRecommendation";
 import { useMemoryNumber, useSharedCationInputs } from "@/hooks/useCalculatorMemory";
 import MenuSelect, { type MenuSelectOption } from "@/components/ui/MenuSelect";
 import { getCicAcidityContribution } from "@/lib/baseSaturation";
-import { useSoilFertilityReference } from "@/lib/soilFertilityData";
-import { findCropExtractionVariants } from "@/lib/soilFertilityTables";
 import {
   Beaker,
-  ChevronDown,
   FlaskConical,
   Mountain,
   Percent,
@@ -39,6 +34,7 @@ type Props = {
   t: Record<string, string>;
   lab: Map<string, CalculatorValue>;
   selectedCropName?: string | null;
+  showCalculatorFormulas?: boolean;
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
 };
 
@@ -82,50 +78,29 @@ function outputUnitLabel(unit: PhAmendmentOutputUnit, t: Record<string, string>)
   return t[`phAmendUnit_${unit}`] || phAmendmentUnitLabel(unit);
 }
 
-export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutputsChange }: Props) {
+export default function PhAmendmentCalculator({
+  t,
+  lab,
+  selectedCropName,
+  showCalculatorFormulas = false,
+  onOutputsChange,
+}: Props) {
   const cropSuggestedTarget = suggestBaseSaturationTarget(selectedCropName);
-  const { reference } = useSoilFertilityReference();
-  const cropVariants = useMemo(
-    () => findCropExtractionVariants(selectedCropName, reference),
-    [selectedCropName, reference]
-  );
-  const matchedCrop = cropVariants.length === 1 ? cropVariants[0] : null;
-  const tableExtractCao = matchedCrop?.cao ?? reference.defaultExtraction.cao;
 
   const [method, setMethod] = useState<PhAmendmentMethod>("ca_saturation");
   const [material, setMaterial] = useState<PhAmendmentMaterial>("calcitic_lime");
-  const [ccePercent, setCcePercent] = useMemoryNumber("amendment", "ccePercent", 100);
+  const [materialManual, setMaterialManual] = useState(false);
+  const [ccePercent, setCcePercent] = useMemoryNumber("amendment", "ccePercent", 90);
+  const CALCITIC_PRNT = 90;
+  const DOLOMITIC_PRNT = 75;
   const [outputUnit, setOutputUnit] = useState<PhAmendmentOutputUnit>("t_ha");
   const [plotArea, setPlotArea] = useMemoryNumber("amendment", "plotArea", 0);
   const [plotAreaUnit, setPlotAreaUnit] = useState<AreaUnit>("ha");
-  const [caoCardOpen, setCaoCardOpen] = useState(false);
   const [caSaturationTarget, setCaSaturationTarget] = useMemoryNumber(
     "amendment",
     "caSaturationTarget",
     DEFAULT_CA_SATURATION_TARGET
   );
-
-  const defaultYield =
-    matchedCrop?.yieldMin != null && matchedCrop?.yieldMax != null
-      ? (matchedCrop.yieldMin + matchedCrop.yieldMax) / 2
-      : matchedCrop?.yieldMin || 15;
-  const [cropYield, setCropYield] = useMemoryNumber("fertilizer", "yield", defaultYield);
-  const [extractCao, setExtractCao] = useMemoryNumber(
-    "fertilizer",
-    "extractCao",
-    tableExtractCao
-  );
-
-  useEffect(() => {
-    if (matchedCrop?.cao != null) setExtractCao(matchedCrop.cao);
-    if (matchedCrop?.yieldMin != null) {
-      setCropYield(
-        matchedCrop.yieldMax != null
-          ? (matchedCrop.yieldMin + matchedCrop.yieldMax) / 2
-          : matchedCrop.yieldMin
-      );
-    }
-  }, [matchedCrop?.cropKey, matchedCrop?.cao, matchedCrop?.yieldMin, matchedCrop?.yieldMax, setExtractCao, setCropYield]);
 
   const [cec, setCec] = useMemoryNumber("amendment", "cec", lab.get("cec")?.value || 0);
   const [caCmol, setCaCmol] = useMemoryNumber(
@@ -230,35 +205,27 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
   );
 
   useEffect(() => {
-    if (chemGate.needsLime && chemGate.mgLow) {
+    if (materialManual || !chemGate.needsLime) return;
+    if (chemGate.mgLow) {
       setMaterial("dolomitic_lime");
-    } else if (chemGate.needsLime && !chemGate.mgLow) {
+      setCcePercent(DOLOMITIC_PRNT);
+    } else {
       setMaterial("calcitic_lime");
+      setCcePercent(CALCITIC_PRNT);
     }
-  }, [chemGate.needsLime, chemGate.mgLow]);
+  }, [chemGate.needsLime, chemGate.mgLow, materialManual, setCcePercent]);
 
-  const cropCaoRequirement = useMemo(
-    () => {
-      if (!chemGate.needsLime) return null;
-      return calculateCropCaoLimeRequirement({
-        cropLabel: matchedCrop?.label || selectedCropName,
-        extractCaoKgPerT: extractCao,
-        yieldTargetTHa: cropYield,
-        material: methodRaisesPh(method) ? material : "calcitic_lime",
-        ccePercent,
-      });
-    },
-    [
-      chemGate.needsLime,
-      matchedCrop?.label,
-      selectedCropName,
-      extractCao,
-      cropYield,
-      method,
-      material,
-      ccePercent,
-    ]
-  );
+  function toggleLimeMaterial() {
+    if (!methodRaisesPh(method)) return;
+    setMaterialManual(true);
+    if (material === "dolomitic_lime") {
+      setMaterial("calcitic_lime");
+      setCcePercent(CALCITIC_PRNT);
+    } else {
+      setMaterial("dolomitic_lime");
+      setCcePercent(DOLOMITIC_PRNT);
+    }
+  }
 
   const { result, errors } = useMemo(
     () =>
@@ -311,24 +278,6 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
   const outputs = useMemo(() => {
     const rows: CalculationOutput[] = [];
 
-    if (cropCaoRequirement) {
-      rows.push({
-        value: cropCaoRequirement.adjustedProductKgHa,
-        unit: "kg/ha",
-        label: t.phAmendCropCaoLimeLabel || "Crop CaO liming product",
-        formula: cropCaoRequirement.formula,
-        notes: [
-          `${t.phAmendCropCaoDemand || "Crop CaO demand"}: ${cropCaoRequirement.demandCaoKgHa} kg/ha`,
-          `${cropCaoRequirement.cropLabel} · ${cropCaoRequirement.yieldTargetTHa} t/ha`,
-          `${t.phAmendResultMaterial || "Amendment"}: ${
-            cropCaoRequirement.material === "dolomitic_lime"
-              ? t.phAmendMaterialDolomitic || "Dolomitic limestone"
-              : t.phAmendMaterialCalcitic || "Agricultural limestone"
-          } (${cropCaoRequirement.caoPercent}% CaO, CCE ${cropCaoRequirement.ccePercent}%)`,
-        ],
-      });
-    }
-
     if (!result || result.noRequirement) return rows;
     const primaryValue =
       result.adjustedRequirementTha !== undefined ? result.adjustedRequirementTha : result.baseRequirementTha;
@@ -340,6 +289,19 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
           : "Lime requirement";
 
     const notes = [t[result.explanationKey] || result.explanationKey];
+    if (methodRaisesPh(method) && result.material) {
+      const materialName =
+        result.material === "dolomitic_lime"
+          ? t.phAmendMaterialDolomitic || "Dolomitic limestone"
+          : t.phAmendMaterialCalcitic || "Agricultural limestone";
+      const why =
+        result.material === "dolomitic_lime"
+          ? t.phAmendWhyDolomite ||
+            "Dolomitic lime chosen to supply calcium and magnesium (low Mg)."
+          : t.phAmendWhyCalcitic ||
+            "Agricultural lime chosen to raise pH / Ca without adding magnesium.";
+      notes.push(`${materialName}. ${why}`);
+    }
     if (result.adjustedRequirementTha !== undefined && result.ccePercent !== undefined) {
       notes.push(
         `${t.phAmendResultBase || "Base requirement"}: ${formatPhAmendmentDisplay(result.baseRequirementTha, outputUnit)} ${phAmendmentUnitLabel(outputUnit)} · CCE ${result.ccePercent}%`
@@ -360,15 +322,7 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
       notes,
     });
     return rows;
-  }, [
-    cropCaoRequirement,
-    result,
-    method,
-    outputUnit,
-    plotArea,
-    plotAreaUnit,
-    t,
-  ]);
+  }, [result, method, outputUnit, plotArea, plotAreaUnit, t]);
 
   useEffect(() => {
     onOutputsChange?.(outputs);
@@ -379,22 +333,6 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
 
   return (
     <div className="calc-page px-3 sm:px-4 space-y-4">
-      <CropCaoLimeCard
-        t={t}
-        requirement={cropCaoRequirement}
-        open={caoCardOpen}
-        onToggle={() => setCaoCardOpen((value) => !value)}
-        yieldTarget={cropYield}
-        onYieldChange={setCropYield}
-        extractCao={extractCao}
-        onExtractCaoChange={setExtractCao}
-        cropLabel={matchedCrop?.label || selectedCropName}
-        material={methodRaisesPh(method) ? material : "calcitic_lime"}
-        outputUnit={outputUnit}
-        plotArea={plotArea}
-        plotAreaUnit={plotAreaUnit}
-      />
-
       <div className="calc-surface p-4 space-y-4">
         <section className="space-y-3">
           <h2 className="text-xs font-bold uppercase tracking-wide text-emerald-800">
@@ -422,7 +360,14 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
             <SelectField
               label={t.amendmentMaterial || "Amendment material"}
               value={material}
-              onChange={(value) => setMaterial(value as PhAmendmentMaterial)}
+              onChange={(value) => {
+                setMaterialManual(true);
+                const next = value as PhAmendmentMaterial;
+                setMaterial(next);
+                setCcePercent(
+                  next === "dolomitic_lime" ? DOLOMITIC_PRNT : CALCITIC_PRNT
+                );
+              }}
               fullWidth
               options={[
                 ["calcitic_lime", t.phAmendMaterialCalcitic || "Agricultural Limestone (CaCO₃)"],
@@ -432,10 +377,14 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
             <NumberField
               label={t.phAmendMaterialQuality || "Material quality (CCE / PRNT %)"}
               value={ccePercent}
-              onChange={setCcePercent}
+              onChange={(value) => {
+                setMaterialManual(true);
+                setCcePercent(value);
+              }}
             />
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t.phAmendCceHint || "Adjusted requirement = Base requirement / (CCE / 100). Default 100%."}
+              {t.phAmendCceHint ||
+                "Adjusted requirement = Base requirement / (CCE / 100). Calcitic ~90%, dolomitic ~75%."}
             </p>
           </section>
         ) : null}
@@ -495,19 +444,6 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
                   onChange={setDepthCm}
                   placeholder={`30 (${t.phAmendDefault || "default"})`}
                 />
-                <p className="text-xs text-slate-600 sm:col-span-2 dark:text-slate-300">
-                  {t.phAmendCaSatHint ||
-                    "Tutoría §§1.4–1.5: Cal is calculated only when CICe / V% / acidity indicate liming. Target Ca saturation defaults to 68% (mid of Tabla N.° 2 61–75%)."}
-                  {!chemGate.needsLime
-                    ? ` · ${
-                        chemGate.needsGypsum
-                          ? t.encaladoCaDeficitNoAcidity ||
-                            "Ca deficit without acidity — use gypsum."
-                          : t.amendRecNoLime ||
-                            "No lime needed: CICe / V% are within sufficient ranges."
-                      }`
-                    : ""}
-                </p>
               </>
             ) : null}
 
@@ -647,7 +583,7 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
               </>
             ) : null}
 
-            <div className="col-span-full grid gap-3 sm:grid-cols-[1fr_auto]">
+            <div className="col-span-full grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
               <NumberField
                 label={`${t.area || "Plot area"} (${t.phAmendOptional || "optional"})`}
                 value={plotArea}
@@ -686,163 +622,11 @@ export default function PhAmendmentCalculator({ t, lab, selectedCropName, onOutp
         unitLabel={unitLabel}
         plotArea={plotArea}
         plotAreaUnit={plotAreaUnit}
+        showCalculatorFormulas={showCalculatorFormulas}
+        onToggleLimeMaterial={
+          methodRaisesPh(method) ? toggleLimeMaterial : undefined
+        }
       />
-    </div>
-  );
-}
-
-function CropCaoLimeCard({
-  t,
-  requirement,
-  open,
-  onToggle,
-  yieldTarget,
-  onYieldChange,
-  extractCao,
-  onExtractCaoChange,
-  cropLabel,
-  material,
-  outputUnit,
-  plotArea,
-  plotAreaUnit,
-}: {
-  t: Record<string, string>;
-  requirement: CropCaoLimeRequirement | null;
-  open: boolean;
-  onToggle: () => void;
-  yieldTarget: number;
-  onYieldChange: (value: number) => void;
-  extractCao: number;
-  onExtractCaoChange: (value: number) => void;
-  cropLabel?: string | null;
-  material: PhAmendmentMaterial;
-  outputUnit: PhAmendmentOutputUnit;
-  plotArea: number;
-  plotAreaUnit: AreaUnit;
-}) {
-  const productDisplay = requirement
-    ? formatPhAmendmentDisplay(requirement.adjustedProductTha, outputUnit)
-    : "—";
-  const productUnit = phAmendmentUnitLabel(outputUnit);
-  const materialLabel =
-    material === "dolomitic_lime"
-      ? t.phAmendMaterialDolomitic || "Dolomitic limestone"
-      : t.phAmendMaterialCalcitic || "Agricultural limestone";
-  const plotTotal =
-    requirement && plotArea > 0
-      ? convertPhAmendmentPlotTotal(requirement.adjustedProductTha, plotArea, plotAreaUnit)
-      : 0;
-
-  return (
-    <div className="fertilizer-plan__results calc-surface p-4 space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
-          {t.phAmendCropCaoTitle || "Crop CaO demand (liming)"}
-        </h3>
-        {cropLabel ? (
-          <span className="text-xs font-semibold text-emerald-800">{cropLabel}</span>
-        ) : null}
-      </div>
-
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-pressed={open}
-        aria-expanded={open}
-        className={`calculator-action-card fertilizer-plan__dose-card text-left fertilizer-plan__dose-card--list w-full ${
-          open ? "calc-result-card--selected" : ""
-        }`}
-      >
-        <div className="calculator-action-card__copy flex-1">
-          <p className="calculator-action-card__title">CaO</p>
-          <p className="fertilizer-plan__dose-value">
-            {t.fertilizerPlanViaLime || "Via liming"}
-          </p>
-          <p className="fertilizer-plan__dose-sub">
-            {requirement
-              ? `${requirement.demandCaoKgHa} kg CaO/ha · ${productDisplay} ${productUnit} ${materialLabel}`
-              : t.phAmendCropCaoNeedInputs ||
-                "Enter yield and CaO extraction to calculate liming from crop demand."}
-          </p>
-        </div>
-        <ChevronDown
-          size={16}
-          aria-hidden
-          className={`shrink-0 text-emerald-800 transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-
-      {open ? (
-        <div className="space-y-3 border-t border-emerald-100/80 pt-3 dark:border-white/10">
-          <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-2">
-            <NumberField
-              label={t.fertilizerPlanYield || "Target yield (t/ha)"}
-              value={yieldTarget}
-              onChange={onYieldChange}
-            />
-            <NumberField
-              label={t.phAmendCropCaoExtract || "CaO extraction (kg/t)"}
-              value={extractCao}
-              onChange={onExtractCaoChange}
-            />
-          </div>
-
-          {requirement ? (
-            <>
-              <dl className="grid gap-2 sm:grid-cols-3">
-                <ResultRow
-                  label={t.phAmendCropCaoDemand || "Crop CaO demand"}
-                  value={`${requirement.demandCaoKgHa} kg/ha`}
-                />
-                <ResultRow
-                  label={t.phAmendCropCaoProduct || "Liming product"}
-                  value={`${productDisplay} ${productUnit}`}
-                  highlight
-                />
-                <ResultRow
-                  label={t.phAmendResultMaterial || "Amendment"}
-                  value={`${materialLabel} · ${requirement.caoPercent}% CaO`}
-                />
-              </dl>
-              {plotArea > 0 ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {`${t.phAmendPlotTotal || "Plot total"}: ${plotTotal.toLocaleString(undefined, {
-                    maximumFractionDigits: 2,
-                  })} t (${plotArea} ${areaUnitLabel(plotAreaUnit)})`}
-                </p>
-              ) : null}
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-                  {t.phAmendResultFormula || "Formula used"}
-                </p>
-                {requirement.steps.map((step) => (
-                  <article key={step.label} className="fertilizer-plan__step">
-                    <p className="fertilizer-plan__step-label">{step.label}</p>
-                    <p className="fertilizer-plan__step-formula">{step.formula}</p>
-                    <p className="fertilizer-plan__step-meta">
-                      <span className="fertilizer-plan__step-meta-key">
-                        {t.substitution || "Substitution"}
-                      </span>
-                      <span className="fertilizer-plan__step-meta-value">{step.substitution}</span>
-                    </p>
-                    <p className="fertilizer-plan__step-meta">
-                      <span className="fertilizer-plan__step-meta-key">{t.result || "Result"}</span>
-                      <span className="fertilizer-plan__step-result">
-                        {step.result}
-                        {step.unit ? ` ${step.unit}` : ""}
-                      </span>
-                    </p>
-                  </article>
-                ))}
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {t.phAmendCropCaoNote ||
-                  "This dose covers crop calcium need with liming materials. Use the methods below for pH or base saturation correction when needed."}
-              </p>
-            </>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -855,6 +639,8 @@ function PhAmendmentResultsCard({
   unitLabel,
   plotArea,
   plotAreaUnit,
+  showCalculatorFormulas = false,
+  onToggleLimeMaterial,
 }: {
   t: Record<string, string>;
   result: ReturnType<typeof calculatePhAmendment>["result"];
@@ -863,6 +649,8 @@ function PhAmendmentResultsCard({
   unitLabel: string;
   plotArea: number;
   plotAreaUnit: AreaUnit;
+  showCalculatorFormulas?: boolean;
+  onToggleLimeMaterial?: () => void;
 }) {
   if (!result) return null;
 
@@ -932,12 +720,17 @@ function PhAmendmentResultsCard({
   }
 
   const primaryTha = result.adjustedRequirementTha ?? result.baseRequirementTha;
+  const hasAdjusted =
+    result.adjustedRequirementTha !== undefined &&
+    result.adjustedRequirementTha !== result.baseRequirementTha;
   const requirementLabel =
     result.method === "gypsum"
       ? t.gypsumRequirementTitle || "Gypsum requirement"
       : result.method === "sulfur"
         ? t.phAmendSulfurRequirement || "Elemental sulfur requirement"
-        : t.limeRequirementTitle || "Lime requirement";
+        : hasAdjusted
+          ? t.phAmendResultAdjusted || "Adjusted requirement"
+          : t.limeRequirementTitle || "Lime requirement";
 
   const plotTotalT =
     plotArea > 0 ? convertPhAmendmentPlotTotal(primaryTha, plotArea, plotAreaUnit) : 0;
@@ -948,81 +741,92 @@ function PhAmendmentResultsCard({
         ? `${(plotTotalT * 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`
         : `${plotTotalT.toLocaleString(undefined, { maximumFractionDigits: 2 })} t`;
 
+  const methodLabel = t[methodLabelKey(result.method)] || result.method;
+  const materialLabel = result.material
+    ? t[materialLabelKey(result.material)] || result.material
+    : "";
+  const recommendation =
+    t[result.explanationKey] ||
+    result.explanationKey ||
+    (t.phAmendNoRequirement || "Review amendment dose before applying.");
+
+  const doseKgHa = Math.max(0, primaryTha) * 1000;
+  const bagsPerHa = doseKgHa / 50;
+  const bagsRaw =
+    plotArea > 0
+      ? (convertPhAmendmentPlotTotal(primaryTha, plotArea, plotAreaUnit) * 1000) /
+        50
+      : bagsPerHa;
+  // Whole bags: round up so the dose is never short
+  const bagsForPlot = bagsRaw > 0 ? Math.ceil(bagsRaw) : 0;
+  const bagsDisplay = bagsForPlot.toLocaleString(undefined, {
+    maximumFractionDigits: 0,
+  });
+  const bagsUnit =
+    plotArea > 0
+      ? t.phAmendBagsUnit || "× 50 kg bags"
+      : t.phAmendBagsPerHa || "× 50 kg bags/ha";
+  const bagsHint =
+    result.material === "dolomitic_lime"
+      ? t.phAmendTapForCalcitic || "Tap for agricultural lime (higher PRNT)"
+      : t.phAmendTapForDolomite || "Tap for dolomite (lower PRNT)";
+
   return (
-    <div className="ph-amend-results calc-surface p-4 space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
-          {t.phAmendResultsTitle || "Results"}
-        </h3>
+    <div className="ph-amend-results calc-surface p-3 space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
+            {t.phAmendResultsTitle || "Results"}
+          </h3>
+          <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+            {[methodLabel, materialLabel].filter(Boolean).join(" · ")}
+            {result.ccePercent != null ? ` · PRNT ${result.ccePercent}%` : ""}
+          </p>
+        </div>
         {unitSelect}
       </div>
 
-      <dl className="ph-amend-results__grid grid gap-3 sm:grid-cols-2">
-        <ResultRow label={t.phAmendResultMethod || "Method"} value={t[methodLabelKey(result.method)] || result.method} />
-        {result.material ? (
-          <ResultRow
-            label={t.phAmendResultMaterial || "Amendment"}
-            value={t[materialLabelKey(result.material)] || result.material}
-          />
-        ) : null}
-        {methodRaisesPh(result.method) ? (
-          <>
-            <ResultRow
-              label={t.phAmendResultBase || "Base requirement"}
-              value={`${formatPhAmendmentDisplay(result.baseRequirementTha, outputUnit)} ${unitLabel}`}
-              highlight
-            />
-            {result.adjustedRequirementTha !== undefined ? (
-              <ResultRow
-                label={t.phAmendResultAdjusted || "Adjusted requirement"}
-                value={`${formatPhAmendmentDisplay(result.adjustedRequirementTha, outputUnit)} ${unitLabel}`}
-                highlight
-              />
-            ) : null}
-          </>
-        ) : (
-          <ResultRow
-            label={requirementLabel}
-            value={`${formatPhAmendmentDisplay(primaryTha, outputUnit)} ${unitLabel}`}
-            highlight
-          />
-        )}
-        {plotArea > 0 ? (
-          <ResultRow
-            label={t.phAmendPlotTotal || "Total for plot"}
-            value={`${plotTotalDisplay} · ${plotArea} ${t[`areaUnit_${plotAreaUnit}`] || areaUnitLabel(plotAreaUnit)}`}
-            highlight
-          />
-        ) : null}
+      <dl className="ph-amend-results__grid grid grid-cols-2 gap-2">
+        <ResultRow
+          label={requirementLabel}
+          value={`${formatPhAmendmentDisplay(primaryTha, outputUnit)} ${unitLabel}`}
+          highlight
+        />
+        <ResultRow
+          label={t.phAmendBagsLabel || "50 kg bags"}
+          value={`${bagsDisplay} ${bagsUnit}`}
+          hint={
+            onToggleLimeMaterial
+              ? bagsHint
+              : plotArea > 0
+                ? plotTotalDisplay
+                : undefined
+          }
+          highlight
+          onClick={onToggleLimeMaterial}
+        />
       </dl>
 
-      <div className="space-y-2 border-t border-emerald-100/80 pt-3 dark:border-white/10">
+      <div className="ph-amend-results__rec rounded-xl px-3 py-2.5 calc-surface-inner">
         <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-          {t.phAmendResultFormula || "Formula used"}
+          {t.phAmendRecommendation || t.phAmendResultExplanation || "Recommendation"}
         </p>
-        <p className="font-mono text-sm text-slate-800 dark:text-slate-100">{result.formula}</p>
+        <p className="mt-1 text-xs leading-snug text-slate-700 dark:text-slate-200">
+          {recommendation}
+          {hasAdjusted && result.ccePercent !== undefined
+            ? ` ${t.phAmendAdjustedNote || `Adjusted for CCE ${result.ccePercent}%.`}`
+            : ""}
+        </p>
       </div>
 
-      <div className="space-y-1">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-          {t.phAmendResultExplanation || "Explanation"}
-        </p>
-        <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-200">
-          {t[result.explanationKey] || result.explanationKey}
-        </p>
-        {result.adjustedRequirementTha !== undefined && result.ccePercent !== undefined ? (
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {t.phAmendAdjustedNote ||
-              `Adjusted requirement accounts for material quality (CCE ${result.ccePercent}%).`}
+      {showCalculatorFormulas ? (
+        <div className="space-y-1 border-t border-emerald-100/80 pt-2 dark:border-white/10">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+            {t.phAmendResultFormula || "Formula used"}
           </p>
-        ) : null}
-        {plotArea <= 0 ? (
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {t.phAmendPlotAreaHint ||
-              "Optional: enter plot area above to also see total product for the field."}
-          </p>
-        ) : null}
-      </div>
+          <p className="font-mono text-xs text-slate-800 dark:text-slate-100">{result.formula}</p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1030,18 +834,46 @@ function PhAmendmentResultsCard({
 function ResultRow({
   label,
   value,
+  hint,
   highlight = false,
+  onClick,
 }: {
   label: string;
   value: string;
+  hint?: string;
   highlight?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <div className={`ph-amend-results__row rounded-xl px-3 py-3 ${highlight ? "calc-result-card calc-result-card--active" : "calc-surface-inner"}`}>
-      <dt className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">{label}</dt>
-      <dd className={`mt-1 font-extrabold leading-none ${highlight ? "text-2xl text-green-950" : "text-sm text-slate-800 dark:text-slate-100"}`}>
+    <div
+      className={`ph-amend-results__row rounded-xl px-2.5 py-2 ${
+        highlight ? "calc-result-card calc-result-card--active" : "calc-surface-inner"
+      }${onClick ? " cursor-pointer select-none active:scale-[0.99]" : ""}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+    >
+      <dt className="text-[9px] font-bold uppercase tracking-wide text-emerald-800">{label}</dt>
+      <dd
+        className={`mt-0.5 font-extrabold leading-tight ${
+          highlight ? "text-lg text-green-950" : "text-sm text-slate-800 dark:text-slate-100"
+        }`}
+      >
         {value}
       </dd>
+      {hint ? (
+        <p className="mt-1 text-[9px] leading-snug text-slate-500 dark:text-slate-400">{hint}</p>
+      ) : null}
     </div>
   );
 }

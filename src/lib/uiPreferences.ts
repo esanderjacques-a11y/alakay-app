@@ -1,9 +1,9 @@
 import { applyAccentTheme as applyAccentPalette } from "@/lib/accentPalette";
 import { getSettings } from "@/lib/appSettings";
-import type { AccentColor, AppThemePreference } from "@/lib/appSettings";
+import type { AccentColor, AppFontPreference, AppThemePreference } from "@/lib/appSettings";
 import type { Language } from "@/lib/translations";
 
-export type { AccentColor } from "@/lib/appSettings";
+export type { AccentColor, AppFontPreference } from "@/lib/appSettings";
 
 export type AppTheme = "light" | "dark";
 export type DarkVariant = "classic" | "black";
@@ -190,9 +190,35 @@ export function readStoredGlassUi() {
   return getSettings().general.glassUi !== false;
 }
 
+export function readStoredAppFont(): AppFontPreference {
+  const font = getSettings().general.appFont;
+  if (
+    font === "nunito" ||
+    font === "source_sans" ||
+    font === "dm_sans" ||
+    font === "manrope"
+  ) {
+    return font;
+  }
+  return "system";
+}
+
+export function applyAppFont(font: AppFontPreference = readStoredAppFont()) {
+  if (typeof document === "undefined") return;
+  const next =
+    font === "nunito" ||
+    font === "source_sans" ||
+    font === "dm_sans" ||
+    font === "manrope"
+      ? font
+      : "system";
+  document.documentElement.dataset.appFont = next;
+}
+
 export function applyVisualTone() {
   applyBrightness(readStoredBrightness());
   applySaturation(readStoredSaturation());
   applyContrast(readStoredContrast());
   applyGlassUi(readStoredGlassUi());
+  applyAppFont(readStoredAppFont());
 }

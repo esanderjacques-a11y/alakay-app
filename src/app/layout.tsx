@@ -1,7 +1,32 @@
 import type { Metadata } from "next";
+import { DM_Sans, Manrope, Nunito, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import MobilePwaBootstrap from "@/components/MobilePwaBootstrap";
 import ScrollEdgeButtons from "@/components/ui/ScrollEdgeButtons";
+
+const nunito = Nunito({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-nunito",
+  display: "swap",
+});
+
+const sourceSans = Source_Sans_3({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-source-sans",
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
+
+const manrope = Manrope({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-manrope",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   applicationName: "CULTOSOL",
@@ -50,8 +75,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className="h-full antialiased"
+      className={`h-full antialiased ${nunito.variable} ${sourceSans.variable} ${dmSans.variable} ${manrope.variable}`}
       data-glass-ui="true"
+      data-app-font="system"
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col overscroll-none">

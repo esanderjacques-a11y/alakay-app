@@ -27,6 +27,8 @@ type Props = {
   onChange: (unitId: number, displayKey: string) => void;
   changeUnitLabel: string;
   compact?: boolean;
+  /** Text-only unit inside the value field (no chip surface). */
+  embedded?: boolean;
 };
 
 export default function ParameterUnitPicker({
@@ -38,6 +40,7 @@ export default function ParameterUnitPicker({
   onChange,
   changeUnitLabel,
   compact = false,
+  embedded = false,
 }: Props) {
   const label =
     selectedUnit?.display_symbol ||
@@ -49,9 +52,13 @@ export default function ParameterUnitPicker({
   if (units.length <= 1) {
     return (
       <span
-        className={`values-unit-chip values-unit-chip--static${
-          compact ? " values-unit-chip--compact" : ""
-        }`}
+        className={
+          embedded
+            ? "values-unit-embedded"
+            : `values-unit-chip values-unit-chip--static${
+                compact ? " values-unit-chip--compact" : ""
+              }`
+        }
         title={selectedUnit?.unit_symbol || label}
       >
         {label}
@@ -81,6 +88,7 @@ export default function ParameterUnitPicker({
       value={selectedDisplayKey}
       options={options}
       variant="chip"
+      plainChip={embedded}
       compact={compact}
       onChange={(nextKey) => {
         const unit = units.find((option) => getUnitOptionKey(option) === nextKey);

@@ -21,6 +21,8 @@ type Props = {
   goToValues: () => void;
   goToCurrentResults: () => void;
   onEditAnalysis: (payload: EditableAnalysisPayload) => void;
+  focusAnalysisId?: number | null;
+  onFocusAnalysisConsumed?: () => void;
 };
 
 export default function ResultsDashboard({
@@ -35,15 +37,17 @@ export default function ResultsDashboard({
   goToValues,
   goToCurrentResults,
   onEditAnalysis,
+  focusAnalysisId = null,
+  onFocusAnalysisConsumed,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<"progress" | "history">(
-    hasCurrentResults || enteredValuesCount > 0 ? "progress" : "history"
-  );
-  const [readingReport, setReadingReport] = useState(false);
-
   const canViewHistory = Boolean(session?.user && !guestMode);
   const hasProgress = enteredValuesCount > 0 || hasCurrentResults;
   const historyDisabled = !canViewHistory;
+
+  const [activeTab, setActiveTab] = useState<"progress" | "history">(
+    canViewHistory ? "history" : "progress"
+  );
+  const [readingReport, setReadingReport] = useState(false);
 
   useEffect(() => {
     if (historyDisabled && activeTab === "history") {
@@ -51,26 +55,33 @@ export default function ResultsDashboard({
     }
   }, [activeTab, historyDisabled]);
 
+  useEffect(() => {
+    if (focusAnalysisId && !historyDisabled) {
+      setActiveTab("history");
+    }
+  }, [focusAnalysisId, historyDisabled]);
+
   return (
-    <section className="flex flex-col gap-3 animate-fade-in">
-      {/* Compact tab switcher — only show when not reading a report */}
-      {!readingReport && (
-        <div className="auth-mode-tabs flex gap-1 rounded-2xl p-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab("progress")}
-            className={`auth-mode-tabs__btn flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold ${
-              activeTab === "progress" ? "auth-mode-tabs__btn--active" : ""
-            }`}
-          >
-            <PlayCircle size={16} />
-            {t.inProgress}
-            {(enteredValuesCount > 0 || hasCurrentResults) && activeTab !== "progress" && (
-              <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-800">
-                {enteredValuesCount}
+    <section className="results-dashboard flex flex-col gap-2 animate-fade-in">
+      {!readingReport && (hasProgress || canViewHistory) ? (
+        <div className="history-seg results-dashboard__tabs">
+          {hasProgress ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab("progress")}
+              className={`history-seg__btn${
+                activeTab === "progress" ? " history-seg__btn--active" : ""
+              }`}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <PlayCircle size={14} />
+                {t.inProgress}
+                {enteredValuesCount > 0 && activeTab !== "progress" ? (
+                  <span className="text-[10px] opacity-80">{enteredValuesCount}</span>
+                ) : null}
               </span>
-            )}
-          </button>
+            </button>
+          ) : null}
 
           <button
             type="button"
@@ -79,76 +90,76 @@ export default function ResultsDashboard({
               if (historyDisabled) return;
               setActiveTab("history");
             }}
-            className={`auth-mode-tabs__btn flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold disabled:cursor-not-allowed ${
+            className={`history-seg__btn${
               activeTab === "history" && !historyDisabled
-                ? "auth-mode-tabs__btn--active"
-                : historyDisabled
-                ? "text-[#aeaeb2]"
+                ? " history-seg__btn--active"
                 : ""
-            }`}
+            }${historyDisabled ? " opacity-45" : ""}`}
           >
-            <History size={16} />
-            {t.history}
+            <span className="inline-flex items-center gap-1.5">
+              <History size={14} />
+              {t.history}
+            </span>
           </button>
         </div>
-      )}
+      ) : null}
 
-      {activeTab === "progress" ? (
-        <div className="flex flex-col gap-3">
-          {hasProgress ? (
-            <>
-              {/* Lab values card */}
-              <div className="glass-panel rounded-2xl p-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-green-50 text-green-700">
-                    <FileText size={20} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-[#1c1c1e]">{t.labValues}</p>
-                    <p className="text-xs text-[#6c6c70]">
-                      {formatMessage(t.valuesEnteredCount, { count: enteredValuesCount })}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={goToValues}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800 active:scale-95"
-                  >
-                    {t.continueEditing}
-                    <ArrowRight size={15} />
-                  </button>
-                </div>
+      {activeTab === "progress" && hasProgress ? (
+        <div className="flex flex-col gap-2">
+          <div className="glass-panel rounded-xl px-3 py-2.5">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-700">
+                <FileText size={16} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-[#1c1c1e]">{t.labValues}</p>
+                <p className="text-[11px] text-[#6c6c70]">
+                  {formatMessage(t.valuesEnteredCount, { count: enteredValuesCount })}
+                </p>
               </div>
-
-              {/* Current results card */}
-              <div className={`glass-panel rounded-2xl p-4 ${!hasCurrentResults ? "opacity-50" : ""}`}>
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-green-50 text-green-700">
-                    <ClipboardList size={20} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-[#1c1c1e]">{t.currentResults}</p>
-                    <p className="text-xs text-[#6c6c70]">
-                      {formatMessage(t.interpretedResultsShort, { count: interpretedResultsCount })}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={goToCurrentResults}
-                    disabled={!hasCurrentResults}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {t.openResults}
-                    <ArrowRight size={15} />
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
-              {t.noInProgressDetail}
+              <button
+                type="button"
+                onClick={goToValues}
+                className="inline-flex items-center gap-1 rounded-lg bg-green-700 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-green-800 active:scale-95"
+              >
+                {t.continueEditing}
+                <ArrowRight size={13} />
+              </button>
             </div>
-          )}
+          </div>
+
+          <div
+            className={`glass-panel rounded-xl px-3 py-2.5 ${
+              !hasCurrentResults ? "opacity-50" : ""
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-700">
+                <ClipboardList size={16} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-[#1c1c1e]">{t.currentResults}</p>
+                <p className="text-[11px] text-[#6c6c70]">
+                  {formatMessage(t.interpretedResultsShort, {
+                    count: interpretedResultsCount,
+                  })}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={goToCurrentResults}
+                disabled={!hasCurrentResults}
+                className="inline-flex items-center gap-1 rounded-lg bg-green-700 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-green-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t.openResults}
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : activeTab === "progress" ? (
+        <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+          {t.noInProgressDetail}
         </div>
       ) : (
         <div>
@@ -160,9 +171,11 @@ export default function ResultsDashboard({
               generatedBy={generatedBy}
               onEditAnalysis={onEditAnalysis}
               onReadingChange={setReadingReport}
+              focusAnalysisId={focusAnalysisId}
+              onFocusAnalysisConsumed={onFocusAnalysisConsumed}
             />
           ) : (
-            <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
+            <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
               {t.loginForHistory}
             </div>
           )}

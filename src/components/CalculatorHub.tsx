@@ -6,10 +6,12 @@ import {
   Activity,
   BarChart3,
   Calculator,
+  CalendarDays,
   CircleDollarSign,
-  Download,
   Droplets,
+  FileText,
   FlaskConical,
+  Import,
   Leaf,
   Percent,
   Sprout,
@@ -107,6 +109,7 @@ type Props = {
   /** Selected display unit per parameter_key (from Values). */
   parameterUnits?: Record<string, string>;
   goToValues?: () => void;
+  onOpenCalendar?: () => void;
   onBack?: () => void;
   onOutputsChange?: (packs: CalculatorOutputPack[]) => void;
   onReportExtrasChange?: (extras: {
@@ -114,9 +117,13 @@ type Props = {
     fertilizerProducts: PdfFertilizerProduct[];
     fertilizerApplyLines: string[];
   }) => void;
+  onFertilizerPlanChange?: (plan: FertilizerPlanSnapshot) => void;
   onExportPdf?: () => void;
   exportingPdf?: boolean;
   exportPdfLabel?: string;
+  showCalculatorFormulas?: boolean;
+  userId?: string | null;
+  farmName?: string | null;
 };
 
 type CalculatorKey =
@@ -130,7 +137,7 @@ type CalculatorKey =
   | "salinity"
   | "graphs";
 
-type FertilizerPlanSnapshot = {
+export type FertilizerPlanSnapshot = {
   doses: FertilityDoseResult[];
   areaHa: number;
   irrigationSystem: IrrigationSystem;
@@ -165,7 +172,7 @@ function visibleCalculatorTabs(sampleType: "soil" | "foliar") {
 type HubMode = "guided" | "explorer";
 
 const GUIDED_STEPS: Record<"soil" | "foliar", CalculatorKey[]> = {
-  soil: ["cic", "amendment", "fertilizer", "fertilizerCost", "salinity"],
+  soil: ["cic", "amendment", "fertilizer", "fertilizerCost"],
   foliar: ["dop", "uptake"],
 };
 
@@ -188,12 +195,17 @@ export default function CalculatorHub({
   selectedCountry,
   parameterUnits = {},
   goToValues,
+  onOpenCalendar,
   onBack,
   onOutputsChange,
   onReportExtrasChange,
+  onFertilizerPlanChange,
   onExportPdf,
   exportingPdf,
   exportPdfLabel,
+  showCalculatorFormulas = false,
+  userId = null,
+  farmName = null,
 }: Props) {
   const t = calculatorHubText[language] || calculatorHubText.en;
   const defaultCalculatorFilter: CalculatorKey = "priority";
@@ -217,13 +229,18 @@ export default function CalculatorHub({
         hasLabData={hasLabData}
         suggestions={suggestions}
         goToValues={goToValues}
+        onOpenCalendar={onOpenCalendar}
         onBack={onBack}
         onOutputsChange={onOutputsChange}
         onReportExtrasChange={onReportExtrasChange}
+        onFertilizerPlanChange={onFertilizerPlanChange}
         onExportPdf={onExportPdf}
         exportingPdf={exportingPdf}
         exportPdfLabel={exportPdfLabel}
         defaultCalculatorFilter={defaultCalculatorFilter}
+        showCalculatorFormulas={showCalculatorFormulas}
+        userId={userId}
+        farmName={farmName}
       />
     </CalculatorMemoryProvider>
   );
@@ -240,13 +257,18 @@ function CalculatorHubBody({
   hasLabData,
   suggestions,
   goToValues,
+  onOpenCalendar,
   onBack,
   onOutputsChange,
   onReportExtrasChange,
+  onFertilizerPlanChange,
   onExportPdf,
   exportingPdf,
   exportPdfLabel,
   defaultCalculatorFilter,
+  showCalculatorFormulas = false,
+  userId = null,
+  farmName = null,
 }: {
   t: Record<string, string>;
   language: Language;
@@ -258,6 +280,7 @@ function CalculatorHubBody({
   hasLabData: boolean;
   suggestions: Array<{ key: CalculatorKey; title: string; desc: string }>;
   goToValues?: () => void;
+  onOpenCalendar?: () => void;
   onBack?: () => void;
   onOutputsChange?: (packs: CalculatorOutputPack[]) => void;
   onReportExtrasChange?: (extras: {
@@ -265,10 +288,14 @@ function CalculatorHubBody({
     fertilizerProducts: PdfFertilizerProduct[];
     fertilizerApplyLines: string[];
   }) => void;
+  onFertilizerPlanChange?: (plan: FertilizerPlanSnapshot) => void;
   onExportPdf?: () => void;
   exportingPdf?: boolean;
   exportPdfLabel?: string;
   defaultCalculatorFilter: CalculatorKey;
+  showCalculatorFormulas?: boolean;
+  userId?: string | null;
+  farmName?: string | null;
 }) {
   const { importFromValues, valuesOutOfSync, lastImportFingerprint } = useCalculatorMemory();
   const sharedCations = useSharedCationInputs(lab);
@@ -278,25 +305,31 @@ function CalculatorHubBody({
   );
   const [importMessage, setImportMessage] = useState("");
   const autoImportedRef = useRef(false);
-  const [active, setActive] = useState<CalculatorKey>(defaultCalculatorFilter);
-  const [browseLayout, setBrowseLayout] = useViewLayoutPreference("calculator-hub");
-  const fieldsLayout = browseLayout;
+  const [hubMode, setHubMode] = useState<HubMode>("guided");
   const calculatorTabs = useMemo(
     () => visibleCalculatorTabs(sampleType),
     [sampleType]
   );
-
-  // Drop removed tabs if a stale selection lingered.
-  useEffect(() => {
-    if (!calculatorTabs.some((tab) => tab.key === active)) {
-      setActive(defaultCalculatorFilter);
-    }
-  }, [active, calculatorTabs, defaultCalculatorFilter]);
-  const [hubMode, setHubMode] = useState<HubMode>("explorer");
   const guidedSteps = useMemo(() => {
     const visibleKeys = new Set(calculatorTabs.map((tab) => tab.key));
     return GUIDED_STEPS[sampleType].filter((key) => visibleKeys.has(key));
   }, [sampleType, calculatorTabs]);
+  const [active, setActive] = useState<CalculatorKey>(
+    () => GUIDED_STEPS[sampleType][0] || defaultCalculatorFilter
+  );
+  const [browseLayout, setBrowseLayout] = useViewLayoutPreference("calculator-hub");
+  const fieldsLayout = browseLayout;
+
+  // Drop removed tabs if a stale selection lingered.
+  useEffect(() => {
+    if (!calculatorTabs.some((tab) => tab.key === active)) {
+      setActive(
+        hubMode === "guided" && guidedSteps[0]
+          ? guidedSteps[0]
+          : defaultCalculatorFilter
+      );
+    }
+  }, [active, calculatorTabs, defaultCalculatorFilter, guidedSteps, hubMode]);
   const [guidedIndex, setGuidedIndex] = useState(0);
   const [fertilizerPlan, setFertilizerPlan] = useState<FertilizerPlanSnapshot>({
     doses: [],
@@ -328,6 +361,14 @@ function CalculatorHubBody({
   }
 
   const [calculatorOutputs, setCalculatorOutputs] = useState<Record<string, CalculationOutput[]>>({});
+
+  const canExportReport = useMemo(() => {
+    if (hasLabData) return true;
+    if (Object.values(calculatorOutputs).some((rows) => rows.length > 0)) return true;
+    if (fertilizerProducts.length > 0) return true;
+    if (hasActiveFertilizerDoses(fertilizerPlan.doses)) return true;
+    return false;
+  }, [calculatorOutputs, fertilizerPlan.doses, fertilizerProducts.length, hasLabData]);
 
   function reportOutputs(key: string, outputs: CalculationOutput[]) {
     const cleanOutputs = outputs.filter(Boolean);
@@ -492,11 +533,11 @@ function CalculatorHubBody({
             <h1 className="min-w-0 flex-1 truncate text-lg font-bold dark-text-primary">
               {t.title}
             </h1>
-            {onExportPdf ? (
+            {onExportPdf && canExportReport ? (
               <ExportPdfIconButton
                 onClick={onExportPdf}
                 busy={exportingPdf}
-                label={exportPdfLabel || "Export PDF"}
+                label={t.hubModeGenerateReport || exportPdfLabel || "Report"}
               />
             ) : null}
             <ViewLayoutToggle
@@ -537,9 +578,10 @@ function CalculatorHubBody({
                     : "text-green-800 dark:text-green-300"
                 }`}
                 title={t.importFromValuesHint}
+                aria-label={t.importFromValuesHint}
               >
-                <Download size={14} aria-hidden />
-                {t.importFromValues || "Import from Values"}
+                <Import size={14} aria-hidden />
+                <span>{t.importFromValues || "Import"}</span>
                 {valuesOutOfSync ? (
                   <span className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
                 ) : null}
@@ -618,17 +660,51 @@ function CalculatorHubBody({
                 {t.hubModePrevStep}
               </button>
               <span className="text-xs font-semibold text-slate-500">
-                {formatMessage(t.hubModeStepOf, { current: guidedIndex + 1, total: guidedSteps.length })}
+                {formatMessage(t.hubModeStepOf, {
+                  current: guidedIndex + 1,
+                  total: guidedSteps.length,
+                })}
               </span>
-              <button
-                type="button"
-                onClick={() => goToGuidedStep(guidedIndex + 1)}
-                disabled={guidedIndex >= guidedSteps.length - 1}
-                className="calc-guided-stepper__nav-btn"
-              >
-                {t.hubModeNextStep}
-              </button>
+              {guidedIndex >= guidedSteps.length - 1 ? (
+                <div className="calc-guided-finish flex flex-wrap items-center justify-end gap-1.5">
+                  {onOpenCalendar ? (
+                    <button
+                      type="button"
+                      onClick={onOpenCalendar}
+                      className="calc-guided-stepper__nav-btn inline-flex items-center gap-1"
+                    >
+                      <CalendarDays size={13} aria-hidden />
+                      {t.hubModeGoCalendar || "Calendar"}
+                    </button>
+                  ) : null}
+                  {onExportPdf ? (
+                    <button
+                      type="button"
+                      onClick={onExportPdf}
+                      disabled={exportingPdf}
+                      className="calc-guided-stepper__nav-btn calc-guided-stepper__nav-btn--primary inline-flex items-center gap-1"
+                    >
+                      <FileText size={13} aria-hidden />
+                      {t.hubModeGenerateReport || exportPdfLabel || "Report"}
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => goToGuidedStep(guidedIndex + 1)}
+                  className="calc-guided-stepper__nav-btn"
+                >
+                  {t.hubModeNextStep}
+                </button>
+              )}
             </div>
+            {guidedIndex >= guidedSteps.length - 1 ? (
+              <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                {t.hubModeFinishHint ||
+                  "Guided path complete. Schedule applications or generate a report."}
+              </p>
+            ) : null}
           </div>
         ) : null}
         {hubMode === "explorer" && browseLayout === "list" ? (
@@ -688,6 +764,7 @@ function CalculatorHubBody({
             t={t}
             lab={effectiveLab}
             selectedCropName={selectedCropName}
+            showCalculatorFormulas={showCalculatorFormulas}
             onOutputsChange={(outputs) => reportOutputs("amendment", outputs)}
           />
         ) : null}
@@ -698,8 +775,12 @@ function CalculatorHubBody({
               lab={effectiveLab}
               selectedCropName={selectedCropName}
               layout={fieldsLayout}
+              showCalculatorFormulas={showCalculatorFormulas}
               onOutputsChange={(outputs) => reportOutputs("fertilizer", outputs)}
-              onDosePlanChange={setFertilizerPlan}
+              onDosePlanChange={(plan) => {
+                setFertilizerPlan(plan);
+                onFertilizerPlanChange?.(plan);
+              }}
               onOpenCostPage={() => setActive("fertilizerCost")}
             />
           ) : (
@@ -732,6 +813,8 @@ function CalculatorHubBody({
                     irrigationTable={fertilizerPlan.irrigationTable}
                     t={t}
                     showAsPage
+                    userId={userId}
+                    farmName={farmName}
                     onReportData={handleCostReportData}
                   />
                 </div>
@@ -785,6 +868,7 @@ function CalculatorHubBody({
           <SalinityCalculator
             t={t}
             lab={effectiveLab}
+            showCalculatorFormulas={showCalculatorFormulas}
             onOutputsChange={(outputs) => reportOutputs("salinity", outputs)}
           />
         ) : null}
@@ -1661,10 +1745,12 @@ function CropUptakeGuide({
 function SalinityCalculator({
   t,
   lab,
+  showCalculatorFormulas = false,
   onOutputsChange,
 }: {
   t: Record<string, string>;
   lab: Map<string, CalculatorValue>;
+  showCalculatorFormulas?: boolean;
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
 }) {
   const [ecw, setEcw] = useMemoryNumber("salinity", "ecw", 1);
@@ -1725,7 +1811,12 @@ function SalinityCalculator({
             <NumberField label="ET" value={etValue} onChange={setEtValue} preserveCase />
           </CalculatorFormFields>
         </div>
-        <OutputGrid t={t} outputs={outputs} title={t.salinityRequirementTitle || t.salinity} />
+        <OutputGrid
+          t={t}
+          outputs={outputs}
+          title={t.salinityRequirementTitle || t.salinity}
+          showCalculatorFormulas={showCalculatorFormulas}
+        />
     </CalculatorPage>
   );
 }
@@ -1934,17 +2025,24 @@ function CalculatorPanel({
   t,
   fields,
   output,
+  showCalculatorFormulas = false,
 }: {
   t: Record<string, string>;
   fields: ReactNode;
   output: CalculationOutput | null;
+  showCalculatorFormulas?: boolean;
 }) {
   return (
     <>
       <div className="calc-page__params calc-surface p-4">
         <CalculatorFormFields>{fields}</CalculatorFormFields>
       </div>
-      <OutputCard t={t} output={output} title={t.result} />
+      <OutputCard
+        t={t}
+        output={output}
+        title={t.result}
+        showCalculatorFormulas={showCalculatorFormulas}
+      />
     </>
   );
 }
@@ -1971,10 +2069,12 @@ function OutputGrid({
   t,
   outputs,
   title,
+  showCalculatorFormulas = false,
 }: {
   t: Record<string, string>;
   outputs: Array<CalculationOutput | null>;
   title?: string;
+  showCalculatorFormulas?: boolean;
 }) {
   const validOutputs = outputs.filter(Boolean) as CalculationOutput[];
   if (validOutputs.length === 0) {
@@ -1992,7 +2092,13 @@ function OutputGrid({
       ) : null}
       <div className={`grid grid-cols-2 gap-2.5 ${title ? "mt-3" : ""}`}>
         {validOutputs.map((output, index) => (
-          <OutputCard key={output.label || index} t={t} output={output} compact />
+          <OutputCard
+            key={output.label || index}
+            t={t}
+            output={output}
+            compact
+            showCalculatorFormulas={showCalculatorFormulas}
+          />
         ))}
       </div>
     </div>
@@ -2004,11 +2110,13 @@ function OutputCard({
   output,
   title,
   compact = false,
+  showCalculatorFormulas = false,
 }: {
   t: Record<string, string>;
   output: CalculationOutput | null;
   title?: string;
   compact?: boolean;
+  showCalculatorFormulas?: boolean;
 }) {
   const translatedOutput = output ? translateCalculationOutput(output, t) : null;
 
@@ -2039,7 +2147,7 @@ function OutputCard({
             ))}
           </ul>
         ) : null}
-        {translatedOutput.notes.length > 0 ? (
+        {showCalculatorFormulas && translatedOutput.notes.length > 0 ? (
           <ul className="mt-2 space-y-1 text-xs leading-relaxed text-[#3c3c43]">
             {translatedOutput.notes.map((note) => (
               <li key={note} className="flex gap-1.5">
@@ -2075,7 +2183,7 @@ function OutputCard({
             ))}
           </ul>
         ) : null}
-        {translatedOutput.notes.length > 0 ? (
+        {showCalculatorFormulas && translatedOutput.notes.length > 0 ? (
           <ul className="mt-3 space-y-2 text-sm leading-relaxed text-[#3c3c43]">
             {translatedOutput.notes.map((note) => (
               <li key={note} className="flex gap-2">

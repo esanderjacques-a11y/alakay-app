@@ -8,13 +8,20 @@ import {
   DEFAULT_FERTILIZER_BAG_KG,
   FERTILIZER_CURRENCIES,
   fertilizersForNutrient,
+  matchCatalogProductKey,
   pricePerBagFromTonne,
   type FertilizerNutrient,
 } from "@/lib/fertilizerCatalog";
 import {
   buildCostScenarios,
+  missingPreferredPrices,
   resolveProductPrices,
 } from "@/lib/fertilizerCostOptimize";
+import {
+  listAllBodegaItems,
+  listBodegaItems,
+  listUserFarms,
+} from "@/lib/farmRepository";
 import type { CalculationOutput } from "@/lib/agronomicCalculators";
 import {
   pickScenarioForReport,
@@ -57,6 +64,8 @@ type Props = {
   t: Record<string, string>;
   /** When true, render as page sections (no collapsible nesting under the plan). */
   showAsPage?: boolean;
+  userId?: string | null;
+  farmName?: string | null;
   onReportData?: (payload: {
     products: PdfFertilizerProduct[];
     outputs: CalculationOutput[];
@@ -96,6 +105,8 @@ export default function FertilizerProductPlanner({
   irrigationTable,
   t,
   showAsPage = false,
+  userId = null,
+  farmName = null,
   onReportData,
 }: Props) {
   const [currency, setCurrency] = useState("");
@@ -109,6 +120,8 @@ export default function FertilizerProductPlanner({
   const [manualPrices, setManualPrices] = useState<Record<string, string>>({});
   const [storageReady, setStorageReady] = useState(false);
   const [activeScenarioId, setActiveScenarioId] = useState("recommended");
+  const [applyNote, setApplyNote] = useState("");
+  const [stockProductKeys, setStockProductKeys] = useState<string[]>([]);
 
   useEffect(() => {
     try {
@@ -145,6 +158,46 @@ export default function FertilizerProductPlanner({
       // Ignore storage quota/privacy errors.
     }
   }, [bagKg, manualPrices, selectedProducts, storageReady]);
+
+  useEffect(() => {
+    if (!userId) {
+      setStockProductKeys([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const farmToken = (farmName || "").trim().toLocaleLowerCase();
+        let items = farmToken
+          ? []
+          : await listAllBodegaItems(userId);
+        if (farmToken) {
+          const farms = await listUserFarms(userId);
+          const farm = farms.find(
+            (row) =>
+              row.farm_name.trim().toLocaleLowerCase() === farmToken
+          );
+          items = farm
+            ? await listBodegaItems(userId, farm.farm_id)
+            : await listAllBodegaItems(userId);
+        }
+        if (cancelled) return;
+        const keys = new Set<string>();
+        for (const item of items) {
+          if (!(item.quantity > 0)) continue;
+          const key =
+            item.product_key || matchCatalogProductKey(item.product_name);
+          if (key) keys.add(key);
+        }
+        setStockProductKeys([...keys]);
+      } catch {
+        if (!cancelled) setStockProductKeys([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, farmName]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -210,6 +263,11 @@ export default function FertilizerProductPlanner({
     [displayCurrency, effectiveBagKg, manualPrices, onlineByKey]
   );
 
+  const missingPrices = useMemo(
+    () => missingPreferredPrices(productPrices, selectedProducts),
+    [productPrices, selectedProducts]
+  );
+
   const scenarios = useMemo(
     () =>
       buildCostScenarios({
@@ -219,6 +277,7 @@ export default function FertilizerProductPlanner({
         selectedProducts,
         irrigationSystem,
         irrigationTable,
+        stockProductKeys,
       }),
     [
       doses,
@@ -227,8 +286,17 @@ export default function FertilizerProductPlanner({
       selectedProducts,
       irrigationSystem,
       irrigationTable,
+      stockProductKeys,
     ]
   );
+
+  const activeScenario =
+    scenarios.find((s) => s.id === activeScenarioId) ||
+    scenarios.find((s) => s.recommended) ||
+    scenarios[0] ||
+    null;
+
+  const activePlan = activeScenario?.plan || null;
 
   useEffect(() => {
     if (!scenarios.some((s) => s.id === activeScenarioId)) {
@@ -274,10 +342,9 @@ export default function FertilizerProductPlanner({
     const product =
       COMMERCIAL_FERTILIZERS.find((item) => item.key === selectedKey) ||
       availableProducts[0];
-    const grade = product?.grade[nutrient] || 0;
-    const productKgHa =
-      grade > 0 ? (dose.dosisOxideKgHa || 0) / (grade / 100) : 0;
-    const bagsHa = productKgHa / effectiveBagKg;
+    const blendLine = activePlan?.lines.find(
+      (line) => line.productKey === product?.key
+    );
     const onlineRow = prices?.products.find((item) => item.key === product?.key);
     const onlinePricePerBag = pricePerBagFromTonne(
       onlineRow?.pricePerMetricTonne || 0,
@@ -287,24 +354,19 @@ export default function FertilizerProductPlanner({
     const manualValue = Number(
       String(manualPrices[manualKey] || "").replace(",", ".")
     );
-    const pricePerBag =
-      manualValue > 0 ? manualValue : onlinePricePerBag;
-    const costHa =
-      pricePerBag == null ? null : bagsHa * pricePerBag;
+    const pricePerBag = manualValue > 0 ? manualValue : onlinePricePerBag;
 
     return {
       dose,
       nutrient,
       availableProducts,
       product,
-      productKgHa,
-      bagsHa,
+      blendLine,
       onlineRow,
       onlinePricePerBag,
       manualKey,
       pricePerBag,
       manual: manualValue > 0,
-      costHa,
     };
   });
 
@@ -317,9 +379,9 @@ export default function FertilizerProductPlanner({
               t.fertilizerPriceNoCountry ||
               "Select a country in the report details for local currency."}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
-            {t.fertilizerPriceBasisBag ||
-              "Enter the price per bag (saco). Online placeholders are benchmarks converted from tonne prices."}
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {t.fertilizerProductsBlendHint ||
+              "Edit products and bag prices for My selection. Amounts follow the active mix above (nutrient credits included)."}
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -330,9 +392,7 @@ export default function FertilizerProductPlanner({
               inputMode="decimal"
               value={bagKg || ""}
               onChange={(event) => {
-                const next = Number(
-                  String(event.target.value).replace(",", ".")
-                );
+                const next = Number(String(event.target.value).replace(",", "."));
                 setBagKg(Number.isFinite(next) && next > 0 ? next : 0);
               }}
               placeholder={String(DEFAULT_FERTILIZER_BAG_KG)}
@@ -350,7 +410,7 @@ export default function FertilizerProductPlanner({
       </div>
 
       {priceError ? (
-        <p className="fertilizer-cost-alert rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p className="fertilizer-cost-alert rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
           {priceError}.{" "}
           {t.fertilizerManualFallback ||
             "Enter a known supplier price manually below."}
@@ -362,27 +422,29 @@ export default function FertilizerProductPlanner({
           if (!row.product) return null;
           const productOptions = row.availableProducts.map(
             (product) =>
-              [
-                product.key,
-                `${product.label} · ${product.analysis}`,
-              ] as [string, string]
+              [`${product.key}`, `${product.label} · ${product.analysis}`] as [
+                string,
+                string,
+              ]
           );
           return (
             <article
               key={row.dose.key}
-              className="rounded-2xl border border-emerald-900/10 bg-white/60 p-3"
+              className="rounded-2xl border border-emerald-900/10 bg-white/60 p-3 dark:border-white/10 dark:bg-white/5"
             >
               <div className="grid gap-3 sm:grid-cols-2">
                 <MenuSelect
                   label={row.dose.nutrientOxide}
                   value={row.product.key}
                   options={productOptions}
-                  onChange={(value) =>
+                  onChange={(value) => {
                     setSelectedProducts((previous) => ({
                       ...previous,
                       [row.dose.key]: value,
-                    }))
-                  }
+                    }));
+                    setActiveScenarioId("current_selection");
+                    setApplyNote("");
+                  }}
                   fullWidth
                   variant="field"
                 />
@@ -406,33 +468,33 @@ export default function FertilizerProductPlanner({
                   />
                 </label>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
                 <Metric
                   label={t.fertilizerProductAmountHa || "Product / ha"}
-                  value={`${row.productKgHa.toFixed(1)} kg · ${row.bagsHa.toFixed(1)} ${t.fertilizerBags || "bags"}`}
+                  value={
+                    row.blendLine
+                      ? `${row.blendLine.kgHa.toFixed(1)} kg · ${row.blendLine.bagsHa.toFixed(1)} ${t.fertilizerBags || "bags"}`
+                      : t.fertilizerBlendCovered || "Covered in mix / not primary"
+                  }
                 />
                 <Metric
                   label={t.fertilizerProductAmountPlot || "Product / plot"}
-                  value={`${(row.productKgHa * areaHa).toFixed(1)} kg · ${(row.bagsHa * areaHa).toFixed(1)} ${t.fertilizerBags || "bags"}`}
-                />
-                <Metric
-                  label={t.fertilizerCostHa || "Cost / ha"}
                   value={
-                    row.costHa == null
-                      ? "—"
-                      : formatMoney(row.costHa, displayCurrency)
+                    row.blendLine
+                      ? `${(row.blendLine.kgHa * areaHa).toFixed(1)} kg · ${(row.blendLine.bagsHa * areaHa).toFixed(1)} ${t.fertilizerBags || "bags"}`
+                      : "—"
                   }
                 />
                 <Metric
                   label={t.fertilizerCostPlot || "Plot cost"}
                   value={
-                    row.costHa == null
-                      ? "—"
-                      : formatMoney(row.costHa * areaHa, displayCurrency)
+                    row.blendLine
+                      ? formatMoney(row.blendLine.costHa * areaHa, displayCurrency)
+                      : "—"
                   }
                 />
               </div>
-              <p className="mt-2 text-[11px] text-slate-500">
+              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
                 {row.manual
                   ? t.fertilizerManualPrice || "Manual supplier price"
                   : row.onlineRow?.proxy
@@ -447,8 +509,61 @@ export default function FertilizerProductPlanner({
         })}
       </div>
 
+      {/* Price editors for blend products not tied to a dose picker */}
+      {activePlan
+        ? activePlan.lines
+            .filter(
+              (line) =>
+                !plannedRows.some((row) => row.product?.key === line.productKey)
+            )
+            .map((line) => {
+              const manualKey = `saco:${effectiveBagKg}:${displayCurrency}:${line.productKey}`;
+              const onlineRow = prices?.products.find(
+                (item) => item.key === line.productKey
+              );
+              const onlinePricePerBag = pricePerBagFromTonne(
+                onlineRow?.pricePerMetricTonne || 0,
+                effectiveBagKg
+              );
+              return (
+                <article
+                  key={line.productKey}
+                  className="rounded-2xl border border-dashed border-emerald-900/15 bg-emerald-50/40 p-3 dark:border-white/15 dark:bg-white/5"
+                >
+                  <p className="text-sm font-semibold text-green-950 dark-text-primary">
+                    {line.label} · {line.analysis}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {line.kgHa.toFixed(1)} kg/ha ·{" "}
+                    {formatMoney(line.costHa * areaHa, displayCurrency)}{" "}
+                    {t.fertilizerCostPlot || "plot"}
+                  </p>
+                  <label className="calc-field-label mt-2 grid gap-1">
+                    {`${t.fertilizerPricePerBag || "Price / bag (saco)"} (${displayCurrency})`}
+                    <input
+                      className="calc-field-input"
+                      inputMode="decimal"
+                      value={manualPrices[manualKey] || ""}
+                      onChange={(event) =>
+                        setManualPrices((previous) => ({
+                          ...previous,
+                          [manualKey]: event.target.value,
+                        }))
+                      }
+                      placeholder={
+                        onlinePricePerBag != null
+                          ? String(onlinePricePerBag)
+                          : t.fertilizerManualPrice || "Manual price"
+                      }
+                    />
+                  </label>
+                </article>
+              );
+            })
+        : null}
+
       {prices ? (
-        <p className="text-[11px] text-slate-500">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
           {loadingPrices ? `${t.loading || "Loading"}… ` : ""}
           <a
             href={prices.sourceUrl}
@@ -466,19 +581,35 @@ export default function FertilizerProductPlanner({
 
   const scenariosBody = (
     <div className={showAsPage ? undefined : "px-4 pb-4 pt-2"}>
+      {applyNote ? (
+        <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
+          {applyNote}
+        </p>
+      ) : null}
       <FertilizerCostScenarios
         scenarios={scenarios}
         activeId={activeScenarioId}
-        onSelect={setActiveScenarioId}
-        onApply={(primaryByDose) => {
+        onSelect={(id) => {
+          setActiveScenarioId(id);
+          setApplyNote("");
+        }}
+        onApply={({ primaryByDose, snappedFromIrrigation }) => {
           setSelectedProducts((previous) => ({
             ...previous,
             ...primaryByDose,
           }));
           setActiveScenarioId("current_selection");
+          setApplyNote(
+            snappedFromIrrigation
+              ? t.fertilizerScenarioAppliedIrrig ||
+                  "Mix applied to your current plan doses. Compare-by-irrigation rates stay for comparison only."
+              : t.fertilizerScenarioApplied ||
+                  "Mix applied. Totals now follow My selection with nutrient credits."
+          );
         }}
         areaHa={areaHa}
         currency={displayCurrency}
+        missingPrices={missingPrices}
         t={t}
       />
     </div>
@@ -487,34 +618,34 @@ export default function FertilizerProductPlanner({
   return (
     <div className="grid gap-4">
       {showAsPage ? (
-        <section className="calc-surface space-y-4 p-4">
+        <section className="calc-surface space-y-3 p-4">
           <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
-            {t.fertilizerProductsTitle || "Commercial fertilizers and prices"}
+            {t.fertilizerCostMixTitle || "Recommended mixes"}
           </h3>
-          {productsBody}
+          {scenariosBody}
         </section>
       ) : (
         <details className="fertilizer-plan__interpretation calc-surface" open>
           <summary className="fertilizer-plan__recommendations-summary">
-            {t.fertilizerProductsTitle || "Commercial fertilizers and prices"}
+            {t.fertilizerCostMixTitle || "Recommended mixes"}
           </summary>
-          {productsBody}
+          {scenariosBody}
         </details>
       )}
 
       {showAsPage ? (
-        <section className="calc-surface space-y-3 p-4">
+        <section className="calc-surface space-y-4 p-4">
           <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
-            {t.fertilizerCostScenariosTitle || "Cost scenarios"}
+            {t.fertilizerProductsTitle || "Products & bag prices"}
           </h3>
-          {scenariosBody}
+          {productsBody}
         </section>
       ) : (
-        <details className="fertilizer-plan__interpretation calc-surface" open>
+        <details className="fertilizer-plan__interpretation calc-surface">
           <summary className="fertilizer-plan__recommendations-summary">
-            {t.fertilizerCostScenariosTitle || "Cost scenarios"}
+            {t.fertilizerProductsTitle || "Products & bag prices"}
           </summary>
-          {scenariosBody}
+          {productsBody}
         </details>
       )}
     </div>
@@ -523,13 +654,11 @@ export default function FertilizerProductPlanner({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-emerald-50/80 p-2">
+    <div className="rounded-xl bg-emerald-50/80 p-2 dark:bg-emerald-950/30">
       <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
         {label}
       </p>
-      <p className="mt-1 font-semibold text-green-950 dark-text-primary">
-        {value}
-      </p>
+      <p className="mt-1 font-semibold text-green-950 dark-text-primary">{value}</p>
     </div>
   );
 }

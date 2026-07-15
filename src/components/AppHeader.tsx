@@ -5,15 +5,20 @@ import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { Session } from "@supabase/supabase-js";
 import {
+  Bell,
+  Bot,
+  CalendarDays,
   Check,
   ChevronDown,
   ChevronRight,
   Globe,
   Info,
+  Landmark,
   LogIn,
   LogOut,
   Moon,
   MoreVertical,
+  NotebookPen,
   RotateCcw,
   Settings,
   Sun,
@@ -24,9 +29,12 @@ import {
   X,
 } from "lucide-react";
 import AccountMenu from "@/components/AccountMenu";
+import JackoBot from "@/components/JackoBot";
 import LanguageFlag from "@/components/LanguageFlag";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
+import { planAllowsJacko, type PlanTier } from "@/lib/appSettings";
+import type { JackoAppContext } from "@/lib/jackoContext";
 import { Language, Translation } from "@/lib/translations";
 
 type Props = {
@@ -44,8 +52,16 @@ type Props = {
   onOpenSettings: () => void;
   onOpenRecycleBin: () => void;
   onOpenAbout: () => void;
+  onOpenFarms: () => void;
+  onOpenCalendar: () => void;
+  onOpenNotes: () => void;
+  onOpenNotifications: () => void;
+  notificationCount?: number;
   theme: "light" | "dark";
   onToggleTheme: () => void;
+  isAdmin?: boolean;
+  planTier?: PlanTier;
+  jackoContext?: JackoAppContext | null;
 };
 
 const languageOptions: {
@@ -75,18 +91,47 @@ export default function AppHeader({
   onOpenSettings,
   onOpenRecycleBin,
   onOpenAbout,
+  onOpenFarms,
+  onOpenCalendar,
+  onOpenNotes,
+  onOpenNotifications,
+  notificationCount = 0,
   theme,
   onToggleTheme,
+  isAdmin = false,
+  planTier,
+  jackoContext = null,
 }: Props) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuPresence = useAnimatedPresence(mobileMenuOpen, 220);
   const [mobileLanguageOpen, setMobileLanguageOpen] = useState(false);
   const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
+  const [jackoOpen, setJackoOpen] = useState(false);
   const mobileLanguagePresence = useAnimatedPresence(mobileLanguageOpen, 180);
   const mobileAccountPresence = useAnimatedPresence(mobileAccountOpen, 180);
   const headerRef = useRef<HTMLElement | null>(null);
 
+  const effectivePlanTier = planTier || "free";
+  const jackoAllowed = isAdmin || planAllowsJacko(effectivePlanTier);
+
   const accountLabel = guestMode ? t.guestMode : displayName || t.account;
+
+  const jackoLabels = {
+    title: t.jackoTitle,
+    subtitle: t.jackoSubtitle,
+    placeholder: t.jackoPlaceholder,
+    send: t.jackoSend,
+    thinking: t.jackoThinking,
+    intro: t.jackoIntro,
+    close: t.close,
+    error: t.jackoError,
+    contextReady: t.jackoContextReady,
+    quickReview: t.jackoQuickReview,
+    quickFertilize: t.jackoQuickFertilize,
+    quickPriorities: t.jackoQuickPriorities,
+    quickCreator: t.jackoQuickCreator,
+    quickMission: t.jackoQuickMission,
+  };
 
   function closeMobileMenu() {
     setMobileMenuOpen(false);
@@ -185,7 +230,7 @@ export default function AppHeader({
             <span className="app-header__brand-name text-base font-extrabold uppercase tracking-wide leading-tight text-green-900">
               {t.appName}
             </span>
-            <span className="app-header__brand-tagline text-[10px] font-medium text-slate-400 leading-tight">
+            <span className="app-header__brand-tagline text-[10px] font-medium leading-tight">
               {t.shortTagline}
             </span>
           </div>
@@ -194,72 +239,59 @@ export default function AppHeader({
           </span>
         </button>
 
-        {/* Desktop action buttons */}
-        <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
+        {/* Compact tools + overflow menu (all breakpoints) */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <div className="hidden items-center gap-1.5 sm:flex">
+            <button
+              type="button"
+              onClick={onToggleTheme}
+              aria-label={t.themeToggleDesc}
+              className="app-header__icon-btn touch-target h-9 w-9 grid place-items-center rounded-xl active:scale-95 transition-all"
+            >
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <LanguageSwitcher language={language} onChange={setLanguage} />
+            <AccountMenu
+              language={language}
+              email={session?.user?.email}
+              guestMode={guestMode}
+              hasSession={Boolean(session?.user)}
+              displayName={displayName}
+              onUseAccount={onUseAccount}
+              onSwitchAccount={onSwitchAccount}
+              onContinueAsGuest={onContinueAsGuest}
+              onLogout={onLogout}
+            />
+          </div>
+
+          {jackoAllowed ? (
+            <button
+              type="button"
+              onClick={() => setJackoOpen(true)}
+              aria-label={t.jackoTitle}
+              title={t.jackoTitle}
+              className="app-header__icon-btn touch-target h-9 w-9 grid place-items-center rounded-xl active:scale-95 transition-all"
+            >
+              <Bot size={18} />
+            </button>
+          ) : null}
+
           <button
             type="button"
-            onClick={onToggleTheme}
-            aria-label={t.themeToggleDesc}
-            className="touch-target h-9 w-9 grid place-items-center rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label={t.menu || "Menu"}
+            title={t.menu || "Menu"}
+            className="app-header__icon-btn touch-target h-9 w-9 grid place-items-center rounded-xl active:scale-95 transition-all"
           >
-            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <LanguageSwitcher language={language} onChange={setLanguage} />
-          <AccountMenu
-            language={language}
-            email={session?.user?.email}
-            guestMode={guestMode}
-            hasSession={Boolean(session?.user)}
-            displayName={displayName}
-            onUseAccount={onUseAccount}
-            onSwitchAccount={onSwitchAccount}
-            onContinueAsGuest={onContinueAsGuest}
-            onLogout={onLogout}
-          />
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            aria-label={t.appSettings}
-            title={t.appSettings}
-            className="touch-target h-9 w-9 grid place-items-center rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all"
-          >
-            <Settings size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={onOpenRecycleBin}
-            aria-label={t.recycleBin}
-            title={t.recycleBin}
-            className="touch-target h-9 w-9 grid place-items-center rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all"
-          >
-            <RotateCcw size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={onOpenAbout}
-            aria-label={t.about}
-            title={t.about}
-            className="touch-target h-9 w-9 grid place-items-center rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all"
-          >
-            <Info size={18} />
+            <MoreVertical size={20} />
           </button>
         </div>
-
-        {/* Mobile overflow menu button */}
-        <button
-          type="button"
-          onClick={() => setMobileMenuOpen(true)}
-          aria-label="Menu"
-          className="touch-target h-9 w-9 grid shrink-0 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all sm:hidden"
-        >
-          <MoreVertical size={20} />
-        </button>
       </div>
 
-      {/* Mobile side drawer */}
+      {/* Side drawer — planning & secondary actions for all screen sizes */}
       {mobileMenuPresence.mounted
         ? createPortal(
-          <div className="mobile-menu-overlay sm:hidden">
+          <div className="mobile-menu-overlay">
             <button
               type="button"
               aria-label={t.close}
@@ -363,6 +395,71 @@ export default function AppHeader({
                 {/* Divider */}
                 <div className="mx-4 my-1 h-px bg-black/6" />
 
+                {/* Planning section */}
+                <div className="px-2 py-1">
+                  <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    {t.planningMenu}
+                  </p>
+                  {jackoAllowed ? (
+                    <MenuRow
+                      icon={<Bot size={17} />}
+                      title={t.jackoTitle}
+                      rightIcon={<ChevronRight size={15} />}
+                      onClick={() => {
+                        closeMobileMenu();
+                        setJackoOpen(true);
+                      }}
+                    />
+                  ) : null}
+                  <MenuRow
+                    icon={<Landmark size={17} />}
+                    title={t.planningFarms}
+                    rightIcon={<ChevronRight size={15} />}
+                    onClick={() => {
+                      closeMobileMenu();
+                      onOpenFarms();
+                    }}
+                  />
+                  <MenuRow
+                    icon={<CalendarDays size={17} />}
+                    title={t.planningCalendar}
+                    rightIcon={<ChevronRight size={15} />}
+                    onClick={() => {
+                      closeMobileMenu();
+                      onOpenCalendar();
+                    }}
+                  />
+                  <MenuRow
+                    icon={<NotebookPen size={17} />}
+                    title={t.planningNotes}
+                    rightIcon={<ChevronRight size={15} />}
+                    onClick={() => {
+                      closeMobileMenu();
+                      onOpenNotes();
+                    }}
+                  />
+                  <MenuRow
+                    icon={<Bell size={17} />}
+                    title={t.planningNotifications}
+                    rightIcon={
+                      notificationCount > 0 ? (
+                        <span className="rounded-full bg-emerald-700 px-1.5 text-[10px] font-bold text-white">
+                          {notificationCount > 9 ? "9+" : notificationCount}
+                        </span>
+                      ) : (
+                        <ChevronRight size={15} />
+                      )
+                    }
+                    onClick={() => {
+                      closeMobileMenu();
+                      onOpenNotifications();
+                    }}
+                  />
+                </div>
+
+                {/* Divider */}
+                <div className="mx-4 my-1 h-px bg-black/6" />
+
                 {/* App settings section */}
                 <div className="px-2 py-1">
                   <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
@@ -451,6 +548,16 @@ export default function AppHeader({
           document.body
         )
         : null}
+
+      <JackoBot
+        open={jackoOpen}
+        onClose={() => setJackoOpen(false)}
+        language={language}
+        planTier={effectivePlanTier}
+        email={session?.user?.email}
+        context={jackoContext}
+        labels={jackoLabels}
+      />
     </header>
   );
 }

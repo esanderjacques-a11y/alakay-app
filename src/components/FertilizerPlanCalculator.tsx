@@ -8,7 +8,7 @@ import {
   type CalculationOutput,
   type CalculatorValue,
 } from "@/lib/agronomicCalculators";
-import { useMemoryNumber } from "@/hooks/useCalculatorMemory";
+import { useMemoryNumber, useMemoryString } from "@/hooks/useCalculatorMemory";
 import { useViewLayoutPreference } from "@/hooks/useViewLayoutPreference";
 import MenuSelect from "@/components/ui/MenuSelect";
 import { useSoilFertilityReference } from "@/lib/soilFertilityData";
@@ -48,6 +48,7 @@ type Props = {
   lab: Map<string, CalculatorValue>;
   selectedCropName?: string | null;
   layout?: "grid" | "list";
+  showCalculatorFormulas?: boolean;
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
   onOpenCostPage?: () => void;
   onDosePlanChange?: (payload: {
@@ -78,6 +79,7 @@ export default function FertilizerPlanCalculator({
   lab,
   selectedCropName,
   layout: layoutProp,
+  showCalculatorFormulas = false,
   onOutputsChange,
   onOpenCostPage,
   onDosePlanChange,
@@ -91,7 +93,11 @@ export default function FertilizerPlanCalculator({
   );
   const needsVariantChoice = cropVariants.length > 1;
   const sourceMatchedCrop = cropVariants.length === 1 ? cropVariants[0] : null;
-  const [selectedTableCropKey, setSelectedTableCropKey] = useState("");
+  const [selectedTableCropKey, setSelectedTableCropKey] = useMemoryString(
+    "fertilizer",
+    "selectedTableCropKey",
+    ""
+  );
   const selectedTableCrop = useMemo(
     () => reference.cropExtraction.find((crop) => crop.cropKey === selectedTableCropKey) || null,
     [reference.cropExtraction, selectedTableCropKey]
@@ -108,7 +114,10 @@ export default function FertilizerPlanCalculator({
 
   useEffect(() => {
     if (cropVariants.length === 1) {
-      setSelectedTableCropKey("");
+      const onlyKey = cropVariants[0].cropKey;
+      if (selectedTableCropKey !== onlyKey) {
+        setSelectedTableCropKey(onlyKey);
+      }
       return;
     }
     if (
@@ -118,12 +127,39 @@ export default function FertilizerPlanCalculator({
     ) {
       setSelectedTableCropKey("");
     }
-  }, [cropVariants, selectedTableCropKey]);
+  }, [cropVariants, selectedTableCropKey, setSelectedTableCropKey]);
 
-  const [calcMode, setCalcMode] = useState<PlanCalcMode>("full");
-  const [displayMode, setDisplayMode] = useState<NutrientDisplayMode>("oxide");
-  const [irrigationSystem, setIrrigationSystem] = useState<IrrigationSystem>("aspersion_pivote");
-  const [areaUnit, setAreaUnit] = useState<AreaUnit>("ha");
+  const [calcModeRaw, setCalcModeRaw] = useMemoryString("fertilizer", "calcMode", "full");
+  const calcMode: PlanCalcMode = calcModeRaw === "dose" ? "dose" : "full";
+  const setCalcMode = (mode: PlanCalcMode) => setCalcModeRaw(mode);
+
+  const [displayModeRaw, setDisplayModeRaw] = useMemoryString(
+    "fertilizer",
+    "displayMode",
+    "oxide"
+  );
+  const displayMode: NutrientDisplayMode =
+    displayModeRaw === "elemental" ? "elemental" : "oxide";
+  const setDisplayMode = (mode: NutrientDisplayMode) => setDisplayModeRaw(mode);
+
+  const [irrigationSystemRaw, setIrrigationSystemRaw] = useMemoryString(
+    "fertilizer",
+    "irrigationSystem",
+    "aspersion_pivote"
+  );
+  const irrigationSystem: IrrigationSystem = (
+    IRRIGATION_SYSTEM_OPTIONS as readonly string[]
+  ).includes(irrigationSystemRaw)
+    ? (irrigationSystemRaw as IrrigationSystem)
+    : "aspersion_pivote";
+  const setIrrigationSystem = (system: IrrigationSystem) => setIrrigationSystemRaw(system);
+
+  const [areaUnitRaw, setAreaUnitRaw] = useMemoryString("fertilizer", "areaUnit", "ha");
+  const areaUnit: AreaUnit = (AREA_UNITS as readonly string[]).includes(areaUnitRaw)
+    ? (areaUnitRaw as AreaUnit)
+    : "ha";
+  const setAreaUnit = (unit: AreaUnit) => setAreaUnitRaw(unit);
+
   const [selectedDoseKey, setSelectedDoseKey] = useState<string | null>(null);
 
   const defaultYield =
@@ -202,21 +238,23 @@ export default function FertilizerPlanCalculator({
   const [kLab, setKLab] = useMemoryNumber("fertilizer", "k", lab.get("potassium")?.value || 0);
   const [mgLab, setMgLab] = useMemoryNumber("fertilizer", "mg", lab.get("magnesium")?.value || 0);
 
-  const irrigDefaults = irrigationEfficiencyDefaults(irrigationSystem, reference.irrigationEfficiency);
-  const [effN, setEffN] = useState(irrigDefaults.n);
-  const [effP, setEffP] = useState(irrigDefaults.p);
-  const [effK, setEffK] = useState(irrigDefaults.k);
-  const [effMg, setEffMg] = useState(irrigDefaults.mg);
-  const irrigationTouched = useRef(false);
+  const irrigDefaults = irrigationEfficiencyDefaults(
+    irrigationSystem,
+    reference.irrigationEfficiency
+  );
+  const [effN, setEffN] = useMemoryNumber("fertilizer", "effN", irrigDefaults.n);
+  const [effP, setEffP] = useMemoryNumber("fertilizer", "effP", irrigDefaults.p);
+  const [effK, setEffK] = useMemoryNumber("fertilizer", "effK", irrigDefaults.k);
+  const [effMg, setEffMg] = useMemoryNumber("fertilizer", "effMg", irrigDefaults.mg);
 
-  useEffect(() => {
-    if (irrigationTouched.current) return;
-    const next = irrigationEfficiencyDefaults(irrigationSystem, reference.irrigationEfficiency);
+  function applyIrrigationSystem(system: IrrigationSystem) {
+    setIrrigationSystem(system);
+    const next = irrigationEfficiencyDefaults(system, reference.irrigationEfficiency);
     setEffN(next.n);
     setEffP(next.p);
     setEffK(next.k);
     setEffMg(next.mg);
-  }, [irrigationSystem, reference.irrigationEfficiency]);
+  }
 
   const factors = reference.oxideFactors;
 
@@ -267,9 +305,13 @@ export default function FertilizerPlanCalculator({
   );
 
   useEffect(() => {
+    // Wait until a crop is resolved so remount without picker key does not wipe memory
+    if (!matchedCrop && !selectedCropName) return;
     const key = matchedCrop?.cropKey ?? `manual:${selectedCropName || ""}`;
     const cropCode = hashCropKey(key);
     if (extractCropCode === cropCode) return;
+    // Avoid wiping remembered extracts when crop picker has not restored yet
+    if (!matchedCrop && extractCropCode !== 0) return;
     setExtractN(tableExtract.n);
     setExtractP2o5(tableExtract.p2o5);
     setExtractK2o(tableExtract.k2o);
@@ -790,10 +832,7 @@ export default function FertilizerPlanCalculator({
               <SelectField
                 label={t.irrigationSystemLabel || "Irrigation system"}
                 value={irrigationSystem}
-                onChange={(value) => {
-                  irrigationTouched.current = false;
-                  setIrrigationSystem(value as IrrigationSystem);
-                }}
+                onChange={(value) => applyIrrigationSystem(value as IrrigationSystem)}
                 options={IRRIGATION_SYSTEM_OPTIONS.map((system) => [
                   system,
                   t[`irrigation_${system}`] || system,
@@ -805,37 +844,25 @@ export default function FertilizerPlanCalculator({
               <NumberField
                 label={`${labels.n} %`}
                 value={effN}
-                onChange={(v) => {
-                  irrigationTouched.current = true;
-                  setEffN(v);
-                }}
+                onChange={setEffN}
                 preserveCase
               />
               <NumberField
                 label={`${labels.p} %`}
                 value={effP}
-                onChange={(v) => {
-                  irrigationTouched.current = true;
-                  setEffP(v);
-                }}
+                onChange={setEffP}
                 preserveCase
               />
               <NumberField
                 label={`${labels.k} %`}
                 value={effK}
-                onChange={(v) => {
-                  irrigationTouched.current = true;
-                  setEffK(v);
-                }}
+                onChange={setEffK}
                 preserveCase
               />
               <NumberField
                 label={`${labels.mg} %`}
                 value={effMg}
-                onChange={(v) => {
-                  irrigationTouched.current = true;
-                  setEffMg(v);
-                }}
+                onChange={setEffMg}
                 preserveCase
               />
             </div>
@@ -881,51 +908,58 @@ export default function FertilizerPlanCalculator({
                   t={t}
                   areaUnit={areaUnit}
                   layout={resultsLayout}
-                  selected={selectedDoseKey === dose.key}
-                  onSelect={() =>
-                    setSelectedDoseKey((prev) => (prev === dose.key ? null : dose.key))
+                  selected={showCalculatorFormulas && selectedDoseKey === dose.key}
+                  onSelect={
+                    showCalculatorFormulas
+                      ? () =>
+                          setSelectedDoseKey((prev) =>
+                            prev === dose.key ? null : dose.key
+                          )
+                      : undefined
                   }
                 />
               ))}
             </div>
 
-            {selectedDose ? (
-              <div className="fertilizer-plan__steps-panel mt-2 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wide text-emerald-800">
-                    {`${selectedDose.nutrient} — ${t.fertilizerPlanStepsTitle || "Calculation steps"}`}
-                  </h4>
-                  <button
-                    type="button"
-                    className="calc-guided-stepper__nav-btn text-xs"
-                    onClick={() => setSelectedDoseKey(null)}
-                  >
-                    {t.close || "Close"}
-                  </button>
+            {showCalculatorFormulas ? (
+              selectedDose ? (
+                <div className="fertilizer-plan__steps-panel mt-2 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wide text-emerald-800">
+                      {`${selectedDose.nutrient} — ${t.fertilizerPlanStepsTitle || "Calculation steps"}`}
+                    </h4>
+                    <button
+                      type="button"
+                      className="calc-guided-stepper__nav-btn text-xs"
+                      onClick={() => setSelectedDoseKey(null)}
+                    >
+                      {t.close || "Close"}
+                    </button>
+                  </div>
+                  <div className="fertilizer-plan__steps">
+                    {selectedDose.steps.map((step, index) => (
+                      <DoseStepRow key={`${selectedDose.key}-${index}`} step={step} t={t} />
+                    ))}
+                  </div>
+                  {plan.sections[0] ? (
+                    <details className="fertilizer-plan__hint">
+                      <summary className="cursor-pointer text-xs font-bold text-emerald-800">
+                        {plan.sections[0].title}
+                      </summary>
+                      <div className="fertilizer-plan__steps mt-2">
+                        {plan.sections[0].steps.map((step, index) => (
+                          <DoseStepRow key={`mass-${index}`} step={step} t={t} />
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
                 </div>
-                <div className="fertilizer-plan__steps">
-                  {selectedDose.steps.map((step, index) => (
-                    <DoseStepRow key={`${selectedDose.key}-${index}`} step={step} t={t} />
-                  ))}
-                </div>
-                {plan.sections[0] ? (
-                  <details className="fertilizer-plan__hint">
-                    <summary className="cursor-pointer text-xs font-bold text-emerald-800">
-                      {plan.sections[0].title}
-                    </summary>
-                    <div className="fertilizer-plan__steps mt-2">
-                      {plan.sections[0].steps.map((step, index) => (
-                        <DoseStepRow key={`mass-${index}`} step={step} t={t} />
-                      ))}
-                    </div>
-                  </details>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {t.fertilizerPlanViewSteps || "Tap a card to see calculation steps."}
-              </p>
-            )}
+              ) : (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t.fertilizerPlanViewSteps || "Tap a card to see calculation steps."}
+                </p>
+              )
+            ) : null}
           </div>
 
           <details className="fertilizer-plan__interpretation calc-surface">
@@ -995,7 +1029,7 @@ function DoseResultCard({
   areaUnit: AreaUnit;
   layout: "grid" | "list";
   selected: boolean;
-  onSelect: () => void;
+  onSelect?: () => void;
 }) {
   const showPlot = areaUnit !== "ha" && dose.dosisPlot != null && dose.viaEncalado
     ? true
@@ -1010,38 +1044,48 @@ function DoseResultCard({
         ? `${dose.dosisPlot} ${dose.unitPlot}`
         : `${dose.dosisKgHa} ${dose.unitHa}`;
 
+  const cardClassName = `calculator-action-card fertilizer-plan__dose-card text-left ${
+    layout === "list" ? "fertilizer-plan__dose-card--list" : "fertilizer-plan__dose-card--grid"
+  } ${selected ? "calc-result-card--selected" : ""} ${
+    dose.notRequired && !dose.viaEncalado ? "fertilizer-plan__dose-card--nf" : ""
+  }`;
+
+  const body = (
+    <div className="calculator-action-card__copy">
+      <p className="calculator-action-card__title">{dose.nutrient}</p>
+      <p
+        className={`fertilizer-plan__dose-value ${
+          dose.notRequired && !dose.viaEncalado ? "fertilizer-plan__dose-value--nf" : ""
+        }`}
+      >
+        {valueText}
+      </p>
+      {dose.viaEncalado ? (
+        <p className="fertilizer-plan__dose-sub">
+          {dose.dosisOxideKgHa != null
+            ? `${t.fertilizerPlanViaLime || "Via liming"} · ${dose.demandaKgHa} ${dose.nutrientOxide}/ha`
+            : t.fertilizerPlanCaNote || "Supply Ca with the Amendment calculator."}
+        </p>
+      ) : null}
+      {!dose.notRequired && !dose.viaEncalado && showPlot ? (
+        <p className="fertilizer-plan__dose-sub">{`${dose.dosisKgHa} ${dose.unitHa}`}</p>
+      ) : null}
+    </div>
+  );
+
+  if (!onSelect) {
+    return <div className={cardClassName}>{body}</div>;
+  }
+
   return (
     <button
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
       aria-label={`${dose.nutrient} — ${t.fertilizerPlanViewSteps || "View steps"}`}
-      className={`calculator-action-card fertilizer-plan__dose-card text-left ${
-        layout === "list" ? "fertilizer-plan__dose-card--list" : "fertilizer-plan__dose-card--grid"
-      } ${selected ? "calc-result-card--selected" : ""} ${
-        dose.notRequired && !dose.viaEncalado ? "fertilizer-plan__dose-card--nf" : ""
-      }`}
+      className={cardClassName}
     >
-      <div className="calculator-action-card__copy">
-        <p className="calculator-action-card__title">{dose.nutrient}</p>
-        <p
-          className={`fertilizer-plan__dose-value ${
-            dose.notRequired && !dose.viaEncalado ? "fertilizer-plan__dose-value--nf" : ""
-          }`}
-        >
-          {valueText}
-        </p>
-        {dose.viaEncalado ? (
-          <p className="fertilizer-plan__dose-sub">
-            {dose.dosisOxideKgHa != null
-              ? `${t.fertilizerPlanViaLime || "Via liming"} · ${dose.demandaKgHa} ${dose.nutrientOxide}/ha`
-              : t.fertilizerPlanCaNote || "Supply Ca with the Amendment calculator."}
-          </p>
-        ) : null}
-        {!dose.notRequired && !dose.viaEncalado && showPlot ? (
-          <p className="fertilizer-plan__dose-sub">{`${dose.dosisKgHa} ${dose.unitHa}`}</p>
-        ) : null}
-      </div>
+      {body}
     </button>
   );
 }

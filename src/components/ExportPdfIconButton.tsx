@@ -1,6 +1,6 @@
 "use client";
 
-import { FileDown } from "lucide-react";
+import { FileText } from "lucide-react";
 
 type Props = {
   onClick: () => void;
@@ -32,7 +32,7 @@ export default function ExportPdfIconButton({
           aria-hidden
         />
       ) : (
-        <FileDown size={17} strokeWidth={2.25} aria-hidden />
+        <FileText size={17} strokeWidth={2.25} aria-hidden />
       )}
     </button>
   );

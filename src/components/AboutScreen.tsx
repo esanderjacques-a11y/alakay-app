@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Fraunces, Outfit } from "next/font/google";
 import BackButton from "@/components/ui/BackButton";
 import {
   Heart,
@@ -15,18 +14,6 @@ import {
 import FeedbackSection from "@/components/FeedbackSection";
 import ImpactSection from "@/components/ImpactSection";
 import type { Translation } from "@/lib/translations";
-
-const aboutDisplay = Fraunces({
-  subsets: ["latin", "latin-ext"],
-  variable: "--font-about-display",
-  display: "swap",
-});
-
-const aboutBody = Outfit({
-  subsets: ["latin", "latin-ext"],
-  variable: "--font-about-body",
-  display: "swap",
-});
 
 const CONTACT_EMAIL = "jesander@earth.ac.cr";
 const PHONE_CR = "+506 8828 7831";
@@ -57,18 +44,20 @@ type Props = {
 
 function AboutDonateBar({ t }: { t: Translation }) {
   return (
-    <a
-      href={PAYPAL_DONATE_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="about-donate-link"
-    >
-      <Heart size={15} aria-hidden />
-      <span>
-        <strong>{t.aboutDonate}</strong>
-        <em>{t.aboutDonateSupport}</em>
-      </span>
-    </a>
+    <div className="about-flat-donate-bar">
+      <a
+        href={PAYPAL_DONATE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="about-flat-donate-btn about-flat-donate-btn--paypal"
+      >
+        <Heart size={16} aria-hidden />
+        <span className="about-flat-donate-copy">
+          <strong>{t.aboutDonate}</strong>
+          <span className="about-flat-donate-hint">{t.aboutDonateSupport}</span>
+        </span>
+      </a>
+    </div>
   );
 }
 
@@ -145,9 +134,7 @@ export default function AboutScreen({
   }
 
   return (
-    <section
-      className={`animate-slide-up about-screen-wrap ${aboutDisplay.variable} ${aboutBody.variable}`}
-    >
+    <section className="animate-slide-up about-screen-wrap">
       <div className="about-shell">
         <div className="about-header">
           <div className="page-title-row page-title-row--centered">
@@ -173,8 +160,10 @@ export default function AboutScreen({
                 className="about-hero-photo about-hero-photo--logo"
               />
             )}
-            <p className="about-brand">{t.appName}</p>
-            <p className="about-tagline">{t.aboutTagline}</p>
+            <div className="about-hero__copy">
+              <p className="about-brand">{t.appName}</p>
+              <p className="about-tagline">{t.aboutTagline}</p>
+            </div>
           </header>
 
           <nav className="about-tabs" aria-label={t.aboutTitle}>
@@ -195,41 +184,49 @@ export default function AboutScreen({
           <div className="about-content">
             {tab === "about" ? (
               <div className="about-flow">
-                <p className="about-lede">{t.aboutIntro}</p>
+                <div className="about-card-grid about-card-grid--statements">
+                  <section className="about-card about-card--statement">
+                    <h2 className="about-kicker">{t.aboutMissionLabel}</h2>
+                    <p className="about-copy about-copy--statement">{t.aboutMission}</p>
+                  </section>
 
-                <section className="about-passage">
-                  <h2 className="about-kicker">{t.aboutMissionLabel}</h2>
-                  <p className="about-copy">{t.aboutMission}</p>
-                </section>
+                  <section className="about-card about-card--statement">
+                    <h2 className="about-kicker">{t.aboutVisionLabel}</h2>
+                    <p className="about-copy about-copy--statement">{t.aboutVision}</p>
+                  </section>
+                </div>
 
-                <section className="about-passage">
-                  <h2 className="about-kicker">{t.aboutVisionLabel}</h2>
-                  <p className="about-copy">{t.aboutVision}</p>
-                </section>
-
-                <section className="about-passage">
+                <section className="about-card about-card--contact">
                   <h2 className="about-kicker">{t.aboutContactLabel}</h2>
                   <ul className="about-contact">
                     <li>
-                      <Mail size={15} aria-hidden />
+                      <span className="about-contact__icon" aria-hidden>
+                        <Mail size={15} />
+                      </span>
                       <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
                     </li>
                     <li>
-                      <Phone size={15} aria-hidden />
+                      <span className="about-contact__icon" aria-hidden>
+                        <Phone size={15} />
+                      </span>
                       <div>
                         <a href={`tel:${PHONE_CR.replace(/\s/g, "")}`}>{PHONE_CR}</a>
                         <span>{t.aboutPhoneCr}</span>
                       </div>
                     </li>
                     <li>
-                      <Phone size={15} aria-hidden />
+                      <span className="about-contact__icon" aria-hidden>
+                        <Phone size={15} />
+                      </span>
                       <div>
                         <a href={`tel:${PHONE_HT.replace(/\s/g, "")}`}>{PHONE_HT}</a>
                         <span>{t.aboutPhoneHt}</span>
                       </div>
                     </li>
                     <li>
-                      <Linkedin size={15} aria-hidden />
+                      <span className="about-contact__icon" aria-hidden>
+                        <Linkedin size={15} />
+                      </span>
                       <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer">
                         LinkedIn
                       </a>
@@ -244,19 +241,10 @@ export default function AboutScreen({
                     <Sparkles size={15} aria-hidden />
                     {t.aboutAddRequest}
                   </button>
-                  <a
-                    href={PAYPAL_DONATE_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="about-action about-action--ghost"
-                  >
-                    <Heart size={15} aria-hidden />
-                    {t.aboutDonate}
-                  </a>
                 </div>
 
                 {showRequestForm ? (
-                  <section ref={requestSectionRef} className="about-passage">
+                  <section ref={requestSectionRef} className="about-card">
                     <h2 className="about-kicker">{t.featureRequest}</h2>
                     <p className="about-copy">{t.featureRequestDesc}</p>
                     <form className="about-form" onSubmit={handleFeatureRequest}>
@@ -331,10 +319,11 @@ export default function AboutScreen({
           </div>
         </div>
 
-        <div className="about-foot" aria-label={t.aboutDeveloperLabel}>
-          <footer className="about-credit">
-            <p className="about-credit-label">{t.aboutDeveloperLabel}</p>
-            <p className="about-credit-line">
+        <div className="about-flat-bottom-bar" aria-label={t.aboutDeveloperLabel}>
+          <AboutDonateBar t={t} />
+          <footer className="about-flat-developer-footer">
+            <p className="about-flat-developer-label">{t.aboutDeveloperLabel}</p>
+            <p className="about-flat-developer-line">
               <span>{t.aboutCreatorFullName}</span>
               <span aria-hidden> · </span>
               <span>{t.aboutCreatorCountry}</span>
@@ -342,7 +331,6 @@ export default function AboutScreen({
               <span>{t.aboutDeveloperTitle}</span>
             </p>
           </footer>
-          <AboutDonateBar t={t} />
         </div>
       </div>
     </section>

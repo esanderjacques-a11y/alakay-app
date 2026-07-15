@@ -1,8 +1,10 @@
 import {
   TABLE_1_BY_EXTRACTANT,
+  TABLE_6_CMOL_TO_MGKG,
   type Extractant,
   type Table1Parameter,
 } from "@/lib/soilFertilityTables";
+import { canConvertLabUnit, convertLabUnit } from "@/lib/unitConversions";
 
 export type ExtractionMethod = "general" | "olsen" | "mehlich" | "bray";
 
@@ -102,6 +104,25 @@ export function isPhosphorusParameter(parameter: ParameterLike) {
   return /\b(p|phosphorus|fosforo|phosphore)\b/.test(haystack);
 }
 
+const SYMBOL_TO_TABLE1: Record<string, Table1Parameter> = {
+  ph: "ph",
+  "ph h2o": "ph",
+  "ph water": "ph",
+  ca: "ca",
+  mg: "mg",
+  k: "k",
+  na: "na",
+  p: "p",
+  s: "s",
+  fe: "fe",
+  cu: "cu",
+  zn: "zn",
+  mn: "mn",
+  ae: "acidez_extraible",
+  "h+al": "acidez_extraible",
+  "al+h": "acidez_extraible",
+};
+
 /** Map a lab parameter to a Tabla N.° 1 row key, if any. */
 export function resolveTable1Parameter(
   parameter: ParameterLike
@@ -111,8 +132,13 @@ export function resolveTable1Parameter(
     return PARAMETER_KEY_TO_TABLE1[key];
   }
 
+  const symbol = normalizeToken(parameter.symbol || "");
+  if (symbol && SYMBOL_TO_TABLE1[symbol]) {
+    return SYMBOL_TO_TABLE1[symbol];
+  }
+
   const haystack = normalizeToken(
-    `${parameter.parameter_name} ${parameter.display_name} ${parameter.symbol || ""} ${parameter.parameter_key || ""}`
+    `${parameter.parameter_name} ${parameter.display_name} ${parameter.parameter_key || ""}`
   );
 
   if (
@@ -132,24 +158,126 @@ export function resolveTable1Parameter(
     return "ph";
   }
 
-  if (/\b(p|phosphorus|fosforo|phosphore)\b/.test(haystack)) return "p";
-  if (/\b(k|potassium|potasio)\b/.test(haystack)) return "k";
-  if (/\b(ca|calcium|calcio)\b/.test(haystack)) return "ca";
-  if (/\b(mg|magnesium|magnesio)\b/.test(haystack)) return "mg";
-  if (/\b(na|sodium|sodio)\b/.test(haystack)) return "na";
-  if (!/\b(saturation|saturacion|base)\b/.test(haystack)) {
-    if (/\b(sulfur|azufre|soufre|sulphate|sulfate)\b/.test(haystack)) return "s";
-    if (
-      haystack === "s" ||
-      /\bs\b/.test(normalizeToken(parameter.symbol || ""))
-    ) {
-      return "s";
-    }
+  // Prefer full nutrient names before single-letter matches to avoid
+  // mangling unrelated parameters (OM, BS, Al, CEC, etc.).
+  if (/\b(phosphorus|fosforo|phosphore|phosphate|fosfato)\b/.test(haystack)) {
+    return "p";
   }
-  if (/\b(fe|iron|hierro|fer)\b/.test(haystack)) return "fe";
-  if (/\b(cu|copper|cobre|cuivre)\b/.test(haystack)) return "cu";
-  if (/\b(zn|zinc)\b/.test(haystack)) return "zn";
-  if (/\b(mn|manganese|manganeso)\b/.test(haystack)) return "mn";
+  if (/\b(potassium|potasio|potassium exchangeable)\b/.test(haystack)) {
+    return "k";
+  }
+  if (/\b(calcium|calcio)\b/.test(haystack)) return "ca";
+  if (/\b(magnesium|magnesio)\b/.test(haystack)) return "mg";
+  if (/\b(sodium|sodio)\b/.test(haystack)) return "na";
+  if (
+    !/\b(saturation|saturacion|base)\b/.test(haystack) &&
+    /\b(sulfur|azufre|soufre|sulphate|sulfate)\b/.test(haystack)
+  ) {
+    return "s";
+  }
+  if (/\b(iron|hierro|fer)\b/.test(haystack)) return "fe";
+  if (/\b(copper|cobre|cuivre)\b/.test(haystack)) return "cu";
+  if (/\b(zinc)\b/.test(haystack)) return "zn";
+  if (/\b(manganese|manganeso)\b/.test(haystack)) return "mn";
+
+  // Single-letter tokens only when they stand alone as the main label.
+  if (/^(p|phosphorus)$/.test(haystack) || haystack === "p") return "p";
+  if (/^(k|potassium|potasio)$/.test(haystack)) return "k";
+  if (/^(ca|calcium|calcio)$/.test(haystack)) return "ca";
+  if (/^(mg|magnesium|magnesio)$/.test(haystack)) return "mg";
+  if (/^(na|sodium|sodio)$/.test(haystack)) return "na";
+  if (/^(s|sulfur|azufre)$/.test(haystack)) return "s";
+  if (/^(fe|iron|hierro)$/.test(haystack)) return "fe";
+  if (/^(cu|copper|cobre)$/.test(haystack)) return "cu";
+  if (/^(zn|zinc)$/.test(haystack)) return "zn";
+  if (/^(mn|manganese|manganeso)$/.test(haystack)) return "mn";
+
+  return null;
+}
+
+function cleanUnitToken(unit: string) {
+  return unit
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/[\u00b5\u03bc]/g, "u");
+}
+
+function isCmolUnit(unit: string) {
+  const u = cleanUnitToken(unit);
+  return (
+    u.includes("cmol") ||
+    u.includes("meq/100g") ||
+    u.includes("meq100g") ||
+    u === "meq/100g"
+  );
+}
+
+function isMgPerKgUnit(unit: string) {
+  const u = cleanUnitToken(unit);
+  return (
+    u === "mg/kg" ||
+    u === "mgkg-1" ||
+    u === "mg.kg-1" ||
+    u === "ppm" ||
+    u === "ug/g"
+  );
+}
+
+/**
+ * Convert a Tabla N.° 1 band into the user's display unit.
+ * Returns null when conversion is impossible so callers can fall back to
+ * crop / general sufficiency ranges.
+ */
+export function convertTable1RangeToDisplayUnit(
+  range: {
+    min: number;
+    max: number;
+    unit: string;
+    table1Parameter: Table1Parameter;
+  },
+  displayUnit: string
+): { min: number; max: number; unit: string } | null {
+  const fromUnit = range.unit || "";
+  const toUnit = displayUnit || "";
+
+  if (!toUnit || !fromUnit || cleanUnitToken(fromUnit) === cleanUnitToken(toUnit)) {
+    return { min: range.min, max: range.max, unit: toUnit || fromUnit };
+  }
+
+  if (canConvertLabUnit(fromUnit, toUnit)) {
+    const minConverted = convertLabUnit(range.min, fromUnit, toUnit);
+    const maxConverted = convertLabUnit(range.max, fromUnit, toUnit);
+    if (!minConverted || !maxConverted) return null;
+    return {
+      min: minConverted.value,
+      max: maxConverted.value,
+      unit: toUnit,
+    };
+  }
+
+  const factor =
+    range.table1Parameter === "ca" ||
+    range.table1Parameter === "mg" ||
+    range.table1Parameter === "k" ||
+    range.table1Parameter === "na"
+      ? TABLE_6_CMOL_TO_MGKG[range.table1Parameter]
+      : null;
+
+  if (factor && isCmolUnit(fromUnit) && isMgPerKgUnit(toUnit)) {
+    return {
+      min: range.min * factor,
+      max: range.max * factor,
+      unit: toUnit,
+    };
+  }
+
+  if (factor && isMgPerKgUnit(fromUnit) && isCmolUnit(toUnit)) {
+    return {
+      min: range.min / factor,
+      max: range.max / factor,
+      unit: toUnit,
+    };
+  }
 
   return null;
 }

@@ -18,6 +18,7 @@ import type { Session } from "@supabase/supabase-js";
 import {
   AppSettings,
   AccentColor,
+  AppFontPreference,
   AppThemePreference,
   DefaultCrop,
   DefaultExportFormat,
@@ -33,6 +34,7 @@ import {
 } from "@/lib/appSettings";
 import {
   applyAccentColor,
+  applyAppFont,
   applyBrightness,
   applyContrast,
   applyGlassUi,
@@ -81,6 +83,7 @@ type SettingsText = {
     display: string;
     account: string;
     analysis: string;
+    billing: string;
     importAi: string;
     reports: string;
     data: string;
@@ -93,6 +96,7 @@ type SettingsText = {
     saturation: string;
     contrast: string;
     appFontSize: string;
+    appFont: string;
     accentColor: string;
     glassUi: string;
     defaultSampleType: string;
@@ -101,6 +105,10 @@ type SettingsText = {
     warningSensitivity: string;
     enableNutrientRatios: string;
     enablePhWarnings: string;
+    showCalculatorFormulas: string;
+    showCalculatorFormulasHint: string;
+    planTier: string;
+    planTierHint: string;
     defaultImportType: string;
     aiReader: string;
     requireReviewBeforeSaving: string;
@@ -136,6 +144,10 @@ type SettingsText = {
     light: string;
     dark: string;
     darkBlack: string;
+    fontNunito: string;
+    fontSourceSans: string;
+    fontDmSans: string;
+    fontManrope: string;
     accentGreen: string;
     accentTeal: string;
     accentBlue: string;
@@ -190,6 +202,7 @@ const settingsText: Record<Language, SettingsText> = {
       display: "Display",
       account: "Account",
       analysis: "Analysis",
+      billing: "Plan & billing",
       importAi: "Import / AI reader",
       reports: "Reports",
       data: "Data",
@@ -202,6 +215,7 @@ const settingsText: Record<Language, SettingsText> = {
       saturation: "Saturation",
       contrast: "Contrast",
       appFontSize: "App size",
+      appFont: "App font",
       accentColor: "App accent color",
       glassUi: "Glass blur UI",
       defaultSampleType: "Default sample type",
@@ -210,6 +224,12 @@ const settingsText: Record<Language, SettingsText> = {
       warningSensitivity: "Warning sensitivity",
       enableNutrientRatios: "Enable nutrient ratios",
       enablePhWarnings: "Enable pH warnings",
+      showCalculatorFormulas: "Show calculator formulas",
+      showCalculatorFormulasHint:
+        "Requires Pro or Business plan. Shows formulas and step-by-step explanations in the Calculator.",
+      planTier: "App plan",
+      planTierHint:
+        "Placeholder for future billing. Pro/Business unlock calculator formulas when enabled below.",
       defaultImportType: "Default import type",
       aiReader: "Document reader",
       requireReviewBeforeSaving: "Require review before saving imported data",
@@ -233,6 +253,7 @@ const settingsText: Record<Language, SettingsText> = {
       downloadMethodology: "Download calculator methodology (PDF)",
     },
     resourcesDesc: "Reference material you can download and keep offline.",
+    // TODO(depot): Farm product stock / inventory will land here later for cost optimization.
     methodologyDesc:
       "A bilingual (Spanish/English) document with every formula, calculation step, and reference table used across the Calculator module, with citations.",
     methodologyGenerating: "Generating…",
@@ -247,6 +268,10 @@ const settingsText: Record<Language, SettingsText> = {
       light: "Light",
       dark: "Dark",
       darkBlack: "Black dark",
+      fontNunito: "Nunito",
+      fontSourceSans: "Source Sans",
+      fontDmSans: "DM Sans",
+      fontManrope: "Manrope",
       accentGreen: "Green",
       accentTeal: "Teal",
       accentBlue: "Blue",
@@ -299,6 +324,7 @@ const settingsText: Record<Language, SettingsText> = {
       display: "Pantalla",
       account: "Cuenta",
       analysis: "Análisis",
+      billing: "Plan y facturación",
       importAi: "Importación / lector IA",
       reports: "Reportes",
       data: "Datos",
@@ -311,6 +337,7 @@ const settingsText: Record<Language, SettingsText> = {
       saturation: "Saturación",
       contrast: "Contraste",
       appFontSize: "Tamaño de la app",
+      appFont: "Fuente de la app",
       accentColor: "Color principal de la app",
       glassUi: "Interfaz con efecto cristal",
       defaultSampleType: "Tipo de muestra predeterminado",
@@ -319,6 +346,12 @@ const settingsText: Record<Language, SettingsText> = {
       warningSensitivity: "Sensibilidad de alertas",
       enableNutrientRatios: "Activar relaciones de nutrientes",
       enablePhWarnings: "Activar alertas de pH",
+      showCalculatorFormulas: "Mostrar fórmulas en calculadora",
+      showCalculatorFormulasHint:
+        "Requiere plan Pro o Business. Muestra fórmulas y explicaciones paso a paso.",
+      planTier: "Plan de la app",
+      planTierHint:
+        "Base para facturación futura. Pro/Business desbloquean las fórmulas si están activadas.",
       defaultImportType: "Tipo de importación predeterminado",
       aiReader: "Lector de documentos",
       requireReviewBeforeSaving: "Revisar antes de guardar datos importados",
@@ -356,6 +389,10 @@ const settingsText: Record<Language, SettingsText> = {
       light: "Claro",
       dark: "Oscuro",
       darkBlack: "Oscuro negro",
+      fontNunito: "Nunito",
+      fontSourceSans: "Source Sans",
+      fontDmSans: "DM Sans",
+      fontManrope: "Manrope",
       accentGreen: "Verde",
       accentTeal: "Turquesa",
       accentBlue: "Azul",
@@ -408,6 +445,7 @@ const settingsText: Record<Language, SettingsText> = {
       display: "Affichage",
       account: "Compte",
       analysis: "Analyse",
+      billing: "Offre et facturation",
       importAi: "Import / lecture IA",
       reports: "Rapports",
       data: "Données",
@@ -420,6 +458,7 @@ const settingsText: Record<Language, SettingsText> = {
       saturation: "Saturation",
       contrast: "Contraste",
       appFontSize: "Taille de l’app",
+      appFont: "Police de l’app",
       accentColor: "Couleur principale de l’app",
       glassUi: "Interface effet verre",
       defaultSampleType: "Type d’échantillon par défaut",
@@ -428,6 +467,12 @@ const settingsText: Record<Language, SettingsText> = {
       warningSensitivity: "Sensibilité des alertes",
       enableNutrientRatios: "Activer les ratios de nutriments",
       enablePhWarnings: "Activer les alertes de pH",
+      showCalculatorFormulas: "Afficher les formules du calculateur",
+      showCalculatorFormulasHint:
+        "Nécessite Pro ou Business. Affiche formules et explications étape par étape.",
+      planTier: "Offre de l’app",
+      planTierHint:
+        "Base pour la facturation future. Pro/Business débloquent les formules si activées.",
       defaultImportType: "Type d’import par défaut",
       aiReader: "Lecteur de documents",
       requireReviewBeforeSaving: "Exiger une révision avant l’enregistrement",
@@ -465,6 +510,10 @@ const settingsText: Record<Language, SettingsText> = {
       light: "Clair",
       dark: "Sombre",
       darkBlack: "Noir profond",
+      fontNunito: "Nunito",
+      fontSourceSans: "Source Sans",
+      fontDmSans: "DM Sans",
+      fontManrope: "Manrope",
       accentGreen: "Vert",
       accentTeal: "Sarcelle",
       accentBlue: "Bleu",
@@ -517,6 +566,7 @@ const settingsText: Record<Language, SettingsText> = {
       display: "Afichaj",
       account: "Kont",
       analysis: "Analiz",
+      billing: "Plan ak faktirasyon",
       importAi: "Enpòte / lekti IA",
       reports: "Rapò",
       data: "Done",
@@ -529,6 +579,7 @@ const settingsText: Record<Language, SettingsText> = {
       saturation: "Satirasyon",
       contrast: "Kontras",
       appFontSize: "Gwosè app la",
+      appFont: "Font app la",
       accentColor: "Koulè prensipal app la",
       glassUi: "Entèfas vitre flou",
       defaultSampleType: "Kalite echantiyon pa defo",
@@ -537,6 +588,12 @@ const settingsText: Record<Language, SettingsText> = {
       warningSensitivity: "Sansiblite avètisman",
       enableNutrientRatios: "Aktive rapò eleman nitritif yo",
       enablePhWarnings: "Aktive avètisman pH",
+      showCalculatorFormulas: "Montre fòmil kalkilatè yo",
+      showCalculatorFormulasHint:
+        "Mande plan Pro oswa Business. Montre fòmil ak eksplikasyon etap pa etap.",
+      planTier: "Plan app la",
+      planTierHint:
+        "Fondasyon pou faktirasyon nan lavni. Pro/Business debloke fòmil yo si yo aktive.",
       defaultImportType: "Kalite enpòtasyon pa defo",
       aiReader: "Lektè dokiman",
       requireReviewBeforeSaving: "Mande revizyon anvan done enpòte yo sove",
@@ -574,6 +631,10 @@ const settingsText: Record<Language, SettingsText> = {
       light: "Klè",
       dark: "Fonse",
       darkBlack: "Fonse nwa",
+      fontNunito: "Nunito",
+      fontSourceSans: "Source Sans",
+      fontDmSans: "DM Sans",
+      fontManrope: "Manrope",
       accentGreen: "Vèt",
       accentTeal: "Ble sarcel",
       accentBlue: "Ble",
@@ -626,6 +687,7 @@ const settingsText: Record<Language, SettingsText> = {
       display: "Exibição",
       account: "Conta",
       analysis: "Análise",
+      billing: "Plano e cobrança",
       importAi: "Importação / leitor IA",
       reports: "Relatórios",
       data: "Dados",
@@ -638,6 +700,7 @@ const settingsText: Record<Language, SettingsText> = {
       saturation: "Saturação",
       contrast: "Contraste",
       appFontSize: "Tamanho do app",
+      appFont: "Fonte do app",
       accentColor: "Cor principal do app",
       glassUi: "Interface com efeito vidro",
       defaultSampleType: "Tipo de amostra padrão",
@@ -646,6 +709,12 @@ const settingsText: Record<Language, SettingsText> = {
       warningSensitivity: "Sensibilidade dos avisos",
       enableNutrientRatios: "Ativar relações de nutrientes",
       enablePhWarnings: "Ativar avisos de pH",
+      showCalculatorFormulas: "Mostrar fórmulas na calculadora",
+      showCalculatorFormulasHint:
+        "Requer plano Pro ou Business. Exibe fórmulas e explicações passo a passo.",
+      planTier: "Plano do app",
+      planTierHint:
+        "Base para cobrança futura. Pro/Business desbloqueiam fórmulas quando ativadas.",
       defaultImportType: "Tipo de importação padrão",
       aiReader: "Leitor de documentos",
       requireReviewBeforeSaving: "Exigir revisão antes de salvar dados importados",
@@ -683,6 +752,10 @@ const settingsText: Record<Language, SettingsText> = {
       light: "Claro",
       dark: "Escuro",
       darkBlack: "Escuro preto",
+      fontNunito: "Nunito",
+      fontSourceSans: "Source Sans",
+      fontDmSans: "DM Sans",
+      fontManrope: "Manrope",
       accentGreen: "Verde",
       accentTeal: "Azul-petróleo",
       accentBlue: "Azul",
@@ -735,6 +808,7 @@ const settingsText: Record<Language, SettingsText> = {
       display: "Onyesho",
       account: "Akaunti",
       analysis: "Uchambuzi",
+      billing: "Mpango na bili",
       importAi: "Ingiza / kisomaji cha AI",
       reports: "Ripoti",
       data: "Data",
@@ -747,6 +821,7 @@ const settingsText: Record<Language, SettingsText> = {
       saturation: "Usawazishaji wa rangi",
       contrast: "Kontrasti",
       appFontSize: "Ukubwa wa app",
+      appFont: "Fonti ya app",
       accentColor: "Rangi kuu ya app",
       glassUi: "Kiolesura cha kioo chenye ukungu",
       defaultSampleType: "Aina chaguo-msingi ya sampuli",
@@ -755,6 +830,12 @@ const settingsText: Record<Language, SettingsText> = {
       warningSensitivity: "Unyeti wa tahadhari",
       enableNutrientRatios: "Washa uwiano wa virutubisho",
       enablePhWarnings: "Washa tahadhari za pH",
+      showCalculatorFormulas: "Onyesha fomula za kikokotoo",
+      showCalculatorFormulasHint:
+        "Inahitaji Pro au Business. Inaonyesha fomula na maelezo hatua kwa hatua.",
+      planTier: "Mpango wa app",
+      planTierHint:
+        "Msingi wa bili baadaye. Pro/Business hufungua fomula zikipindiwa.",
       defaultImportType: "Aina chaguo-msingi ya kuingiza",
       aiReader: "Kisomaji cha hati",
       requireReviewBeforeSaving: "Hitaji ukaguzi kabla ya kuhifadhi data iliyoingizwa",
@@ -792,6 +873,10 @@ const settingsText: Record<Language, SettingsText> = {
       light: "Angavu",
       dark: "Meusi",
       darkBlack: "Meusi kabisa",
+      fontNunito: "Nunito",
+      fontSourceSans: "Source Sans",
+      fontDmSans: "DM Sans",
+      fontManrope: "Manrope",
       accentGreen: "Kijani",
       accentTeal: "Samawati-kijani",
       accentBlue: "Bluu",
@@ -843,6 +928,14 @@ const themeOptions = (text: SettingsText): { value: AppThemePreference; label: s
   { value: "light", label: text.options.light },
   { value: "dark", label: text.options.dark },
   { value: "dark_black", label: text.options.darkBlack },
+];
+
+const fontOptions = (text: SettingsText): { value: AppFontPreference; label: string }[] => [
+  { value: "system", label: text.options.system },
+  { value: "nunito", label: text.options.fontNunito },
+  { value: "source_sans", label: text.options.fontSourceSans },
+  { value: "dm_sans", label: text.options.fontDmSans },
+  { value: "manrope", label: text.options.fontManrope },
 ];
 
 const accentOptions = (text: SettingsText): { value: AccentColor; label: string }[] => [
@@ -956,6 +1049,7 @@ export default function AppSettingsScreen({
     applySaturation(nextSettings.general.saturation);
     applyContrast(nextSettings.general.contrast);
     applyGlassUi(nextSettings.general.glassUi);
+    applyAppFont(nextSettings.general.appFont);
     onAccentChange?.(nextSettings.general.accentColor);
     onBrightnessChange?.(nextSettings.general.brightness);
     document.documentElement.style.setProperty(
@@ -1179,6 +1273,20 @@ export default function AppSettingsScreen({
                 onChange={(value) => changeSetting("general", "contrast", value)}
               />
             </div>
+            <div className="settings-accent-block">
+              <MenuSelect
+                compact
+                label={text.labels.appFont}
+                value={draftSettings.general.appFont}
+                options={fontOptions(text)}
+                onChange={(value) => changeSetting("general", "appFont", value)}
+              />
+              <FontPreviewCards
+                value={draftSettings.general.appFont}
+                options={fontOptions(text)}
+                onChange={(value) => changeSetting("general", "appFont", value)}
+              />
+            </div>
             <RangeField
               label={text.labels.appFontSize}
               value={draftSettings.general.appFontSizeDelta}
@@ -1229,6 +1337,38 @@ export default function AppSettingsScreen({
                 changeSetting("analysis", "enablePhWarnings", value)
               }
             />
+            <SwitchField
+              label={text.labels.showCalculatorFormulas}
+              hint={text.labels.showCalculatorFormulasHint}
+              checked={draftSettings.analysis.showCalculatorFormulas}
+              onChange={(value) =>
+                changeSetting("analysis", "showCalculatorFormulas", value)
+              }
+              disabled={draftSettings.billing.planTier === "free"}
+            />
+          </SettingsSection>
+
+          <SettingsSection title={text.sections.billing}>
+            <MenuSelect
+              compact
+              label={text.labels.planTier}
+              value={draftSettings.billing.planTier}
+              options={[
+                ["free", "Free"],
+                ["pro", "Pro"],
+                ["business", "Business"],
+              ]}
+              onChange={(value) =>
+                changeSetting(
+                  "billing",
+                  "planTier",
+                  value as AppSettings["billing"]["planTier"]
+                )
+              }
+            />
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {text.labels.planTierHint}
+            </p>
           </SettingsSection>
 
           <SettingsSection title={text.sections.importAi}>
@@ -1468,6 +1608,48 @@ function AccentSwatches({
   );
 }
 
+const FONT_SAMPLE_STACK: Record<AppFontPreference, string> = {
+  system: '"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif',
+  nunito: "var(--font-nunito), system-ui, sans-serif",
+  source_sans: "var(--font-source-sans), system-ui, sans-serif",
+  dm_sans: "var(--font-dm-sans), system-ui, sans-serif",
+  manrope: "var(--font-manrope), system-ui, sans-serif",
+};
+
+function FontPreviewCards({
+  value,
+  options,
+  onChange,
+}: {
+  value: AppFontPreference;
+  options: { value: AppFontPreference; label: string }[];
+  onChange: (value: AppFontPreference) => void;
+}) {
+  return (
+    <div className="settings-font-cards" role="listbox" aria-label="Font">
+      {options.map((option) => {
+        const selected = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="option"
+            aria-selected={selected}
+            onClick={() => onChange(option.value)}
+            className={`settings-font-card${selected ? " is-selected" : ""}`}
+            style={{ fontFamily: FONT_SAMPLE_STACK[option.value] }}
+          >
+            <span className="settings-font-card__sample" aria-hidden>
+              Ag
+            </span>
+            <span className="settings-font-card__label">{option.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function SettingsToolbar({
   text,
   isDirty,
@@ -1561,17 +1743,21 @@ function SwitchField({
   hint,
   checked,
   onChange,
+  disabled = false,
 }: {
   label: string;
   hint?: string;
   checked: boolean;
   onChange: (value: boolean) => void;
+  disabled?: boolean;
 }) {
   const id = useId();
 
   return (
     <label
-      className={`settings-toggle-row${hint ? " settings-toggle-row--with-hint" : ""}`}
+      className={`settings-toggle-row${hint ? " settings-toggle-row--with-hint" : ""}${
+        disabled ? " opacity-60" : ""
+      }`}
       htmlFor={id}
     >
       <span className="settings-toggle-row__copy">
@@ -1582,6 +1768,7 @@ function SwitchField({
         <input
           id={id}
           type="checkbox"
+          disabled={disabled}
           role="switch"
           checked={checked}
           onChange={(event) => onChange(event.target.checked)}

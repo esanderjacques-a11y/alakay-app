@@ -22,10 +22,26 @@ function countMapEntries(map: Map<string, number>, limit?: number) {
   return typeof limit === "number" ? entries.slice(0, limit) : entries;
 }
 
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
 function monthKey(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}`;
+}
+
+function dayKey(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
+}
+
+function hourKey(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${dayKey(iso)}T${pad2(date.getUTCHours())}`;
 }
 
 function lastNMonths(n: number) {
@@ -33,9 +49,58 @@ function lastNMonths(n: number) {
   const now = new Date();
   for (let i = n - 1; i >= 0; i -= 1) {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-    keys.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
+    keys.push(`${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`);
   }
   return keys;
+}
+
+function lastNDays(n: number) {
+  const keys: string[] = [];
+  const now = new Date();
+  for (let i = n - 1; i >= 0; i -= 1) {
+    const d = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i)
+    );
+    keys.push(`${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`);
+  }
+  return keys;
+}
+
+function daysThisMonth() {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const today = now.getUTCDate();
+  const keys: string[] = [];
+  for (let day = 1; day <= today; day += 1) {
+    keys.push(`${year}-${pad2(month + 1)}-${pad2(day)}`);
+  }
+  return keys;
+}
+
+function lastNHours(n: number) {
+  const keys: string[] = [];
+  const now = new Date();
+  const start = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    now.getUTCHours() - (n - 1)
+  );
+  for (let i = 0; i < n; i += 1) {
+    const d = new Date(start + i * 60 * 60 * 1000);
+    keys.push(
+      `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}T${pad2(d.getUTCHours())}`
+    );
+  }
+  return keys;
+}
+
+function seriesFromKeys(keys: string[], counts: Map<string, number>) {
+  return keys.map((key) => ({
+    name: key,
+    count: counts.get(key) || 0,
+  }));
 }
 
 export async function GET() {
@@ -45,6 +110,7 @@ export async function GET() {
       configured: false,
       totalAnalyses: 0,
       totalCountries: 0,
+      totalRegions: 0,
       totalFeedback: 0,
       averageRating: null,
       soilShare: 0,
@@ -54,6 +120,15 @@ export async function GET() {
       languages: [],
       crops: [],
       months: [],
+      trends: {
+        day: [],
+        week: [],
+        week1: [],
+        month1: [],
+        month3: [],
+        month6: [],
+        year: [],
+      },
       sampleTypes: [],
       featured: null,
     });
@@ -73,6 +148,8 @@ export async function GET() {
   const regionCounts = new Map<string, number>();
   const cropCounts = new Map<number, number>();
   const monthCounts = new Map<string, number>();
+  const dayCounts = new Map<string, number>();
+  const hourCounts = new Map<string, number>();
   let soilCount = 0;
   let foliarCount = 0;
   let withCountry = 0;
@@ -86,8 +163,12 @@ export async function GET() {
     }
 
     if (row.created_at) {
-      const key = monthKey(row.created_at);
-      if (key) monthCounts.set(key, (monthCounts.get(key) || 0) + 1);
+      const mKey = monthKey(row.created_at);
+      if (mKey) monthCounts.set(mKey, (monthCounts.get(mKey) || 0) + 1);
+      const dKey = dayKey(row.created_at);
+      if (dKey) dayCounts.set(dKey, (dayCounts.get(dKey) || 0) + 1);
+      const hKey = hourKey(row.created_at);
+      if (hKey) hourCounts.set(hKey, (hourCounts.get(hKey) || 0) + 1);
     }
 
     const country = row.country?.trim();
@@ -101,7 +182,8 @@ export async function GET() {
     }
   }
 
-  const countries = countMapEntries(countryCounts, 12);
+  // Full country set for the choropleth; UI list still shows a top slice.
+  const countries = countMapEntries(countryCounts);
   const regions = countMapEntries(regionCounts, 8);
 
   const topCropIds = [...cropCounts.entries()]
@@ -126,11 +208,19 @@ export async function GET() {
     count: cropCounts.get(id) || 0,
   }));
 
-  const monthKeys = lastNMonths(6);
-  const months = monthKeys.map((key) => ({
-    name: key,
-    count: monthCounts.get(key) || 0,
-  }));
+  const trends = {
+    day: seriesFromKeys(lastNHours(24), hourCounts),
+    week: seriesFromKeys(lastNDays(7), dayCounts),
+    week1: seriesFromKeys(lastNDays(7), dayCounts),
+    month1: seriesFromKeys(daysThisMonth(), dayCounts),
+    month3: seriesFromKeys(lastNMonths(3), monthCounts),
+    month6: seriesFromKeys(lastNMonths(6), monthCounts),
+    year: seriesFromKeys(lastNMonths(12), monthCounts),
+    // Legacy alias
+    month: seriesFromKeys(daysThisMonth(), dayCounts),
+  };
+  // Keep months for older clients; same as year view.
+  const months = trends.year;
 
   const typedTotal = soilCount + foliarCount;
   const sampleTypes = [
@@ -193,6 +283,7 @@ export async function GET() {
     configured: true,
     totalAnalyses: rows.length,
     totalCountries: countryCounts.size,
+    totalRegions: regionCounts.size,
     totalFeedback: feedbackCount || 0,
     averageRating,
     soilShare: typedTotal > 0 ? Math.round((soilCount / typedTotal) * 100) : 0,
@@ -202,6 +293,7 @@ export async function GET() {
     languages: countMapEntries(languageCounts),
     crops,
     months,
+    trends,
     sampleTypes,
     featured: feedbackRows?.[0] || null,
     withCountry,

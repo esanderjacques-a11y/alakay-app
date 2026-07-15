@@ -30,6 +30,8 @@ type Props<T extends string> = {
   fullWidth?: boolean;
   /** Form-field wrapper (calc labels / full-width trigger). */
   variant?: "default" | "field" | "chip";
+  /** Chip without surface/background — text + chevron only. */
+  plainChip?: boolean;
   className?: string;
   triggerClassName?: string;
   placeholder?: string;
@@ -57,6 +59,7 @@ export default function MenuSelect<T extends string>({
   compact = false,
   fullWidth = false,
   variant = "default",
+  plainChip = false,
   className = "",
   triggerClassName = "",
   placeholder,
@@ -75,6 +78,8 @@ export default function MenuSelect<T extends string>({
   const [canPortal, setCanPortal] = useState(false);
   const normalized = normalizeOptions(options);
   const selected = normalized.find((option) => option.value === value);
+  const isField = variant === "field";
+  const isChip = variant === "chip";
   const visibleOptions = searchable
     ? normalized.filter((option) => {
         if (!searchTerm.trim()) return true;
@@ -121,12 +126,17 @@ export default function MenuSelect<T extends string>({
         140,
         Math.min(openAbove ? spaceAbove - gap : spaceBelow - gap, 360)
       );
-      const width = Math.min(
-        Math.max(rect.width, searchable ? 280 : rect.width),
-        viewportWidth - padding * 2
-      );
-      const left = Math.min(
-        Math.max(padding, rect.left),
+
+      // Chip triggers are very narrow (unit symbols). Don't size the menu to match.
+      const minMenuWidth = isChip ? 220 : searchable ? 280 : 180;
+      const preferredWidth = Math.max(rect.width, minMenuWidth);
+      const width = Math.min(preferredWidth, viewportWidth - padding * 2);
+
+      // Prefer right-aligning to the trigger when that keeps the menu on-screen
+      // (unit chips sit in the right column of the values table).
+      let left = isChip ? rect.right - width : rect.left;
+      left = Math.min(
+        Math.max(padding, left),
         viewportWidth - width - padding
       );
 
@@ -162,7 +172,7 @@ export default function MenuSelect<T extends string>({
       window.removeEventListener("resize", updateMenuPosition);
       window.removeEventListener("scroll", updateMenuPosition, true);
     };
-  }, [open, searchable, visibleOptions.length]);
+  }, [open, searchable, visibleOptions.length, isChip]);
 
   useEffect(() => {
     if (!open) return;
@@ -188,9 +198,6 @@ export default function MenuSelect<T extends string>({
     };
   }, [open]);
 
-  const isField = variant === "field";
-  const isChip = variant === "chip";
-
   const trigger = (
     <button
       ref={triggerRef}
@@ -203,9 +210,13 @@ export default function MenuSelect<T extends string>({
       }}
       className={
         isChip
-          ? `values-unit-chip values-unit-chip--select app-menu-select-trigger--chip ${
-              compact ? "values-unit-chip--compact" : ""
-            } ${open ? "is-open" : ""} ${triggerClassName}`
+          ? plainChip
+            ? `values-unit-embedded-trigger app-menu-select-trigger--chip ${
+                compact ? "values-unit-embedded-trigger--compact" : ""
+              } ${open ? "is-open" : ""} ${triggerClassName}`
+            : `values-unit-chip values-unit-chip--select app-menu-select-trigger--chip ${
+                compact ? "values-unit-chip--compact" : ""
+              } ${open ? "is-open" : ""} ${triggerClassName}`
           : `app-menu-select-trigger flex w-full items-center justify-between gap-2 text-left outline-none transition ${
               compact
                 ? "settings-menu-trigger--compact min-h-8 rounded-lg px-2.5 text-sm"

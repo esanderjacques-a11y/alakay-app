@@ -143,3 +143,44 @@ export function fertilizersForNutrient(nutrient: FertilizerNutrient) {
   );
 }
 
+function normalizeProductToken(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Map free-text bodega names to catalog keys when possible. */
+export function matchCatalogProductKey(
+  name: string | null | undefined
+): string | null {
+  const token = normalizeProductToken(name || "");
+  if (!token) return null;
+  for (const product of COMMERCIAL_FERTILIZERS) {
+    const keyToken = normalizeProductToken(product.key.replace(/_/g, " "));
+    const labelToken = normalizeProductToken(product.label);
+    if (
+      token === keyToken ||
+      token === labelToken ||
+      token.includes(keyToken) ||
+      labelToken.includes(token) ||
+      token.includes(labelToken.split(" ")[0] || "")
+    ) {
+      return product.key;
+    }
+  }
+  // Common aliases
+  if (/\burea\b/.test(token)) return "urea";
+  if (/\bdap\b/.test(token)) return "dap";
+  if (/\bmap\b/.test(token)) return "map";
+  if (/\bmop\b|\bkcl\b|muriate/.test(token)) return "mop";
+  if (/\bsop\b|sulfate of potash|sulphate of potash/.test(token)) return "sop";
+  if (/\btsp\b|triple super/.test(token)) return "tsp";
+  if (/kieserite/.test(token)) return "kieserite";
+  if (/npk\s*15/.test(token)) return "npk_15_15_15";
+  if (/npk\s*10/.test(token)) return "npk_10_30_10";
+  return null;
+}
+

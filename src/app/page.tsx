@@ -13,12 +13,14 @@ import {
   Eraser,
   FlaskConical,
   BarChart3,
+  Info,
   Plus,
   Save,
   Search,
   SlidersHorizontal,
   Sprout,
   Upload,
+  X,
 } from "lucide-react";
 
 import AppHeader from "@/components/AppHeader";
@@ -36,13 +38,27 @@ import ParameterUnitPicker from "@/components/ParameterUnitPicker";
 import ResultsDashboard from "@/components/ResultsDashboard";
 import RecycleBinScreen from "@/components/RecycleBinScreen";
 import CalculatorHub from "@/components/CalculatorHub";
+import type { FertilizerPlanSnapshot } from "@/components/CalculatorHub";
 import AppSettingsScreen from "@/components/AppSettingsScreen";
 import AboutScreen from "@/components/AboutScreen";
+import CalendarScreen from "@/components/planning/CalendarScreen";
+import FarmsScreen from "@/components/planning/FarmsScreen";
+import NotesScreen from "@/components/planning/NotesScreen";
+import NotificationsScreen from "@/components/planning/NotificationsScreen";
 import AppDock from "@/components/ui/AppDock";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import HomeScreen from "@/components/HomeScreen";
 import ImportDataScreen from "@/components/ImportDataScreen";
 import FarmLotSelector from "@/components/FarmLotSelector";
+import { detectLocation } from "@/lib/geolocation";
+import {
+  hydratePlanningFromCloud,
+  loadPlanningState,
+  pushNotification,
+  setPlanningUserId,
+  unreadNotificationCount,
+} from "@/lib/planningStore";
+import type { JackoAppContext } from "@/lib/jackoContext";
 
 import BackButton from "@/components/ui/BackButton";
 import { ViewLayoutToggle } from "@/components/ui/ViewLayoutToggle";
@@ -77,6 +93,7 @@ import {
 } from "@/lib/uiPreferences";
 import {
   defaultAppSettings,
+  effectiveShowCalculatorFormulas,
   getSettings,
   updateSetting,
   type AppSettings,
@@ -110,6 +127,7 @@ import {
   GENERAL_CROP_EXTRACTION_OPTIONS,
   SOIL_EXTRACTION_OPTIONS,
   getDefaultExtractionMethod,
+  convertTable1RangeToDisplayUnit,
   resolveInterpretationParameter,
   table1SufficientRange,
   type ExtractionMethod,
@@ -191,6 +209,7 @@ type RangeMatch = {
 };
 
 type InterpretationResult = RangeMatch & {
+  parameter_key?: string;
   value: number;
   level_code: string;
   final_group_code: string;
@@ -776,16 +795,27 @@ function getParameterPriorityTier(parameter: Parameter): ParameterPriorityTier {
   return "secondary";
 }
 
+function resolveParameterSymbol(parameter: Parameter) {
+  const direct = parameter.symbol?.trim();
+  if (direct) return direct;
+
+  const fromDisplay = parameter.display_name.match(/\(([^)]+)\)\s*$/);
+  if (fromDisplay?.[1]?.trim()) return fromDisplay[1].trim();
+
+  return null;
+}
+
 function formatParameterEntryLabel(
   parameter: Parameter,
   showSymbolsOnly: boolean
 ) {
-  if (showSymbolsOnly && parameter.symbol?.trim()) {
-    return { primary: parameter.symbol.trim() };
+  const symbol = resolveParameterSymbol(parameter);
+
+  if (showSymbolsOnly && symbol) {
+    return { primary: symbol };
   }
 
   const primary = parameter.display_name;
-  const symbol = parameter.symbol?.trim();
   const secondary =
     symbol && symbol.toLowerCase() !== primary.trim().toLowerCase()
       ? symbol
@@ -828,27 +858,72 @@ function translateLevelCode(
 function getLevelBadgeClass(code: string) {
   const key = code.toLowerCase().trim().replace(/[\s-]+/g, "_");
 
-  if (key === "very_high") {
-    return "level-badge level-badge-very-high";
-  }
-
-  if (key === "high") {
+  // Red — excess / out of range (not good)
+  if (
+    key === "very_high" ||
+    key === "high" ||
+    key === "acidic" ||
+    key === "alkaline"
+  ) {
     return "level-badge level-badge-high";
   }
 
-  if (key === "moderate" || key === "medium") {
-    return "level-badge level-badge-moderate";
-  }
-
-  if (key === "low") {
+  // Yellow — low / deficient
+  if (
+    key === "very_low" ||
+    key === "low" ||
+    key === "moderate" ||
+    key === "medium"
+  ) {
     return "level-badge level-badge-low";
   }
 
-  if (key === "very_low") {
-    return "level-badge level-badge-very-low";
+  // Green — adequate / normal
+  return "level-badge level-badge-normal";
+}
+
+function getLevelToneClass(code: string) {
+  const key = code.toLowerCase().trim().replace(/[\s-]+/g, "_");
+
+  if (
+    key === "very_high" ||
+    key === "high" ||
+    key === "acidic" ||
+    key === "alkaline"
+  ) {
+    return "values-level-tone--high";
   }
 
-  return "level-badge level-badge-normal";
+  if (
+    key === "very_low" ||
+    key === "low" ||
+    key === "moderate" ||
+    key === "medium"
+  ) {
+    return "values-level-tone--low";
+  }
+
+  return "values-level-tone--normal";
+}
+
+function findResultForParameter(
+  results: InterpretationResult[],
+  parameter: Parameter
+) {
+  return (
+    results.find((result) => result.parameter_key === parameter.parameter_key) ||
+    results.find(
+      (result) =>
+        parameter.custom_parameter_id != null &&
+        result.custom_parameter_id === parameter.custom_parameter_id
+    ) ||
+    results.find(
+      (result) =>
+        !parameter.custom_parameter_id &&
+        parameter.parameter_id != null &&
+        result.parameter_id === parameter.parameter_id
+    )
+  );
 }
 
 function translateConfidence(
@@ -971,6 +1046,10 @@ const appSteps = new Set<AppStep>([
   "about",
   "recycle",
   "settings",
+  "farms",
+  "calendar",
+  "notes",
+  "notifications",
 ]);
 
 function readHistoryStep(state: unknown): AppStep | null {
@@ -1044,6 +1123,10 @@ export default function HomePage() {
   const [editingNextVersionNumber, setEditingNextVersionNumber] = useState(1);
   const [pendingEditableAnalysis, setPendingEditableAnalysis] =
     useState<EditableAnalysisPayload | null>(null);
+  const liveInterpretTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const liveInterpretGenRef = useRef(0);
 
   const [results, setResults] = useState<InterpretationResult[]>([]);
   const [missingResults, setMissingResults] = useState<MissingResult[]>([]);
@@ -1065,7 +1148,20 @@ export default function HomePage() {
 
   const [analysisName, setAnalysisName] = useState("");
   const [farmName, setFarmName] = useState("");
+  const [openFarmId, setOpenFarmId] = useState<number | null>(null);
+  const [historyFocusAnalysisId, setHistoryFocusAnalysisId] = useState<
+    number | null
+  >(null);
   const [lotName, setLotName] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [locationSource, setLocationSource] = useState<"gps" | "manual" | null>(
+    null
+  );
+  const [locationStatus, setLocationStatus] = useState("");
+  const [fertilizerPlanSnapshot, setFertilizerPlanSnapshot] =
+    useState<FertilizerPlanSnapshot | null>(null);
+  const [notificationTick, setNotificationTick] = useState(0);
   const [labName, setLabName] = useState("");
   const [samplingDate, setSamplingDate] = useState("");
   const [reportDate, setReportDate] = useState("");
@@ -1159,6 +1255,16 @@ export default function HomePage() {
     return () => window.cancelAnimationFrame(frame);
   }, [session?.user, guestMode]);
 
+  useEffect(() => {
+    if (!session?.user || guestMode) {
+      setPlanningUserId(null);
+      return;
+    }
+    void hydratePlanningFromCloud(session.user.id).then(() => {
+      setNotificationTick((n) => n + 1);
+    });
+  }, [session?.user?.id, guestMode]);
+
   function closeWelcomeGuide() {
     if (session?.user) {
       window.localStorage.setItem(`cultosol-welcome-seen-${session.user.id}`, "1");
@@ -1216,6 +1322,9 @@ export default function HomePage() {
       reportDate,
       country: finalCountry || null,
       provinceState,
+      latitude,
+      longitude,
+      locationSource,
       editingRootAnalysisId,
       editingNextVersionNumber,
     };
@@ -1790,12 +1899,7 @@ export default function HomePage() {
       ...previous,
       [parameterKey]: newValue,
     }));
-    setResults([]);
-    setResultsExtractionMethod(null);
-    setMissingResults([]);
-    setSavedAnalysisSignature(null);
     setSaveMessage("");
-    setSavedAnalysisSignature(null);
   }
 
 function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
@@ -1809,10 +1913,12 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         [parameterKey]: displayKey,
       }));
     }
-    setResults([]);
-    setResultsExtractionMethod(null);
-    setMissingResults([]);
-    setSavedAnalysisSignature(null);
+    setSaveMessage("");
+  }
+
+  function handleExtractionMethodChange(method: ExtractionMethod) {
+    if (method === extractionMethod) return;
+    setExtractionMethod(method);
     setSaveMessage("");
   }
 
@@ -2133,19 +2239,29 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
   async function interpretAnalysis(options?: {
     method?: ExtractionMethod;
     preserveResults?: boolean;
-  }) {
+    stayOnPage?: boolean;
+    silent?: boolean;
+  }): Promise<InterpretationResult[] | null> {
     const activeMethod = options?.method ?? extractionMethod;
-    setMessage("");
-    setSaveMessage("");
-    if (!options?.preserveResults) {
+    const silent = Boolean(options?.silent);
+    const stayOnPage = Boolean(options?.stayOnPage);
+    const requestGen = ++liveInterpretGenRef.current;
+
+    if (!silent) {
+      setMessage("");
+      setSaveMessage("");
+    }
+    if (!options?.preserveResults && !silent) {
       setResults([]);
       setResultsExtractionMethod(null);
       setMissingResults([]);
     }
 
     if (!cropId) {
-      setMessage(t.selectCropOnValues || t.selectCropMessage);
-      return;
+      if (!silent) {
+        setMessage(t.selectCropOnValues || t.selectCropMessage);
+      }
+      return null;
     }
 
     const filledValues = parameters
@@ -2201,11 +2317,21 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     }[];
 
     if (filledValues.length === 0) {
+      if (silent) {
+        if (requestGen === liveInterpretGenRef.current) {
+          setResults([]);
+          setResultsExtractionMethod(null);
+          setMissingResults([]);
+        }
+        return [];
+      }
       setMessage(t.enterOneValueMessage);
-      return;
+      return null;
     }
 
-    setLoading(true);
+    if (!silent) {
+      setLoading(true);
+    }
 
     const interpretedResults: InterpretationResult[] = [];
     const notFoundResults: MissingResult[] = [];
@@ -2229,6 +2355,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           };
 
           interpretedResults.push({
+            parameter_key: item.parameter_key,
             crop_id: userRange.crop_id,
             crop_name: userRange.crop_id
               ? t.customCropRange
@@ -2319,12 +2446,18 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         throw error;
       }
 
-      const table1Range =
+      // Olsen / Mehlich: use Tabla N.° 1 when the nutrient exists for that
+      // extractant and the band can be expressed in the user's unit.
+      // Otherwise keep crop / general sufficiency from the database.
+      const table1Raw =
         sampleType === "soil"
           ? table1SufficientRange(activeMethod, parameterLike)
           : null;
+      const table1Converted = table1Raw
+        ? convertTable1RangeToDisplayUnit(table1Raw, item.unit_symbol)
+        : null;
 
-      if ((!data || data.length === 0) && !table1Range) {
+      if ((!data || data.length === 0) && !table1Converted) {
         notFoundResults.push({
           parameter_key: item.parameter_key,
           parameter_id: item.parameter_id,
@@ -2353,21 +2486,15 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         : range?.unit_symbol || item.unit_symbol;
       let sourceName = range?.source_name ?? null;
       let isProxy = Boolean(range?.is_proxy);
+      let confidence = range?.confidence ?? "medium";
 
-      if (table1Range) {
-        const convertedTable = convertRangeToUnit(
-          table1Range.min,
-          table1Range.max,
-          table1Range.unit,
-          item.unit_symbol
-        );
-        rangeMin = convertedTable.min;
-        rangeMax = convertedTable.max;
-        rangeUnitSymbol = convertedTable.converted
-          ? item.unit_symbol
-          : table1Range.unit;
-        sourceName = table1Range.sourceName;
+      if (table1Converted && table1Raw) {
+        rangeMin = table1Converted.min;
+        rangeMax = table1Converted.max;
+        rangeUnitSymbol = table1Converted.unit;
+        sourceName = table1Raw.sourceName;
         isProxy = Boolean(range);
+        confidence = "exact";
       }
 
       const logicInput = {
@@ -2379,6 +2506,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       };
 
       interpretedResults.push({
+        parameter_key: item.parameter_key,
         crop_id: range?.crop_id ?? interpretationCropId,
         crop_name: range?.crop_name ?? null,
         sample_type: range?.sample_type ?? sampleType,
@@ -2389,7 +2517,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         unit_symbol: rangeUnitSymbol,
         min: rangeMin,
         max: rangeMax,
-        confidence: range?.confidence ?? "medium",
+        confidence,
         is_proxy: isProxy,
         source_name: sourceName,
         interpretation_note: range?.interpretation_note ?? null,
@@ -2401,18 +2529,31 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       });
     }
 
+    if (requestGen !== liveInterpretGenRef.current) {
+      return interpretedResults;
+    }
+
     setResults(interpretedResults);
     setResultsExtractionMethod(activeMethod);
     setMissingResults(notFoundResults);
-    setSavedAnalysisSignature(null);
-    setSaveMessage("");
-    setCurrentStep("results");
+    if (!silent) {
+      setSaveMessage("");
+    }
+    if (!stayOnPage) {
+      setCurrentStep("results");
+    }
 
-    if (interpretedResults.length === 0 && notFoundResults.length > 0) {
+    if (
+      !silent &&
+      interpretedResults.length === 0 &&
+      notFoundResults.length > 0
+    ) {
       setMessage(t.noRangeFoundDesc);
     }
 
     if (
+      !silent &&
+      !stayOnPage &&
       appSettings.data.autoSaveAnalyses &&
       session?.user &&
       !guestMode &&
@@ -2421,19 +2562,66 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     ) {
       void saveAnalysis(interpretedResults, { automatic: true });
     }
+
+    return interpretedResults;
     } catch (error) {
       console.error("interpretAnalysis:", error);
-      setMessage(formatRequestError(error));
+      if (!silent) {
+        setMessage(formatRequestError(error));
+      }
+      return null;
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }
 
+  async function saveFromValuesPage() {
+    setSaveMessage("");
+    const interpreted = await interpretAnalysis({ stayOnPage: true });
+    if (!interpreted || interpreted.length === 0) {
+      return;
+    }
+    await saveAnalysis(interpreted);
+  }
+
+  const interpretAnalysisRef = useRef(interpretAnalysis);
+  interpretAnalysisRef.current = interpretAnalysis;
+
+  useEffect(() => {
+    if (currentStep !== "values") return;
+    if (pendingEditableAnalysis) return;
+
+    if (liveInterpretTimerRef.current) {
+      clearTimeout(liveInterpretTimerRef.current);
+    }
+
+    liveInterpretTimerRef.current = setTimeout(() => {
+      void interpretAnalysisRef.current({ stayOnPage: true, silent: true });
+    }, 400);
+
+    return () => {
+      if (liveInterpretTimerRef.current) {
+        clearTimeout(liveInterpretTimerRef.current);
+      }
+    };
+  }, [
+    currentStep,
+    pendingEditableAnalysis,
+    values,
+    selectedUnits,
+    selectedUnitDisplayKeys,
+    extractionMethod,
+    cropId,
+    sampleType,
+    parameters,
+  ]);
 
   function changeExtractionMethodFromResults(method: ExtractionMethod) {
     if (loading || method === extractionMethod) return;
     setExtractionMethod(method);
-    void interpretAnalysis({ method, preserveResults: true });
+    void interpretAnalysis({ method, preserveResults: true, stayOnPage: false });
   }
 
   async function saveAnalysis(
@@ -2544,7 +2732,13 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       isSignatureQueued(session.user.id, currentAnalysisSignature)
   );
   const isCurrentAnalysisSaved =
-    results.length > 0 && savedAnalysisSignature === currentAnalysisSignature;
+    results.length > 0 &&
+    savedAnalysisSignature !== null &&
+    savedAnalysisSignature === currentAnalysisSignature;
+  const needsAnalysisUpdate =
+    savedAnalysisSignature !== null &&
+    !isCurrentAnalysisSaved &&
+    !isCurrentAnalysisQueued;
   const pendingOfflineSaves = useMemo(
     () => (session?.user ? getOfflineQueueCount(session.user.id) : 0),
     [session?.user?.id, queueTick]
@@ -2822,10 +3016,26 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                 ? reportExtras.fertilizerProducts
                 : [],
               fertilizerApplyLines: reportExtras.fertilizerApplyLines,
-              includeInterpretationAdvice: sections.includeInterpretation,
+              includeInterpretationAdvice: false,
               amendmentLabels: calculatorHubText[language] || calculatorHubText.en,
             })
           : [],
+        calendarEvents: sections.includeCalendar
+          ? loadPlanningState().events
+              .filter((event) => {
+                const farm = farmName.trim().toLocaleLowerCase();
+                if (!farm) return false;
+                return (
+                  (event.farmName || "").trim().toLocaleLowerCase() === farm
+                );
+              })
+              .sort((a, b) => {
+                const byDate = a.date.localeCompare(b.date);
+                if (byDate !== 0) return byDate;
+                return (a.sequence || 0) - (b.sequence || 0);
+              })
+          : [],
+        labels: calculatorHubText[language] || calculatorHubText.en,
         isGeneralCrop,
         locale: locales[language] || "en-US",
         reportMeta: pdfReportMeta,
@@ -2848,6 +3058,135 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     currentStep === "calculators";
 
   const isBusy = loading || saving;
+
+  useEffect(() => {
+    if (!finalCountry && !provinceState.trim()) {
+      pushNotification({
+        title: t.planningCalendar,
+        body: t.useMyLocationHint,
+        kind: "location",
+        hrefStep: "setup",
+        relatedId: "complete-location",
+      });
+      setNotificationTick((n) => n + 1);
+    }
+  }, [finalCountry, provinceState, t.planningCalendar, t.useMyLocationHint]);
+
+  useEffect(() => {
+    if (!fertilizerPlanSnapshot?.doses.some((d) => !d.notRequired && (d.dosisOxideKgHa || 0) > 0)) {
+      return;
+    }
+    pushNotification({
+      title: t.calculators,
+      body: t.planning.recommendHint,
+      kind: "cost",
+      hrefStep: "calculators",
+      relatedId: "fertilizer-plan-ready",
+    });
+    setNotificationTick((n) => n + 1);
+  }, [fertilizerPlanSnapshot, t.calculators, t.planning.recommendHint]);
+
+  const jackoContext = useMemo((): JackoAppContext => {
+    const planning = loadPlanningState();
+    const today = new Date().toISOString().slice(0, 10);
+    const upcomingEvents = [...planning.events]
+      .filter((event) => !event.date || event.date >= today)
+      .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")))
+      .slice(0, 8)
+      .map((event) => ({
+        title: event.title,
+        date: event.date || undefined,
+        farmName: event.farmName || undefined,
+      }));
+
+    const enteredValues = parameters
+      .map((parameter) => {
+        const raw = values[parameter.parameter_key];
+        if (!raw?.trim()) return null;
+        const selectedUnitId =
+          selectedUnits[parameter.parameter_key] || parameter.unit_id;
+        const unit =
+          parameter.available_units.find((item) => item.unit_id === selectedUnitId)
+            ?.display_symbol ||
+          parameter.preferred_display_symbol ||
+          parameter.unit_symbol ||
+          undefined;
+        return {
+          key: parameter.parameter_key,
+          name: parameter.display_name || parameter.parameter_name,
+          value: raw.trim(),
+          unit,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .slice(0, 40);
+
+    const interpretations = results.slice(0, 40).map((result) => ({
+      key: result.parameter_key || result.display_parameter_name,
+      name: result.display_parameter_name,
+      value: result.value,
+      unit: result.unit_symbol || undefined,
+      level: result.level_code,
+      group: result.final_group_code,
+      advice: result.advice || undefined,
+    }));
+
+    const fertilizerDoses =
+      fertilizerPlanSnapshot?.doses.map((dose) => ({
+        nutrient: dose.nutrient,
+        oxide: dose.nutrientOxide,
+        doseKgHa: dose.dosisOxideKgHa ?? dose.dosisKgHa,
+        notRequired: dose.notRequired,
+        viaEncalado: dose.viaEncalado,
+      })) || undefined;
+
+    const methodForContext = resultsExtractionMethod ?? extractionMethod;
+
+    return {
+      screen: currentStep,
+      sampleType,
+      crop: selectedCrop?.display_name || undefined,
+      farmName: farmName.trim() || undefined,
+      lotName: lotName.trim() || undefined,
+      analysisName: analysisName.trim() || undefined,
+      country: finalCountry || undefined,
+      province: provinceState.trim() || undefined,
+      extractionMethod: extractionMethodLabel(methodForContext, t),
+      enteredValues,
+      interpretations,
+      missingParameters: missingResults
+        .slice(0, 12)
+        .map((item) => item.display_name || item.parameter_name),
+      fertilizerDoses,
+      fertilizerAreaHa: fertilizerPlanSnapshot?.areaHa,
+      planRecommendations: [
+        ...(fertilizerPlanSnapshot?.recommendations || []),
+        ...(reportExtras.planRecommendations || []),
+      ].slice(0, 10),
+      upcomingEvents,
+      noteCount: planning.notes.length,
+    };
+  }, [
+    analysisName,
+    currentStep,
+    extractionMethod,
+    farmName,
+    fertilizerPlanSnapshot,
+    finalCountry,
+    lotName,
+    missingResults,
+    parameters,
+    provinceState,
+    reportExtras.planRecommendations,
+    results,
+    resultsExtractionMethod,
+    sampleType,
+    selectedCrop?.display_name,
+    selectedUnits,
+    t,
+    values,
+    notificationTick,
+  ]);
 
   const headerProps = {
     language,
@@ -2878,7 +3217,18 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     onOpenSettings: () => setCurrentStep("settings"),
     onOpenRecycleBin: () => setCurrentStep("recycle"),
     onOpenAbout: () => setCurrentStep("about"),
+    onOpenFarms: () => setCurrentStep("farms"),
+    onOpenCalendar: () => setCurrentStep("calendar"),
+    onOpenNotes: () => setCurrentStep("notes"),
+    onOpenNotifications: () => setCurrentStep("notifications"),
+    notificationCount: (() => {
+      void notificationTick;
+      return unreadNotificationCount();
+    })(),
     theme,
+    isAdmin,
+    planTier: appSettings.billing.planTier,
+    jackoContext,
     onToggleTheme: () =>
       setTheme((currentTheme) => {
         if (currentTheme === "light") {
@@ -2984,6 +3334,15 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               goImport={() => setCurrentStep("import")}
               goResults={() => setCurrentStep("history")}
               goCalculators={() => setCurrentStep("calculators")}
+              goFarms={() => {
+                setOpenFarmId(null);
+                setCurrentStep("farms");
+              }}
+              openFarm={(name, farmId) => {
+                setFarmName(name);
+                setOpenFarmId(farmId ?? null);
+                setCurrentStep("farms");
+              }}
               hasResultsOrProgress={hasHistoryOrProgress}
             />
           </section>
@@ -3022,11 +3381,58 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             lotName={lotName}
             setLotName={setLotName}
             country={country}
-            setCountry={setCountry}
             customCountry={customCountry}
             setCustomCountry={setCustomCountry}
             provinceState={provinceState}
-            setProvinceState={setProvinceState}
+            setProvinceState={(value) => {
+              setProvinceState(value);
+              if (locationSource === "gps") {
+                setLocationSource("manual");
+                setLatitude(null);
+                setLongitude(null);
+              }
+            }}
+            setCountry={(value) => {
+              setCountry(value);
+              if (locationSource === "gps") {
+                setLocationSource("manual");
+                setLatitude(null);
+                setLongitude(null);
+              }
+            }}
+            locationStatus={locationStatus}
+            onDetectLocation={async () => {
+              setLocationStatus(t.locationDetecting);
+              try {
+                const result = await detectLocation();
+                setLatitude(result.latitude);
+                setLongitude(result.longitude);
+                setLocationSource("gps");
+                if (result.country) {
+                  const match = countries.find(
+                    (item) =>
+                      item.toLocaleLowerCase() ===
+                      result.country!.toLocaleLowerCase()
+                  );
+                  if (match) setCountry(match);
+                  else {
+                    setCountry("Other");
+                    setCustomCountry(result.country);
+                  }
+                }
+                if (result.province) setProvinceState(result.province);
+                setLocationStatus(t.locationFilled);
+                setNotificationTick((n) => n + 1);
+              } catch (error) {
+                const code =
+                  error && typeof error === "object" && "code" in error
+                    ? String((error as { code?: string }).code)
+                    : "";
+                setLocationStatus(
+                  code === "denied" ? t.locationDenied : t.locationFailed
+                );
+              }
+            }}
             samplingDate={samplingDate}
             setSamplingDate={setSamplingDate}
             goHome={() => setCurrentStep("home")}
@@ -3038,13 +3444,12 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           <ValuesScreen
             t={t}
             language={language}
-            userId={session?.user.id}
             selectedCrop={selectedCrop}
             sampleType={sampleType}
             isGeneralCrop={isGeneralCrop}
             showFoliarExtractionPicker={showFoliarExtractionPicker}
             extractionMethod={extractionMethod}
-            setExtractionMethod={setExtractionMethod}
+            setExtractionMethod={handleExtractionMethodChange}
             parameters={parameters}
             totalEnteredValues={totalEnteredValues}
             parameterSearch={parameterSearch}
@@ -3069,16 +3474,17 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             updateUnit={updateUnit}
             clearAllValues={clearAllValues}
             message={message}
+            saveMessage={saveMessage}
             pendingEditableAnalysis={pendingEditableAnalysis}
             loading={loading}
+            saving={saving}
             cropId={cropId}
             setCropId={setCropId}
             crops={crops}
+            analysisName={analysisName}
             farmName={farmName}
-            setFarmName={setFarmName}
             lotName={lotName}
-            setLotName={setLotName}
-            interpretAnalysis={interpretAnalysis}
+            saveAnalysis={saveFromValuesPage}
             backToSetup={() => setCurrentStep("setup")}
             openImporter={() => {
               setLabValueImporterMode("import");
@@ -3093,6 +3499,10 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             }
             openCustomRangeManager={() => setShowCustomRangeManager(true)}
             results={results}
+            missingResults={missingResults}
+            isSaved={isCurrentAnalysisSaved}
+            isQueued={isCurrentAnalysisQueued}
+            needsUpdate={needsAnalysisUpdate}
             onExportPdf={() => setExportModalOpen(true)}
             exportingPdf={exportingPdf}
           />
@@ -3123,6 +3533,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                 saveAnalysis={saveAnalysis}
                 isSaved={isCurrentAnalysisSaved}
                 isQueued={isCurrentAnalysisQueued}
+                needsUpdate={needsAnalysisUpdate}
                 pendingOfflineSaves={pendingOfflineSaves}
                 isGeneralCrop={isGeneralCrop}
                 sampleType={sampleType}
@@ -3150,6 +3561,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             goToValues={() => setCurrentStep("values")}
             goToCurrentResults={() => setCurrentStep("results")}
             onEditAnalysis={loadEditableAnalysis}
+            focusAnalysisId={historyFocusAnalysisId}
+            onFocusAnalysisConsumed={() => setHistoryFocusAnalysisId(null)}
           />
         ) : currentStep === "calculators" ? (
           <CalculatorHub
@@ -3160,6 +3573,9 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             sampleType={sampleType}
             selectedCropName={selectedCrop?.crop_name || selectedCrop?.display_name || null}
             selectedCountry={finalCountry || null}
+            showCalculatorFormulas={effectiveShowCalculatorFormulas(appSettings)}
+            userId={session?.user && !guestMode ? session.user.id : null}
+            farmName={farmName}
             parameterUnits={Object.fromEntries(
               parameters.map((parameter) => {
                 const { selectedUnit } = resolveParameterUnitState(
@@ -3176,6 +3592,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               })
             )}
             goToValues={() => setCurrentStep("values")}
+            onOpenCalendar={() => setCurrentStep("calendar")}
             onBack={() => setCurrentStep("home")}
             onOutputsChange={(packs) =>
               setCalculatorPacks((previous) =>
@@ -3183,9 +3600,77 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               )
             }
             onReportExtrasChange={setReportExtras}
+            onFertilizerPlanChange={setFertilizerPlanSnapshot}
             onExportPdf={() => setExportModalOpen(true)}
             exportingPdf={exportingPdf}
             exportPdfLabel={t.exportPdf}
+          />
+        ) : currentStep === "farms" ? (
+          <FarmsScreen
+            t={t}
+            userId={session?.user && !guestMode ? session.user.id : null}
+            selectedFarmName={farmName}
+            initialFarmId={openFarmId}
+            onBack={() => {
+              setOpenFarmId(null);
+              setCurrentStep("home");
+            }}
+            onOpenCalendar={(name, lot) => {
+              setFarmName(name);
+              if (lot) setLotName(lot);
+              setCurrentStep("calendar");
+            }}
+            onOpenNotes={(name) => {
+              setFarmName(name);
+              setCurrentStep("notes");
+            }}
+            onOpenHistory={(name) => {
+              if (name) setFarmName(name);
+              setHistoryFocusAnalysisId(null);
+              setCurrentStep("history");
+            }}
+            onOpenAnalysis={(analysisId, name) => {
+              if (name) setFarmName(name);
+              setHistoryFocusAnalysisId(analysisId);
+              setCurrentStep("history");
+            }}
+            onEditAnalysis={loadEditableAnalysis}
+            onOpenSetup={(name, lot) => {
+              setFarmName(name);
+              if (lot) setLotName(lot);
+              setCurrentStep("setup");
+            }}
+          />
+        ) : currentStep === "calendar" ? (
+          <CalendarScreen
+            t={t}
+            language={language}
+            onBack={() => setCurrentStep("home")}
+            onOpenSetup={() => setCurrentStep("setup")}
+            onOpenCalculators={() => setCurrentStep("calculators")}
+            cropName={selectedCrop?.crop_name || selectedCrop?.display_name}
+            farmName={farmName}
+            lotName={lotName}
+            onFarmNameChange={setFarmName}
+            onLotNameChange={setLotName}
+            planDoses={fertilizerPlanSnapshot?.doses}
+            responsibleName={displayName}
+          />
+        ) : currentStep === "notes" ? (
+          <NotesScreen
+            t={t}
+            onBack={() => setCurrentStep("home")}
+            farmName={farmName}
+            lotName={lotName}
+          />
+        ) : currentStep === "notifications" ? (
+          <NotificationsScreen
+            t={t}
+            onBack={() => setCurrentStep("home")}
+            onNavigate={(step) => {
+              setNotificationTick((n) => n + 1);
+              setCurrentStep(step);
+            }}
           />
         ) : currentStep === "settings" ? (
           <AppSettingsScreen
@@ -3229,7 +3714,10 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       {currentStep !== "settings" &&
       currentStep !== "recycle" &&
       currentStep !== "about" &&
-      currentStep !== "import" ? (
+      currentStep !== "import" &&
+      currentStep !== "calendar" &&
+      currentStep !== "notes" &&
+      currentStep !== "notifications" ? (
         <AppDock
           currentStep={currentStep}
           onStepChange={setCurrentStep}
@@ -3320,6 +3808,14 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             (pack) => pack.id !== "fertilizerCost"
           )}
           hasFertilizerProducts={reportExtras.fertilizerProducts.length > 0}
+          hasCalendar={
+            Boolean(farmName.trim()) &&
+            loadPlanningState().events.some(
+              (event) =>
+                (event.farmName || "").trim().toLocaleLowerCase() ===
+                farmName.trim().toLocaleLowerCase()
+            )
+          }
           hasRecommendations={
             reportExtras.planRecommendations.length > 0 ||
             reportExtras.fertilizerApplyLines.length > 0 ||
@@ -3363,6 +3859,8 @@ function SetupScreen({
   setCustomCountry,
   provinceState,
   setProvinceState,
+  locationStatus,
+  onDetectLocation,
   samplingDate,
   setSamplingDate,
   goHome,
@@ -3395,6 +3893,8 @@ function SetupScreen({
   setCustomCountry: (value: string) => void;
   provinceState: string;
   setProvinceState: (value: string) => void;
+  locationStatus?: string;
+  onDetectLocation?: () => void | Promise<void>;
   samplingDate: string;
   setSamplingDate: (value: string) => void;
   goHome: () => void;
@@ -3449,6 +3949,23 @@ function SetupScreen({
       </div>
 
       <div className="calc-surface calc-page px-4 py-1">
+        <FarmLotSelector
+          userId={userId}
+          farmName={farmName}
+          onFarmNameChange={setFarmName}
+          lotNames={lotName}
+          onLotNamesChange={setLotName}
+          layout="inline"
+          labels={{
+            farm: t.farmName,
+            lots: t.lotName,
+            selectFarm: t.selectFarm,
+            newFarm: t.newFarm,
+            addLot: t.addLot,
+            noLots: t.noLots,
+          }}
+        />
+
         <SetupInlineField label={t.sampleType}>
           <div className="setup-segmented-inline app-segmented-control">
             <button
@@ -3542,25 +4059,6 @@ function SetupScreen({
         )}
       </div>
 
-      <div className="calc-surface calc-page px-4 py-3">
-        <h2 className="setup-section-heading mb-2">{t.farmName}</h2>
-        <FarmLotSelector
-          userId={userId}
-          farmName={farmName}
-          onFarmNameChange={setFarmName}
-          lotNames={lotName}
-          onLotNamesChange={setLotName}
-          labels={{
-            farm: t.farmName,
-            lots: t.lotName,
-            selectFarm: t.selectFarm,
-            newFarm: t.newFarm,
-            addLot: t.addLot,
-            noLots: t.noLots,
-          }}
-        />
-      </div>
-
       <div className="calc-surface calc-page px-4 py-1">
         <button
           type="button"
@@ -3588,6 +4086,8 @@ function SetupScreen({
             setProvinceState={setProvinceState}
             samplingDate={samplingDate}
             setSamplingDate={setSamplingDate}
+            locationStatus={locationStatus}
+            onDetectLocation={onDetectLocation}
             t={t}
           />
         ) : null}
@@ -3612,7 +4112,6 @@ function SetupScreen({
 function ValuesScreen({
   t,
   language,
-  userId,
   selectedCrop,
   sampleType,
   isGeneralCrop,
@@ -3640,28 +4139,32 @@ function ValuesScreen({
   updateUnit,
   clearAllValues,
   message,
+  saveMessage,
   pendingEditableAnalysis,
   loading,
+  saving,
   cropId,
   setCropId,
   crops,
+  analysisName,
   farmName,
-  setFarmName,
   lotName,
-  setLotName,
-  interpretAnalysis,
+  saveAnalysis,
   backToSetup,
   openImporter,
   openCustomParameterModal,
   openCustomParameterManager,
   openCustomRangeManager,
   results,
+  missingResults,
+  isSaved,
+  isQueued,
+  needsUpdate,
   onExportPdf,
   exportingPdf,
 }: {
   t: (typeof translations)[Language];
   language: Language;
-  userId?: string;
   selectedCrop: Crop | undefined;
   sampleType: "soil" | "foliar";
   isGeneralCrop: boolean;
@@ -3689,22 +4192,27 @@ function ValuesScreen({
   updateUnit: (parameterKey: string, unitId: number, displayKey?: string) => void;
   clearAllValues: () => void;
   message: string;
+  saveMessage: string;
   pendingEditableAnalysis: EditableAnalysisPayload | null;
   loading: boolean;
+  saving: boolean;
   cropId: number | "";
   setCropId: (value: number | "") => void;
   crops: Crop[];
+  analysisName: string;
   farmName: string;
-  setFarmName: (value: string) => void;
   lotName: string;
-  setLotName: (value: string) => void;
-  interpretAnalysis: () => void;
+  saveAnalysis: () => void;
   backToSetup: () => void;
   openImporter: () => void;
   openCustomParameterModal: () => void;
   openCustomParameterManager: () => void;
   openCustomRangeManager: () => void;
   results: InterpretationResult[];
+  missingResults: MissingResult[];
+  isSaved: boolean;
+  isQueued: boolean;
+  needsUpdate: boolean;
   onExportPdf?: () => void;
   exportingPdf?: boolean;
 }) {
@@ -3715,18 +4223,32 @@ function ValuesScreen({
   const [canRenderFloatingActions, setCanRenderFloatingActions] = useState(false);
   const parameterGridRef = useRef<HTMLDivElement | null>(null);
   const [valueEntryView, setValueEntryView] = useState<ValueEntryView>("cards");
-  const [farmLotsOpen, setFarmLotsOpen] = useState(
-    () => Boolean(farmName.trim() || lotName.trim())
+  const [detailParameterKey, setDetailParameterKey] = useState<string | null>(
+    null
   );
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
   const hasVisibleParameters = filteredParameters.length > 0;
   const hasEnteredValues = totalEnteredValues > 0;
   const valuesChrome = calculatorHubText[language];
+  const analysisMetaBits = [
+    analysisName.trim(),
+    farmName.trim(),
+    lotName.trim(),
+  ].filter(Boolean);
+  const useSymbolsOnly = showParameterSymbolsOnly || isCompactViewport;
+  const missingKeySet = useMemo(
+    () => new Set(missingResults.map((item) => item.parameter_key)),
+    [missingResults]
+  );
 
   useEffect(() => {
-    if (farmName.trim() || lotName.trim()) {
-      setFarmLotsOpen(true);
-    }
-  }, [farmName, lotName]);
+    const media = window.matchMedia("(max-width: 639px)");
+    const sync = () => setIsCompactViewport(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
   const parameterGroups = useMemo(() => {
     if (sortMode !== "type") {
       return [
@@ -3756,7 +4278,7 @@ function ValuesScreen({
   }, [filteredParameters, sortMode]);
 
   const showStickyAddAction = hasVisibleParameters && showParameterActions;
-  const showInterpretAction =
+  const showSaveAction =
     hasVisibleParameters &&
     (showParameterActions || hasEnteredValues) &&
     addDataMenuSource === null;
@@ -3826,7 +4348,7 @@ function ValuesScreen({
     <section
       className={`values-screen-panel values-screen-panel--open px-0 pb-4 pt-0 md:px-0 md:pb-5 md:pt-0 ${
         hasVisibleParameters ? "pb-20" : ""
-      }`}
+      }${isCompactViewport ? " values-screen-panel--compact" : ""}`}
     >
       {/* Page header + toolbar */}
       <div className="values-screen-panel__header">
@@ -3856,45 +4378,11 @@ function ValuesScreen({
         </div>
       </div>
 
-      <div className="mx-3 mb-2 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-white/80 px-3 py-2 sm:mx-4">
-        <button
-          type="button"
-          onClick={() => setFarmLotsOpen((previous) => !previous)}
-          className="setup-section-toggle !px-0 !py-1"
-          aria-expanded={farmLotsOpen}
-        >
-          <span className="setup-section-heading text-sm">
-            {t.farmName}
-            {farmName.trim() || lotName.trim()
-              ? ` · ${[farmName.trim(), lotName.trim()].filter(Boolean).join(" · ")}`
-              : ""}
-          </span>
-          <ChevronDown
-            size={16}
-            className={`settings-section-chevron transition-transform duration-200 ${farmLotsOpen ? "rotate-180" : ""}`}
-            aria-hidden
-          />
-        </button>
-        {farmLotsOpen ? (
-          <div className="pb-1 pt-1">
-            <FarmLotSelector
-              userId={userId}
-              farmName={farmName}
-              onFarmNameChange={setFarmName}
-              lotNames={lotName}
-              onLotNamesChange={setLotName}
-              labels={{
-                farm: t.farmName,
-                lots: t.lotName,
-                selectFarm: t.selectFarm,
-                newFarm: t.newFarm,
-                addLot: t.addLot,
-                noLots: t.noLots,
-              }}
-            />
-          </div>
-        ) : null}
-      </div>
+      {analysisMetaBits.length > 0 ? (
+        <p className="values-analysis-meta mx-3 mb-2 sm:mx-4">
+          {analysisMetaBits.join(" · ")}
+        </p>
+      ) : null}
 
       {/* Compact toolbar: search + controls */}
       <div className="values-toolbar">
@@ -3973,7 +4461,6 @@ function ValuesScreen({
       </div>
       </div>
 
-      {/* Crop + extraction (when crop skipped or general) */}
       {!cropId ? (
         <div className="values-skip-crop-block">
           <p className="values-block-label">{t.crop}</p>
@@ -4007,16 +4494,6 @@ function ValuesScreen({
                 : SOIL_EXTRACTION_OPTIONS
             }
           />
-          <p className="values-block-hint">
-            {sampleType === "foliar"
-              ? t.foliarExtractionHint ||
-                "Choose crop-specific sufficiency ranges, Olsen, or Mehlich for foliar phosphorus interpretation."
-              : isGeneralCrop
-                ? t.generalCropExtractionHint ||
-                  "Choose General sufficiency ranges, or Olsen / Mehlich (Tabla N.° 1) for phosphorus."
-                : t.soilExtractionHint ||
-                  "Choose crop-specific sufficiency ranges, or Olsen / Mehlich for method-specific phosphorus bands."}
-          </p>
         </div>
       ) : null}
 
@@ -4046,34 +4523,55 @@ function ValuesScreen({
                 </div>
               )}
 
-              {showInterpretAction && (
+              {showSaveAction && (
                 <div className="values-interpret-fab fixed z-[14000] animate-slide-up">
                   <button
                     type="button"
-                    onClick={interpretAnalysis}
-                    disabled={loading || Boolean(pendingEditableAnalysis)}
-                    className="values-interpret-fab__btn"
+                    onClick={() => void saveAnalysis()}
+                    disabled={
+                      loading ||
+                      saving ||
+                      Boolean(pendingEditableAnalysis) ||
+                      !hasEnteredValues ||
+                      !cropId ||
+                      isSaved ||
+                      isQueued
+                    }
+                    className={`values-interpret-fab__btn${
+                      isSaved || isQueued
+                        ? " values-interpret-fab__btn--saved"
+                        : ""
+                    }`}
                     aria-label={
-                      loading
-                        ? t.interpreting
-                        : hasEnteredValues
-                          ? `${t.interpretShort} (${totalEnteredValues})`
-                          : t.interpretShort
+                      saving
+                        ? t.saving
+                        : isSaved
+                          ? t.analysisSavedState
+                          : isQueued
+                            ? t.analysisQueuedState
+                            : needsUpdate
+                              ? t.updateAnalysis
+                              : t.saveAnalysis
                     }
                   >
-                    {hasEnteredValues && !loading ? (
+                    {hasEnteredValues && !saving && !isSaved && !isQueued ? (
                       <span className="values-interpret-fab__count" aria-hidden>
                         {totalEnteredValues}
                       </span>
                     ) : (
-                      <FlaskConical size={15} strokeWidth={2.25} aria-hidden />
+                      <Save size={15} strokeWidth={2.25} aria-hidden />
                     )}
                     <span className="values-interpret-fab__label">
-                      {loading ? t.interpreting : t.interpretShort}
+                      {saving
+                        ? t.saving
+                        : isSaved
+                          ? t.analysisSavedState
+                          : isQueued
+                            ? t.analysisQueuedState
+                            : needsUpdate
+                              ? t.updateShort
+                              : t.saveShort}
                     </span>
-                    {!loading ? (
-                      <ArrowRight size={15} strokeWidth={2.5} aria-hidden />
-                    ) : null}
                   </button>
                 </div>
               )}
@@ -4085,6 +4583,12 @@ function ValuesScreen({
       {message && (
         <div className="values-alert values-alert--warning">
           {message}
+        </div>
+      )}
+
+      {saveMessage && (
+        <div className="values-alert values-alert--info">
+          {saveMessage}
         </div>
       )}
 
@@ -4113,8 +4617,14 @@ function ValuesScreen({
                 const tier = getParameterPriorityTier(parameter);
                 const label = formatParameterEntryLabel(
                   parameter,
-                  showParameterSymbolsOnly
+                  useSymbolsOnly
                 );
+                const liveResult = findResultForParameter(results, parameter);
+                const hasValue = Boolean(
+                  values[parameter.parameter_key]?.trim()
+                );
+                const isMissing =
+                  hasValue && missingKeySet.has(parameter.parameter_key);
                 const aliasTitle = [
                   `${t.aliasLabel}: ${parameter.display_name}`,
                   parameter.parameter_name !== parameter.display_name
@@ -4142,7 +4652,7 @@ function ValuesScreen({
                         <span className="values-entry-row__primary">
                           {label.primary}
                         </span>
-                        {label.secondary ? (
+                        {!useSymbolsOnly && label.secondary ? (
                           <span className="values-entry-row__symbol">
                             {label.secondary}
                           </span>
@@ -4160,41 +4670,63 @@ function ValuesScreen({
                       ) : null}
                     </div>
                     <div className="values-entry-row__fields">
-                      <input
-                        className="values-value-input values-value-input--entry"
-                        type="text"
-                        inputMode="decimal"
-                        value={values[parameter.parameter_key] || ""}
-                        onChange={(event) =>
-                          updateValue(parameter.parameter_key, event.target.value)
-                        }
-                        placeholder={t.valuePlaceholder}
-                        aria-label={`${label.primary} ${t.valueLabel}`}
-                      />
-                      {parameter.available_units.length > 1 ? (
-                        <ParameterUnitPicker
-                          units={parameter.available_units}
-                          selectedUnit={selectedUnit}
-                          selectedDisplayKey={selectedUnitDisplayKey}
-                          getUnitOptionKey={getUnitOptionKey}
-                          dedupeUnitOptions={dedupeUnitOptions}
-                          changeUnitLabel={t.changeUnit}
-                          onChange={(unitId, displayKey) =>
-                            updateUnit(parameter.parameter_key, unitId, displayKey)
+                      <div
+                        className={`values-value-unit-box ${
+                          liveResult
+                            ? getLevelToneClass(liveResult.level_code)
+                            : ""
+                        }`}
+                      >
+                        <input
+                          className="values-value-input values-value-input--entry values-value-input--with-unit"
+                          type="text"
+                          inputMode="decimal"
+                          value={values[parameter.parameter_key] || ""}
+                          onChange={(event) =>
+                            updateValue(
+                              parameter.parameter_key,
+                              event.target.value
+                            )
                           }
+                          placeholder={isCompactViewport ? "—" : t.valuePlaceholder}
+                          aria-label={`${parameter.display_name} ${t.valueLabel}`}
                         />
-                      ) : (
-                        <span
-                          className="values-unit-inline"
-                          title={
-                            selectedUnit?.unit_symbol || parameter.unit_symbol
-                          }
-                        >
-                          {selectedUnit?.display_symbol ||
-                            selectedUnit?.unit_symbol ||
-                            parameter.unit_symbol}
-                        </span>
-                      )}
+                        <div className="values-value-unit-box__unit">
+                          <ParameterUnitPicker
+                            units={parameter.available_units}
+                            selectedUnit={selectedUnit}
+                            selectedDisplayKey={selectedUnitDisplayKey}
+                            getUnitOptionKey={getUnitOptionKey}
+                            dedupeUnitOptions={dedupeUnitOptions}
+                            changeUnitLabel={t.changeUnit}
+                            compact
+                            embedded
+                            onChange={(unitId, displayKey) =>
+                              updateUnit(
+                                parameter.parameter_key,
+                                unitId,
+                                displayKey
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                      <ValueLiveInterpControl
+                        t={t}
+                        result={liveResult}
+                        isMissing={isMissing}
+                        compact={isCompactViewport}
+                        detailOpen={
+                          detailParameterKey === parameter.parameter_key
+                        }
+                        onToggleDetail={() =>
+                          setDetailParameterKey((current) =>
+                            current === parameter.parameter_key
+                              ? null
+                              : parameter.parameter_key
+                          )
+                        }
+                      />
                     </div>
                   </article>
                 );
@@ -4205,12 +4737,17 @@ function ValuesScreen({
       )}
 
       {hasVisibleParameters && valueEntryView === "cards" && (
-        <div ref={parameterGridRef} className="values-table-shell">
-          <table className="values-table w-full table-fixed border-collapse text-xs sm:text-sm md:min-w-[520px]">
+        <div
+          ref={parameterGridRef}
+          className={`values-table-shell${
+            isCompactViewport ? " values-table-shell--compact" : ""
+          }`}
+        >
+          <table className="values-table w-full table-fixed border-collapse text-xs sm:text-sm">
             <colgroup>
               <col className="values-table-col values-table-col--param" />
               <col className="values-table-col values-table-col--value" />
-              <col className="values-table-col values-table-col--unit" />
+              <col className="values-table-col values-table-col--level" />
             </colgroup>
             <thead>
               <tr>
@@ -4220,8 +4757,8 @@ function ValuesScreen({
                 <th className="values-table-cell values-table-cell--value px-2.5 py-2 sm:px-3">
                   {t.valueLabel}
                 </th>
-                <th className="values-table-cell values-table-cell--unit px-2.5 py-2 sm:px-3">
-                  {t.unitLabel}
+                <th className="values-table-cell values-table-cell--level px-1 py-2">
+                  <span className="sr-only">{t.interpretationDetail}</span>
                 </th>
               </tr>
             </thead>
@@ -4235,11 +4772,19 @@ function ValuesScreen({
                   );
                 const label = formatParameterEntryLabel(
                   parameter,
-                  showParameterSymbolsOnly
+                  useSymbolsOnly
                 );
-                const displayParameterLabel = label.secondary
-                  ? `${label.primary} (${label.secondary})`
-                  : label.primary;
+                const displayParameterLabel = useSymbolsOnly
+                  ? label.primary
+                  : label.secondary
+                    ? `${label.primary} (${label.secondary})`
+                    : label.primary;
+                const liveResult = findResultForParameter(results, parameter);
+                const hasValue = Boolean(
+                  values[parameter.parameter_key]?.trim()
+                );
+                const isMissing =
+                  hasValue && missingKeySet.has(parameter.parameter_key);
                 const aliasTitle = [
                   `${t.aliasLabel}: ${parameter.display_name}`,
                   parameter.parameter_name !== parameter.display_name
@@ -4256,50 +4801,71 @@ function ValuesScreen({
 
                 return (
                   <tr key={parameter.parameter_key} title={aliasTitle}>
-                    <td className="values-table-cell values-table-cell--param px-3 py-1.5 align-middle sm:px-4">
+                    <td className="values-table-cell values-table-cell--param px-2 py-1.5 align-middle sm:px-4">
                       <div className="values-table-param">
                         {displayParameterLabel}
                       </div>
                     </td>
-                    <td className="values-table-cell values-table-cell--value px-2.5 py-1.5 align-middle sm:px-3">
-                      <input
-                        className="values-value-input"
-                        type="text"
-                        inputMode="decimal"
-                        value={values[parameter.parameter_key] || ""}
-                        onChange={(event) =>
-                          updateValue(parameter.parameter_key, event.target.value)
-                        }
-                        placeholder={t.valuePlaceholder}
-                        aria-label={`${displayParameterLabel} ${t.valueLabel}`}
-                      />
-                    </td>
-                    <td className="values-table-cell values-table-cell--unit px-2.5 py-1.5 align-middle sm:px-3">
-                      {parameter.available_units.length > 1 ? (
-                        <ParameterUnitPicker
-                          units={parameter.available_units}
-                          selectedUnit={selectedUnit}
-                          selectedDisplayKey={selectedUnitDisplayKey}
-                          getUnitOptionKey={getUnitOptionKey}
-                          dedupeUnitOptions={dedupeUnitOptions}
-                          changeUnitLabel={t.changeUnit}
-                          compact
-                          onChange={(unitId, displayKey) =>
-                            updateUnit(parameter.parameter_key, unitId, displayKey)
+                    <td className="values-table-cell values-table-cell--value px-1.5 py-1.5 align-middle sm:px-3">
+                      <div
+                        className={`values-value-unit-box ${
+                          liveResult
+                            ? getLevelToneClass(liveResult.level_code)
+                            : ""
+                        }`}
+                      >
+                        <input
+                          className="values-value-input values-value-input--with-unit"
+                          type="text"
+                          inputMode="decimal"
+                          value={values[parameter.parameter_key] || ""}
+                          onChange={(event) =>
+                            updateValue(
+                              parameter.parameter_key,
+                              event.target.value
+                            )
                           }
+                          placeholder={isCompactViewport ? "—" : t.valuePlaceholder}
+                          aria-label={`${parameter.display_name} ${t.valueLabel}`}
                         />
-                      ) : (
-                        <span
-                          className="values-unit-inline"
-                          title={
-                            selectedUnit?.unit_symbol || parameter.unit_symbol
-                          }
-                        >
-                          {selectedUnit?.display_symbol ||
-                            selectedUnit?.unit_symbol ||
-                            parameter.unit_symbol}
-                        </span>
-                      )}
+                        <div className="values-value-unit-box__unit">
+                          <ParameterUnitPicker
+                            units={parameter.available_units}
+                            selectedUnit={selectedUnit}
+                            selectedDisplayKey={selectedUnitDisplayKey}
+                            getUnitOptionKey={getUnitOptionKey}
+                            dedupeUnitOptions={dedupeUnitOptions}
+                            changeUnitLabel={t.changeUnit}
+                            compact
+                            embedded
+                            onChange={(unitId, displayKey) =>
+                              updateUnit(
+                                parameter.parameter_key,
+                                unitId,
+                                displayKey
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="values-table-cell values-table-cell--level px-1 py-1.5 align-middle">
+                      <ValueLiveInterpControl
+                        t={t}
+                        result={liveResult}
+                        isMissing={isMissing}
+                        compact={isCompactViewport}
+                        detailOpen={
+                          detailParameterKey === parameter.parameter_key
+                        }
+                        onToggleDetail={() =>
+                          setDetailParameterKey((current) =>
+                            current === parameter.parameter_key
+                              ? null
+                              : parameter.parameter_key
+                          )
+                        }
+                      />
                     </td>
                   </tr>
                 );
@@ -4318,17 +4884,120 @@ function ValuesScreen({
       {!hasVisibleParameters && (
         <div className="mt-6 flex justify-end">
           <button
-          type="button"
-          onClick={interpretAnalysis}
-          disabled={loading || !cropId || Boolean(pendingEditableAnalysis)}
-          className="touch-target rounded-2xl bg-green-700 px-6 py-3 font-semibold text-white shadow-sm active:scale-[0.98] hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60 md:min-w-64"
+            type="button"
+            onClick={() => void saveAnalysis()}
+            disabled={
+              loading ||
+              saving ||
+              !cropId ||
+              Boolean(pendingEditableAnalysis) ||
+              !hasEnteredValues ||
+              isSaved ||
+              isQueued
+            }
+            className="touch-target rounded-2xl bg-green-700 px-6 py-3 font-semibold text-white shadow-sm active:scale-[0.98] hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60 md:min-w-64"
           >
-            {loading ? t.interpreting : t.interpretAnalysis}
+            {saving
+              ? t.saving
+              : isSaved
+                ? t.analysisSavedState
+                : isQueued
+                  ? t.analysisQueuedState
+                  : needsUpdate
+                    ? t.updateAnalysis
+                    : t.saveAnalysis}
           </button>
         </div>
       )}
     </section>
     </>
+  );
+}
+
+function ValueLiveInterpControl({
+  t,
+  result,
+  isMissing,
+  compact = false,
+  detailOpen,
+  onToggleDetail,
+}: {
+  t: (typeof translations)[Language];
+  result: InterpretationResult | undefined;
+  isMissing: boolean;
+  compact?: boolean;
+  detailOpen: boolean;
+  onToggleDetail: () => void;
+}) {
+  if (!result && !isMissing) return null;
+
+  const levelLabel = result ? translateLevelCode(result.level_code, t) : "";
+
+  return (
+    <div className={`values-live-interp${compact ? " values-live-interp--compact" : ""}`}>
+      {result ? (
+        <>
+          <span
+            className={`${getLevelBadgeClass(result.level_code)} values-live-interp__badge${
+              compact ? " values-live-interp__badge--compact" : ""
+            }`}
+            title={levelLabel}
+          >
+            {levelLabel}
+          </span>
+          <button
+            type="button"
+            className="values-live-interp__detail"
+            onClick={onToggleDetail}
+            aria-expanded={detailOpen}
+            aria-label={t.viewInterpretationDetail}
+            title={levelLabel || t.viewInterpretationDetail}
+          >
+            <Info size={compact ? 13 : 14} strokeWidth={2.25} />
+          </button>
+        </>
+      ) : (
+        <span className="values-live-interp__missing" title={t.noRangeFound}>
+          —
+        </span>
+      )}
+
+      {detailOpen && result ? (
+        <div className="values-interp-popover" role="dialog">
+          <div className="values-interp-popover__head">
+            <strong>{t.interpretationDetail}</strong>
+            <button
+              type="button"
+              className="values-live-interp__detail"
+              onClick={onToggleDetail}
+              aria-label={t.close}
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <p
+            className={`${getLevelBadgeClass(result.level_code)} values-interp-popover__level`}
+          >
+            {levelLabel}
+          </p>
+          <p className="values-interp-popover__line">
+            <span className="values-interp-popover__label">{t.rangeLabel}</span>
+            <span className="values-interp-popover__value">
+              {result.min ?? "—"}–{result.max ?? "—"} {result.unit_symbol}
+            </span>
+          </p>
+          {result.source_name ? (
+            <p className="values-interp-popover__line values-interp-popover__line--stack">
+              <span className="values-interp-popover__label">{t.source}</span>
+              <span className="values-interp-popover__value">
+                {result.source_name}
+              </span>
+            </p>
+          ) : null}
+          <p className="values-interp-popover__advice">{result.advice}</p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -4352,6 +5021,8 @@ function ReportDetailsPanel({
   setProvinceState,
   samplingDate,
   setSamplingDate,
+  locationStatus,
+  onDetectLocation,
   t,
 }: {
   analysisName: string;
@@ -4364,9 +5035,12 @@ function ReportDetailsPanel({
   setProvinceState: (value: string) => void;
   samplingDate: string;
   setSamplingDate: (value: string) => void;
+  locationStatus?: string;
+  onDetectLocation?: () => void | Promise<void>;
   t: (typeof translations)[Language];
 }) {
   const [countryRegion, setCountryRegion] = useState<CountryRegion | "">("");
+  const [detecting, setDetecting] = useState(false);
   const filteredCountries = countryRegion
     ? countryRegions.find((group) => group.region === countryRegion)?.countries || []
     : countries;
@@ -4385,6 +5059,33 @@ function ReportDetailsPanel({
           onChange={(e) => setAnalysisName(e.target.value)}
         />
       </SetupInlineField>
+
+      <div className="rounded-xl border border-emerald-900/10 bg-emerald-50/40 px-3 py-3 dark:border-white/10 dark:bg-white/5">
+        <p className="text-xs text-slate-600 dark:text-slate-300">
+          {t.useMyLocationHint}
+        </p>
+        <button
+          type="button"
+          className="mt-2 rounded-xl bg-emerald-800 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+          disabled={detecting || !onDetectLocation}
+          onClick={async () => {
+            if (!onDetectLocation) return;
+            setDetecting(true);
+            try {
+              await onDetectLocation();
+            } finally {
+              setDetecting(false);
+            }
+          }}
+        >
+          {detecting ? t.locationDetecting : t.useMyLocation}
+        </button>
+        {locationStatus ? (
+          <p className="mt-2 text-xs text-emerald-900 dark:text-emerald-200">
+            {locationStatus}
+          </p>
+        ) : null}
+      </div>
 
       <SetupInlineField label={t.region}>
         <AppSelect
@@ -4925,6 +5626,7 @@ function ResultsSection({
   saveAnalysis,
   isSaved,
   isQueued,
+  needsUpdate,
   pendingOfflineSaves,
   isGeneralCrop,
   sampleType,
@@ -4955,6 +5657,7 @@ function ResultsSection({
   saveAnalysis: () => void | Promise<void>;
   isSaved: boolean;
   isQueued: boolean;
+  needsUpdate: boolean;
   pendingOfflineSaves: number;
   isGeneralCrop: boolean;
   sampleType: "soil" | "foliar";
@@ -5196,7 +5899,9 @@ function ResultsSection({
                 ? t.analysisSavedState
                 : isQueued
                   ? t.analysisQueuedState
-                  : t.saveAnalysis}
+                  : needsUpdate
+                    ? t.updateAnalysis
+                    : t.saveAnalysis}
           </button>
         </div>
       </div>

@@ -328,7 +328,7 @@ export default function AuthPanel({
           <img
             src="/app-icon.png"
             alt={t.appName}
-            className="app-logo-frame auth-card__logo h-32 w-32 object-contain"
+            className="app-logo-frame auth-card__logo h-20 w-20 object-contain sm:h-24 sm:w-24"
           />
           <p className="auth-welcome mt-2 max-w-xs text-sm font-semibold leading-snug">
             {t.authWelcomeDesc}

@@ -1,16 +1,22 @@
 "use client";
 
-import type { CostScenario } from "@/lib/fertilizerCostOptimize";
+import type { BlendPlan, CostScenario } from "@/lib/fertilizerCostOptimize";
 import type { DoseNutrientKey } from "@/lib/soilFertilityPlan";
 import type { IrrigationSystem } from "@/lib/soilFertilityTables";
+import MenuSelect from "@/components/ui/MenuSelect";
 
 type Props = {
   scenarios: CostScenario[];
   activeId: string;
   onSelect: (id: string) => void;
-  onApply: (primaryByDose: Partial<Record<DoseNutrientKey, string>>) => void;
+  onApply: (args: {
+    primaryByDose: Partial<Record<DoseNutrientKey, string>>;
+    scenario: CostScenario;
+    snappedFromIrrigation: boolean;
+  }) => void;
   areaHa: number;
   currency: string;
+  missingPrices?: Array<{ key: string; label: string }>;
   t: Record<string, string>;
 };
 
@@ -41,6 +47,13 @@ const NUTRIENT_LABEL: Record<string, string> = {
   mgo: "MgO",
 };
 
+const PRIMARY_STRATEGY_IDS = new Set([
+  "recommended",
+  "fewest_products",
+  "stock_first",
+  "current_selection",
+]);
+
 export default function FertilizerCostScenarios({
   scenarios,
   activeId,
@@ -48,6 +61,7 @@ export default function FertilizerCostScenarios({
   onApply,
   areaHa,
   currency,
+  missingPrices = [],
   t,
 }: Props) {
   const active =
@@ -57,7 +71,9 @@ export default function FertilizerCostScenarios({
 
   if (!active) return null;
 
-  const strategyFilters = scenarios.filter((s) => s.kind !== "irrigation");
+  const primaryStrategies = scenarios.filter(
+    (s) => s.kind !== "irrigation" && PRIMARY_STRATEGY_IDS.has(s.id)
+  );
   const irrigFilters = scenarios.filter((s) => s.kind === "irrigation");
   const plan = active.plan;
   const plotCost = plan ? plan.costHa * areaHa : null;
@@ -71,61 +87,83 @@ export default function FertilizerCostScenarios({
     (s) => s.id !== active.id && s.feasible && s.plan
   );
 
+  const irrigSelectValue =
+    active.kind === "irrigation" && active.irrigationSystem
+      ? active.irrigationSystem
+      : "__none__";
+
   return (
-    <section className="grid gap-3 rounded-2xl border border-emerald-900/15 bg-emerald-50/40 p-3">
+    <section className="grid gap-3">
       <div>
-        <h3 className="text-sm font-bold text-green-950 dark-text-primary">
-          {t.fertilizerCostScenariosTitle || "Cost scenarios"}
-        </h3>
-        <p className="mt-1 text-xs text-slate-600">
+        <p className="text-xs text-slate-600 dark:text-slate-300">
           {t.fertilizerCostScenariosDesc ||
-            "Compare mixes that credit multi-nutrient fertilizers, and see how irrigation efficiency changes total cost."}
+            "Pick a mix. Multi-nutrient products credit all nutrients they supply — totals match what you apply."}
         </p>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        {strategyFilters.map((scenario) => (
+        {primaryStrategies.map((scenario) => (
           <FilterChip
             key={scenario.id}
             active={active.id === scenario.id}
             recommended={scenario.recommended}
-            disabled={!scenario.feasible}
+            disabled={!scenario.feasible && scenario.kind !== "current_selection"}
             onClick={() => onSelect(scenario.id)}
             label={scenarioLabel(scenario, t)}
           />
         ))}
       </div>
 
-      <div>
-        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-          {t.fertilizerScenarioByIrrigation || "By irrigation"}
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {irrigFilters.map((scenario) => (
-            <FilterChip
-              key={scenario.id}
-              active={active.id === scenario.id}
-              recommended={false}
-              disabled={!scenario.feasible}
-              onClick={() => onSelect(scenario.id)}
-              label={
-                (t[`irrigation_${scenario.irrigationSystem}`] ||
-                  scenario.irrigationSystem ||
-                  "") +
-                (scenario.isCurrentIrrigation
-                  ? ` · ${t.fertilizerScenarioCurrentIrrig || "current"}`
-                  : "")
-              }
-            />
-          ))}
-        </div>
-      </div>
+      {irrigFilters.length > 0 ? (
+        <MenuSelect
+          label={t.fertilizerScenarioCompareIrrig || "Compare by irrigation"}
+          value={irrigSelectValue}
+          options={[
+            ["__none__", t.fertilizerScenarioIrrigOff || "Current plan doses"],
+            ...irrigFilters.map(
+              (scenario) =>
+                [
+                  scenario.irrigationSystem || scenario.id,
+                  `${t[`irrigation_${scenario.irrigationSystem}`] || scenario.irrigationSystem}${
+                    scenario.isCurrentIrrigation
+                      ? ` · ${t.fertilizerScenarioCurrentIrrig || "current"}`
+                      : ""
+                  }`,
+                ] as [string, string]
+            ),
+          ]}
+          onChange={(value) => {
+            if (value === "__none__") {
+              const recommended =
+                scenarios.find((s) => s.recommended)?.id || "recommended";
+              onSelect(recommended);
+              return;
+            }
+            onSelect(`irrigation_${value}`);
+          }}
+          fullWidth
+          variant="field"
+          compact
+        />
+      ) : null}
 
       {!plan || !active.feasible ? (
-        <p className="fertilizer-cost-alert rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          {t.fertilizerScenarioNeedPrices ||
-            "Add bag prices for the fertilizers you can buy so the optimizer can build scenarios."}
-        </p>
+        <div className="space-y-2">
+          <p className="fertilizer-cost-alert rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+            {t.fertilizerScenarioNeedPrices ||
+              "Add bag prices for the fertilizers you can buy so the optimizer can build scenarios."}
+          </p>
+          {missingPrices.length > 0 ? (
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              {t.fertilizerScenarioMissingPrices || "Missing prices for"}:{" "}
+              {missingPrices
+                .slice(0, 8)
+                .map((item) => item.label)
+                .join(", ")}
+              {missingPrices.length > 8 ? "…" : ""}
+            </p>
+          ) : null}
+        </div>
       ) : (
         <div className="grid gap-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -140,9 +178,8 @@ export default function FertilizerCostScenarios({
                   </span>
                 ) : null}
               </div>
-              <p className="mt-1 text-xs text-slate-500">
-                {plan.productCount}{" "}
-                {t.fertilizerProductsCount || "products"}
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {plan.productCount} {t.fertilizerProductsCount || "products"}
                 {active.kind === "irrigation"
                   ? ` · ${t.fertilizerScenarioVsCurrentDose || "doses rebuilt for this irrigation"}`
                   : ""}
@@ -155,42 +192,17 @@ export default function FertilizerCostScenarios({
               <p className="text-lg font-bold text-green-950 dark-text-primary">
                 {plotCost == null ? "—" : formatMoney(plotCost, currency)}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {formatMoney(plan.costHa, currency)} / ha
               </p>
             </div>
           </div>
 
-          <ul className="grid gap-2">
-            {plan.lines.map((line) => (
-              <li
-                key={line.productKey}
-                className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl bg-white/70 px-3 py-2 text-xs"
-              >
-                <div>
-                  <p className="font-semibold text-green-950 dark-text-primary">
-                    {line.label}{" "}
-                    <span className="font-normal text-slate-500">
-                      · {line.analysis}
-                    </span>
-                  </p>
-                  <p className="mt-0.5 text-slate-500">
-                    {line.kgHa.toFixed(1)} kg/ha ·{" "}
-                    {(line.bagsHa * areaHa).toFixed(1)}{" "}
-                    {t.fertilizerBags || "bags"} /{" "}
-                    {t.fertilizerProductAmountPlot || "plot"}
-                  </p>
-                </div>
-                <p className="font-semibold text-green-950 dark-text-primary">
-                  {formatMoney(line.costHa * areaHa, currency)}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <BlendLinesList plan={plan} areaHa={areaHa} currency={currency} t={t} />
 
           {plan.credits.length > 0 ? (
-            <div className="rounded-xl bg-white/60 px-3 py-2 text-xs text-slate-600">
-              <p className="font-semibold text-emerald-900">
+            <div className="rounded-xl bg-white/60 px-3 py-2 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">
+              <p className="font-semibold text-emerald-900 dark:text-emerald-300">
                 {t.fertilizerScenarioCredits || "Nutrient credits"}
               </p>
               <ul className="mt-1 space-y-0.5">
@@ -210,37 +222,48 @@ export default function FertilizerCostScenarios({
             </div>
           ) : null}
 
+          {active.kind === "irrigation" ? (
+            <p className="text-xs text-amber-800 dark:text-amber-200">
+              {t.fertilizerScenarioApplyIrrigNote ||
+                "Applying this mix uses these products on your current plan doses (not the rebuilt irrigation targets)."}
+            </p>
+          ) : null}
+
           {active.kind !== "current_selection" &&
           Object.keys(plan.primaryByDose).length > 0 ? (
             <button
               type="button"
               className="rounded-xl bg-emerald-800 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-900"
-              onClick={() => onApply(plan.primaryByDose)}
+              onClick={() =>
+                onApply({
+                  primaryByDose: plan.primaryByDose,
+                  scenario: active,
+                  snappedFromIrrigation: active.kind === "irrigation",
+                })
+              }
             >
               {t.fertilizerScenarioApply || "Use this mix"}
             </button>
           ) : null}
 
           {comparable.length > 0 ? (
-            <div>
-              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-                {t.fertilizerScenarioCompare || "Other scenarios"}
-              </p>
-              <ul className="grid gap-1">
-                {comparable.slice(0, 6).map((scenario) => {
+            <details className="fertilizer-plan__hint">
+              <summary className="cursor-pointer text-xs font-bold text-emerald-800">
+                {t.fertilizerScenarioCompare || "Compare options"}
+              </summary>
+              <ul className="mt-2 grid gap-1">
+                {comparable.slice(0, 8).map((scenario) => {
                   const cost = scenario.plan!.costHa * areaHa;
                   const delta =
-                    baseline != null
-                      ? scenario.plan!.costHa - baseline
-                      : null;
+                    baseline != null ? scenario.plan!.costHa - baseline : null;
                   return (
                     <li key={scenario.id}>
                       <button
                         type="button"
-                        className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-white/70"
+                        className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-white/70 dark:hover:bg-white/10"
                         onClick={() => onSelect(scenario.id)}
                       >
-                        <span className="text-slate-700">
+                        <span className="text-slate-700 dark:text-slate-200">
                           {scenarioLabel(scenario, t)}
                         </span>
                         <span className="shrink-0 font-semibold text-green-950 dark-text-primary">
@@ -263,11 +286,49 @@ export default function FertilizerCostScenarios({
                   );
                 })}
               </ul>
-            </div>
+            </details>
           ) : null}
         </div>
       )}
     </section>
+  );
+}
+
+function BlendLinesList({
+  plan,
+  areaHa,
+  currency,
+  t,
+}: {
+  plan: BlendPlan;
+  areaHa: number;
+  currency: string;
+  t: Record<string, string>;
+}) {
+  return (
+    <ul className="grid gap-2">
+      {plan.lines.map((line) => (
+        <li
+          key={line.productKey}
+          className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl bg-white/70 px-3 py-2 text-xs dark:bg-white/5"
+        >
+          <div>
+            <p className="font-semibold text-green-950 dark-text-primary">
+              {line.label}{" "}
+              <span className="font-normal text-slate-500">· {line.analysis}</span>
+            </p>
+            <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+              {line.kgHa.toFixed(1)} kg/ha · {(line.bagsHa * areaHa).toFixed(1)}{" "}
+              {t.fertilizerBags || "bags"} /{" "}
+              {t.fertilizerProductAmountPlot || "plot"}
+            </p>
+          </div>
+          <p className="font-semibold text-green-950 dark-text-primary">
+            {formatMoney(line.costHa * areaHa, currency)}
+          </p>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -293,7 +354,7 @@ function FilterChip({
         "fertilizer-cost-chip rounded-full border px-2.5 py-1 text-[11px] font-semibold transition",
         active
           ? "fertilizer-cost-chip--active border-emerald-800 bg-emerald-800 text-white"
-          : "border-emerald-900/20 bg-white/70 text-green-950 hover:border-emerald-700",
+          : "border-emerald-900/20 bg-white/70 text-green-950 hover:border-emerald-700 dark:bg-white/10 dark:text-slate-100",
         recommended && !active ? "ring-1 ring-emerald-600/40" : "",
         disabled ? "cursor-not-allowed opacity-40" : "",
       ].join(" ")}

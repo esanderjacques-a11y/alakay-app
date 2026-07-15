@@ -14,11 +14,13 @@ import type { CalculatorValue } from "@/lib/agronomicCalculators";
 import {
   getMemoryField,
   getMemorySlice,
+  getMemoryTextField,
   labImportFingerprint,
   markLabImport,
   readCalculatorMemory,
   setMemoryField,
   setMemoryFields,
+  setMemoryTextField,
   writeCalculatorMemory,
   type CalculatorMemoryStore,
   type CalculatorSampleScope,
@@ -32,6 +34,8 @@ type MemoryContextValue = {
   valuesOutOfSync: boolean;
   getNumber: (section: string, key: string, fallback: number) => number;
   setNumber: (section: string, key: string, value: number) => void;
+  getText: (section: string, key: string, fallback: string) => string;
+  setText: (section: string, key: string, value: string) => void;
   importFromValues: () => { importedCount: number; fingerprint: string };
 };
 
@@ -170,6 +174,22 @@ export function CalculatorMemoryProvider({
     [sampleType]
   );
 
+  const getText = useCallback(
+    (section: string, key: string, fallback: string) => {
+      const remembered = getMemoryTextField(slice, section, key);
+      if (remembered !== undefined) return remembered;
+      return fallback;
+    },
+    [slice]
+  );
+
+  const setText = useCallback(
+    (section: string, key: string, value: string) => {
+      commit(setMemoryTextField(getStore(), sampleType, section, key, value));
+    },
+    [sampleType]
+  );
+
   const importFromValues = useCallback(() => {
     const result = mapLabIntoMemory(getStore(), sampleType, lab);
     commit(result.store);
@@ -185,6 +205,8 @@ export function CalculatorMemoryProvider({
       valuesOutOfSync: outOfSync,
       getNumber,
       setNumber,
+      getText,
+      setText,
       importFromValues,
     }),
     [
@@ -194,6 +216,8 @@ export function CalculatorMemoryProvider({
       outOfSync,
       getNumber,
       setNumber,
+      getText,
+      setText,
       importFromValues,
     ]
   );
@@ -238,6 +262,34 @@ export function useMemoryNumber(
       setNumber(section, key, next);
     },
     [section, key, setNumber]
+  );
+
+  return [value, update];
+}
+
+/** String field bound to calculator memory (crop keys, modes, units, …). */
+export function useMemoryString(
+  section: string,
+  key: string,
+  fallback = ""
+): [string, (value: string) => void] {
+  const { setText, importTick, sampleType } = useCalculatorMemory();
+  const store = useSyncExternalStore(subscribe, getStore, getStore);
+  const remembered = getMemoryTextField(getMemorySlice(store, sampleType), section, key);
+  const resolved = remembered !== undefined ? remembered : fallback;
+
+  const [value, setValue] = useState(resolved);
+
+  useEffect(() => {
+    setValue(resolved);
+  }, [importTick, section, key, resolved]);
+
+  const update = useCallback(
+    (next: string) => {
+      setValue(next);
+      setText(section, key, next);
+    },
+    [section, key, setText]
   );
 
   return [value, update];

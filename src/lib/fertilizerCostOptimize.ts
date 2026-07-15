@@ -56,6 +56,7 @@ export type ScenarioKind =
   | "compound_first"
   | "singles_only"
   | "current_selection"
+  | "stock_first"
   | "irrigation";
 
 export type CostScenario = {
@@ -666,12 +667,32 @@ export type OptimizeInput = {
   selectedProducts?: Partial<Record<DoseNutrientKey, string>>;
   irrigationSystem?: IrrigationSystem;
   irrigationTable?: IrrigationEfficiencyTable;
+  /** Catalog keys available in farm bodega (prefer these to save cost). */
+  stockProductKeys?: string[];
 };
+
+function pricesPreferringStock(
+  prices: ProductPriceMap,
+  stockKeys: string[]
+): ProductPriceMap {
+  if (stockKeys.length === 0) return prices;
+  const next = { ...prices };
+  for (const key of stockKeys) {
+    if (next[key] == null || !(next[key] > 0)) {
+      // Need a price slot so the product can enter the pool; treat stock as near-free.
+      next[key] = 0.01;
+    } else {
+      next[key] = Math.max(0.01, next[key] * 0.05);
+    }
+  }
+  return next;
+}
 
 export function buildCostScenarios(input: OptimizeInput): CostScenario[] {
   const bagKg = input.bagKg && input.bagKg > 0 ? input.bagKg : DEFAULT_FERTILIZER_BAG_KG;
   const baseTargets = targetsFromDoses(input.doses);
   const prices = input.prices;
+  const stockKeys = [...new Set((input.stockProductKeys || []).filter(Boolean))];
   const scenarios: CostScenario[] = [];
 
   const recommendedPlan = searchBestBlend(baseTargets, prices, bagKg, "recommended");
@@ -681,6 +702,14 @@ export function buildCostScenarios(input: OptimizeInput): CostScenario[] {
   const currentPlan = input.selectedProducts
     ? blendFromSelection(baseTargets, input.selectedProducts, prices, bagKg)
     : null;
+  const stockPrices = pricesPreferringStock(prices, stockKeys);
+  const stockPlan =
+    stockKeys.length > 0
+      ? allocateBlend(baseTargets, stockPrices, bagKg, {
+          bias: "value",
+          forceOrder: stockKeys.filter((key) => stockPrices[key] > 0),
+        })
+      : null;
 
   scenarios.push({
     id: "recommended",
@@ -718,6 +747,17 @@ export function buildCostScenarios(input: OptimizeInput): CostScenario[] {
     plan: singlesPlan,
     targets: baseTargets,
   });
+  if (stockKeys.length > 0) {
+    scenarios.push({
+      id: "stock_first",
+      kind: "stock_first",
+      labelKey: "fertilizerScenarioStockFirst",
+      recommended: false,
+      feasible: Boolean(stockPlan),
+      plan: stockPlan,
+      targets: baseTargets,
+    });
+  }
   scenarios.push({
     id: "current_selection",
     kind: "current_selection",
@@ -767,6 +807,29 @@ export function buildCostScenarios(input: OptimizeInput): CostScenario[] {
   }
 
   return scenarios;
+}
+
+/** Preferred catalog keys (for optimizer + UI price hints) that lack a bag price. */
+export function missingPreferredPrices(
+  prices: ProductPriceMap,
+  selectedProducts?: Partial<Record<DoseNutrientKey, string>>
+): Array<{ key: string; label: string }> {
+  const preferred = new Set<string>([
+    ...COMPOUND_PREFERRED,
+    ...Object.values(SINGLES_PREFERRED).flatMap((keys) => keys || []),
+  ]);
+  if (selectedProducts) {
+    for (const key of Object.values(selectedProducts)) {
+      if (key) preferred.add(key);
+    }
+  }
+  const missing: Array<{ key: string; label: string }> = [];
+  for (const product of COMMERCIAL_FERTILIZERS) {
+    if (!preferred.has(product.key)) continue;
+    if ((prices[product.key] || 0) > 0) continue;
+    missing.push({ key: product.key, label: product.label });
+  }
+  return missing;
 }
 
 export function resolveProductPrices(args: {

@@ -74,15 +74,15 @@ export default function AccountMenu({
               presence.leaving ? "animate-scale-out" : "animate-scale-in"
             }`}
           >
-            <div className="mb-2 rounded-2xl bg-green-50/90 px-3 py-3 text-xs text-slate-600">
-              <p className="font-semibold text-green-900">
+            <div className="account-menu-status mb-2 rounded-2xl px-3 py-3 text-xs">
+              <p className="account-menu-status__title font-semibold">
                 {guestMode ? appText.guestMode : t.usingAccount}
               </p>
               {email ? (
-                <p className="mt-1 truncate">{email}</p>
-              ) : (
-                <p className="mt-1">{displayName}</p>
-              )}
+                <p className="account-menu-status__meta mt-1 truncate">{email}</p>
+              ) : !guestMode && displayName ? (
+                <p className="account-menu-status__meta mt-1 truncate">{displayName}</p>
+              ) : null}
             </div>
 
             <div className="grid gap-1">
@@ -93,7 +93,7 @@ export default function AccountMenu({
                     setOpen(false);
                     onUseAccount();
                   }}
-                  className="touch-target flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-green-800 active:bg-green-50"
+                  className="account-menu-item account-menu-item--accent touch-target flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold active:scale-[0.99]"
                 >
                   <UserRoundCog size={16} />
                   {t.useAccount}
@@ -107,7 +107,7 @@ export default function AccountMenu({
                     setOpen(false);
                     onContinueAsGuest();
                   }}
-                  className="touch-target flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-slate-700 active:bg-slate-50"
+                  className="account-menu-item touch-target flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold active:scale-[0.99]"
                 >
                   <UserRoundCheck size={16} />
                   {t.continueGuest}
@@ -120,7 +120,7 @@ export default function AccountMenu({
                   setOpen(false);
                   onSwitchAccount();
                 }}
-                className="touch-target flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-slate-700 active:bg-slate-50"
+                className="account-menu-item touch-target flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold active:scale-[0.99]"
               >
                 {hasSession ? <UserPlus size={16} /> : <LogIn size={16} />}
                 {hasSession ? t.switchAccount : t.login}
@@ -133,7 +133,7 @@ export default function AccountMenu({
                     setOpen(false);
                     onLogout();
                   }}
-                  className="touch-target flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-red-700 active:bg-red-50"
+                  className="account-menu-item account-menu-item--danger touch-target flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold active:scale-[0.99]"
                 >
                   <LogOut size={16} />
                   {appText.logOut}

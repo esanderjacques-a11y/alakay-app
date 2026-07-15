@@ -29,6 +29,9 @@ export type SaveAnalysisInput = {
   reportDate: string;
   country: string | null;
   provinceState: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationSource?: "gps" | "manual" | null;
   editingRootAnalysisId: number | null;
   editingNextVersionNumber: number;
 };
@@ -56,34 +59,58 @@ export async function saveAnalysisToSupabase(
 
   if (input.farmName.trim()) {
     const farmName = input.farmName.trim();
+    const location = [(input.provinceState || "").trim(), input.country || ""]
+      .filter(Boolean)
+      .join(", ");
     const { data: existingFarms, error: farmLookupError } = await supabase
       .from("farms")
-      .select("farm_id, farm_name")
+      .select("farm_id, farm_name, location")
       .eq("user_id", userId);
     if (farmLookupError) throw new Error(farmLookupError.message);
 
+    const normalize = (value: string | null | undefined) =>
+      (value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .toLocaleLowerCase();
+    const identity = `${normalize(farmName)}||${normalize(location)}`;
+
     const existingFarm = existingFarms?.find(
       (farm) =>
-        farm.farm_name.trim().toLocaleLowerCase() ===
-        farmName.toLocaleLowerCase()
+        `${normalize(farm.farm_name)}||${normalize(farm.location)}` === identity
     );
     if (existingFarm) {
       farmId = existingFarm.farm_id;
     } else {
-      const { data: farmData, error: farmError } = await supabase
-        .from("farms")
-        .insert({
-          user_id: userId,
-          farm_name: farmName,
-          location: [(input.provinceState || "").trim(), input.country || ""]
-            .filter(Boolean)
-            .join(", "),
-        })
-        .select("farm_id")
-        .single();
+      // Prefer an existing same-name farm when location was never set.
+      const sameNameEmptyLoc = existingFarms?.find(
+        (farm) =>
+          normalize(farm.farm_name) === normalize(farmName) &&
+          !normalize(farm.location)
+      );
+      if (sameNameEmptyLoc && location) {
+        const { error: locError } = await supabase
+          .from("farms")
+          .update({ location })
+          .eq("farm_id", sameNameEmptyLoc.farm_id);
+        if (locError) throw new Error(locError.message);
+        farmId = sameNameEmptyLoc.farm_id;
+      } else {
+        const { data: farmData, error: farmError } = await supabase
+          .from("farms")
+          .insert({
+            user_id: userId,
+            farm_name: farmName,
+            location: location || null,
+          })
+          .select("farm_id")
+          .single();
 
-      if (farmError) throw new Error(farmError.message);
-      farmId = farmData.farm_id;
+        if (farmError) throw new Error(farmError.message);
+        farmId = farmData.farm_id;
+      }
     }
   }
 
@@ -161,10 +188,11 @@ export async function saveAnalysisToSupabase(
       report_date: input.reportDate || null,
       country: input.country || null,
       province_state: (input.provinceState || "").trim() || null,
-      latitude: null,
-      longitude: null,
+      latitude: input.latitude ?? null,
+      longitude: input.longitude ?? null,
       location_source:
-        input.country || (input.provinceState || "").trim() ? "manual" : null,
+        input.locationSource ||
+        (input.country || (input.provinceState || "").trim() ? "manual" : null),
       status: "completed",
     })
     .select("analysis_id")

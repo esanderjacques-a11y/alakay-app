@@ -3,6 +3,8 @@
 @source "../components";
 
 :root {
+  /* Lock light mode so mobile browsers don't auto-darken/wash out the page. */
+  color-scheme: light;
   /* Samsung One UI — Material You color system */
   --background: #f2f2f2;
   --foreground: #1c1c1e;
@@ -18,9 +20,10 @@
   --glass-surface-muted: rgb(255 255 255 / 0.52);
   --glass-chrome-surface: var(--glass-surface);
   --glass-chrome-border: var(--glass-border);
-  --text-muted: #6c6c70;
-  --text-muted-rgb: 108 108 112;
-  --text-subtle: #8e8e93;
+  /* Darkened for WCAG AA contrast on the near-white background (esp. on phones). */
+  --text-muted: #545458;
+  --text-muted-rgb: 84 84 88;
+  --text-subtle: #6c6c70;
   --glass-scrim: rgb(15 23 42 / 0.34);
   --glass-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   --app-main-gradient: linear-gradient(

@@ -147,6 +147,8 @@ function buildAiImportInstructionsForLanguage(language: string) {
     "If a wide table has sample rows and parameter columns, create one row per sample and parameter.",
     "Do not mix two parameters in one row. One row must contain one parameter and one numeric value.",
     "If headers include method or unit, carry that method/unit into each row.",
+    "Unit header rows often use merged/spanning cells: a unit like % or ppm printed once applies to every following column until a different unit appears. Apply that spanning unit to each of those columns and set rows.unit accordingly (for example % for C, N, P, K, Ca, Mg, S and ppm for Fe, Cu, Zn, Mn, B, Na).",
+    "Detect the analysis type and set metadata.analysisType to foliar or soil: foliar for plant tissue/leaf reports (foliar, foliares, tejido vegetal, leaf), soil for suelo/soil reports. In foliar reports macronutrients (C, N, P, K, Ca, Mg, S) are typically % and micronutrients (Fe, Cu, Zn, Mn, B, Na) are ppm.",
     "Do not import dates, phone numbers, page numbers, addresses, invoice/payment numbers, legal text, chart axes, recommendation kg/ha values, rating letters, status words, or reference ranges as results.",
     "Treat Low/Medium/High, Bajo/Medio/Alto, Target, Guide, Optimum, Range, Rango, Reference, and bar/scale numbers as reference information, not result values.",
     "Preserve different methods separately, for example P Olsen, P Bray, P Mehlich, pH H2O, pH KCl, nitrate-N, ammonium-N.",
@@ -323,7 +325,8 @@ function normalizeImportedRowShape(
   parameterRaw: string,
   valueRaw: string,
   unitRaw: string,
-  symbolRaw = ""
+  symbolRaw = "",
+  isFoliar = false
 ) {
   let parameter = normalizeParameterLabel(parameterRaw);
   let value = String(valueRaw || "").trim();
@@ -351,10 +354,35 @@ function normalizeImportedRowShape(
     if (!unit) unit = "pH";
   }
 
-  // Dual-column labs: Ca/Mg/K/Na values like 156/120/620 are mg/kg, not meq/cmol.
-  unit = reconcileBaseUnitLabel(parameter, symbol, unit, parsedValue);
+  if (isFoliar) {
+    // Plant-tissue reports never use exchange units; default missing units to
+    // the conventional foliar system (% for macros, ppm for micros).
+    if (!unit) unit = defaultFoliarUnit(parameter, symbol);
+  } else {
+    // Dual-column soil labs: Ca/Mg/K/Na values like 156/120/620 are mg/kg, not meq/cmol.
+    unit = reconcileBaseUnitLabel(parameter, symbol, unit, parsedValue);
+  }
 
   return { parameter, value, unit };
+}
+
+function defaultFoliarUnit(parameter: string, symbol: string) {
+  const text = ` ${parameter} ${symbol} `.toLowerCase();
+  if (
+    /\b(nitrogen|nitrogeno|phosphorus|fosforo|potassium|potasio|calcium|calcio|magnesium|magnesio|sulfur|azufre|carbon|carbono|n|p|k|ca|mg|s|c)\b/.test(
+      text
+    )
+  ) {
+    return "%";
+  }
+  if (
+    /\b(iron|hierro|copper|cobre|zinc|manganese|manganeso|boron|boro|sodium|sodio|molybdenum|molibdeno|fe|cu|zn|mn|b|na|mo)\b/.test(
+      text
+    )
+  ) {
+    return "ppm";
+  }
+  return "";
 }
 
 function reconcileBaseUnitLabel(
@@ -411,6 +439,12 @@ function normalizeAiImportPayload(
         )
       : {};
   const warning = typeof record.warning === "string" ? record.warning : "";
+  const analysisTypeLower = String(metadata.analysisType || "").toLowerCase();
+  const isFoliar =
+    analysisTypeLower.includes("foliar") ||
+    analysisTypeLower.includes("leaf") ||
+    analysisTypeLower.includes("tejido") ||
+    analysisTypeLower.includes("tissue");
   const rawRows = Array.isArray(record.rows)
     ? record.rows
     : Array.isArray(record.values)
@@ -431,7 +465,8 @@ function normalizeAiImportPayload(
         rawParameter,
         rawValue,
         rawUnit,
-        rawSymbol
+        rawSymbol,
+        isFoliar
       );
       const parameter = normalized.parameter;
       const value = normalized.value;

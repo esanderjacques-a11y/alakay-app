@@ -216,6 +216,7 @@ type Props = {
     >
   ) => void;
   onEnterImportReview?: () => void;
+  onDetectedSampleType?: (sampleType: "soil" | "foliar") => void;
   presentation?: "overlay" | "page";
 };
 
@@ -1671,6 +1672,7 @@ export default function LabValueImporter({
   onRequestCreateParameter,
   onImportValues,
   onEnterImportReview,
+  onDetectedSampleType,
   presentation = "overlay",
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1753,6 +1755,45 @@ export default function LabValueImporter({
     if (!open) return;
     setHasCachedImport(Boolean(getLatestImportCache()));
   }, [open]);
+
+  // Re-resolve rows when a parameter's unit set changes (soil ↔ foliar switch
+  // after AI detects the analysis type): unit selections made against the
+  // previous sample type must be re-derived from the reported unit.
+  const parameterUnitSignaturesRef = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    const signatures = new Map<string, string>();
+    for (const [key, parameter] of parameterByKey) {
+      signatures.set(
+        key,
+        `${parameter.unit_id}|${parameter.available_units
+          .map((option) => getUnitOptionKey(option))
+          .join(",")}`
+      );
+    }
+
+    const previousSignatures = parameterUnitSignaturesRef.current;
+    parameterUnitSignaturesRef.current = signatures;
+    if (!previousSignatures) return;
+
+    setPreviewRows((previousRows) => {
+      if (previousRows.length === 0) return previousRows;
+      let changed = false;
+      const nextRows = previousRows.map((row) => {
+        if (!row.matchedParameterKey) return row;
+        const before = previousSignatures.get(row.matchedParameterKey);
+        const after = signatures.get(row.matchedParameterKey);
+        if (before === after) return row;
+        changed = true;
+        return resolveRowImportState(
+          { ...row, selectedUnitId: null, selectedUnitDisplayKey: null },
+          parameterByKey,
+          documentUnitContext
+        );
+      });
+      return changed ? nextRows : previousRows;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parameterByKey]);
 
   useEffect(() => {
     if (!open || previewRows.length === 0 || skipCacheSyncRef.current) {
@@ -1903,6 +1944,7 @@ export default function LabValueImporter({
     setCacheSourceLabel(entry.sourceLabel);
     setCacheSourceKind(entry.sourceKind);
     setImportMetadata(entry.metadata);
+    notifyDetectedSampleType(entry.metadata);
     setPreviewRows(entry.rows);
     setDocumentText("");
     setShowTextReview(false);
@@ -2088,6 +2130,15 @@ export default function LabValueImporter({
     applyIntelligentExtract(batch);
   }
 
+  function notifyDetectedSampleType(metadata?: ImportMetadata) {
+    const detected = String(metadata?.analysisType || "").toLowerCase();
+    if (detected.includes("foliar") || detected.includes("leaf")) {
+      onDetectedSampleType?.("foliar");
+    } else if (detected.includes("soil") || detected.includes("suelo")) {
+      onDetectedSampleType?.("soil");
+    }
+  }
+
   function buildAiDocumentPreview(
     payload: AiImportPayload,
     sourceLabel: string,
@@ -2097,6 +2148,8 @@ export default function LabValueImporter({
     setDocumentText(text);
     setShowTextReview(true);
     setImportMetadata(payload.metadata);
+    // Switch soil/foliar before review so parameters and default units match the report.
+    notifyDetectedSampleType(payload.metadata);
     setCacheSourceLabel(sourceLabel);
     setCacheSourceKind(sourceKind);
     let unitContext = mergeDocumentUnitContext(
@@ -2358,6 +2411,19 @@ export default function LabValueImporter({
           .split(/\r?\n/)
           .map((line) => splitCsvLine(line))
           .filter((row) => row.some((cell) => cell.trim()));
+        // AI first so wide layouts, merged unit headers, and soil/foliar
+        // detection are handled; local parsing remains the offline fallback.
+        setLoadingLabel("Almost done — interpreting the spreadsheet...");
+        try {
+          const payload = await recognizeExtractedContentWithAi({ text, tableRows, language });
+          if (payload.rows?.length) {
+            buildAiDocumentPreview(payload, file.name || "CSV");
+            return;
+          }
+        } catch {
+          /* AI unavailable — fall back to local parsing. */
+        }
+
         const smartBatch = extractRowsWithIntelligence(tableRows);
         if (smartBatch.rows.length > 0) {
           setDocumentText(text);
@@ -2366,15 +2432,9 @@ export default function LabValueImporter({
           return;
         }
 
-        setLoadingLabel("Almost done — interpreting the spreadsheet...");
-      const payload = await recognizeExtractedContentWithAi({ text, tableRows, language });
-        if (payload.rows?.length) {
-          buildAiDocumentPreview(payload, file.name || "CSV");
-        } else {
-          setDocumentText(text);
-          setShowTextReview(true);
-          buildPreview(parseCsv(text));
-        }
+        setDocumentText(text);
+        setShowTextReview(true);
+        buildPreview(parseCsv(text));
         return;
       }
 
@@ -2397,20 +2457,30 @@ export default function LabValueImporter({
       if (fileName.endsWith(".pdf")) {
         const buffer = await file.arrayBuffer();
         const text = await extractPdfText(buffer);
-        const pdfBatch = extractRowsWithIntelligence(text);
 
         setDocumentText(text);
         setShowTextReview(true);
 
-        if (pdfBatch.rows.length > 0) {
-          applyIntelligentExtract(pdfBatch);
-          return;
-        }
-
         if (text.trim().length > 80) {
+          // AI first for the same reasons as spreadsheets: wide layouts,
+          // spanning unit headers, soil/foliar detection. Local fallback only.
           setLoadingLabel("Almost done — interpreting PDF text...");
-          const payload = await recognizeExtractedContentWithAi({ text, language });
-          buildAiDocumentPreview(payload, file.name || "PDF");
+          try {
+            const payload = await recognizeExtractedContentWithAi({ text, language });
+            if (payload.rows?.length) {
+              buildAiDocumentPreview(payload, file.name || "PDF");
+              return;
+            }
+          } catch {
+            /* AI unavailable — fall back to local parsing. */
+          }
+
+          const pdfBatch = extractRowsWithIntelligence(text);
+          if (pdfBatch.rows.length > 0) {
+            applyIntelligentExtract(pdfBatch);
+          } else {
+            buildDocumentPreview(text);
+          }
           return;
         }
 
@@ -2418,11 +2488,17 @@ export default function LabValueImporter({
         const pageImages = await renderPdfPagesForAi(buffer);
         const pageTexts: string[] = [];
         const pageTokens: DocToken[] = [];
+        const pageRows: ImportedRow[] = [];
+        let pageMetadata: ImportMetadata | undefined;
 
         for (let index = 0; index < pageImages.length; index += 1) {
           setLoadingLabel(`Reading page ${index + 1} of ${pageImages.length} — nearly done...`);
           const payload = await recognizeImage(pageImages[index], language);
           pageTexts.push(payload.text);
+          if (payload.rows?.length) pageRows.push(...payload.rows);
+          if (!pageMetadata?.analysisType && payload.metadata) {
+            pageMetadata = payload.metadata;
+          }
           pageTokens.push(
             ...(payload.tokens || []).map((token) => ({
               ...token,
@@ -2433,6 +2509,21 @@ export default function LabValueImporter({
         }
 
         const combinedText = pageTexts.join("\n");
+
+        // Prefer the AI's structured rows over re-parsing raw tokens locally:
+        // they carry units, report ranges, and soil/foliar metadata.
+        if (pageRows.length > 0) {
+          buildAiDocumentPreview(
+            {
+              text: combinedText,
+              rows: pageRows,
+              metadata: pageMetadata,
+            },
+            file.name || "PDF"
+          );
+          return;
+        }
+
         setDocumentText(combinedText);
         setShowTextReview(true);
         if (pageTokens.length > 0) {
@@ -2468,23 +2559,32 @@ export default function LabValueImporter({
           header: 1,
           defval: "",
         }).map((row) => row.map((cell) => String(cell ?? "")));
+        const sheetText = tableRows.map((row) => row.join(" | ")).join("\n");
+
+        // AI first: it understands wide layouts, merged unit headers (% / ppm
+        // spanning several columns), and soil vs foliar detection far better
+        // than the local heuristics. Local parsing stays as offline fallback.
+        setLoadingLabel("Almost done — reading spreadsheet layout...");
+        try {
+          const payload = await recognizeExtractedContentWithAi({
+            text: sheetText,
+            tableRows,
+            language,
+          });
+          if (payload.rows?.length) {
+            buildAiDocumentPreview(payload, file.name || firstSheetName);
+            return;
+          }
+        } catch {
+          /* AI unavailable (offline / missing key) — fall back to local parsing. */
+        }
+
         const excelBatch = extractRowsWithIntelligence(tableRows);
 
         if (excelBatch.rows.length > 0) {
-          setDocumentText(tableRows.map((row) => row.join(" | ")).join("\n"));
+          setDocumentText(sheetText);
           setShowTextReview(true);
           applyIntelligentExtract(excelBatch);
-          return;
-        }
-
-        setLoadingLabel("Almost done — reading spreadsheet layout...");
-        const payload = await recognizeExtractedContentWithAi({
-          text: tableRows.map((row) => row.join(" | ")).join("\n"),
-          tableRows,
-          language,
-        });
-        if (payload.rows?.length) {
-          buildAiDocumentPreview(payload, firstSheetName);
           return;
         }
 

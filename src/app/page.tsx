@@ -3498,6 +3498,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             existingValues={values}
             onRequestCreateParameter={requestCreateCustomParameterFromImport}
             onImportValues={importLabValues}
+            onDetectedSampleType={(detected) => setSampleType(detected)}
           />
         ) : currentStep === "home" ? (
           <section className="home-screen-wrap">

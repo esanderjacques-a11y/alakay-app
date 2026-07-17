@@ -21,6 +21,7 @@
   lightTheme: "Thème clair",
   darkTheme: "Thème sombre",
   selectLanguage: "Choisir la langue",
+  quickSettings: "Réglages rapides",
   selectTheme: "Choisir le thème",
   themeToggleDesc: "Passez entre l'interface claire et sombre.",
   dataTools: "Outils de données",
@@ -402,6 +403,7 @@
     switchAccount: "Ajouter / changer de compte",
     continueGuest: "Continuer comme invité",
     login: "Se connecter",
+    viewAccountInfo: "Voir les informations du compte",
   },
 
   recycleBinScreen: {

@@ -3,13 +3,17 @@
 import { useEffect, useMemo, useRef, useState, useId, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import {
+  BarChart3,
+  ChevronRight,
+  CreditCard,
+  Download,
+  Globe,
+  Loader2,
   Redo2,
   RotateCcw,
   Save,
   Undo2,
-  ChevronDown,
-  Download,
-  Loader2,
+  UserRound,
 } from "lucide-react";
 import MenuSelect from "@/components/ui/MenuSelect";
 import { exportMethodologyPdf } from "@/lib/methodologyReport";
@@ -46,9 +50,45 @@ import AccountSettingsSection from "@/components/AccountSettingsSection";
 import BackButton from "@/components/ui/BackButton";
 import type { Language } from "@/lib/translations";
 
+export type SettingsSectionId = "general" | "account" | "analysisData";
+
+const SETTINGS_SECTION_STORAGE_KEY = "cultosol_settings_section";
+
+const LEGACY_SETTINGS_SECTION_MAP: Record<string, SettingsSectionId> = {
+  display: "general",
+  analysis: "analysisData",
+  importAi: "analysisData",
+  reports: "analysisData",
+  data: "analysisData",
+  resources: "analysisData",
+};
+
+function readStoredSettingsSection(): SettingsSectionId {
+  if (typeof window === "undefined") return "general";
+  try {
+    const raw = localStorage.getItem(SETTINGS_SECTION_STORAGE_KEY);
+    if (!raw) return "general";
+    if (raw === "general" || raw === "account" || raw === "analysisData") {
+      return raw;
+    }
+    return LEGACY_SETTINGS_SECTION_MAP[raw] ?? "general";
+  } catch {
+    return "general";
+  }
+}
+
+function persistSettingsSection(section: SettingsSectionId) {
+  try {
+    localStorage.setItem(SETTINGS_SECTION_STORAGE_KEY, section);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
 type Props = {
   language: Language;
   session: Session | null;
+  initialSection?: SettingsSectionId;
   onBack: () => void;
   onLanguageChange: (language: Language) => void;
   onThemePreferenceChange: (theme: AppThemePreference) => void;
@@ -56,6 +96,8 @@ type Props = {
   onBrightnessChange?: (brightness: number) => void;
   onFontSizeChange?: (delta: number) => void;
   onSettingsChange?: (settings: AppSettings) => void;
+  onOpenBilling?: () => void;
+  onOpenVerification?: () => void;
 };
 
 function cloneSettings(settings: AppSettings): AppSettings {
@@ -78,6 +120,17 @@ type SettingsText = {
   redo: string;
   reset: string;
   resetConfirm: string;
+  nav: {
+    general: string;
+    account: string;
+    analysisData: string;
+  };
+  generalPanelDesc: string;
+  generalSections: {
+    language: string;
+    appearance: string;
+    labDefaults: string;
+  };
   sections: {
     general: string;
     display: string;
@@ -197,6 +250,17 @@ const settingsText: Record<Language, SettingsText> = {
     redo: "Redo",
     reset: "Reset all settings",
     resetConfirm: "Reset all app settings?",
+    nav: {
+      general: "Language & display",
+      account: "Account",
+      analysisData: "Analysis & data",
+    },
+    generalPanelDesc: "Language, appearance, and lab defaults.",
+    generalSections: {
+      language: "Language",
+      appearance: "Appearance",
+      labDefaults: "Lab defaults",
+    },
     sections: {
       general: "General",
       display: "Display",
@@ -319,6 +383,17 @@ const settingsText: Record<Language, SettingsText> = {
     redo: "Rehacer",
     reset: "Restablecer todos los ajustes",
     resetConfirm: "¿Restablecer todos los ajustes de la app?",
+    nav: {
+      general: "Idioma y pantalla",
+      account: "Cuenta",
+      analysisData: "Análisis y datos",
+    },
+    generalPanelDesc: "Idioma, apariencia y valores predeterminados del laboratorio.",
+    generalSections: {
+      language: "Idioma",
+      appearance: "Apariencia",
+      labDefaults: "Laboratorio",
+    },
     sections: {
       general: "General",
       display: "Pantalla",
@@ -440,6 +515,17 @@ const settingsText: Record<Language, SettingsText> = {
     redo: "Rétablir",
     reset: "Réinitialiser tous les réglages",
     resetConfirm: "Réinitialiser tous les réglages de l’app ?",
+    nav: {
+      general: "Langue et affichage",
+      account: "Compte",
+      analysisData: "Analyse et données",
+    },
+    generalPanelDesc: "Langue, apparence et valeurs par défaut du laboratoire.",
+    generalSections: {
+      language: "Langue",
+      appearance: "Apparence",
+      labDefaults: "Laboratoire",
+    },
     sections: {
       general: "Général",
       display: "Affichage",
@@ -561,6 +647,17 @@ const settingsText: Record<Language, SettingsText> = {
     redo: "Refèt",
     reset: "Reyajiste tout paramèt yo",
     resetConfirm: "Reyajiste tout paramèt app la?",
+    nav: {
+      general: "Lang ak afichaj",
+      account: "Kont",
+      analysisData: "Analiz ak done",
+    },
+    generalPanelDesc: "Lang, aparans ak paramèt laboratwa default yo.",
+    generalSections: {
+      language: "Lang",
+      appearance: "Aparans",
+      labDefaults: "Laboratwa",
+    },
     sections: {
       general: "Jeneral",
       display: "Afichaj",
@@ -682,6 +779,17 @@ const settingsText: Record<Language, SettingsText> = {
     redo: "Refazer",
     reset: "Redefinir todas as configurações",
     resetConfirm: "Redefinir todas as configurações do app?",
+    nav: {
+      general: "Idioma e tela",
+      account: "Conta",
+      analysisData: "Análise e dados",
+    },
+    generalPanelDesc: "Idioma, aparência e padrões do laboratório.",
+    generalSections: {
+      language: "Idioma",
+      appearance: "Aparência",
+      labDefaults: "Laboratório",
+    },
     sections: {
       general: "Geral",
       display: "Exibição",
@@ -803,6 +911,17 @@ const settingsText: Record<Language, SettingsText> = {
     redo: "Rudia",
     reset: "Rudisha mipangilio yote",
     resetConfirm: "Rudisha mipangilio yote ya app?",
+    nav: {
+      general: "Lugha na onyesho",
+      account: "Akaunti",
+      analysisData: "Uchambuzi na data",
+    },
+    generalPanelDesc: "Lugha, muonekano na chaguo-msingi za maabara.",
+    generalSections: {
+      language: "Lugha",
+      appearance: "Muonekano",
+      labDefaults: "Maabara",
+    },
     sections: {
       general: "Jumla",
       display: "Onyesho",
@@ -1000,6 +1119,7 @@ const exportFormatOptions = (text: SettingsText): { value: DefaultExportFormat; 
 export default function AppSettingsScreen({
   language,
   session,
+  initialSection,
   onBack,
   onLanguageChange,
   onThemePreferenceChange,
@@ -1007,6 +1127,8 @@ export default function AppSettingsScreen({
   onBrightnessChange,
   onFontSizeChange,
   onSettingsChange,
+  onOpenBilling,
+  onOpenVerification,
 }: Props) {
   const text = settingsText[language] || settingsText.en;
   const initialSettings = useMemo(() => cloneSettings(getSettings()), []);
@@ -1019,6 +1141,36 @@ export default function AppSettingsScreen({
   const savedTimeout = useRef<number | null>(null);
   const [canPortalToolbar, setCanPortalToolbar] = useState(false);
   const [downloadingMethodology, setDownloadingMethodology] = useState(false);
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>(() =>
+    initialSection ?? readStoredSettingsSection()
+  );
+
+  useEffect(() => {
+    setActiveSection(initialSection ?? readStoredSettingsSection());
+  }, [initialSection]);
+
+  const selectSection = (section: SettingsSectionId) => {
+    setActiveSection(section);
+    persistSettingsSection(section);
+  };
+
+  const navItems = useMemo(
+    () =>
+      [
+        { id: "general" as const, label: text.nav.general, icon: Globe },
+        { id: "account" as const, label: text.nav.account, icon: UserRound },
+        {
+          id: "analysisData" as const,
+          label: text.nav.analysisData,
+          icon: BarChart3,
+        },
+      ] satisfies {
+        id: SettingsSectionId;
+        label: string;
+        icon: typeof UserRound;
+      }[],
+    [text.nav]
+  );
 
   const isDirty = useMemo(
     () => !settingsEqual(draftSettings, committedSettings),
@@ -1156,10 +1308,14 @@ export default function AppSettingsScreen({
   return (
     <section className="animate-slide-up">
       <div
-        className={`settings-page mx-auto w-full max-w-lg px-0 pt-0 ${
-          isDirty
-            ? "pb-[calc(4.75rem+env(safe-area-inset-bottom))]"
-            : "pb-6"
+        className={`settings-page w-full pt-0 ${
+          onOpenBilling
+            ? isDirty
+              ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
+              : "pb-[calc(3.5rem+env(safe-area-inset-bottom))]"
+            : isDirty
+              ? "pb-[calc(4.75rem+env(safe-area-inset-bottom))]"
+              : "pb-6"
         }`}
       >
         <div className="settings-page__header mb-2 flex items-center gap-2 pt-1 pb-0.5">
@@ -1176,11 +1332,11 @@ export default function AppSettingsScreen({
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-bold dark-text-primary">{text.title}</h1>
             {isDirty ? (
-              <p className="mt-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+              <p className="settings-page__status settings-page__status--unsaved">
                 {text.unsaved}
               </p>
             ) : savedFlash ? (
-              <p className="mt-0.5 text-xs font-semibold text-green-700 dark:text-green-400">
+              <p className="settings-page__status settings-page__status--saved">
                 {text.saved}
               </p>
             ) : null}
@@ -1189,7 +1345,7 @@ export default function AppSettingsScreen({
             <button
               type="button"
               onClick={handleSave}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-green-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-green-800 active:scale-[0.98]"
+              className="settings-page__save-btn"
             >
               <Save size={15} />
               <span>{text.save}</span>
@@ -1197,59 +1353,62 @@ export default function AppSettingsScreen({
           ) : null}
         </div>
 
-        <div className="settings-sections">
-          <AccountSettingsSection language={language} session={session} />
+        <div className="settings-layout">
+          <nav className="settings-nav" aria-label={text.title}>
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`settings-nav__item ${activeSection === item.id ? "is-active" : ""}`}
+                  onClick={() => selectSection(item.id)}
+                >
+                  <Icon size={16} aria-hidden />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
 
-          <SettingsSection title={text.sections.general}>
-            <MenuSelect
-              compact
-              label={text.labels.language}
-              value={draftSettings.general.language}
-              options={languageOptions(text)}
-              onChange={(value) => changeSetting("general", "language", value)}
-            />
-            <MenuSelect
-              compact
-              label={text.labels.defaultSampleType}
-              value={draftSettings.general.defaultSampleType}
-              options={sampleTypeOptions(text)}
-              onChange={(value) =>
-                changeSetting("general", "defaultSampleType", value)
-              }
-            />
-            <MenuSelect
-              compact
-              label={text.labels.defaultCrop}
-              value={draftSettings.general.defaultCrop}
-              options={cropOptions(text)}
-              onChange={(value) => changeSetting("general", "defaultCrop", value)}
-            />
-          </SettingsSection>
+          <main className="settings-main">
+            <div className={activeSection === "account" ? "" : "hidden"}>
+              <AccountSettingsSection language={language} session={session} />
+            </div>
 
-          <SettingsSection title={text.sections.display ?? "Display"}>
-            <MenuSelect
-              compact
-              label={text.labels.theme}
-              value={draftSettings.general.theme}
-              options={themeOptions(text)}
-              onChange={(value) => changeSetting("general", "theme", value)}
-            />
-            <div className="settings-accent-block">
+            <div className={activeSection === "general" ? "" : "hidden"}>
+          <SettingsGroup title={text.nav.general} description={text.generalPanelDesc}>
+            <SettingsSubgroup title={text.generalSections.language}>
               <MenuSelect
                 compact
-                label={text.labels.accentColor}
-                value={draftSettings.general.accentColor}
-                options={accentOptions(text)}
-                onChange={(value) => changeSetting("general", "accentColor", value)}
+                value={draftSettings.general.language}
+                options={languageOptions(text)}
+                onChange={(value) => changeSetting("general", "language", value)}
               />
-              <AccentSwatches
-                value={draftSettings.general.accentColor}
-                onChange={(value) => changeSetting("general", "accentColor", value)}
+            </SettingsSubgroup>
+
+            <SettingsSubgroup title={text.generalSections.appearance}>
+              <MenuSelect
+                compact
+                label={text.labels.theme}
+                value={draftSettings.general.theme}
+                options={themeOptions(text)}
+                onChange={(value) => changeSetting("general", "theme", value)}
               />
-            </div>
-            <div className="settings-tone-panel">
+              <div className="settings-accent-block settings-accent-block--flat">
+                <MenuSelect
+                  compact
+                  label={text.labels.accentColor}
+                  value={draftSettings.general.accentColor}
+                  options={accentOptions(text)}
+                  onChange={(value) => changeSetting("general", "accentColor", value)}
+                />
+                <AccentSwatches
+                  value={draftSettings.general.accentColor}
+                  onChange={(value) => changeSetting("general", "accentColor", value)}
+                />
+              </div>
               <RangeField
-                inset
                 label={text.labels.brightness}
                 value={draftSettings.general.brightness}
                 min={70}
@@ -1257,7 +1416,6 @@ export default function AppSettingsScreen({
                 onChange={(value) => changeSetting("general", "brightness", value)}
               />
               <RangeField
-                inset
                 label={text.labels.saturation}
                 value={draftSettings.general.saturation}
                 min={70}
@@ -1265,46 +1423,68 @@ export default function AppSettingsScreen({
                 onChange={(value) => changeSetting("general", "saturation", value)}
               />
               <RangeField
-                inset
                 label={text.labels.contrast}
                 value={draftSettings.general.contrast}
                 min={70}
                 max={100}
                 onChange={(value) => changeSetting("general", "contrast", value)}
               />
-            </div>
-            <div className="settings-accent-block">
+              <div className="settings-accent-block settings-accent-block--flat">
+                <MenuSelect
+                  compact
+                  label={text.labels.appFont}
+                  value={draftSettings.general.appFont}
+                  options={fontOptions(text)}
+                  onChange={(value) => changeSetting("general", "appFont", value)}
+                />
+                <FontPreviewCards
+                  value={draftSettings.general.appFont}
+                  options={fontOptions(text)}
+                  onChange={(value) => changeSetting("general", "appFont", value)}
+                />
+              </div>
+              <RangeField
+                label={text.labels.appFontSize}
+                value={draftSettings.general.appFontSizeDelta}
+                min={-2}
+                max={5}
+                suffix="px"
+                onChange={(value) =>
+                  changeSetting("general", "appFontSizeDelta", value)
+                }
+              />
+              <SwitchField
+                label={text.labels.glassUi}
+                checked={draftSettings.general.glassUi}
+                onChange={(value) => changeSetting("general", "glassUi", value)}
+              />
+            </SettingsSubgroup>
+
+            <SettingsSubgroup title={text.generalSections.labDefaults}>
               <MenuSelect
                 compact
-                label={text.labels.appFont}
-                value={draftSettings.general.appFont}
-                options={fontOptions(text)}
-                onChange={(value) => changeSetting("general", "appFont", value)}
+                label={text.labels.defaultSampleType}
+                value={draftSettings.general.defaultSampleType}
+                options={sampleTypeOptions(text)}
+                onChange={(value) =>
+                  changeSetting("general", "defaultSampleType", value)
+                }
               />
-              <FontPreviewCards
-                value={draftSettings.general.appFont}
-                options={fontOptions(text)}
-                onChange={(value) => changeSetting("general", "appFont", value)}
+              <MenuSelect
+                compact
+                label={text.labels.defaultCrop}
+                value={draftSettings.general.defaultCrop}
+                options={cropOptions(text)}
+                onChange={(value) => changeSetting("general", "defaultCrop", value)}
               />
-            </div>
-            <RangeField
-              label={text.labels.appFontSize}
-              value={draftSettings.general.appFontSizeDelta}
-              min={-2}
-              max={5}
-              suffix="px"
-              onChange={(value) =>
-                changeSetting("general", "appFontSizeDelta", value)
-              }
-            />
-            <SwitchField
-              label={text.labels.glassUi}
-              checked={draftSettings.general.glassUi}
-              onChange={(value) => changeSetting("general", "glassUi", value)}
-            />
-          </SettingsSection>
+            </SettingsSubgroup>
+          </SettingsGroup>
 
-          <SettingsSection title={text.sections.analysis}>
+            </div>
+
+            <div className={activeSection === "analysisData" ? "" : "hidden"}>
+          <div className="settings-main__stack">
+          <SettingsGroup title={text.sections.analysis}>
             <MenuSelect
               compact
               label={text.labels.interpretationMethod}
@@ -1346,32 +1526,9 @@ export default function AppSettingsScreen({
               }
               disabled={draftSettings.billing.planTier === "free"}
             />
-          </SettingsSection>
+          </SettingsGroup>
 
-          <SettingsSection title={text.sections.billing}>
-            <MenuSelect
-              compact
-              label={text.labels.planTier}
-              value={draftSettings.billing.planTier}
-              options={[
-                ["free", "Free"],
-                ["pro", "Pro"],
-                ["business", "Business"],
-              ]}
-              onChange={(value) =>
-                changeSetting(
-                  "billing",
-                  "planTier",
-                  value as AppSettings["billing"]["planTier"]
-                )
-              }
-            />
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {text.labels.planTierHint}
-            </p>
-          </SettingsSection>
-
-          <SettingsSection title={text.sections.importAi}>
+          <SettingsGroup title={text.sections.importAi}>
             <MenuSelect
               compact
               label={text.labels.defaultImportType}
@@ -1404,9 +1561,9 @@ export default function AppSettingsScreen({
                 changeSetting("importAi", "aiConfidenceThreshold", value)
               }
             />
-          </SettingsSection>
+          </SettingsGroup>
 
-          <SettingsSection title={text.sections.reports}>
+          <SettingsGroup title={text.sections.reports}>
             <MenuSelect
               compact
               label={text.labels.defaultExportFormat}
@@ -1470,9 +1627,9 @@ export default function AppSettingsScreen({
                 changeSetting("reports", "includeNutrientRatiosInReport", value)
               }
             />
-          </SettingsSection>
+          </SettingsGroup>
 
-          <SettingsSection title={text.sections.data}>
+          <SettingsGroup title={text.sections.data}>
             <SwitchField
               label={text.labels.autoSaveAnalyses}
               hint={text.labels.autoSaveAnalysesHint}
@@ -1515,15 +1672,15 @@ export default function AppSettingsScreen({
             <button
               type="button"
               onClick={handleReset}
-              className="settings-reset-btn mt-1 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-xl border border-red-200/90 bg-red-50/80 px-3 py-2 text-sm font-bold text-red-800 transition hover:bg-red-100"
+              className="settings-reset-btn"
             >
               <RotateCcw size={15} />
               {text.reset}
             </button>
-          </SettingsSection>
+          </SettingsGroup>
 
-          <SettingsSection title={text.sections.resources}>
-            <p className="settings-resources-desc text-xs leading-relaxed text-[#6c6c70] dark:text-white/50">
+          <SettingsGroup title={text.sections.resources}>
+            <p className="settings-resources-desc text-xs leading-relaxed">
               {text.resourcesDesc}
             </p>
             <div className="settings-resource-card">
@@ -1542,8 +1699,32 @@ export default function AppSettingsScreen({
                 <span>{downloadingMethodology ? text.methodologyGenerating : text.labels.downloadMethodology}</span>
               </button>
             </div>
-          </SettingsSection>
+          </SettingsGroup>
+          </div>
+            </div>
+          </main>
         </div>
+
+        {canPortalToolbar && onOpenBilling
+          ? createPortal(
+              <div
+                className={`settings-billing-footer ${isDirty ? "settings-billing-footer--raised" : ""}`}
+              >
+                <div className="app-content-shell px-4 py-2">
+                  <button
+                    type="button"
+                    className="settings-billing-footer__btn"
+                    onClick={onOpenBilling}
+                  >
+                    <CreditCard size={15} className="settings-billing-footer__icon" aria-hidden />
+                    <span className="settings-billing-footer__label">{text.sections.billing}</span>
+                    <ChevronRight size={15} className="settings-billing-footer__chevron" aria-hidden />
+                  </button>
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
 
         {canPortalToolbar
           ? createPortal(
@@ -1703,38 +1884,42 @@ function SettingsToolbar({
   );
 }
 
-function SettingsSection({
+function SettingsGroup({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="settings-group">
+      <header className="settings-group__header">
+        <h2 className="settings-group__title">{title}</h2>
+        {description ? (
+          <p className="settings-group__desc">{description}</p>
+        ) : null}
+      </header>
+      <div className="settings-group__panel">
+        <div className="settings-fields settings-fields--grid">{children}</div>
+      </div>
+    </section>
+  );
+}
+
+function SettingsSubgroup({
   title,
   children,
-  defaultOpen = false,
 }: {
   title: string;
   children: React.ReactNode;
-  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-
   return (
-    <section className={`settings-section-flat ${open ? "settings-section-flat--open" : ""}`}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="settings-section__trigger"
-        aria-expanded={open}
-      >
-        <span className="settings-section-title">{title}</span>
-        <ChevronDown
-          size={16}
-          className={`settings-section-chevron shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-
-      {open ? (
-        <div className="settings-section__body">
-          <div className="settings-fields">{children}</div>
-        </div>
-      ) : null}
-    </section>
+    <div className="settings-subgroup">
+      <h3 className="settings-subgroup__title">{title}</h3>
+      <div className="settings-subgroup__body">{children}</div>
+    </div>
   );
 }
 

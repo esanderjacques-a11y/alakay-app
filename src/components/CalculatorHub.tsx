@@ -568,14 +568,12 @@ function CalculatorHubBody({
                 {t.hubModeExplorer}
               </button>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="calculator-hub-actions">
               <button
                 type="button"
                 onClick={handleImportFromValues}
-                className={`inline-flex items-center gap-1 text-xs font-semibold underline-offset-2 hover:underline ${
-                  valuesOutOfSync
-                    ? "text-amber-800 dark:text-amber-300"
-                    : "text-green-800 dark:text-green-300"
+                className={`calculator-hub-action ${
+                  valuesOutOfSync ? "calculator-hub-action--stale" : ""
                 }`}
                 title={t.importFromValuesHint}
                 aria-label={t.importFromValuesHint}
@@ -590,22 +588,22 @@ function CalculatorHubBody({
                 <button
                   type="button"
                   onClick={goToValues}
-                  className="text-xs font-semibold text-green-800 underline-offset-2 hover:underline dark:text-green-300"
+                  className="calculator-hub-action calculator-hub-action--secondary"
                 >
                   {t.openValues}
                 </button>
               ) : null}
             </div>
           </div>
-          <p className="hub-mode-hint text-xs text-slate-500 dark:text-slate-400">
+          <p className="hub-mode-hint text-xs">
             {hubMode === "guided" ? t.hubModeGuidedHint : t.hubModeExplorerHint}
           </p>
           {importMessage ? (
-            <p className="text-xs font-semibold text-green-800 dark:text-green-300" role="status">
+            <p className="calculator-hub-status calculator-hub-status--success" role="status">
               {importMessage}
             </p>
           ) : valuesOutOfSync ? (
-            <p className="text-xs text-amber-800/90 dark:text-amber-200/90" role="status">
+            <p className="calculator-hub-status calculator-hub-status--stale" role="status">
               {t.importFromValuesStale ||
                 "Values changed since the last import. Tap Import from Values to update."}
             </p>
@@ -624,7 +622,7 @@ function CalculatorHubBody({
               <button
                 type="button"
                 onClick={goToValues}
-                className="mt-2 text-xs font-bold text-green-800 underline-offset-2 hover:underline dark:text-green-300"
+                className="calculator-hub-action calculator-hub-action--secondary mt-2"
               >
                 {t.openValues}
               </button>

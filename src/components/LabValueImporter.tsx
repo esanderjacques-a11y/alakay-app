@@ -155,6 +155,8 @@ type Props = {
   open: boolean;
   mode?: ImportMode;
   autoRestoreToken?: number;
+  initialFile?: File | null;
+  onInitialFileHandled?: () => void;
   onClose: () => void;
   language: Language;
   parameters: ParameterForImport[];
@@ -1396,6 +1398,8 @@ export default function LabValueImporter({
   open,
   mode = "import",
   autoRestoreToken = 0,
+  initialFile = null,
+  onInitialFileHandled,
   onClose,
   language,
   parameters,
@@ -1407,6 +1411,7 @@ export default function LabValueImporter({
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const handleFileUploadRef = useRef<(file: File) => Promise<void>>(async () => {});
 
   const [previewRows, setPreviewRows] = useState<ImportPreviewRow[]>([]);
   const [message, setMessage] = useState("");
@@ -1478,6 +1483,12 @@ export default function LabValueImporter({
     if (!autoRestoreToken) return;
     loadLastImport();
   }, [open, autoRestoreToken]);
+
+  useEffect(() => {
+    if (!open || !initialFile) return;
+    void handleFileUploadRef.current(initialFile);
+    onInitialFileHandled?.();
+  }, [open, initialFile, onInitialFileHandled]);
 
   useEffect(() => {
     return () => stopCamera();
@@ -1997,6 +2008,8 @@ export default function LabValueImporter({
     }
   }
 
+  handleFileUploadRef.current = handleFileUpload;
+
   function updateRowParameter(rowId: string, parameterKey: string) {
     setPreviewRows((previousRows) =>
       previousRows.map((row) => {
@@ -2205,7 +2218,7 @@ export default function LabValueImporter({
           </button>
         </div>
 
-        {!hasPreview ? (
+        {!hasPreview && !loading ? (
           <section className="mt-3">
             {isScanMode ? (
               <div>

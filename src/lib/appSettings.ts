@@ -39,8 +39,8 @@ export type AiReader =
   | "openai_vision"
   | "manual_review";
 export type DefaultExportFormat = "pdf" | "excel" | "csv";
-/** Foundation for future billing — gates advanced calculator features. */
-export type PlanTier = "free" | "pro" | "business";
+/** Lifetime software license tier — gates app features (not AI). */
+export type PlanTier = "free" | "plus" | "pro";
 
 export type AppSettings = {
   general: {
@@ -249,13 +249,11 @@ function mergeSettings(settings: Partial<AppSettings>): AppSettings {
   merged.general.glassUi = merged.general.glassUi !== false;
   merged.analysis.showCalculatorFormulas =
     merged.analysis.showCalculatorFormulas === true;
-  if (
-    merged.billing.planTier !== "free" &&
-    merged.billing.planTier !== "pro" &&
-    merged.billing.planTier !== "business"
-  ) {
-    merged.billing.planTier = "free";
-  }
+  const rawPlanTier = (settings.billing?.planTier ?? merged.billing.planTier) as string;
+  if (rawPlanTier === "plus") merged.billing.planTier = "plus";
+  else if (rawPlanTier === "pro" || rawPlanTier === "premium" || rawPlanTier === "business")
+    merged.billing.planTier = "pro";
+  else merged.billing.planTier = "free";
   merged.general.appFontSizeDelta = Math.min(
     3,
     Math.max(-2, Number(merged.general.appFontSizeDelta) || 0)
@@ -282,11 +280,11 @@ export function getPermanentDeleteDays() {
 
 /** Formulas require an enabled setting and a paid plan tier. */
 export function planAllowsCalculatorFormulas(planTier: PlanTier) {
-  return planTier === "pro" || planTier === "business";
+  return planTier === "plus" || planTier === "pro";
 }
 
 export function planAllowsJacko(planTier: PlanTier) {
-  return planTier === "pro" || planTier === "business";
+  return planTier === "plus" || planTier === "pro";
 }
 
 export function effectiveShowCalculatorFormulas(settings: AppSettings = getSettings()) {

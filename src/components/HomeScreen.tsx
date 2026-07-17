@@ -1,13 +1,16 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Calculator,
+  Camera,
+  FileText,
   History,
   Landmark,
   Plus,
   Upload,
 } from "lucide-react";
+import { useDismissible } from "@/hooks/useDismissible";
 import { formatMessage } from "@/lib/translations";
 import type { Session } from "@supabase/supabase-js";
 import { Language, translations } from "@/lib/translations";
@@ -24,7 +27,8 @@ type Props = {
   displayName: string;
   isReturningUser: boolean;
   startNewAnalysis: () => void;
-  goImport: () => void;
+  onImportCamera: () => void;
+  onImportFile: () => void;
   goResults: () => void;
   goCalculators: () => void;
   goFarms: () => void;
@@ -39,7 +43,8 @@ export default function HomeScreen({
   displayName,
   isReturningUser,
   startNewAnalysis,
-  goImport,
+  onImportCamera,
+  onImportFile,
   goResults,
   goCalculators,
   goFarms,
@@ -52,6 +57,11 @@ export default function HomeScreen({
     ? formatMessage(t.homeWelcomeBack, { name: heroName })
     : t.homeWelcomeNew;
   const [dash, setDash] = useState<UserFarmDashboard | null>(null);
+
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
+  const importMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useDismissible(importMenuOpen, () => setImportMenuOpen(false), importMenuRef);
 
   const heroLines = [
     formatMessage(t.homeHeroCycle1, { name: heroName }),
@@ -112,15 +122,62 @@ export default function HomeScreen({
             </span>
           </button>
 
-          <button type="button" onClick={goImport} className="home-action-tile w-full">
-            <span className="home-action-tile__icon">
-              <Upload size={20} />
-            </span>
-            <span className="home-action-tile__copy">
-              <span className="home-action-tile__title">{t.importData}</span>
-              <span className="home-action-tile__desc">{t.importDataShort}</span>
-            </span>
-          </button>
+          <div
+            ref={importMenuRef}
+            className={`home-action-tile-wrap${importMenuOpen ? " home-action-tile-wrap--open" : ""}`}
+          >
+            {importMenuOpen ? (
+              <div className="home-import-menu">
+                <button
+                  type="button"
+                  className="home-import-option"
+                  onClick={() => {
+                    setImportMenuOpen(false);
+                    onImportCamera();
+                  }}
+                >
+                  <span className="home-import-option__icon">
+                    <Camera size={18} />
+                  </span>
+                  <span className="home-import-option__copy">
+                    <span className="home-import-option__title">{t.takePhoto}</span>
+                    <span className="home-import-option__desc">{t.takePhotoShort}</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="home-import-option"
+                  onClick={() => {
+                    setImportMenuOpen(false);
+                    onImportFile();
+                  }}
+                >
+                  <span className="home-import-option__icon">
+                    <FileText size={18} />
+                  </span>
+                  <span className="home-import-option__copy">
+                    <span className="home-import-option__title">{t.importDocument}</span>
+                    <span className="home-import-option__desc">{t.importDocumentShort}</span>
+                  </span>
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setImportMenuOpen(true)}
+                className="home-action-tile w-full"
+                aria-expanded={false}
+              >
+                <span className="home-action-tile__icon">
+                  <Upload size={20} />
+                </span>
+                <span className="home-action-tile__copy">
+                  <span className="home-action-tile__title">{t.importData}</span>
+                  <span className="home-action-tile__desc">{t.importDataShort}</span>
+                </span>
+              </button>
+            )}
+          </div>
 
           <button
             type="button"
@@ -190,38 +247,6 @@ export default function HomeScreen({
                   </button>
                 </div>
               )}
-            </div>
-
-            <div className="home-dash-panel">
-              <div className="home-dash-panel__head">
-                <h2 className="home-dash-panel__title">{p.userDashboard}</h2>
-              </div>
-              <div className="home-dash-grid">
-                <div className="home-dash-stat">
-                  <span className="home-dash-stat__value">
-                    {dash?.farmCount ?? "—"}
-                  </span>
-                  <span className="home-dash-stat__label">{p.dashFarms}</span>
-                </div>
-                <div className="home-dash-stat">
-                  <span className="home-dash-stat__value">
-                    {dash?.lotCount ?? "—"}
-                  </span>
-                  <span className="home-dash-stat__label">{p.dashLots}</span>
-                </div>
-                <div className="home-dash-stat">
-                  <span className="home-dash-stat__value">
-                    {dash?.reportCount ?? "—"}
-                  </span>
-                  <span className="home-dash-stat__label">{p.dashReports}</span>
-                </div>
-                <div className="home-dash-stat">
-                  <span className="home-dash-stat__value">
-                    {dash?.calendarCount ?? "—"}
-                  </span>
-                  <span className="home-dash-stat__label">{p.dashCalendar}</span>
-                </div>
-              </div>
             </div>
           </>
         ) : (

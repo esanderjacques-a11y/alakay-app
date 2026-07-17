@@ -1,4 +1,9 @@
 import { isAdminEmail } from "@/lib/admin";
+import { mockRecordAiQuestion } from "@/lib/billing/mockService";
+import {
+  fetchLicensingBundleFromServer,
+  getServerBillingConfig,
+} from "@/lib/billing/server";
 import {
   formatJackoAboutForPrompt,
   formatJackoContextForPrompt,
@@ -16,7 +21,7 @@ type ChatMessage = {
 type JackoRequest = {
   messages: ChatMessage[];
   language?: string;
-  planTier?: string;
+  userId?: string;
   email?: string | null;
   context?: JackoAppContext | null;
 };
@@ -30,9 +35,11 @@ const LANGUAGE_NAMES: Record<string, string> = {
   sw: "Swahili",
 };
 
-function canAccessJacko(planTier: string | undefined, email: string | null | undefined) {
+function canAccessJacko(userId: string | undefined, email: string | null | undefined) {
   if (isAdminEmail(email)) return true;
-  return planTier === "pro" || planTier === "business";
+  if (!userId || userId === "guest") return false;
+  const bundle = fetchLicensingBundleFromServer(userId);
+  return bundle.hasAiAccess;
 }
 
 function sanitizeContext(raw: unknown): JackoAppContext | null {
@@ -67,14 +74,27 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as JackoRequest;
-    const planTier = typeof body.planTier === "string" ? body.planTier : "free";
+    const userId = typeof body.userId === "string" ? body.userId : undefined;
     const email = typeof body.email === "string" ? body.email : null;
 
-    if (!canAccessJacko(planTier, email)) {
+    if (!canAccessJacko(userId, email)) {
       return Response.json(
-        { error: "Jacko is available on Pro plans and for admins." },
+        {
+          error:
+            "AI access requires an active allowance or AI subscription. Visit Billing to upgrade or subscribe.",
+        },
         { status: 403 }
       );
+    }
+
+    if (userId && userId !== "guest" && !isAdminEmail(email)) {
+      const bundle = fetchLicensingBundleFromServer(userId);
+      if (bundle.aiLimitReached) {
+        return Response.json(
+          { error: "You have reached your included AI usage for this month." },
+          { status: 429 }
+        );
+      }
     }
 
     const incoming = Array.isArray(body.messages) ? body.messages : [];
@@ -145,6 +165,10 @@ export async function POST(request: Request) {
     const reply =
       payload.choices?.[0]?.message?.content?.trim() ||
       "I could not generate a reply right now.";
+
+    if (userId && userId !== "guest" && !isAdminEmail(email)) {
+      mockRecordAiQuestion(userId, getServerBillingConfig());
+    }
 
     return Response.json({ reply });
   } catch (error) {

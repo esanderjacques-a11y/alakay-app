@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import {
+  ChevronRight,
   LogIn,
   LogOut,
   User,
@@ -23,6 +24,7 @@ type Props = {
   onSwitchAccount: () => void;
   onContinueAsGuest: () => void;
   onLogout: () => void;
+  onViewAccountInfo?: () => void;
 };
 
 
@@ -36,6 +38,7 @@ export default function AccountMenu({
   onSwitchAccount,
   onContinueAsGuest,
   onLogout,
+  onViewAccountInfo,
 }: Props) {
   const [open, setOpen] = useState(false);
   const presence = useAnimatedPresence(open);
@@ -46,6 +49,7 @@ export default function AccountMenu({
   useDismissible(open, () => setOpen(false), menuRef);
 
   const buttonLabel = guestMode ? t.guest : displayName || appText.account;
+  const canViewAccountInfo = Boolean(hasSession && !guestMode && onViewAccountInfo);
 
   return (
     <>
@@ -74,16 +78,48 @@ export default function AccountMenu({
               presence.leaving ? "animate-scale-out" : "animate-scale-in"
             }`}
           >
-            <div className="account-menu-status mb-2 rounded-2xl px-3 py-3 text-xs">
-              <p className="account-menu-status__title font-semibold">
-                {guestMode ? appText.guestMode : t.usingAccount}
-              </p>
-              {email ? (
-                <p className="account-menu-status__meta mt-1 truncate">{email}</p>
-              ) : !guestMode && displayName ? (
-                <p className="account-menu-status__meta mt-1 truncate">{displayName}</p>
-              ) : null}
-            </div>
+            {canViewAccountInfo ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onViewAccountInfo?.();
+                }}
+                className="account-menu-status account-menu-status--action touch-target mb-2 flex w-full items-center gap-2 rounded-2xl px-3 py-3 text-left text-xs active:scale-[0.99]"
+                aria-label={t.viewAccountInfo}
+              >
+                <span className="min-w-0 flex-1">
+                  <p className="account-menu-status__title font-semibold">
+                    {t.usingAccount}
+                  </p>
+                  {email ? (
+                    <p className="account-menu-status__meta mt-1 truncate">{email}</p>
+                  ) : displayName ? (
+                    <p className="account-menu-status__meta mt-1 truncate">
+                      {displayName}
+                    </p>
+                  ) : null}
+                </span>
+                <ChevronRight
+                  size={16}
+                  className="account-menu-status__chevron shrink-0"
+                  aria-hidden="true"
+                />
+              </button>
+            ) : (
+              <div className="account-menu-status mb-2 rounded-2xl px-3 py-3 text-xs">
+                <p className="account-menu-status__title font-semibold">
+                  {guestMode ? appText.guestMode : t.usingAccount}
+                </p>
+                {email ? (
+                  <p className="account-menu-status__meta mt-1 truncate">{email}</p>
+                ) : !guestMode && displayName ? (
+                  <p className="account-menu-status__meta mt-1 truncate">
+                    {displayName}
+                  </p>
+                ) : null}
+              </div>
+            )}
 
             <div className="grid gap-1">
               {hasSession && guestMode ? (

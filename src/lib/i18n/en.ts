@@ -19,6 +19,7 @@
   lightTheme: "Light theme",
   darkTheme: "Dark theme",
   selectLanguage: "Select language",
+  quickSettings: "Quick settings",
   selectTheme: "Select theme",
   themeToggleDesc: "Switch between the light and dark interface.",
   dataTools: "Data tools",
@@ -380,6 +381,7 @@
     switchAccount: "Add / switch account",
     continueGuest: "Continue as guest",
     login: "Log in",
+    viewAccountInfo: "View account info",
   },
 
   recycleBinScreen: {

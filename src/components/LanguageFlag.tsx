@@ -1,21 +1,13 @@
-import type { ComponentProps, JSX } from "react";
-import US from "country-flag-icons/react/3x2/US";
-import ES from "country-flag-icons/react/3x2/ES";
-import FR from "country-flag-icons/react/3x2/FR";
-import HT from "country-flag-icons/react/3x2/HT";
-import BR from "country-flag-icons/react/3x2/BR";
-import TZ from "country-flag-icons/react/3x2/TZ";
 import { Language } from "@/lib/translations";
 
-type FlagProps = ComponentProps<typeof US>;
-
-const flags: Record<Language, (props: FlagProps) => JSX.Element> = {
-  en: US,
-  es: ES,
-  fr: FR,
-  ht: HT,
-  pt: BR,
-  sw: TZ,
+/** ISO 3166-1 alpha-2 codes for each app language locale. */
+const flagCodes: Record<Language, string> = {
+  en: "us",
+  es: "es",
+  fr: "fr",
+  ht: "ht",
+  pt: "br",
+  sw: "tz",
 };
 
 type Props = {
@@ -25,24 +17,24 @@ type Props = {
   className?: string;
 };
 
-const sizeClasses = {
-  sm: "h-3.5 w-[1.3125rem]",
-  md: "h-4 w-6",
-};
-
 export default function LanguageFlag({
   language,
   size = "md",
   title,
   className = "",
 }: Props) {
-  const Flag = flags[language];
+  const code = flagCodes[language];
 
   return (
-    <Flag
+    <img
+      src={`/flags/${code}.svg`}
+      alt=""
       title={title}
       aria-hidden={title ? undefined : true}
-      className={`inline-block shrink-0 overflow-hidden rounded-[3px] shadow-sm ring-1 ring-green-200/80 ${sizeClasses[size]} ${className}`}
+      loading="lazy"
+      decoding="async"
+      draggable={false}
+      className={`language-flag language-flag--${size} ${className}`.trim()}
     />
   );
 }

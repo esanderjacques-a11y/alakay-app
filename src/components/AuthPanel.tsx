@@ -11,6 +11,17 @@ import { authPanelText } from "@/lib/i18n/componentText";
 import { LAST_CHANGE_DATE_ISO } from "@/lib/appBuildInfo";
 import { formatLastUpdate } from "@/lib/dateLocales";
 import MenuSelect from "@/components/ui/MenuSelect";
+import { PROFILE_PROFESSIONS } from "@/lib/profileProfessions";
+
+function getPasswordChecks(password: string) {
+  return {
+    minLength: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+}
 
 type AuthPanelText = (typeof authPanelText)[keyof typeof authPanelText];
 
@@ -23,27 +34,6 @@ type Props = {
   onContinueAsGuest: () => void;
   onResumeSession: () => void;
 };
-
-const professions = [
-  "Farmer",
-  "Student",
-  "Researcher",
-  "Agronomist",
-  "Extension agent",
-  "Technician",
-  "Consultant",
-  "Other",
-];
-
-function getPasswordChecks(password: string) {
-  return {
-    minLength: password.length >= 8,
-    uppercase: /[A-Z]/.test(password),
-    lowercase: /[a-z]/.test(password),
-    number: /[0-9]/.test(password),
-    special: /[^A-Za-z0-9]/.test(password),
-  };
-}
 
 function getPasswordStrength(password: string, text: AuthPanelText) {
   const checks = getPasswordChecks(password);
@@ -421,7 +411,7 @@ export default function AuthPanel({
                 triggerClassName="auth-field"
                 options={[
                   { value: "", label: text.profession },
-                  ...professions.map((item) => ({
+                  ...PROFILE_PROFESSIONS.map((item) => ({
                     value: item,
                     label: item,
                   })),

@@ -21,6 +21,7 @@
   lightTheme: "Tema claro",
   darkTheme: "Tema oscuro",
   selectLanguage: "Seleccionar idioma",
+  quickSettings: "Ajustes rápidos",
   selectTheme: "Seleccionar tema",
   themeToggleDesc: "Cambie entre la interfaz clara y oscura.",
   dataTools: "Herramientas de datos",
@@ -229,7 +230,7 @@
     "Elija rangos de suficiencia General, u Olsen / Mehlich (Tabla N.° 1) para fósforo.",
   soilExtractionHint:
     "Elija rangos de suficiencia del cultivo, u Olsen / Mehlich para bandas de fósforo según el método.",
-  extractionMethodLabel: "Suficiencia / extracción",
+  extractionMethodLabel: "Método",
   extractionMethodGeneral: "Del cultivo",
   extractionMethodCropSpecific: "Del cultivo",
   extractionMethodOlsen: "Olsen",
@@ -397,6 +398,7 @@
     switchAccount: "Agregar / cambiar cuenta",
     continueGuest: "Continuar como invitado",
     login: "Iniciar sesión",
+    viewAccountInfo: "Ver información de la cuenta",
   },
 
   recycleBinScreen: {

@@ -9,7 +9,6 @@ import {
   type JackoAppContext,
 } from "@/lib/jackoContext";
 import type { Language } from "@/lib/translations";
-import type { PlanTier } from "@/lib/appSettings";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -20,7 +19,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   language: Language;
-  planTier: PlanTier;
+  userId?: string;
   email?: string | null;
   context?: JackoAppContext | null;
   labels: {
@@ -45,7 +44,7 @@ export default function JackoBot({
   open,
   onClose,
   language,
-  planTier,
+  userId = "guest",
   email,
   context = null,
   labels,
@@ -91,7 +90,7 @@ export default function JackoBot({
         body: JSON.stringify({
           messages: nextMessages,
           language,
-          planTier,
+          userId,
           email: email || null,
           context: context || null,
         }),

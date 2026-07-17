@@ -20,6 +20,7 @@
   lightTheme: "Tèm klè",
   darkTheme: "Tèm fonse",
   selectLanguage: "Chwazi lang",
+  quickSettings: "Paramèt rapid",
   selectTheme: "Chwazi tèm",
   themeToggleDesc: "Chanje antè aparans klè ak aparans fonse.",
   dataTools: "Zouti done",
@@ -391,6 +392,7 @@
     switchAccount: "Ajoute / chanje kont",
     continueGuest: "Kontinye kòm envite",
     login: "Konekte",
+    viewAccountInfo: "Gade enfòmasyon kont lan",
   },
 
   recycleBinScreen: {

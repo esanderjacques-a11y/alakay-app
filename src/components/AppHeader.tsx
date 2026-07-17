@@ -11,13 +11,13 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  CreditCard,
   Globe,
   Info,
   Landmark,
   LogIn,
   LogOut,
   Moon,
-  MoreVertical,
   NotebookPen,
   RotateCcw,
   Settings,
@@ -33,7 +33,8 @@ import JackoBot from "@/components/JackoBot";
 import LanguageFlag from "@/components/LanguageFlag";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
-import { planAllowsJacko, type PlanTier } from "@/lib/appSettings";
+import { getLocalBillingBundle } from "@/lib/billing";
+import { getBillingText } from "@/lib/i18n/billingText";
 import type { JackoAppContext } from "@/lib/jackoContext";
 import { Language, Translation } from "@/lib/translations";
 
@@ -50,6 +51,9 @@ type Props = {
   onContinueAsGuest: () => void;
   onLogout: () => void;
   onOpenSettings: () => void;
+  onOpenAccountSettings?: () => void;
+  settingsActive?: boolean;
+  onOpenBilling: () => void;
   onOpenRecycleBin: () => void;
   onOpenAbout: () => void;
   onOpenFarms: () => void;
@@ -60,7 +64,7 @@ type Props = {
   theme: "light" | "dark";
   onToggleTheme: () => void;
   isAdmin?: boolean;
-  planTier?: PlanTier;
+  planTier?: import("@/lib/appSettings").PlanTier;
   jackoContext?: JackoAppContext | null;
 };
 
@@ -89,6 +93,9 @@ export default function AppHeader({
   onContinueAsGuest,
   onLogout,
   onOpenSettings,
+  onOpenAccountSettings,
+  settingsActive = false,
+  onOpenBilling,
   onOpenRecycleBin,
   onOpenAbout,
   onOpenFarms,
@@ -102,6 +109,7 @@ export default function AppHeader({
   planTier,
   jackoContext = null,
 }: Props) {
+  const billingLabels = getBillingText(language);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuPresence = useAnimatedPresence(mobileMenuOpen, 220);
   const [mobileLanguageOpen, setMobileLanguageOpen] = useState(false);
@@ -111,8 +119,9 @@ export default function AppHeader({
   const mobileAccountPresence = useAnimatedPresence(mobileAccountOpen, 180);
   const headerRef = useRef<HTMLElement | null>(null);
 
-  const effectivePlanTier = planTier || "free";
-  const jackoAllowed = isAdmin || planAllowsJacko(effectivePlanTier);
+  const userId = session?.user?.id ?? "guest";
+  const jackoAllowed =
+    isAdmin || getLocalBillingBundle(userId).hasAiAccess;
 
   const accountLabel = guestMode ? t.guestMode : displayName || t.account;
 
@@ -226,17 +235,14 @@ export default function AppHeader({
             alt={t.appName}
             className="app-logo-frame h-7 w-7 shrink-0 object-contain"
           />
-          <div className="app-header__brand hidden sm:block">
-            <span className="app-header__brand-name text-base font-extrabold uppercase tracking-wide leading-tight text-green-900">
+          <div className="app-header__brand min-w-0">
+            <span className="app-header__brand-name text-base font-extrabold uppercase tracking-wide leading-tight">
               {t.appName}
             </span>
             <span className="app-header__brand-tagline text-[10px] font-medium leading-tight">
               {t.shortTagline}
             </span>
           </div>
-          <span className="sm:hidden text-left text-base font-extrabold uppercase tracking-wide text-green-900">
-            {t.appName}
-          </span>
         </button>
 
         {/* Compact tools + overflow menu (all breakpoints) */}
@@ -261,6 +267,7 @@ export default function AppHeader({
               onSwitchAccount={onSwitchAccount}
               onContinueAsGuest={onContinueAsGuest}
               onLogout={onLogout}
+              onViewAccountInfo={onOpenAccountSettings}
             />
           </div>
 
@@ -278,12 +285,24 @@ export default function AppHeader({
 
           <button
             type="button"
-            onClick={() => setMobileMenuOpen(true)}
-            aria-label={t.menu || "Menu"}
-            title={t.menu || "Menu"}
-            className="app-header__icon-btn touch-target h-9 w-9 grid place-items-center rounded-xl active:scale-95 transition-all"
+            onClick={onOpenSettings}
+            aria-label={t.appSettings}
+            aria-pressed={settingsActive}
+            title={t.appSettings}
+            className={`app-header__icon-btn touch-target h-9 w-9 grid place-items-center rounded-xl active:scale-95 transition-all${settingsActive ? " is-active" : ""}`}
           >
-            <MoreVertical size={20} />
+            <Settings size={18} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            aria-label={mobileMenuOpen ? t.close : t.menu || "Menu"}
+            aria-expanded={mobileMenuOpen}
+            title={mobileMenuOpen ? t.close : t.menu || "Menu"}
+            className="app-header__icon-btn app-header__menu-toggle touch-target h-9 w-9 grid place-items-center rounded-xl active:scale-95 transition-all"
+          >
+            <MenuToggleIcon open={mobileMenuOpen} />
           </button>
         </div>
       </div>
@@ -309,37 +328,51 @@ export default function AppHeader({
               }`}
             >
               {/* Drawer header */}
-              <div className="mobile-menu-panel__header flex items-center justify-between border-b border-black/6 px-4 py-3">
-                <div className="flex min-w-0 items-center gap-2.5">
+              <div className="mobile-menu-panel__header flex items-center justify-between gap-2 px-3 py-3">
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
                   <img
                     src="/app-icon.png"
                     alt={t.appName}
                     className="app-logo-frame h-7 w-7 shrink-0 object-contain"
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-extrabold uppercase tracking-wide text-green-900">
+                    <p className="mobile-menu-panel__brand-name truncate">
                       {t.appName}
                     </p>
-                    <p className="truncate text-[10px] text-slate-400">
+                    <p className="mobile-menu-panel__brand-sub truncate">
                       {accountLabel}
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={closeMobileMenu}
-                  aria-label={t.close}
-                  className="h-8 w-8 grid place-items-center rounded-xl text-slate-500 hover:bg-slate-100"
-                >
-                  <X size={17} />
-                </button>
+                <div className="mobile-menu-panel__header-actions flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeMobileMenu();
+                      onOpenSettings();
+                    }}
+                    aria-label={t.appSettings}
+                    title={t.appSettings}
+                    className="mobile-menu-panel__icon-btn h-9 w-9 grid place-items-center rounded-xl"
+                  >
+                    <Settings size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeMobileMenu}
+                    aria-label={t.close}
+                    className="mobile-menu-panel__icon-btn h-9 w-9 grid place-items-center rounded-xl"
+                  >
+                    <X size={17} />
+                  </button>
+                </div>
               </div>
 
               {/* Drawer content */}
-              <div className="flex flex-1 flex-col overflow-y-auto">
+              <div className="mobile-menu-panel__body flex flex-1 flex-col overflow-y-auto">
                 {/* Account section */}
                 <div className="px-2 pt-2 pb-1">
-                  <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  <p className="mobile-menu-panel__section-label">
                     {t.account}
                   </p>
                   <MenuRow
@@ -393,24 +426,13 @@ export default function AppHeader({
                 </div>
 
                 {/* Divider */}
-                <div className="mx-4 my-1 h-px bg-black/6" />
+                <div className="mobile-menu-panel__divider" />
 
                 {/* Planning section */}
                 <div className="px-2 py-1">
-                  <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  <p className="mobile-menu-panel__section-label">
                     {t.planningMenu}
                   </p>
-                  {jackoAllowed ? (
-                    <MenuRow
-                      icon={<Bot size={17} />}
-                      title={t.jackoTitle}
-                      rightIcon={<ChevronRight size={15} />}
-                      onClick={() => {
-                        closeMobileMenu();
-                        setJackoOpen(true);
-                      }}
-                    />
-                  ) : null}
                   <MenuRow
                     icon={<Landmark size={17} />}
                     title={t.planningFarms}
@@ -457,15 +479,30 @@ export default function AppHeader({
                   />
                 </div>
 
-                {/* Divider */}
-                <div className="mx-4 my-1 h-px bg-black/6" />
+                <div className="mobile-menu-panel__divider" />
 
-                {/* App settings section */}
                 <div className="px-2 py-1">
-                  <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    {t.appSettings}
+                  <p className="mobile-menu-panel__section-label">
+                    {billingLabels.menu}
                   </p>
+                  <MenuRow
+                    icon={<CreditCard size={17} />}
+                    title={billingLabels.menu}
+                    rightIcon={<ChevronRight size={15} />}
+                    onClick={() => {
+                      closeMobileMenu();
+                      onOpenBilling();
+                    }}
+                  />
+                </div>
 
+                <div className="mobile-menu-panel__divider" />
+
+                {/* Quick settings */}
+                <div className="px-2 py-1">
+                  <p className="mobile-menu-panel__section-label">
+                    {t.quickSettings}
+                  </p>
                   <MenuRow
                     icon={<Globe size={17} />}
                     title={t.selectLanguage}
@@ -492,17 +529,18 @@ export default function AppHeader({
                         <button
                           key={item.code}
                           type="button"
-                          onClick={() => { setLanguage(item.code); closeMobileMenu(); }}
-                          className={`touch-target flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition active:scale-[0.98] ${
-                            language === item.code
-                              ? "font-bold text-green-800 bg-green-50"
-                              : "font-medium text-slate-600 hover:bg-slate-50"
+                          onClick={() => {
+                            setLanguage(item.code);
+                            closeMobileMenu();
+                          }}
+                          className={`mobile-menu-lang-option touch-target active:scale-[0.98] ${
+                            language === item.code ? "is-active" : ""
                           }`}
                         >
                           <LanguageFlag language={item.code} size="md" title={item.fullLabel} />
                           <span>{item.fullLabel}</span>
                           {language === item.code ? (
-                            <Check size={14} className="ml-auto text-green-700" />
+                            <Check size={14} className="ml-auto" />
                           ) : null}
                         </button>
                       ))}
@@ -519,30 +557,43 @@ export default function AppHeader({
                     icon={<Settings size={17} />}
                     title={t.appSettings}
                     rightIcon={<ChevronRight size={15} />}
-                    onClick={() => { closeMobileMenu(); onOpenSettings(); }}
+                    onClick={() => {
+                      closeMobileMenu();
+                      onOpenSettings();
+                    }}
                   />
+                </div>
 
+                <div className="mobile-menu-panel__divider" />
+
+                {/* Data tools */}
+                <div className="px-2 py-1">
+                  <p className="mobile-menu-panel__section-label">
+                    {t.dataTools}
+                  </p>
                   <MenuRow
                     icon={<RotateCcw size={17} />}
                     title={t.recycleBin}
                     rightIcon={<ChevronRight size={15} />}
-                    onClick={() => { closeMobileMenu(); onOpenRecycleBin(); }}
-                  />
-                </div>
-
-                {/* Divider */}
-                <div className="mx-4 my-1 h-px bg-black/6" />
-
-                {/* About section */}
-                <div className="px-2 py-1">
-                  <MenuRow
-                    icon={<Info size={17} />}
-                    title={t.about}
-                    rightIcon={<ChevronRight size={15} />}
-                    onClick={() => { closeMobileMenu(); onOpenAbout(); }}
+                    onClick={() => {
+                      closeMobileMenu();
+                      onOpenRecycleBin();
+                    }}
                   />
                 </div>
               </div>
+
+              <footer className="mobile-menu-panel__footer">
+                <MenuRow
+                  icon={<Info size={17} />}
+                  title={t.about}
+                  rightIcon={<ChevronRight size={15} />}
+                  onClick={() => {
+                    closeMobileMenu();
+                    onOpenAbout();
+                  }}
+                />
+              </footer>
             </section>
           </div>,
           document.body
@@ -553,12 +604,22 @@ export default function AppHeader({
         open={jackoOpen}
         onClose={() => setJackoOpen(false)}
         language={language}
-        planTier={effectivePlanTier}
+        userId={userId}
         email={session?.user?.email}
         context={jackoContext}
         labels={jackoLabels}
       />
     </header>
+  );
+}
+
+function MenuToggleIcon({ open }: { open: boolean }) {
+  return (
+    <span className={`menu-toggle-icon ${open ? "is-open" : ""}`} aria-hidden>
+      <span className="menu-toggle-icon__bar" />
+      <span className="menu-toggle-icon__bar" />
+      <span className="menu-toggle-icon__bar" />
+    </span>
   );
 }
 
@@ -579,16 +640,14 @@ function MenuRow({
     <button
       type="button"
       onClick={onClick}
-      className="touch-target flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-slate-50 active:scale-[0.98] transition-all"
+      className="mobile-menu-row touch-target"
     >
-      <span className="text-slate-500 shrink-0">{icon}</span>
-      <span className="flex-1 min-w-0 text-sm font-semibold text-slate-800 truncate">
-        {title}
-      </span>
+      <span className="mobile-menu-row__icon">{icon}</span>
+      <span className="mobile-menu-row__label">{title}</span>
       {rightContent ? (
-        <span className="shrink-0 text-slate-400">{rightContent}</span>
+        <span className="mobile-menu-row__meta">{rightContent}</span>
       ) : rightIcon ? (
-        <span className="shrink-0 text-slate-400">{rightIcon}</span>
+        <span className="mobile-menu-row__meta">{rightIcon}</span>
       ) : null}
     </button>
   );
@@ -609,12 +668,10 @@ function SubMenuRow({
     <button
       type="button"
       onClick={onClick}
-      className={`touch-target flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left hover:bg-slate-50 active:scale-[0.98] transition-all ${
-        danger ? "text-red-600" : "text-slate-600"
-      }`}
+      className={`mobile-menu-row touch-target py-2 ${danger ? "mobile-menu-row--danger" : ""}`}
     >
-      <span className="shrink-0">{icon}</span>
-      <span className="text-sm font-medium">{title}</span>
+      <span className="mobile-menu-row__icon">{icon}</span>
+      <span className="mobile-menu-row__label text-sm font-medium">{title}</span>
     </button>
   );
 }

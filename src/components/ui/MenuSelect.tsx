@@ -9,7 +9,7 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, ChevronRight } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
 
 export type MenuSelectOption<T extends string = string> = {
@@ -239,7 +239,13 @@ export default function MenuSelect<T extends string>({
         </>
       ) : (
         <>
-          <span className={`truncate ${selected ? "font-semibold" : "font-medium text-slate-500"}`}>
+          <span
+            className={`truncate settings-menu-trigger__label ${
+              selected
+                ? "settings-menu-trigger__label--value"
+                : "settings-menu-trigger__label--placeholder"
+            }`}
+          >
             {selected?.label || placeholder || ""}
           </span>
           <ChevronDown
@@ -334,16 +340,10 @@ export default function MenuSelect<T extends string>({
                       {isSelected ? (
                         <Check
                           size={15}
-                          className="add-data-menu__item-chevron"
+                          className="add-data-menu__item-check"
                           aria-hidden
                         />
-                      ) : (
-                        <ChevronRight
-                          size={15}
-                          className="add-data-menu__item-chevron"
-                          aria-hidden
-                        />
-                      )}
+                      ) : null}
                     </button>
                   );
                 })}

@@ -45,6 +45,7 @@ const sw = {
   lightTheme: "Mandhari angavu",
   darkTheme: "Mandhari meusi",
   selectLanguage: "Chagua lugha",
+  quickSettings: "Mipangilio ya haraka",
   selectTheme: "Chagua mandhari",
   themeToggleDesc: "Badili kati ya mandhari angavu na meusi.",
   dataTools: "Zana za data",

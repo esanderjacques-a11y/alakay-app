@@ -45,6 +45,7 @@ const pt = {
   lightTheme: "Tema claro",
   darkTheme: "Tema escuro",
   selectLanguage: "Selecionar idioma",
+  quickSettings: "Configurações rápidas",
   selectTheme: "Selecionar tema",
   themeToggleDesc: "Alternar entre interface clara e escura.",
   dataTools: "Ferramentas de dados",

@@ -39,7 +39,9 @@ import ResultsDashboard from "@/components/ResultsDashboard";
 import RecycleBinScreen from "@/components/RecycleBinScreen";
 import CalculatorHub from "@/components/CalculatorHub";
 import type { FertilizerPlanSnapshot } from "@/components/CalculatorHub";
-import AppSettingsScreen from "@/components/AppSettingsScreen";
+import AppSettingsScreen, {
+  type SettingsSectionId,
+} from "@/components/AppSettingsScreen";
 import AboutScreen from "@/components/AboutScreen";
 import CalendarScreen from "@/components/planning/CalendarScreen";
 import FarmsScreen from "@/components/planning/FarmsScreen";
@@ -48,7 +50,9 @@ import NotificationsScreen from "@/components/planning/NotificationsScreen";
 import AppDock from "@/components/ui/AppDock";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import HomeScreen from "@/components/HomeScreen";
-import ImportDataScreen from "@/components/ImportDataScreen";
+import BillingScreen from "@/components/billing/BillingScreen";
+import BillingAdminScreen from "@/components/billing/BillingAdminScreen";
+import VerificationScreen from "@/components/billing/VerificationScreen";
 import FarmLotSelector from "@/components/FarmLotSelector";
 import { detectLocation } from "@/lib/geolocation";
 import {
@@ -1046,6 +1050,8 @@ const appSteps = new Set<AppStep>([
   "about",
   "recycle",
   "settings",
+  "billing",
+  "verification",
   "farms",
   "calendar",
   "notes",
@@ -1067,6 +1073,9 @@ export default function HomePage() {
 
   const [currentStep, setCurrentStep] = useState<AppStep>("home");
   const currentStepRef = useRef<AppStep>("home");
+  const stepBeforeSettingsRef = useRef<AppStep>("home");
+  const [settingsInitialSection, setSettingsInitialSection] =
+    useState<SettingsSectionId | undefined>(undefined);
   const historyReadyRef = useRef(false);
   const handlingPopStateRef = useRef(false);
 
@@ -1116,6 +1125,10 @@ export default function HomePage() {
   const [labValueImporterMode, setLabValueImporterMode] = useState<
     "scan" | "import"
   >("import");
+  const [importerInitialFile, setImporterInitialFile] = useState<File | null>(
+    null
+  );
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [editingRootAnalysisId, setEditingRootAnalysisId] = useState<
     number | null
@@ -2010,6 +2023,15 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       })
     );
     setCurrentStep("values");
+  }
+
+  function openImportCamera() {
+    setLabValueImporterMode("scan");
+    setShowLabValueImporter(true);
+  }
+
+  function openImportFilePicker() {
+    importFileInputRef.current?.click();
   }
 
   function requestCreateCustomParameterFromImport(draft: {
@@ -3214,7 +3236,24 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       setCurrentStep("home");
     },
     onLogout: logout,
-    onOpenSettings: () => setCurrentStep("settings"),
+    onOpenSettings: () => {
+      if (currentStep === "settings") {
+        setCurrentStep(stepBeforeSettingsRef.current);
+        return;
+      }
+      stepBeforeSettingsRef.current = currentStep;
+      setSettingsInitialSection(undefined);
+      setCurrentStep("settings");
+    },
+    onOpenAccountSettings: () => {
+      if (currentStep !== "settings") {
+        stepBeforeSettingsRef.current = currentStep;
+      }
+      setSettingsInitialSection("account");
+      setCurrentStep("settings");
+    },
+    settingsActive: currentStep === "settings",
+    onOpenBilling: () => setCurrentStep("billing"),
     onOpenRecycleBin: () => setCurrentStep("recycle"),
     onOpenAbout: () => setCurrentStep("about"),
     onOpenFarms: () => setCurrentStep("farms"),
@@ -3307,7 +3346,12 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             ? "app-main-shell--home"
             : currentStep === "about"
               ? "app-main-shell--about"
-              : "app-main-shell--default"
+              : currentStep === "billing" ||
+                  currentStep === "billing-admin" ||
+                  currentStep === "verification" ||
+                  currentStep === "settings"
+                ? "app-main-shell--default app-main-shell--no-dock"
+                : "app-main-shell--default"
         }`}
       >
         <div className="app-main-backdrop" aria-hidden="true" />
@@ -3331,7 +3375,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               displayName={displayName}
               isReturningUser={Boolean(session?.user && !guestMode)}
               startNewAnalysis={resetAnalysis}
-              goImport={() => setCurrentStep("import")}
+              onImportCamera={openImportCamera}
+              onImportFile={openImportFilePicker}
               goResults={() => setCurrentStep("history")}
               goCalculators={() => setCurrentStep("calculators")}
               goFarms={() => {
@@ -3346,19 +3391,6 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               hasResultsOrProgress={hasHistoryOrProgress}
             />
           </section>
-        ) : currentStep === "import" ? (
-          <ImportDataScreen
-            t={t}
-            onBack={() => setCurrentStep("home")}
-            onImportDocument={() => {
-              setLabValueImporterMode("import");
-              setShowLabValueImporter(true);
-            }}
-            onTakePhoto={() => {
-              setLabValueImporterMode("scan");
-              setShowLabValueImporter(true);
-            }}
-          />
         ) : currentStep === "setup" ? (
           <SetupScreen
             t={t}
@@ -3486,10 +3518,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             lotName={lotName}
             saveAnalysis={saveFromValuesPage}
             backToSetup={() => setCurrentStep("setup")}
-            openImporter={() => {
-              setLabValueImporterMode("import");
-              setShowLabValueImporter(true);
-            }}
+            openImporter={openImportFilePicker}
             openCustomParameterModal={() => {
               setCustomParameterDraft(null);
               setShowCustomParameterModal(true);
@@ -3675,6 +3704,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         ) : currentStep === "settings" ? (
           <AppSettingsScreen
             language={language}
+            initialSection={settingsInitialSection}
             onBack={() => setCurrentStep("home")}
             session={session}
             onLanguageChange={changeLanguage}
@@ -3688,6 +3718,36 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               )
             }
             onSettingsChange={setAppSettings}
+            onOpenBilling={() => setCurrentStep("billing")}
+            onOpenVerification={() => setCurrentStep("verification")}
+          />
+        ) : currentStep === "billing" ? (
+          <BillingScreen
+            language={language}
+            session={session}
+            guestMode={guestMode}
+            isAdmin={isAdmin}
+            onBack={() => setCurrentStep("home")}
+            onOpenVerification={() => setCurrentStep("verification")}
+            onOpenAdmin={
+              isAdmin ? () => setCurrentStep("billing-admin") : undefined
+            }
+          />
+        ) : currentStep === "billing-admin" && isAdmin ? (
+          <BillingAdminScreen
+            language={language}
+            adminEmail={session?.user?.email || ""}
+            onBack={() => setCurrentStep("billing")}
+          />
+        ) : currentStep === "verification" ? (
+          <VerificationScreen
+            language={language}
+            session={session}
+            guestMode={guestMode}
+            displayName={displayName}
+            email={session?.user?.email || ""}
+            country={finalCountry}
+            onBack={() => setCurrentStep("settings")}
           />
         ) : currentStep === "about" ? (
           <AboutScreen
@@ -3696,6 +3756,9 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             session={session}
             country={finalCountry}
             isAdmin={isAdmin}
+            onOpenAdmin={
+              isAdmin ? () => setCurrentStep("billing-admin") : undefined
+            }
             onBack={() => setCurrentStep("home")}
           />
         ) : currentStep === "recycle" ? (
@@ -3712,6 +3775,9 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       </section>
 
       {currentStep !== "settings" &&
+      currentStep !== "billing" &&
+      currentStep !== "billing-admin" &&
+      currentStep !== "verification" &&
       currentStep !== "recycle" &&
       currentStep !== "about" &&
       currentStep !== "import" &&
@@ -3734,11 +3800,28 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         />
       ) : null}
 
+      <input
+        ref={importFileInputRef}
+        type="file"
+        accept=".csv,.xlsx,.xls,.txt,.pdf,image/*"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (!file) return;
+          setImporterInitialFile(file);
+          setLabValueImporterMode("import");
+          setShowLabValueImporter(true);
+        }}
+      />
+
       <LabValueImporter
         key={labValueImporterMode}
         open={showLabValueImporter}
         mode={labValueImporterMode}
         autoRestoreToken={importerAutoRestoreToken}
+        initialFile={importerInitialFile}
+        onInitialFileHandled={() => setImporterInitialFile(null)}
         onClose={() => setShowLabValueImporter(false)}
         language={language}
         parameters={parameters}
@@ -4645,6 +4728,10 @@ function ValuesScreen({
                     title={aliasTitle}
                     className={`values-entry-row values-entry-row--${tier}${
                       parameter.is_custom ? " values-entry-row--custom" : ""
+                    }${
+                      detailParameterKey === parameter.parameter_key
+                        ? " values-entry-row--interp-open"
+                        : ""
                     }`}
                   >
                     <div className="values-entry-row__head">
@@ -4934,7 +5021,11 @@ function ValueLiveInterpControl({
   const levelLabel = result ? translateLevelCode(result.level_code, t) : "";
 
   return (
-    <div className={`values-live-interp${compact ? " values-live-interp--compact" : ""}`}>
+    <div
+      className={`values-live-interp${compact ? " values-live-interp--compact" : ""}${
+        detailOpen ? " values-live-interp--open" : ""
+      }`}
+    >
       {result ? (
         <>
           <span

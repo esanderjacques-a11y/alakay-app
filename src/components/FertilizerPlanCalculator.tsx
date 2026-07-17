@@ -681,27 +681,15 @@ export default function FertilizerPlanCalculator({
             </div>
           ) : null}
 
-          {matchedCrop || (!showCropPicker && effectiveCropName) ? (
-            <div className="calc-page__crop flex items-center gap-2 px-3 py-2.5">
-              <span className="text-xs font-bold uppercase tracking-wide text-emerald-800">
-                {t.fertilizerPlanCrop || "Crop"}
-              </span>
-              <span className="text-sm font-semibold text-green-950 dark:text-emerald-50">
-                {matchedCrop?.label || effectiveCropName}
-              </span>
-              {!matchedCrop ? (
-                <span className="text-xs text-amber-800 dark:text-amber-200">
-                  {t.fertilizerPlanCropUnknown ||
-                    "This crop isn't in our list — enter nutrient extraction values below."}
-                </span>
-              ) : null}
-            </div>
-          ) : (
+          {!matchedCrop && !showCropPicker ? (
             <p className="fertilizer-plan__hint" role="status">
-              {t.fertilizerPlanCropUnknown ||
-                "No crop selected — enter extraction coefficients (kg/t) manually."}
+              {effectiveCropName
+                ? t.fertilizerPlanCropUnknown ||
+                  "This crop isn't in our list — enter nutrient extraction values below."
+                : t.fertilizerPlanCropUnknown ||
+                  "No crop selected — enter extraction coefficients (kg/t) manually."}
             </p>
-          )}
+          ) : null}
 
           <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-2">
             <NumberField

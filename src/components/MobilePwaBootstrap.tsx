@@ -59,9 +59,7 @@ function syncDisplayMode() {
 
 function syncThemeColorMeta() {
   const isDark = document.documentElement.dataset.theme === "dark";
-  const isBlack =
-    document.documentElement.dataset.darkVariant === "black";
-  const color = isDark ? (isBlack ? "#000000" : "#0f172a") : "#059669";
+  const color = isDark ? "#0f172a" : "#059669";
 
   let meta = document.querySelector('meta[name="theme-color"]');
   if (!meta) {

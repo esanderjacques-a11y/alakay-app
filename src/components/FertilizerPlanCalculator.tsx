@@ -8,7 +8,7 @@ import {
   type CalculationOutput,
   type CalculatorValue,
 } from "@/lib/agronomicCalculators";
-import { useMemoryNumber, useMemoryString } from "@/hooks/useCalculatorMemory";
+import { useMemoryNumber, useMemoryString, useEmitCalculatorOutputs } from "@/hooks/useCalculatorMemory";
 import { useViewLayoutPreference } from "@/hooks/useViewLayoutPreference";
 import MenuSelect from "@/components/ui/MenuSelect";
 import { useSoilFertilityReference } from "@/lib/soilFertilityData";
@@ -483,10 +483,12 @@ export default function FertilizerPlanCalculator({
     else setManualMgOxide(oxide);
   }
 
-  useEffect(() => {
-    if (!onOutputsChange) return;
-    onOutputsChange(plan ? fertilityDosePlanToCalculationOutputs(plan) : []);
-  }, [plan, onOutputsChange]);
+  const reportOutputs = useMemo(
+    () => (plan ? fertilityDosePlanToCalculationOutputs(plan) : []),
+    [plan]
+  );
+
+  useEmitCalculatorOutputs(onOutputsChange, reportOutputs);
 
   useEffect(() => {
     if (!onDosePlanChange) return;

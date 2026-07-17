@@ -138,11 +138,10 @@ export function buildAccentCssVariables(
   const scale = hslScaleToCssScale(hslScale);
   const seed = ACCENT_SEEDS[accent];
   const glow = hslToRgbParts(isDark ? hslScale[400] : seed);
-  const isBlackDark = isDark && darkVariant === "black";
-  const darkBase = isBlackDark ? "hsl(0 0% 0%)" : `hsl(${seed.h} 10% 7%)`;
-  const darkSurface = isBlackDark ? "hsl(0 0% 5%)" : `hsl(${seed.h} 9% 11%)`;
-  const darkSurfaceRaised = isBlackDark ? "hsl(0 0% 9%)" : `hsl(${seed.h} 10% 14%)`;
-  const darkBorder = isBlackDark ? "rgb(255 255 255 / 0.1)" : "rgb(255 255 255 / 0.14)";
+  const darkBase = `hsl(${seed.h} 10% 7%)`;
+  const darkSurface = `hsl(${seed.h} 9% 11%)`;
+  const darkSurfaceRaised = `hsl(${seed.h} 10% 14%)`;
+  const darkBorder = "rgb(255 255 255 / 0.14)";
   const darkMuted = "rgb(226 232 240 / 0.78)";
 
   const primary = isDark ? scale[400] : scale[700];
@@ -151,15 +150,11 @@ export function buildAccentCssVariables(
   const foreground = isDark ? "rgb(248 250 252)" : scale[950];
 
   const bodyGradient = isDark
-    ? isBlackDark
-      ? `radial-gradient(circle at 16% 8%, rgb(var(--accent-400-rgb) / 0.04), transparent 34%), radial-gradient(circle at 84% 14%, rgb(var(--accent-300-rgb) / 0.025), transparent 36%), linear-gradient(145deg, hsl(0 0% 0%) 0%, hsl(0 0% 3%) 52%, hsl(0 0% 5%) 100%)`
-      : `radial-gradient(circle at 16% 10%, ${withAlpha(scale[400], 0.08)}, transparent 40%), radial-gradient(circle at 82% 18%, ${withAlpha(scale[300], 0.05)}, transparent 44%), linear-gradient(145deg, ${darkBase} 0%, ${darkSurface} 50%, ${darkSurfaceRaised} 100%)`
+    ? `radial-gradient(circle at 16% 10%, ${withAlpha(scale[400], 0.08)}, transparent 40%), radial-gradient(circle at 82% 18%, ${withAlpha(scale[300], 0.05)}, transparent 44%), linear-gradient(145deg, ${darkBase} 0%, ${darkSurface} 50%, ${darkSurfaceRaised} 100%)`
     : `linear-gradient(145deg, ${scale[100]} 0%, ${scale[50]} 35%, #ffffff 70%, ${scale[100]} 100%)`;
 
   const mainGradient = isDark
-    ? isBlackDark
-      ? `radial-gradient(ellipse 90% 55% at 18% 0%, rgb(var(--accent-400-rgb) / 0.06), transparent 52%), radial-gradient(ellipse 80% 50% at 88% 24%, rgb(var(--accent-300-rgb) / 0.035), transparent 50%), linear-gradient(180deg, rgb(0 0 0 / 0.99) 0%, rgb(4 4 4 / 0.99) 56%, rgb(0 0 0 / 1) 100%)`
-      : `radial-gradient(ellipse 95% 60% at 12% -8%, ${withAlpha(scale[400], 0.14)}, transparent 54%), radial-gradient(ellipse 85% 55% at 92% 18%, ${withAlpha(scale[300], 0.1)}, transparent 52%), linear-gradient(180deg, ${withAlpha(darkSurface, 0.92)} 0%, ${withAlpha(darkBase, 0.96)} 56%, ${withAlpha(darkSurfaceRaised, 0.9)} 100%)`
+    ? `radial-gradient(ellipse 95% 60% at 12% -8%, ${withAlpha(scale[400], 0.14)}, transparent 54%), radial-gradient(ellipse 85% 55% at 92% 18%, ${withAlpha(scale[300], 0.1)}, transparent 52%), linear-gradient(180deg, ${withAlpha(darkSurface, 0.92)} 0%, ${withAlpha(darkBase, 0.96)} 56%, ${withAlpha(darkSurfaceRaised, 0.9)} 100%)`
     : `radial-gradient(ellipse 110% 75% at 8% -12%, ${withAlpha(scale[200], 0.58)}, transparent 52%), radial-gradient(ellipse 95% 65% at 96% 14%, ${withAlpha(scale[300], 0.42)}, transparent 54%), radial-gradient(ellipse 90% 55% at 50% 108%, ${withAlpha(scale[100], 0.72)}, transparent 50%), linear-gradient(165deg, ${scale[50]} 0%, ${withAlpha(scale[100], 0.88)} 36%, #f8fafc 58%, ${scale[50]} 100%)`;
 
   const authGradient = mainGradient;
@@ -196,45 +191,35 @@ export function buildAccentCssVariables(
     "--dark-surface-raised": darkSurfaceRaised,
     "--dark-border": darkBorder,
     "--dark-muted": darkMuted,
-    "--dark-panel-bg": isBlackDark ? "rgb(0 0 0 / 0.78)" : "rgb(255 255 255 / 0.04)",
-    "--dark-panel-bg-strong": isBlackDark ? "rgb(8 8 8 / 0.88)" : "rgb(255 255 255 / 0.06)",
-    "--dark-shell-top": isBlackDark ? "rgb(8 8 8 / 0.9)" : withAlpha(darkSurfaceRaised, 0.88),
-    "--dark-shell-bottom": isBlackDark ? "rgb(0 0 0 / 0.92)" : withAlpha(darkBase, 0.94),
-    "--dark-hover-top": isBlackDark ? "rgb(16 16 16 / 0.96)" : withAlpha(darkSurfaceRaised, 0.96),
-    "--dark-hover-bottom": isBlackDark ? "rgb(0 0 0 / 0.92)" : withAlpha(darkSurface, 0.92),
-    "--dark-disabled-bg": isBlackDark ? "rgb(0 0 0 / 0.72)" : "rgb(255 255 255 / 0.03)",
-    "--auth-card-bg": isDark
-      ? isBlackDark
-        ? "rgb(255 255 255 / 0.085)"
-        : withAlpha(darkSurface, 0.82)
-      : "rgb(var(--accent-100-rgb) / 0.76)",
+    "--dark-panel-bg": "rgb(255 255 255 / 0.04)",
+    "--dark-panel-bg-strong": "rgb(255 255 255 / 0.06)",
+    "--dark-shell-top": withAlpha(darkSurfaceRaised, 0.88),
+    "--dark-shell-bottom": withAlpha(darkBase, 0.94),
+    "--dark-hover-top": withAlpha(darkSurfaceRaised, 0.96),
+    "--dark-hover-bottom": withAlpha(darkSurface, 0.92),
+    "--dark-disabled-bg": "rgb(255 255 255 / 0.03)",
+    "--auth-card-bg": isDark ? withAlpha(darkSurface, 0.82) : "rgb(var(--accent-100-rgb) / 0.76)",
     "--auth-card-border": isDark ? darkBorder : withAlpha(scale[200], 0.85),
     "--auth-card-shadow": isDark
-      ? (isBlackDark ? "0 20px 52px rgba(0, 0, 0, 0.48)" : "0 18px 44px rgba(0, 0, 0, 0.3)")
+      ? "0 18px 44px rgba(0, 0, 0, 0.3)"
       : `0 8px 32px rgba(${glow.r}, ${glow.g}, ${glow.b}, 0.14)`,
     "--auth-chip-bg": isDark
-      ? (isBlackDark ? "rgb(8 8 8 / 0.82)" : withAlpha(scale[900], 0.34))
+      ? withAlpha(scale[900], 0.34)
       : "rgb(var(--accent-50-rgb) / 0.68)",
     "--auth-chip-border": isDark
-      ? (isBlackDark ? "rgb(255 255 255 / 0.16)" : "rgb(255 255 255 / 0.2)")
+      ? "rgb(255 255 255 / 0.2)"
       : withAlpha(scale[200], 0.85),
     "--glass-border": isDark
       ? darkBorder
       : withAlpha(scale[200], 0.85),
     "--glass-surface": isDark
-      ? isBlackDark
-        ? "rgb(255 255 255 / 0.055)"
-        : withAlpha(darkSurfaceRaised, 0.74)
+      ? withAlpha(darkSurfaceRaised, 0.74)
       : "rgb(var(--accent-50-rgb) / 0.68)",
     "--glass-surface-strong": isDark
-      ? isBlackDark
-        ? "rgb(255 255 255 / 0.085)"
-        : withAlpha(darkSurface, 0.82)
+      ? withAlpha(darkSurface, 0.82)
       : "rgb(var(--accent-100-rgb) / 0.76)",
     "--glass-surface-muted": isDark
-      ? isBlackDark
-        ? "rgb(255 255 255 / 0.028)"
-        : "rgb(24 24 24 / 0.58)"
+      ? "rgb(24 24 24 / 0.58)"
       : "rgb(var(--accent-100-rgb) / 0.52)",
     "--glass-chrome-surface": "var(--glass-surface)",
     "--glass-chrome-border": "var(--glass-border)",

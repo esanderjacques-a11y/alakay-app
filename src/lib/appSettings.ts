@@ -2,7 +2,7 @@ import type { Language } from "@/lib/translations";
 
 export const APP_SETTINGS_STORAGE_KEY = "cultosol_app_settings";
 
-export type AppThemePreference = "system" | "light" | "dark" | "dark_black";
+export type AppThemePreference = "system" | "light" | "dark";
 export type AppFontPreference =
   | "system"
   | "nunito"
@@ -205,12 +205,13 @@ function mergeSettings(settings: Partial<AppSettings>): AppSettings {
     MAX_PERMANENT_DELETE_DAYS,
     Math.max(1, merged.data.permanentDeleteDays || MAX_PERMANENT_DELETE_DAYS)
   );
+  const themePreference = merged.general.theme as AppThemePreference | "dark_black";
   merged.general.theme =
-    merged.general.theme === "light" ||
-    merged.general.theme === "dark" ||
-    merged.general.theme === "dark_black"
-      ? merged.general.theme
-      : "system";
+    themePreference === "light" || themePreference === "dark"
+      ? themePreference
+      : themePreference === "dark_black"
+        ? "dark"
+        : "system";
   if (
     merged.general.accentColor !== "green" &&
     merged.general.accentColor !== "teal" &&

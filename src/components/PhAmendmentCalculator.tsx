@@ -19,7 +19,7 @@ import {
   type SoilTexture,
 } from "@/lib/phAmendmentCalculator";
 import { assessAmendmentChemistry } from "@/lib/amendmentRecommendation";
-import { useMemoryNumber, useSharedCationInputs } from "@/hooks/useCalculatorMemory";
+import { useMemoryNumber, useSharedCationInputs, useEmitCalculatorOutputs } from "@/hooks/useCalculatorMemory";
 import MenuSelect, { type MenuSelectOption } from "@/components/ui/MenuSelect";
 import { getCicAcidityContribution } from "@/lib/baseSaturation";
 import {
@@ -324,9 +324,7 @@ export default function PhAmendmentCalculator({
     return rows;
   }, [result, method, outputUnit, plotArea, plotAreaUnit, t]);
 
-  useEffect(() => {
-    onOutputsChange?.(outputs);
-  }, [onOutputsChange, outputs]);
+  useEmitCalculatorOutputs(onOutputsChange, outputs);
 
   const showMaterial = methodRaisesPh(method) && chemGate.needsLime;
   const unitLabel = phAmendmentUnitLabel(outputUnit);

@@ -127,6 +127,10 @@ import {
 import { calculateSoilTexture } from "@/lib/soilTexture";
 import { canConvertLabUnit, convertLabUnit } from "@/lib/unitConversions";
 import {
+  migrateLegacyImportMemory,
+  purgeExpiredImportCache,
+} from "@/lib/importCache";
+import {
   FOLIAR_EXTRACTION_OPTIONS,
   GENERAL_CROP_EXTRACTION_OPTIONS,
   SOIL_EXTRACTION_OPTIONS,
@@ -1056,6 +1060,8 @@ const appSteps = new Set<AppStep>([
   "calendar",
   "notes",
   "notifications",
+  "lab-scan",
+  "lab-import",
 ]);
 
 function readHistoryStep(state: unknown): AppStep | null {
@@ -1074,6 +1080,9 @@ export default function HomePage() {
   const [currentStep, setCurrentStep] = useState<AppStep>("home");
   const currentStepRef = useRef<AppStep>("home");
   const stepBeforeSettingsRef = useRef<AppStep>("home");
+  const billingReturnStepRef = useRef<AppStep>("home");
+  const labScanReturnStepRef = useRef<AppStep>("home");
+  const labImportReturnStepRef = useRef<AppStep>("home");
   const [settingsInitialSection, setSettingsInitialSection] =
     useState<SettingsSectionId | undefined>(undefined);
   const historyReadyRef = useRef(false);
@@ -1115,12 +1124,14 @@ export default function HomePage() {
     applySodiumTropicalPreset?: boolean;
   } | null>(null);
   const [importerAutoRestoreToken, setImporterAutoRestoreToken] = useState(0);
+  const [importerInitialCacheId, setImporterInitialCacheId] = useState<
+    string | null
+  >(null);
   const resumeImporterAfterCustomParameterSaveRef = useRef(false);
   const customParameterSavedFromImporterRef = useRef(false);
   const [showCustomParameterManager, setShowCustomParameterManager] =
     useState(false);
   const [showCustomRangeManager, setShowCustomRangeManager] = useState(false);
-  const [showLabValueImporter, setShowLabValueImporter] = useState(false);
   const [showWelcomeGuide, setShowWelcomeGuide] = useState(false);
   const [labValueImporterMode, setLabValueImporterMode] = useState<
     "scan" | "import"
@@ -1193,6 +1204,11 @@ export default function HomePage() {
   const [queueTick, setQueueTick] = useState(0);
 
   const finalCountry = country === "Other" ? customCountry.trim() : country;
+
+  useEffect(() => {
+    migrateLegacyImportMemory();
+    purgeExpiredImportCache();
+  }, []);
 
   useEffect(() => {
     currentStepRef.current = currentStep;
@@ -2026,12 +2042,36 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
   }
 
   function openImportCamera() {
+    labScanReturnStepRef.current = currentStepRef.current;
     setLabValueImporterMode("scan");
-    setShowLabValueImporter(true);
+    setCurrentStep("lab-scan");
   }
 
-  function openImportFilePicker() {
-    importFileInputRef.current?.click();
+  function closeLabImportFlow() {
+    const returnStep =
+      currentStepRef.current === "lab-scan"
+        ? labScanReturnStepRef.current
+        : labImportReturnStepRef.current;
+    setImporterInitialCacheId(null);
+    setLabValueImporterMode(
+      currentStepRef.current === "lab-scan" ? "scan" : "import"
+    );
+    setCurrentStep((step) =>
+      step === "lab-scan" || step === "lab-import" ? returnStep : step
+    );
+  }
+
+  function resumeImportFromCache(cacheId: string) {
+    labImportReturnStepRef.current = currentStepRef.current;
+    setImporterInitialCacheId(cacheId);
+    setLabValueImporterMode("import");
+    setCurrentStep("lab-import");
+  }
+
+  function openImportFilePage() {
+    labImportReturnStepRef.current = currentStepRef.current;
+    setLabValueImporterMode("import");
+    setCurrentStep("lab-import");
   }
 
   function requestCreateCustomParameterFromImport(draft: {
@@ -2069,7 +2109,6 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     });
     resumeImporterAfterCustomParameterSaveRef.current = true;
     customParameterSavedFromImporterRef.current = false;
-    setShowLabValueImporter(false);
     setShowCustomParameterModal(true);
   }
 
@@ -3253,7 +3292,10 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       setCurrentStep("settings");
     },
     settingsActive: currentStep === "settings",
-    onOpenBilling: () => setCurrentStep("billing"),
+    onOpenBilling: () => {
+      billingReturnStepRef.current = currentStepRef.current;
+      setCurrentStep("billing");
+    },
     onOpenRecycleBin: () => setCurrentStep("recycle"),
     onOpenAbout: () => setCurrentStep("about"),
     onOpenFarms: () => setCurrentStep("farms"),
@@ -3271,10 +3313,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     onToggleTheme: () =>
       setTheme((currentTheme) => {
         if (currentTheme === "light") {
-          const currentPreference = getSettings().general.theme;
-          const nextPreference =
-            currentPreference === "dark_black" ? "dark_black" : "dark";
-          updateSetting("general", "theme", nextPreference);
+          updateSetting("general", "theme", "dark");
           return "dark";
         }
         updateSetting("general", "theme", "light");
@@ -3338,7 +3377,11 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
   return (
     <>
-      {currentStep !== "about" ? <AppHeader {...headerProps} /> : null}
+      {currentStep !== "about" &&
+      currentStep !== "lab-scan" &&
+      currentStep !== "lab-import" ? (
+        <AppHeader {...headerProps} />
+      ) : null}
       <WelcomeGuide open={showWelcomeGuide && Boolean(session?.user) && !guestMode} t={t} onClose={closeWelcomeGuide} />
       <main
         className={`app-main-gradient app-main-shell text-slate-900 ${
@@ -3346,12 +3389,14 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             ? "app-main-shell--home"
             : currentStep === "about"
               ? "app-main-shell--about"
-              : currentStep === "billing" ||
-                  currentStep === "billing-admin" ||
-                  currentStep === "verification" ||
-                  currentStep === "settings"
-                ? "app-main-shell--default app-main-shell--no-dock"
-                : "app-main-shell--default"
+              : currentStep === "lab-scan" || currentStep === "lab-import"
+                ? "app-main-shell--default app-main-shell--no-dock app-main-shell--lab-scan"
+                : currentStep === "billing" ||
+                    currentStep === "billing-admin" ||
+                    currentStep === "verification" ||
+                    currentStep === "settings"
+                  ? "app-main-shell--default app-main-shell--no-dock"
+                  : "app-main-shell--default"
         }`}
       >
         <div className="app-main-backdrop" aria-hidden="true" />
@@ -3365,14 +3410,33 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               ? "about-route-shell"
               : currentStep === "settings"
                 ? "app-visual-tone app-content-shell app-content-shell--settings w-full px-0"
-                : currentStep === "billing" ||
+                : currentStep === "lab-scan" || currentStep === "lab-import"
+                  ? "app-visual-tone app-content-shell app-content-shell--lab-scan w-full px-0"
+                  : currentStep === "billing" ||
                     currentStep === "billing-admin" ||
                     currentStep === "verification"
                   ? "app-visual-tone app-content-shell app-content-shell--billing w-full px-0"
                   : "app-visual-tone app-content-shell w-full px-0"
           }
         >
-        {currentStep === "home" ? (
+        {currentStep === "lab-scan" || currentStep === "lab-import" ? (
+          <LabValueImporter
+            open
+            mode={labValueImporterMode}
+            presentation="page"
+            autoRestoreToken={importerAutoRestoreToken}
+            initialCacheId={importerInitialCacheId}
+            initialFile={importerInitialFile}
+            onInitialFileHandled={() => setImporterInitialFile(null)}
+            onClose={closeLabImportFlow}
+            onEnterImportReview={() => setLabValueImporterMode("import")}
+            language={language}
+            parameters={parameters}
+            existingValues={values}
+            onRequestCreateParameter={requestCreateCustomParameterFromImport}
+            onImportValues={importLabValues}
+          />
+        ) : currentStep === "home" ? (
           <section className="home-screen-wrap">
             <HomeScreen
               t={t}
@@ -3382,7 +3446,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               isReturningUser={Boolean(session?.user && !guestMode)}
               startNewAnalysis={resetAnalysis}
               onImportCamera={openImportCamera}
-              onImportFile={openImportFilePicker}
+              onImportFile={openImportFilePage}
               goResults={() => setCurrentStep("history")}
               goCalculators={() => setCurrentStep("calculators")}
               goFarms={() => {
@@ -3524,7 +3588,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             lotName={lotName}
             saveAnalysis={saveFromValuesPage}
             backToSetup={() => setCurrentStep("setup")}
-            openImporter={openImportFilePicker}
+            openImporter={openImportFilePage}
             openCustomParameterModal={() => {
               setCustomParameterDraft(null);
               setShowCustomParameterModal(true);
@@ -3596,6 +3660,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             goToValues={() => setCurrentStep("values")}
             goToCurrentResults={() => setCurrentStep("results")}
             onEditAnalysis={loadEditableAnalysis}
+            onResumeImport={resumeImportFromCache}
             focusAnalysisId={historyFocusAnalysisId}
             onFocusAnalysisConsumed={() => setHistoryFocusAnalysisId(null)}
           />
@@ -3724,7 +3789,10 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               )
             }
             onSettingsChange={setAppSettings}
-            onOpenBilling={() => setCurrentStep("billing")}
+            onOpenBilling={() => {
+              billingReturnStepRef.current = "settings";
+              setCurrentStep("billing");
+            }}
             onOpenVerification={() => setCurrentStep("verification")}
           />
         ) : currentStep === "billing" ? (
@@ -3733,7 +3801,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             session={session}
             guestMode={guestMode}
             isAdmin={isAdmin}
-            onBack={() => setCurrentStep("home")}
+            onBack={() => setCurrentStep(billingReturnStepRef.current)}
             onOpenVerification={() => setCurrentStep("verification")}
             onOpenAdmin={
               isAdmin ? () => setCurrentStep("billing-admin") : undefined
@@ -3784,6 +3852,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       currentStep !== "billing" &&
       currentStep !== "billing-admin" &&
       currentStep !== "verification" &&
+      currentStep !== "lab-scan" &&
+      currentStep !== "lab-import" &&
       currentStep !== "recycle" &&
       currentStep !== "about" &&
       currentStep !== "import" &&
@@ -3815,25 +3885,11 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           const file = event.target.files?.[0];
           event.target.value = "";
           if (!file) return;
+          labImportReturnStepRef.current = currentStepRef.current;
           setImporterInitialFile(file);
           setLabValueImporterMode("import");
-          setShowLabValueImporter(true);
+          setCurrentStep("lab-import");
         }}
-      />
-
-      <LabValueImporter
-        key={labValueImporterMode}
-        open={showLabValueImporter}
-        mode={labValueImporterMode}
-        autoRestoreToken={importerAutoRestoreToken}
-        initialFile={importerInitialFile}
-        onInitialFileHandled={() => setImporterInitialFile(null)}
-        onClose={() => setShowLabValueImporter(false)}
-        language={language}
-        parameters={parameters}
-        existingValues={values}
-        onRequestCreateParameter={requestCreateCustomParameterFromImport}
-        onImportValues={importLabValues}
       />
 
       <CustomParameterModal
@@ -3848,7 +3904,12 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           customParameterSavedFromImporterRef.current = false;
           if (shouldResumeImporter) {
             setLabValueImporterMode("import");
-            setShowLabValueImporter(true);
+            if (
+              currentStepRef.current !== "lab-scan" &&
+              currentStepRef.current !== "lab-import"
+            ) {
+              setCurrentStep("lab-import");
+            }
             setImporterAutoRestoreToken((previous) => previous + 1);
           }
         }}

@@ -452,6 +452,7 @@
   resultsPageDesc:
     "Kontinye yon analiz an kou oswa louvri istwa rapò ou yo.",
   inProgress: "An kou",
+  imports: "Enpòtasyon",
   savedReports: "Rapò ki sove",
   continueValues: "Kontinye antre valè yo",
   viewCurrentResults: "Gade rezilta aktyèl yo",

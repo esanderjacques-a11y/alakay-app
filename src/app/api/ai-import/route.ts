@@ -13,6 +13,8 @@ type AiImportPayload = {
     method?: string;
     source?: string;
     confidence?: number;
+    reportRange?: string;
+    reportRating?: string;
   }>;
   metadata?: Record<string, string>;
   warning?: string;
@@ -129,11 +131,15 @@ function buildAiImportInstructionsForLanguage(language: string) {
     "The rows field must contain lab results only: {parameter,value,unit,sample,method,source,confidence}.",
     "Rows are required when result tables are visible. Extract every real numeric result row that belongs to the lab analysis tables.",
     "Do not infer, calculate, translate, or convert units. Keep the reported value and reported unit exactly as printed.",
+    "If the document states that results are in ppm, parts per million, or mg/kg (for example a note above a table), set metadata.defaultUnitSystem to ppm or mg/kg accordingly.",
+    "When a table has an Optimal Range, Target Value, Reference Range, or similar column, put that text in rows.reportRange for the matching parameter. Do not put range text in rows.value.",
+    "When a table has a Rating column (Optimal, High, Low, etc.), put that label in rows.reportRating.",
+    "If a global unit statement applies to the whole table and individual rows have no unit column, leave rows.unit empty but still set metadata.defaultUnitSystem.",
     "If a result value has a rating suffix attached, such as 23M, 110L, 992VL, or 357H, put only the numeric part in value and mention the suffix in source. Do not import rating suffixes as values.",
     "Keep sample/lot/plot names on every row when several plots, lots, or samples appear.",
     "For wide multi-sample reports, sample IDs belong in sample and lab numbers belong in source or metadata; neither is a lab result value.",
     "If a table has Result, Resultado, Resultados, Valor, Concentracion, or Current columns, use those columns as the true values.",
-    "If a table has two result columns for the same variable, such as mg/kg and meq/100g, return one row for the unit column most directly usable as the lab result; for exchangeable bases prefer meq/100g or cmol(+)/kg over mg/kg. Do not convert.",
+    "If a table has two result columns for the same variable, such as mg/kg and meq/100g, prefer the column that matches a document-level unit statement. When the report says results are in ppm or mg/kg, use that column. When no document unit statement exists, prefer meq/100g or cmol(+)/kg for exchangeable bases. Do not convert.",
     "Include texture rows when present: Sand/Arena, Silt/Limo, Clay/Arcilla, and texture class when shown.",
     "If a wide table has sample rows and parameter columns, create one row per sample and parameter.",
     "Do not mix two parameters in one row. One row must contain one parameter and one numeric value.",
@@ -187,6 +193,7 @@ async function requestAiImport(
                   reportDate: { type: "string" },
                   sampleId: { type: "string" },
                   analysisType: { type: "string" },
+                  defaultUnitSystem: { type: "string" },
                 },
                 required: [
                   "labName",
@@ -197,6 +204,7 @@ async function requestAiImport(
                   "reportDate",
                   "sampleId",
                   "analysisType",
+                  "defaultUnitSystem",
                 ],
               },
               rows: {
@@ -213,6 +221,8 @@ async function requestAiImport(
                     method: { type: "string" },
                     source: { type: "string" },
                     confidence: { type: "number" },
+                    reportRange: { type: "string" },
+                    reportRating: { type: "string" },
                   },
                   required: [
                     "parameter",
@@ -223,6 +233,8 @@ async function requestAiImport(
                     "method",
                     "source",
                     "confidence",
+                    "reportRange",
+                    "reportRating",
                   ],
                 },
               },
@@ -393,6 +405,12 @@ function normalizeAiImportPayload(
         sample: String(item.sample ?? item.lot ?? item.plot ?? item.sampleName ?? "").trim(),
         method: String(item.method ?? item.extractionMethod ?? "").trim(),
         source: String(item.source ?? item.reason ?? item.location ?? "").trim(),
+        reportRange: String(
+          item.reportRange ?? item.referenceRange ?? item.optimalRange ?? item.range ?? ""
+        ).trim(),
+        reportRating: String(
+          item.reportRating ?? item.rating ?? item.interpretation ?? ""
+        ).trim(),
         confidence: Number.isFinite(confidenceRaw)
           ? confidenceRaw > 1
             ? confidenceRaw / 100

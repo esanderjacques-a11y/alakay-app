@@ -6,7 +6,7 @@ import type { Language } from "@/lib/translations";
 export type { AccentColor, AppFontPreference } from "@/lib/appSettings";
 
 export type AppTheme = "light" | "dark";
-export type DarkVariant = "classic" | "black";
+export type DarkVariant = "classic";
 
 const LANGUAGE_KEY = "cultosol-language";
 const THEME_KEY = "cultosol-theme";
@@ -17,7 +17,7 @@ export function resolveThemePreference(
 ): AppTheme {
   if (preference === "light") return "light";
   if (preference === "dark") return "dark";
-  if (preference === "dark_black") return "dark";
+  if ((preference as string) === "dark_black") return "dark";
   if (typeof window === "undefined") return "light";
   return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
@@ -25,9 +25,9 @@ export function resolveThemePreference(
 }
 
 export function resolveDarkVariantPreference(
-  preference: AppThemePreference
+  _preference: AppThemePreference
 ): DarkVariant {
-  return preference === "dark_black" ? "black" : "classic";
+  return "classic";
 }
 
 export function readStoredLanguage(): Language {
@@ -68,16 +68,6 @@ export function readStoredTheme(): AppTheme {
 }
 
 export function readStoredDarkVariant(): DarkVariant {
-  if (typeof window === "undefined") return "classic";
-
-  const preference = getSettings().general.theme;
-  if (preference === "dark_black") return "black";
-
-  const legacyVariant = window.localStorage.getItem(THEME_VARIANT_KEY);
-  if (legacyVariant === "black" || legacyVariant === "classic") {
-    return legacyVariant;
-  }
-
   return "classic";
 }
 
@@ -149,58 +139,32 @@ export function readStoredContrast() {
   return Math.min(100, Math.max(70, Number(contrast) || 100));
 }
 
-const TONE_MIN = 70;
-const TONE_MAX = 100;
-
-function clampToneInput(value: number) {
-  return Math.min(TONE_MAX, Math.max(TONE_MIN, Number(value) || TONE_MAX));
-}
-
-/** Map 70–100 slider to a stronger perceptual filter range. */
-function toneBrightnessFilter(value: number) {
-  const v = clampToneInput(value);
-  const t = (v - TONE_MIN) / (TONE_MAX - TONE_MIN);
-  return 0.76 + t * 0.48;
-}
-
-function toneSaturationFilter(value: number) {
-  const v = clampToneInput(value);
-  const t = (v - TONE_MIN) / (TONE_MAX - TONE_MIN);
-  return 0.62 + t * 0.58;
-}
-
-function toneContrastFilter(value: number) {
-  const v = clampToneInput(value);
-  const t = (v - TONE_MIN) / (TONE_MAX - TONE_MIN);
-  return 0.8 + t * 0.42;
-}
-
 export function applyBrightness(brightness: number) {
   if (typeof document === "undefined") return;
-  const nextBrightness = clampToneInput(brightness);
+  const nextBrightness = Math.min(100, Math.max(70, Number(brightness) || 100));
   document.documentElement.style.setProperty(
     "--app-brightness",
-    String(toneBrightnessFilter(nextBrightness))
+    String(nextBrightness / 100)
   );
   document.documentElement.dataset.brightness = String(nextBrightness);
 }
 
 export function applySaturation(saturation: number) {
   if (typeof document === "undefined") return;
-  const nextSaturation = clampToneInput(saturation);
+  const nextSaturation = Math.min(100, Math.max(70, Number(saturation) || 100));
   document.documentElement.style.setProperty(
     "--app-saturation",
-    String(toneSaturationFilter(nextSaturation))
+    String(nextSaturation / 100)
   );
   document.documentElement.dataset.saturation = String(nextSaturation);
 }
 
 export function applyContrast(contrast: number) {
   if (typeof document === "undefined") return;
-  const nextContrast = clampToneInput(contrast);
+  const nextContrast = Math.min(100, Math.max(70, Number(contrast) || 100));
   document.documentElement.style.setProperty(
     "--app-contrast",
-    String(toneContrastFilter(nextContrast))
+    String(nextContrast / 100)
   );
   document.documentElement.dataset.contrast = String(nextContrast);
 }

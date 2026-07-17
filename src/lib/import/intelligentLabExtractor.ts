@@ -281,6 +281,8 @@ const REFERENCE_ZONE_KEYWORDS = [
   "critical level",
   "optimum",
   "optimo",
+  "optimal",
+  "optimal range",
   "bajo",
   "medio",
   "alto",
@@ -1740,8 +1742,10 @@ function sourceFromToken(token: DocToken) {
 }
 
 function isReferenceHeader(normalized: string) {
-  return REFERENCE_ZONE_KEYWORDS.some((keyword) => normalized.includes(keyword)) ||
-    /\b(target|guide low|guide high|min|max|pnt)\b/.test(normalized);
+  return (
+    REFERENCE_ZONE_KEYWORDS.some((keyword) => normalized.includes(keyword)) ||
+    /\b(target|guide low|guide high|min|max|pnt|optimal range)\b/.test(normalized)
+  );
 }
 
 function isRatingHeader(normalized: string) {

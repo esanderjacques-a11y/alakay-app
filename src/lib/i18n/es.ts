@@ -458,6 +458,7 @@
   resultsPageDesc:
     "Continúe un análisis en progreso o abra su historial de reportes.",
   inProgress: "En progreso",
+  imports: "Importaciones",
   savedReports: "Reportes guardados",
   continueValues: "Continuar ingresando valores",
   viewCurrentResults: "Ver resultados actuales",

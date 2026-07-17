@@ -6,11 +6,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import type { CalculatorValue } from "@/lib/agronomicCalculators";
+import type { CalculationOutput, CalculatorValue } from "@/lib/agronomicCalculators";
 import {
   getMemoryField,
   getMemorySlice,
@@ -302,4 +303,43 @@ export function useSharedCationInputs(lab: Map<string, CalculatorValue>) {
   const slice = getMemorySlice(store, sampleType);
 
   return useMemo(() => resolveCationInputs(lab, slice), [lab, slice]);
+}
+
+function calculationOutputsSignature(outputs: CalculationOutput[]): string {
+  return JSON.stringify(
+    outputs.map((item) => ({
+      label: item.label,
+      value: item.value,
+      unit: item.unit,
+      formula: item.formula,
+      notes: (item.notes ?? []).join("||"),
+      alternatives: (item.alternatives ?? []).map((alt) => `${alt.value}|${alt.unit}`).join(";"),
+    }))
+  );
+}
+
+export function calculationOutputsMapSignature(
+  record: Record<string, CalculationOutput[]>
+): string {
+  return JSON.stringify(
+    Object.entries(record).map(([id, outputs]) => [id, calculationOutputsSignature(outputs)])
+  );
+}
+
+/** Report calculator outputs upstream only when their content changes. */
+export function useEmitCalculatorOutputs(
+  onOutputsChange: ((outputs: CalculationOutput[]) => void) | undefined,
+  outputs: CalculationOutput[]
+) {
+  const callbackRef = useRef(onOutputsChange);
+  callbackRef.current = onOutputsChange;
+
+  const outputsRef = useRef(outputs);
+  outputsRef.current = outputs;
+
+  const signature = useMemo(() => calculationOutputsSignature(outputs), [outputs]);
+
+  useEffect(() => {
+    callbackRef.current?.(outputsRef.current);
+  }, [signature]);
 }

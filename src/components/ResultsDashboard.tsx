@@ -1,12 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { ArrowRight, ClipboardList, FileText, History, PlayCircle } from "lucide-react";
+import {
+  ArrowRight,
+  ClipboardList,
+  FileText,
+  FileUp,
+  History,
+  PlayCircle,
+} from "lucide-react";
 
 import AnalysisHistory, {
   EditableAnalysisPayload,
 } from "@/components/AnalysisHistory";
+import ImportedLabCachePanel from "@/components/ImportedLabCachePanel";
+import { listImportCache } from "@/lib/importCache";
 import { formatMessage, Language, Translation } from "@/lib/translations";
 
 type Props = {
@@ -21,9 +30,12 @@ type Props = {
   goToValues: () => void;
   goToCurrentResults: () => void;
   onEditAnalysis: (payload: EditableAnalysisPayload) => void;
+  onResumeImport: (cacheId: string) => void;
   focusAnalysisId?: number | null;
   onFocusAnalysisConsumed?: () => void;
 };
+
+type DashboardTab = "progress" | "history" | "imports";
 
 export default function ResultsDashboard({
   session,
@@ -37,23 +49,35 @@ export default function ResultsDashboard({
   goToValues,
   goToCurrentResults,
   onEditAnalysis,
+  onResumeImport,
   focusAnalysisId = null,
   onFocusAnalysisConsumed,
 }: Props) {
   const canViewHistory = Boolean(session?.user && !guestMode);
   const hasProgress = enteredValuesCount > 0 || hasCurrentResults;
   const historyDisabled = !canViewHistory;
+  const [importCount, setImportCount] = useState(0);
 
-  const [activeTab, setActiveTab] = useState<"progress" | "history">(
-    canViewHistory ? "history" : "progress"
+  const refreshImportCount = useCallback(() => {
+    setImportCount(listImportCache().length);
+  }, []);
+
+  const [activeTab, setActiveTab] = useState<DashboardTab>(
+    canViewHistory ? "history" : hasProgress ? "progress" : "imports"
   );
   const [readingReport, setReadingReport] = useState(false);
 
   useEffect(() => {
+    refreshImportCount();
+    const id = window.setInterval(refreshImportCount, 60_000);
+    return () => window.clearInterval(id);
+  }, [refreshImportCount]);
+
+  useEffect(() => {
     if (historyDisabled && activeTab === "history") {
-      setActiveTab("progress");
+      setActiveTab(importCount > 0 ? "imports" : "progress");
     }
-  }, [activeTab, historyDisabled]);
+  }, [activeTab, historyDisabled, importCount]);
 
   useEffect(() => {
     if (focusAnalysisId && !historyDisabled) {
@@ -61,9 +85,11 @@ export default function ResultsDashboard({
     }
   }, [focusAnalysisId, historyDisabled]);
 
+  const showTabs = !readingReport && (hasProgress || canViewHistory || importCount > 0);
+
   return (
     <section className="results-dashboard flex flex-col gap-2 animate-fade-in">
-      {!readingReport && (hasProgress || canViewHistory) ? (
+      {showTabs ? (
         <div className="history-seg results-dashboard__tabs">
           {hasProgress ? (
             <button
@@ -82,6 +108,22 @@ export default function ResultsDashboard({
               </span>
             </button>
           ) : null}
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("imports")}
+            className={`history-seg__btn${
+              activeTab === "imports" ? " history-seg__btn--active" : ""
+            }`}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <FileUp size={14} />
+              {t.imports}
+              {importCount > 0 && activeTab !== "imports" ? (
+                <span className="text-[10px] opacity-80">{importCount}</span>
+              ) : null}
+            </span>
+          </button>
 
           <button
             type="button"
@@ -161,6 +203,14 @@ export default function ResultsDashboard({
         <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
           {t.noInProgressDetail}
         </div>
+      ) : activeTab === "imports" ? (
+        <ImportedLabCachePanel
+          language={language}
+          onResume={(cacheId) => {
+            refreshImportCount();
+            onResumeImport(cacheId);
+          }}
+        />
       ) : (
         <div>
           {canViewHistory ? (

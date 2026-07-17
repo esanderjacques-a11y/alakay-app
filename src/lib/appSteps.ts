@@ -15,4 +15,6 @@ export type AppStep =
   | "farms"
   | "calendar"
   | "notes"
-  | "notifications";
+  | "notifications"
+  | "lab-scan"
+  | "lab-import";

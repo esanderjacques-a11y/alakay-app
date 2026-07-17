@@ -441,6 +441,7 @@
   resultsPageDesc:
     "Continue an in-progress analysis or open your saved report history.",
   inProgress: "In progress",
+  imports: "Imports",
   savedReports: "Saved reports",
   continueValues: "Continue entering values",
   viewCurrentResults: "View current results",

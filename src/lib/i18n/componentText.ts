@@ -949,6 +949,63 @@ export const analysisHistoryText = {
   }
 } as const;
 
+export const importedLabCacheText = {
+  en: {
+    desc: "Draft imports are saved on this device for 6 hours. Finish reviewing or import values before they expire.",
+    empty: "No pending imports. Upload or scan a lab report to create a draft.",
+    refresh: "Refresh",
+    resume: "Resume",
+    delete: "Delete draft",
+    matched: "{count} matched",
+    toCheck: "{count} to check",
+  },
+  es: {
+    desc: "Los borradores de importación se guardan en este dispositivo durante 6 horas. Revísalos o importa los valores antes de que expiren.",
+    empty: "No hay importaciones pendientes. Sube o escanea un informe de laboratorio para crear un borrador.",
+    refresh: "Actualizar",
+    resume: "Reanudar",
+    delete: "Eliminar borrador",
+    matched: "{count} coincidentes",
+    toCheck: "{count} por revisar",
+  },
+  fr: {
+    desc: "Les brouillons d'importation sont enregistrés sur cet appareil pendant 6 heures. Terminez la révision ou importez les valeurs avant expiration.",
+    empty: "Aucune importation en attente. Téléversez ou numérisez un rapport de laboratoire pour créer un brouillon.",
+    refresh: "Actualiser",
+    resume: "Reprendre",
+    delete: "Supprimer le brouillon",
+    matched: "{count} correspondants",
+    toCheck: "{count} à vérifier",
+  },
+  ht: {
+    desc: "Bwouyon enpò yo sove sou aparèy sa a pou 6 èdtan. Fini revizyon an oswa enpòte valè yo anvan yo ekspire.",
+    empty: "Pa gen enpòtasyon annatant. Telechaje oswa eskane yon rapò lab pou kreye yon bwouyon.",
+    refresh: "Rafrechi",
+    resume: "Kontinye",
+    delete: "Efase bwouyon an",
+    matched: "{count} matche",
+    toCheck: "{count} pou verifye",
+  },
+  pt: {
+    desc: "Rascunhos de importação ficam salvos neste dispositivo por 6 horas. Conclua a revisão ou importe os valores antes de expirarem.",
+    empty: "Nenhuma importação pendente. Envie ou digitalize um laudo para criar um rascunho.",
+    refresh: "Atualizar",
+    resume: "Retomar",
+    delete: "Excluir rascunho",
+    matched: "{count} correspondentes",
+    toCheck: "{count} para revisar",
+  },
+  sw: {
+    desc: "Rasimu za uingizaji zinahifadhiwa kwenye kifaa hiki kwa saa 6. Maliza ukaguzi au ingiza thamani kabla hazijaisha muda.",
+    empty: "Hakuna uingizaji unaosubiri. Pakia au skani ripoti ya maabara ili kuunda rasimu.",
+    refresh: "Sasisha",
+    resume: "Endelea",
+    delete: "Futa rasimu",
+    matched: "{count} zimefanana",
+    toCheck: "{count} za kukagua",
+  },
+} as const;
+
 export const calculatorHubText: Record<Language, Record<string, string>> = {
   en: {
     title: "CALCULATORS",

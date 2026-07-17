@@ -47,6 +47,8 @@ import {
   CalculatorMemoryProvider,
   useCalculatorMemory,
   useMemoryNumber,
+  calculationOutputsMapSignature,
+  useEmitCalculatorOutputs,
   useSharedCationInputs,
 } from "@/hooks/useCalculatorMemory";
 import {
@@ -370,7 +372,7 @@ function CalculatorHubBody({
     return false;
   }, [calculatorOutputs, fertilizerPlan.doses, fertilizerProducts.length, hasLabData]);
 
-  function reportOutputs(key: string, outputs: CalculationOutput[]) {
+  const reportOutputs = useCallback((key: string, outputs: CalculationOutput[]) => {
     const cleanOutputs = outputs.filter(Boolean);
     setCalculatorOutputs((previous) => {
       const current = previous[key] || [];
@@ -380,7 +382,7 @@ function CalculatorHubBody({
         [key]: cleanOutputs,
       };
     });
-  }
+  }, []);
 
   const handleCostReportData = useCallback(
     (payload: {
@@ -405,20 +407,29 @@ function CalculatorHubBody({
     []
   );
 
+  const onOutputsChangeRef = useRef(onOutputsChange);
+  onOutputsChangeRef.current = onOutputsChange;
+  const calculatorOutputsRef = useRef(calculatorOutputs);
+  calculatorOutputsRef.current = calculatorOutputs;
+  const calculatorOutputsSignature = useMemo(
+    () => calculationOutputsMapSignature(calculatorOutputs),
+    [calculatorOutputs]
+  );
+
   useEffect(() => {
-    if (!onOutputsChange) return;
-    const entries = Object.entries(calculatorOutputs);
+    if (!onOutputsChangeRef.current) return;
+    const entries = Object.entries(calculatorOutputsRef.current);
     // Skip the empty mount flush so navigating away/back to Calculators
     // does not wipe packs already held by the parent page.
     if (entries.length === 0) return;
-    onOutputsChange(
+    onOutputsChangeRef.current(
       entries.map(([id, outputs]) => ({
         id,
         label: String(t[id as keyof typeof t] || id),
         outputs: outputs.map((output) => translateCalculationOutput(output, t)),
       }))
     );
-  }, [calculatorOutputs, onOutputsChange, t]);
+  }, [calculatorOutputsSignature, t]);
 
   // Auto-build recommended products + prices when doses exist but cost planner
   // was never opened (or was cleared).
@@ -1027,9 +1038,7 @@ function CicCalculator({
     return cnRatio ? [...fromBases, cnRatio] : fromBases;
   }, [baseResult, relationFilter, cnRatio]);
 
-  useEffect(() => {
-    onOutputsChange?.(outputs);
-  }, [onOutputsChange, outputs]);
+  useEmitCalculatorOutputs(onOutputsChange, outputs);
 
   if (sampleType !== "soil") {
     return (
@@ -1461,9 +1470,7 @@ function DopCalculator({
     [dopRows]
   );
 
-  useEffect(() => {
-    onOutputsChange?.(outputs);
-  }, [onOutputsChange, outputs]);
+  useEmitCalculatorOutputs(onOutputsChange, outputs);
 
   return (
     <CalculatorPage>
@@ -1795,9 +1802,7 @@ function SalinityCalculator({
     : [];
   const outputs = [lr, sar, psi, porosity, ...gypsumOutputs, totalWater].filter(Boolean) as CalculationOutput[];
 
-  useEffect(() => {
-    onOutputsChange?.(outputs);
-  }, [onOutputsChange, outputs]);
+  useEmitCalculatorOutputs(onOutputsChange, outputs);
 
   return (
     <CalculatorPage>

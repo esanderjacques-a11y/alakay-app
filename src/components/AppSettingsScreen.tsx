@@ -1,10 +1,8 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useRef, useState, useId, type CSSProperties } from "react";
-import { createPortal } from "react-dom";
 import {
   BarChart3,
-  ChevronRight,
   CreditCard,
   Download,
   Globe,
@@ -51,6 +49,7 @@ import BackButton from "@/components/ui/BackButton";
 import type { Language } from "@/lib/translations";
 
 export type SettingsSectionId = "general" | "account" | "analysisData";
+type SettingsNavId = SettingsSectionId | "billing";
 
 const SETTINGS_SECTION_STORAGE_KEY = "cultosol_settings_section";
 
@@ -1060,7 +1059,6 @@ const themeOptions = (text: SettingsText): { value: AppThemePreference; label: s
   { value: "system", label: text.options.system },
   { value: "light", label: text.options.light },
   { value: "dark", label: text.options.dark },
-  { value: "dark_black", label: text.options.darkBlack },
 ];
 
 const fontOptions = (text: SettingsText): { value: AppFontPreference; label: string }[] => [
@@ -1155,7 +1153,6 @@ export default function AppSettingsScreen({
   const historyIndexRef = useRef(0);
   const [savedFlash, setSavedFlash] = useState(false);
   const savedTimeout = useRef<number | null>(null);
-  const [canPortalToolbar, setCanPortalToolbar] = useState(false);
   const [downloadingMethodology, setDownloadingMethodology] = useState(false);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(() =>
     initialSection ?? readStoredSettingsSection()
@@ -1170,23 +1167,25 @@ export default function AppSettingsScreen({
     persistSettingsSection(section);
   };
 
-  const navItems = useMemo(
-    () =>
-      [
-        { id: "general" as const, label: text.nav.general, icon: Globe },
-        { id: "account" as const, label: text.nav.account, icon: UserRound },
-        {
-          id: "analysisData" as const,
-          label: text.nav.analysisData,
-          icon: BarChart3,
-        },
-      ] satisfies {
-        id: SettingsSectionId;
-        label: string;
-        icon: typeof UserRound;
-      }[],
-    [text.nav]
-  );
+  const navItems = useMemo(() => {
+    const items: {
+      id: SettingsNavId;
+      label: string;
+      icon: typeof UserRound;
+    }[] = [
+      { id: "general", label: text.nav.general, icon: Globe },
+      { id: "account", label: text.nav.account, icon: UserRound },
+      { id: "analysisData", label: text.nav.analysisData, icon: BarChart3 },
+    ];
+    if (onOpenBilling) {
+      items.push({
+        id: "billing",
+        label: text.sections.billing,
+        icon: CreditCard,
+      });
+    }
+    return items;
+  }, [onOpenBilling, text.nav, text.sections.billing]);
 
   const isDirty = useMemo(
     () => !settingsEqual(draftSettings, committedSettings),
@@ -1196,7 +1195,6 @@ export default function AppSettingsScreen({
   const canRedo = historyIndex < history.length - 1;
 
   useEffect(() => {
-    queueMicrotask(() => setCanPortalToolbar(true));
     return () => {
       if (savedTimeout.current) window.clearTimeout(savedTimeout.current);
     };
@@ -1323,17 +1321,7 @@ export default function AppSettingsScreen({
 
   return (
     <section className="animate-slide-up">
-      <div
-        className={`settings-page w-full pt-0 ${
-          onOpenBilling
-            ? isDirty
-              ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
-              : "pb-[calc(3.5rem+env(safe-area-inset-bottom))]"
-            : isDirty
-              ? "pb-[calc(4.75rem+env(safe-area-inset-bottom))]"
-              : "pb-6"
-        }`}
-      >
+      <div className="settings-page w-full pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
         <div className="settings-page__header mb-2 flex items-center gap-2 pt-1 pb-0.5">
           <BackButton
             variant="icon"
@@ -1357,7 +1345,28 @@ export default function AppSettingsScreen({
               </p>
             ) : null}
           </div>
-          {isDirty ? (
+        </div>
+
+        {isDirty ? (
+          <div className="settings-page__actions-bar">
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={!canUndo}
+              title={text.undo}
+              className="settings-page__history-btn"
+            >
+              <Undo2 size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={!canRedo}
+              title={text.redo}
+              className="settings-page__history-btn"
+            >
+              <Redo2 size={15} />
+            </button>
             <button
               type="button"
               onClick={handleSave}
@@ -1366,11 +1375,19 @@ export default function AppSettingsScreen({
               <Save size={15} />
               <span>{text.save}</span>
             </button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <div className="settings-layout">
-          <nav className="settings-nav" aria-label={text.title}>
+          <nav
+            className="settings-nav"
+            aria-label={text.title}
+            style={
+              {
+                "--settings-nav-count": navItems.length,
+              } as CSSProperties
+            }
+          >
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -1378,7 +1395,13 @@ export default function AppSettingsScreen({
                   key={item.id}
                   type="button"
                   className={`settings-nav__item ${activeSection === item.id ? "is-active" : ""}`}
-                  onClick={() => selectSection(item.id)}
+                  onClick={() => {
+                    if (item.id === "billing") {
+                      onOpenBilling?.();
+                      return;
+                    }
+                    selectSection(item.id);
+                  }}
                 >
                   <Icon size={16} aria-hidden />
                   <span>{item.label}</span>
@@ -1716,41 +1739,6 @@ export default function AppSettingsScreen({
           </main>
         </div>
 
-        {canPortalToolbar && onOpenBilling
-          ? createPortal(
-              <div
-                className={`settings-billing-footer ${isDirty ? "settings-billing-footer--raised" : ""}`}
-              >
-                <div className="app-content-shell px-4 py-2">
-                  <button
-                    type="button"
-                    className="settings-billing-footer__btn"
-                    onClick={onOpenBilling}
-                  >
-                    <CreditCard size={15} className="settings-billing-footer__icon" aria-hidden />
-                    <span className="settings-billing-footer__label">{text.sections.billing}</span>
-                    <ChevronRight size={15} className="settings-billing-footer__chevron" aria-hidden />
-                  </button>
-                </div>
-              </div>,
-              document.body
-            )
-          : null}
-
-        {canPortalToolbar
-          ? createPortal(
-              <SettingsToolbar
-                text={text}
-                isDirty={isDirty}
-                canUndo={canUndo}
-                canRedo={canRedo}
-                onUndo={handleUndo}
-                onRedo={handleRedo}
-                onSave={handleSave}
-              />,
-              document.body
-            )
-          : null}
       </div>
     </section>
   );
@@ -1846,59 +1834,6 @@ function FontPreviewCards({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function SettingsToolbar({
-  text,
-  isDirty,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
-  onSave,
-}: {
-  text: SettingsText;
-  isDirty: boolean;
-  canUndo: boolean;
-  canRedo: boolean;
-  onUndo: () => void;
-  onRedo: () => void;
-  onSave: () => void;
-}) {
-  if (!isDirty) return null;
-
-  return (
-    <div className="settings-save-toolbar">
-      <div className="app-content-shell flex items-center gap-2 px-4 py-3">
-        <button
-          type="button"
-          onClick={onUndo}
-          disabled={!canUndo}
-          title={text.undo}
-          className="glass-icon-btn inline-flex h-10 w-10 items-center justify-center rounded-xl disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          <Undo2 size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={onRedo}
-          disabled={!canRedo}
-          title={text.redo}
-          className="glass-icon-btn inline-flex h-10 w-10 items-center justify-center rounded-xl disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          <Redo2 size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-800 active:scale-[0.98]"
-        >
-          <Save size={16} />
-          {text.save}
-        </button>
-      </div>
     </div>
   );
 }

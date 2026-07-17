@@ -205,11 +205,13 @@ type SettingsText = {
     accentTeal: string;
     accentBlue: string;
     accentAmber: string;
+    accentYellow: string;
     accentRose: string;
     accentViolet: string;
     accentCyan: string;
     accentLime: string;
     accentOrange: string;
+    accentBrown: string;
     accentFuchsia: string;
     soil: string;
     foliar: string;
@@ -340,11 +342,13 @@ const settingsText: Record<Language, SettingsText> = {
       accentTeal: "Teal",
       accentBlue: "Blue",
       accentAmber: "Amber",
+      accentYellow: "Yellow",
       accentRose: "Rose",
       accentViolet: "Violet",
       accentCyan: "Cyan",
       accentLime: "Lime",
       accentOrange: "Orange",
+      accentBrown: "Brown",
       accentFuchsia: "Fuchsia",
       soil: "Soil",
       foliar: "Foliar",
@@ -472,11 +476,13 @@ const settingsText: Record<Language, SettingsText> = {
       accentTeal: "Turquesa",
       accentBlue: "Azul",
       accentAmber: "Ámbar",
+      accentYellow: "Amarillo",
       accentRose: "Rosa",
       accentViolet: "Violeta",
       accentCyan: "Cian",
       accentLime: "Lima",
       accentOrange: "Naranja",
+      accentBrown: "Marrón",
       accentFuchsia: "Fucsia",
       soil: "Suelo",
       foliar: "Foliar",
@@ -604,11 +610,13 @@ const settingsText: Record<Language, SettingsText> = {
       accentTeal: "Sarcelle",
       accentBlue: "Bleu",
       accentAmber: "Ambre",
+      accentYellow: "Jaune",
       accentRose: "Rose",
       accentViolet: "Violet",
       accentCyan: "Cyan",
       accentLime: "Citron vert",
       accentOrange: "Orange",
+      accentBrown: "Marron",
       accentFuchsia: "Fuchsia",
       soil: "Sol",
       foliar: "Foliaire",
@@ -736,11 +744,13 @@ const settingsText: Record<Language, SettingsText> = {
       accentTeal: "Ble sarcel",
       accentBlue: "Ble",
       accentAmber: "Anba",
+      accentYellow: "Jòn",
       accentRose: "Woz",
       accentViolet: "Vyolèt",
       accentCyan: "Syan",
       accentLime: "Sitwon vèt",
       accentOrange: "Zoranj",
+      accentBrown: "Mawon",
       accentFuchsia: "Fichsya",
       soil: "Tè",
       foliar: "Fèy",
@@ -868,11 +878,13 @@ const settingsText: Record<Language, SettingsText> = {
       accentTeal: "Azul-petróleo",
       accentBlue: "Azul",
       accentAmber: "Ámbar",
+      accentYellow: "Amarelo",
       accentRose: "Rosa",
       accentViolet: "Violeta",
       accentCyan: "Ciano",
       accentLime: "Lima",
       accentOrange: "Laranja",
+      accentBrown: "Castanho",
       accentFuchsia: "Fúcsia",
       soil: "Solo",
       foliar: "Foliar",
@@ -1000,11 +1012,13 @@ const settingsText: Record<Language, SettingsText> = {
       accentTeal: "Samawati-kijani",
       accentBlue: "Bluu",
       accentAmber: "Manjano",
+      accentYellow: "Njano",
       accentRose: "Waridi",
       accentViolet: "Zambarau",
       accentCyan: "Samawati",
       accentLime: "Limu",
       accentOrange: "Machungwa",
+      accentBrown: "Kahawia",
       accentFuchsia: "Fuksia",
       soil: "Udongo",
       foliar: "Majani",
@@ -1062,11 +1076,13 @@ const accentOptions = (text: SettingsText): { value: AccentColor; label: string 
   { value: "teal", label: text.options.accentTeal },
   { value: "blue", label: text.options.accentBlue },
   { value: "amber", label: text.options.accentAmber },
+  { value: "yellow", label: text.options.accentYellow },
   { value: "rose", label: text.options.accentRose },
   { value: "violet", label: text.options.accentViolet },
   { value: "cyan", label: text.options.accentCyan },
   { value: "lime", label: text.options.accentLime },
   { value: "orange", label: text.options.accentOrange },
+  { value: "brown", label: text.options.accentBrown },
   { value: "fuchsia", label: text.options.accentFuchsia },
 ];
 
@@ -1395,15 +1411,15 @@ export default function AppSettingsScreen({
                 options={themeOptions(text)}
                 onChange={(value) => changeSetting("general", "theme", value)}
               />
+              <SwitchField
+                label={text.labels.glassUi}
+                checked={draftSettings.general.glassUi}
+                onChange={(value) => changeSetting("general", "glassUi", value)}
+              />
               <div className="settings-accent-block settings-accent-block--flat">
-                <MenuSelect
-                  compact
-                  label={text.labels.accentColor}
-                  value={draftSettings.general.accentColor}
-                  options={accentOptions(text)}
-                  onChange={(value) => changeSetting("general", "accentColor", value)}
-                />
+                <span className="settings-field__label">{text.labels.accentColor}</span>
                 <AccentSwatches
+                  label={text.labels.accentColor}
                   value={draftSettings.general.accentColor}
                   onChange={(value) => changeSetting("general", "accentColor", value)}
                 />
@@ -1452,11 +1468,6 @@ export default function AppSettingsScreen({
                 onChange={(value) =>
                   changeSetting("general", "appFontSizeDelta", value)
                 }
-              />
-              <SwitchField
-                label={text.labels.glassUi}
-                checked={draftSettings.general.glassUi}
-                onChange={(value) => changeSetting("general", "glassUi", value)}
               />
             </SettingsSubgroup>
 
@@ -1750,23 +1761,31 @@ const ACCENT_OPTIONS: AccentColor[] = [
   "teal",
   "blue",
   "amber",
+  "yellow",
   "rose",
   "violet",
   "cyan",
   "lime",
   "orange",
+  "brown",
   "fuchsia",
 ];
 
 function AccentSwatches({
+  label,
   value,
   onChange,
 }: {
+  label?: string;
   value: AccentColor;
   onChange: (value: AccentColor) => void;
 }) {
   return (
-    <div className="settings-accent-swatches">
+    <div
+      className="settings-accent-swatches"
+      role="group"
+      aria-label={label}
+    >
       {ACCENT_OPTIONS.map((accent) => {
         const scale = buildAccentScale(accent);
         const selected = value === accent;

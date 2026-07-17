@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, Fragment, type ReactNode } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useRef, useState, Fragment, type ReactNode } from "react";
 import {
   Beaker,
   FlaskConical,
@@ -12,7 +13,15 @@ import {
   Users,
 } from "lucide-react";
 import type { Translation } from "@/lib/translations";
-import ImpactWorldMap from "@/components/ImpactWorldMap";
+import {
+  fetchImpactPayload,
+  readImpactCache,
+} from "@/lib/impactClient";
+
+const ImpactWorldMap = dynamic(() => import("@/components/ImpactWorldMap"), {
+  ssr: false,
+  loading: () => <div className="impact-map-skeleton" aria-hidden />,
+});
 
 type NamedCount = { name: string; count: number };
 
@@ -229,37 +238,43 @@ function languageLabel(code: string) {
 }
 
 export default function ImpactSection({ t }: Props) {
-  const [data, setData] = useState<ImpactPayload | null>(null);
-  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const hadCachedRef = useRef(
+    (() => {
+      const cached = readImpactCache<Partial<ImpactPayload>>();
+      return Boolean(cached && cached.configured !== false);
+    })()
+  );
+  const [data, setData] = useState<ImpactPayload | null>(() => {
+    const cached = readImpactCache<Partial<ImpactPayload>>();
+    return cached && cached.configured !== false ? normalizeImpactPayload(cached) : null;
+  });
+  const [loadState, setLoadState] = useState<LoadState>(() =>
+    hadCachedRef.current ? "ready" : "loading"
+  );
   const [trendMode, setTrendMode] = useState<TrendMode>("month");
   const [monthSpan, setMonthSpan] = useState<MonthSpan>(1);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
-    void fetch("/api/impact")
-      .then(async (response) => {
-        const payload = (await response.json()) as Partial<ImpactPayload>;
-        if (cancelled) return;
-
-        if (!response.ok) {
-          setLoadState("error");
-          return;
-        }
-        if (payload.configured === false) {
+    void fetchImpactPayload(controller.signal)
+      .then((payload) => {
+        if (controller.signal.aborted) return;
+        const body = payload as Partial<ImpactPayload>;
+        if (body.configured === false) {
           setLoadState("unavailable");
           return;
         }
-        setData(normalizeImpactPayload(payload));
+        setData(normalizeImpactPayload(body));
         setLoadState("ready");
       })
       .catch(() => {
-        if (!cancelled) setLoadState("error");
+        if (!controller.signal.aborted && !hadCachedRef.current) {
+          setLoadState("error");
+        }
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, []);
 
   const maxCrop = data?.crops[0]?.count || 1;

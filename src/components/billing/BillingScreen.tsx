@@ -9,11 +9,14 @@ import {
   Check,
   CreditCard,
   Download,
+  FileText,
   KeyRound,
   Settings2,
   Sparkles,
   Star,
+  Wallet,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import AppModal from "@/components/AppModal";
 import BackButton from "@/components/ui/BackButton";
@@ -190,13 +193,13 @@ export default function BillingScreen({
     }
   }
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: "overview", label: t.tabs.overview },
-    { id: "licenses", label: t.tabs.licenses },
-    { id: "ai", label: t.tabs.ai },
-    { id: "compare", label: t.tabs.compare },
-    { id: "payments", label: t.tabs.payments },
-    { id: "invoices", label: t.tabs.invoices },
+  const tabs: { id: TabId; label: string; icon: LucideIcon }[] = [
+    { id: "overview", label: t.tabs.overview, icon: CreditCard },
+    { id: "licenses", label: t.tabs.licenses, icon: KeyRound },
+    { id: "ai", label: t.tabs.ai, icon: Bot },
+    { id: "compare", label: t.tabs.compare, icon: Sparkles },
+    { id: "payments", label: t.tabs.payments, icon: Wallet },
+    { id: "invoices", label: t.tabs.invoices, icon: FileText },
   ];
 
   const licenseLabel = bundle
@@ -230,63 +233,71 @@ export default function BillingScreen({
           <p className="billing-page-intro">{t.intro}</p>
         </header>
 
-        <nav className="billing-tabs" aria-label={t.title}>
-          {tabs.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`billing-tab ${tab === item.id ? "is-active" : ""}`}
-              onClick={() => setTab(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+        <div className="billing-layout">
+          <nav className="billing-nav" aria-label={t.title}>
+            {tabs.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`billing-nav__item ${tab === item.id ? "is-active" : ""}`}
+                  onClick={() => setTab(item.id)}
+                >
+                  <Icon size={16} aria-hidden />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
 
-        {(guestMode || !session?.user) && (
-          <div className="billing-empty">
-            <p className="billing-empty__title">{t.guestNotice}</p>
+          <div className="billing-main">
+            {(guestMode || !session?.user) && (
+              <div className="billing-empty">
+                <p className="billing-empty__title">{t.guestNotice}</p>
+              </div>
+            )}
+
+            {error ? <p className="billing-banner billing-banner--error">{error}</p> : null}
+
+            {loading ? (
+              <p className="billing-note">{t.loading}</p>
+            ) : bundle ? (
+              <>
+                {tab === "overview" && (
+                  <OverviewPanel
+                    bundle={bundle}
+                    t={t}
+                    licenseLabel={licenseLabel}
+                    onUpgrade={() => setTab("licenses")}
+                    onManageAi={() => setTab("ai")}
+                    onVerification={onOpenVerification}
+                  />
+                )}
+                {tab === "licenses" && (
+                  <LicenseCarousel
+                    bundle={bundle}
+                    t={t}
+                    onPurchase={(target) => setCheckout({ kind: "license", target })}
+                  />
+                )}
+                {tab === "ai" && (
+                  <AiPanel
+                    bundle={bundle}
+                    t={t}
+                    busy={busy}
+                    onSubscribe={() => setCheckout({ kind: "ai", planId: "standard" })}
+                    onCancel={() => void aiAction("cancel")}
+                    onResume={() => void aiAction("resume")}
+                  />
+                )}
+                {tab === "compare" && <ComparePanel t={t} bundle={bundle} />}
+                {tab === "payments" && <PaymentsPanel t={t} bundle={bundle} />}
+                {tab === "invoices" && <InvoicesPanel t={t} bundle={bundle} />}
+              </>
+            ) : null}
           </div>
-        )}
-
-        {error ? <p className="billing-banner billing-banner--error">{error}</p> : null}
-
-        {loading ? (
-          <p className="billing-note">{t.loading}</p>
-        ) : bundle ? (
-          <>
-            {tab === "overview" && (
-              <OverviewPanel
-                bundle={bundle}
-                t={t}
-                licenseLabel={licenseLabel}
-                onUpgrade={() => setTab("licenses")}
-                onManageAi={() => setTab("ai")}
-                onVerification={onOpenVerification}
-              />
-            )}
-            {tab === "licenses" && (
-              <LicenseCarousel
-                bundle={bundle}
-                t={t}
-                onPurchase={(target) => setCheckout({ kind: "license", target })}
-              />
-            )}
-            {tab === "ai" && (
-              <AiPanel
-                bundle={bundle}
-                t={t}
-                busy={busy}
-                onSubscribe={() => setCheckout({ kind: "ai", planId: "standard" })}
-                onCancel={() => void aiAction("cancel")}
-                onResume={() => void aiAction("resume")}
-              />
-            )}
-            {tab === "compare" && <ComparePanel t={t} bundle={bundle} />}
-            {tab === "payments" && <PaymentsPanel t={t} bundle={bundle} />}
-            {tab === "invoices" && <InvoicesPanel t={t} bundle={bundle} />}
-          </>
-        ) : null}
+        </div>
       </div>
 
       <AppModal

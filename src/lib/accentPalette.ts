@@ -15,11 +15,13 @@ const ACCENT_SEEDS: Record<AccentColor, Hsl> = {
   teal: { h: 173, s: 80, l: 32 },
   blue: { h: 221, s: 83, l: 48 },
   amber: { h: 32, s: 95, l: 44 },
+  yellow: { h: 48, s: 92, l: 46 },
   rose: { h: 347, s: 77, l: 42 },
   violet: { h: 263, s: 70, l: 50 },
   cyan: { h: 191, s: 86, l: 44 },
   lime: { h: 90, s: 78, l: 40 },
   orange: { h: 24, s: 92, l: 48 },
+  brown: { h: 30, s: 48, l: 32 },
   fuchsia: { h: 300, s: 72, l: 44 },
 };
 

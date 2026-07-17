@@ -14,11 +14,13 @@ export type AccentColor =
   | "teal"
   | "blue"
   | "amber"
+  | "yellow"
   | "rose"
   | "violet"
   | "cyan"
   | "lime"
   | "orange"
+  | "brown"
   | "fuchsia";
 export type DefaultSampleType = "soil" | "foliar" | "both";
 export type DefaultCrop =
@@ -214,11 +216,13 @@ function mergeSettings(settings: Partial<AppSettings>): AppSettings {
     merged.general.accentColor !== "teal" &&
     merged.general.accentColor !== "blue" &&
     merged.general.accentColor !== "amber" &&
+    merged.general.accentColor !== "yellow" &&
     merged.general.accentColor !== "rose" &&
     merged.general.accentColor !== "violet" &&
     merged.general.accentColor !== "cyan" &&
     merged.general.accentColor !== "lime" &&
     merged.general.accentColor !== "orange" &&
+    merged.general.accentColor !== "brown" &&
     merged.general.accentColor !== "fuchsia"
   ) {
     merged.general.accentColor = "green";

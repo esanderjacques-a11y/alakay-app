@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import BackButton from "@/components/ui/BackButton";
 import {
@@ -14,6 +14,7 @@ import {
 import FeedbackSection from "@/components/FeedbackSection";
 import ImpactSection from "@/components/ImpactSection";
 import type { Translation } from "@/lib/translations";
+import { prefetchImpactPayload } from "@/lib/impactClient";
 
 const CONTACT_EMAIL = "jesander@earth.ac.cr";
 const PHONE_CR = "+506 8828 7831";
@@ -82,6 +83,10 @@ export default function AboutScreen({
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [photoError, setPhotoError] = useState(false);
+
+  useEffect(() => {
+    prefetchImpactPayload();
+  }, []);
 
   const tabs: { id: AboutTab; label: string }[] = [
     { id: "about", label: t.about },
@@ -184,21 +189,17 @@ export default function AboutScreen({
           <div className="about-content">
             {tab === "about" ? (
               <div className="about-flow">
-                <div className="about-card-grid about-card-grid--statements">
-                  <section className="about-card about-card--statement">
-                    <h2 className="about-kicker">{t.aboutMissionLabel}</h2>
-                    <p className="about-copy about-copy--statement">{t.aboutMission}</p>
-                  </section>
+                <section className="about-section">
+                  <h2 className="about-kicker">{t.aboutMissionLabel}</h2>
+                  <p className="about-copy">{t.aboutMission}</p>
+                  <div className="about-section-divider" aria-hidden />
+                  <h2 className="about-kicker">{t.aboutVisionLabel}</h2>
+                  <p className="about-copy">{t.aboutVision}</p>
+                </section>
 
-                  <section className="about-card about-card--statement">
-                    <h2 className="about-kicker">{t.aboutVisionLabel}</h2>
-                    <p className="about-copy about-copy--statement">{t.aboutVision}</p>
-                  </section>
-                </div>
-
-                <section className="about-card about-card--contact">
+                <section className="about-section about-section--contact">
                   <h2 className="about-kicker">{t.aboutContactLabel}</h2>
-                  <ul className="about-contact">
+                  <ul className="about-contact about-contact--flat">
                     <li>
                       <span className="about-contact__icon" aria-hidden>
                         <Mail size={15} />
@@ -244,7 +245,7 @@ export default function AboutScreen({
                 </div>
 
                 {showRequestForm ? (
-                  <section ref={requestSectionRef} className="about-card">
+                  <section ref={requestSectionRef} className="about-section">
                     <h2 className="about-kicker">{t.featureRequest}</h2>
                     <p className="about-copy">{t.featureRequestDesc}</p>
                     <form className="about-form" onSubmit={handleFeatureRequest}>

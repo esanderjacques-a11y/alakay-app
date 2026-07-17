@@ -120,11 +120,13 @@ export function readStoredAccent(): AccentColor {
     accent === "teal" ||
     accent === "blue" ||
     accent === "amber" ||
+    accent === "yellow" ||
     accent === "rose" ||
     accent === "violet" ||
     accent === "cyan" ||
     accent === "lime" ||
     accent === "orange" ||
+    accent === "brown" ||
     accent === "fuchsia"
   ) {
     return accent;
@@ -147,32 +149,58 @@ export function readStoredContrast() {
   return Math.min(100, Math.max(70, Number(contrast) || 100));
 }
 
+const TONE_MIN = 70;
+const TONE_MAX = 100;
+
+function clampToneInput(value: number) {
+  return Math.min(TONE_MAX, Math.max(TONE_MIN, Number(value) || TONE_MAX));
+}
+
+/** Map 70–100 slider to a stronger perceptual filter range. */
+function toneBrightnessFilter(value: number) {
+  const v = clampToneInput(value);
+  const t = (v - TONE_MIN) / (TONE_MAX - TONE_MIN);
+  return 0.76 + t * 0.48;
+}
+
+function toneSaturationFilter(value: number) {
+  const v = clampToneInput(value);
+  const t = (v - TONE_MIN) / (TONE_MAX - TONE_MIN);
+  return 0.62 + t * 0.58;
+}
+
+function toneContrastFilter(value: number) {
+  const v = clampToneInput(value);
+  const t = (v - TONE_MIN) / (TONE_MAX - TONE_MIN);
+  return 0.8 + t * 0.42;
+}
+
 export function applyBrightness(brightness: number) {
   if (typeof document === "undefined") return;
-  const nextBrightness = Math.min(100, Math.max(70, Number(brightness) || 100));
+  const nextBrightness = clampToneInput(brightness);
   document.documentElement.style.setProperty(
     "--app-brightness",
-    String(nextBrightness / 100)
+    String(toneBrightnessFilter(nextBrightness))
   );
   document.documentElement.dataset.brightness = String(nextBrightness);
 }
 
 export function applySaturation(saturation: number) {
   if (typeof document === "undefined") return;
-  const nextSaturation = Math.min(100, Math.max(70, Number(saturation) || 100));
+  const nextSaturation = clampToneInput(saturation);
   document.documentElement.style.setProperty(
     "--app-saturation",
-    String(nextSaturation / 100)
+    String(toneSaturationFilter(nextSaturation))
   );
   document.documentElement.dataset.saturation = String(nextSaturation);
 }
 
 export function applyContrast(contrast: number) {
   if (typeof document === "undefined") return;
-  const nextContrast = Math.min(100, Math.max(70, Number(contrast) || 100));
+  const nextContrast = clampToneInput(contrast);
   document.documentElement.style.setProperty(
     "--app-contrast",
-    String(nextContrast / 100)
+    String(toneContrastFilter(nextContrast))
   );
   document.documentElement.dataset.contrast = String(nextContrast);
 }

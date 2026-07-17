@@ -3363,7 +3363,13 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           className={
             currentStep === "about"
               ? "about-route-shell"
-              : "app-visual-tone app-content-shell w-full px-0"
+              : currentStep === "settings"
+                ? "app-visual-tone app-content-shell app-content-shell--settings w-full px-0"
+                : currentStep === "billing" ||
+                    currentStep === "billing-admin" ||
+                    currentStep === "verification"
+                  ? "app-visual-tone app-content-shell app-content-shell--billing w-full px-0"
+                  : "app-visual-tone app-content-shell w-full px-0"
           }
         >
         {currentStep === "home" ? (

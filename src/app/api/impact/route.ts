@@ -106,42 +106,90 @@ function seriesFromKeys(keys: string[], counts: Map<string, number>) {
 export async function GET() {
   const admin = getSupabaseAdmin();
   if (!admin) {
-    return Response.json({
-      configured: false,
-      totalAnalyses: 0,
-      totalCountries: 0,
-      totalRegions: 0,
-      totalFeedback: 0,
-      averageRating: null,
-      soilShare: 0,
-      foliarShare: 0,
-      countries: [],
-      regions: [],
-      languages: [],
-      crops: [],
-      months: [],
-      trends: {
-        day: [],
-        week: [],
-        week1: [],
-        month1: [],
-        month3: [],
-        month6: [],
-        year: [],
+    return Response.json(
+      {
+        configured: false,
+        totalAnalyses: 0,
+        totalCountries: 0,
+        totalRegions: 0,
+        totalFeedback: 0,
+        averageRating: null,
+        soilShare: 0,
+        foliarShare: 0,
+        countries: [],
+        regions: [],
+        languages: [],
+        crops: [],
+        months: [],
+        trends: {
+          day: [],
+          week: [],
+          week1: [],
+          month1: [],
+          month3: [],
+          month6: [],
+          year: [],
+        },
+        sampleTypes: [],
+        featured: null,
       },
-      sampleTypes: [],
-      featured: null,
-    });
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+        },
+      }
+    );
   }
 
-  const { data: analyses, error: analysesError } = await admin
-    .from("analyses")
-    .select("country, province_state, sample_type_id, crop_id, created_at")
-    .eq("is_deleted", false);
+  const [
+    analysesResult,
+    featuredResult,
+    languageResult,
+    ratingResult,
+    feedbackCountResult,
+  ] = await Promise.all([
+    admin
+      .from("analyses")
+      .select("country, province_state, sample_type_id, crop_id, created_at")
+      .eq("is_deleted", false),
+    admin
+      .from("app_feedback")
+      .select("id, name, country, message, rating, created_at")
+      .eq("is_approved", true)
+      .eq("is_featured", true)
+      .order("created_at", { ascending: false })
+      .limit(1),
+    admin.from("app_feedback").select("language").not("language", "is", null),
+    admin
+      .from("app_feedback")
+      .select("rating")
+      .eq("is_approved", true)
+      .not("rating", "is", null),
+    admin
+      .from("app_feedback")
+      .select("id", { count: "exact", head: true })
+      .eq("is_approved", true),
+  ]);
 
+  const { data: analyses, error: analysesError } = analysesResult;
   if (analysesError) {
     console.error("Impact analyses error:", analysesError);
   }
+
+  if (featuredResult.error) {
+    console.error("Impact featured feedback error:", featuredResult.error);
+  }
+  if (languageResult.error) {
+    console.error("Impact language feedback error:", languageResult.error);
+  }
+  if (ratingResult.error) {
+    console.error("Impact rating feedback error:", ratingResult.error);
+  }
+
+  const feedbackRows = featuredResult.data;
+  const languageRows = languageResult.data;
+  const ratingRows = ratingResult.data;
+  const feedbackCount = feedbackCountResult.count;
 
   const rows = (analyses || []) as AnalysisRow[];
   const countryCounts = new Map<string, number>();
@@ -228,42 +276,11 @@ export async function GET() {
     { name: "foliar", count: foliarCount },
   ];
 
-  const { data: feedbackRows, error: feedbackError } = await admin
-    .from("app_feedback")
-    .select("id, name, country, message, rating, created_at")
-    .eq("is_approved", true)
-    .eq("is_featured", true)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (feedbackError) {
-    console.error("Impact featured feedback error:", feedbackError);
-  }
-
-  const { data: languageRows, error: languageError } = await admin
-    .from("app_feedback")
-    .select("language")
-    .not("language", "is", null);
-
-  if (languageError) {
-    console.error("Impact language feedback error:", languageError);
-  }
-
   const languageCounts = new Map<string, number>();
   for (const row of (languageRows || []) as LanguageRow[]) {
     const lang = row.language?.trim();
     if (!lang) continue;
     languageCounts.set(lang, (languageCounts.get(lang) || 0) + 1);
-  }
-
-  const { data: ratingRows, error: ratingError } = await admin
-    .from("app_feedback")
-    .select("rating")
-    .eq("is_approved", true)
-    .not("rating", "is", null);
-
-  if (ratingError) {
-    console.error("Impact rating feedback error:", ratingError);
   }
 
   const ratings = ((ratingRows || []) as RatingRow[])
@@ -274,28 +291,30 @@ export async function GET() {
       ? Math.round((ratings.reduce((sum, n) => sum + n, 0) / ratings.length) * 10) / 10
       : null;
 
-  const { count: feedbackCount } = await admin
-    .from("app_feedback")
-    .select("id", { count: "exact", head: true })
-    .eq("is_approved", true);
-
-  return Response.json({
-    configured: true,
-    totalAnalyses: rows.length,
-    totalCountries: countryCounts.size,
-    totalRegions: regionCounts.size,
-    totalFeedback: feedbackCount || 0,
-    averageRating,
-    soilShare: typedTotal > 0 ? Math.round((soilCount / typedTotal) * 100) : 0,
-    foliarShare: typedTotal > 0 ? Math.round((foliarCount / typedTotal) * 100) : 0,
-    countries,
-    regions,
-    languages: countMapEntries(languageCounts),
-    crops,
-    months,
-    trends,
-    sampleTypes,
-    featured: feedbackRows?.[0] || null,
-    withCountry,
-  });
+  return Response.json(
+    {
+      configured: true,
+      totalAnalyses: rows.length,
+      totalCountries: countryCounts.size,
+      totalRegions: regionCounts.size,
+      totalFeedback: feedbackCount || 0,
+      averageRating,
+      soilShare: typedTotal > 0 ? Math.round((soilCount / typedTotal) * 100) : 0,
+      foliarShare: typedTotal > 0 ? Math.round((foliarCount / typedTotal) * 100) : 0,
+      countries,
+      regions,
+      languages: countMapEntries(languageCounts),
+      crops,
+      months,
+      trends,
+      sampleTypes,
+      featured: feedbackRows?.[0] || null,
+      withCountry,
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+      },
+    }
+  );
 }

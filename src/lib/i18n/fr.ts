@@ -158,6 +158,7 @@
   parameterLabel: "Paramètres",
   valueLabel: "Valeur",
   clearAllValues: "Effacer les valeurs",
+  clearValuesConfirm: "Effacer toutes les valeurs saisies ? Cette action est irréversible.",
   importCsvExcel: "Importer CSV/Excel",
   addCustomParameter: "Ajouter un paramètre personnalisé",
   manageCustomData: "Gérer les données personnalisées",
@@ -235,13 +236,13 @@
   extractionMethodBray: "Bray",
   extractionMethodActive: "Plages P : {method}",
   generalCropExtractionHint:
-    "Choisissez les plages de suffisance Générales, ou Olsen / Mehlich (Tabla N.° 1) pour le phosphore.",
+    "Choisissez les plages de suffisance Générales, ou Olsen / Mehlich pour le phosphore.",
   soilExtractionHint:
     "Choisissez les plages de suffisance de la culture, ou Olsen / Mehlich pour les bandes de phosphore selon la méthode.",
   exportGeneralCropExtractionNote:
-    "Culture générale avec {method} : les plages de nutriments de la Tabla N.° 1 suivent {method} (pas la suffisance de la culture).",
+    "Culture générale avec {method} : les plages de nutriments suivent l'extractant {method} (pas la suffisance de la culture).",
   exportExtractionMethodNote:
-    "Les plages de nutriments de la Tabla N.° 1 suivent l'extractant {method} (pas la suffisance de la culture).",
+    "Les plages de nutriments suivent l'extractant {method} (pas la suffisance de la culture).",
   exportFoliarExtractionNote:
     "Analyse foliaire avec {method} : l'interprétation du phosphore privilégie les plages liées à {method} si disponibles.",
   exportRecommendationsHint:
@@ -316,6 +317,7 @@
   confidenceGeneral: "Général",
   userCustomRange: "Plage personnalisée utilisateur",
   manualSource: "Manuel",
+  labReportRangeSource: "Rapport de laboratoire",
   databaseSource: "Base de données",
   officialRangeSource: "Plage officielle",
   adviceBulkDensityVeryHigh:
@@ -904,6 +906,15 @@
     allCaughtUp: "Tout est a jour",
     markAllRead: "Tout marquer lu",
     emptyNotifications: "Aucune notification.",
+    notifGroupToday: "Aujourd'hui",
+    notifGroupYesterday: "Hier",
+    notifGroupThisWeek: "Cette semaine",
+    notifGroupThisMonth: "Ce mois-ci",
+    notifGroupOlder: "Plus tot",
+    clearNotification: "Effacer",
+    clearAllNotifications: "Tout effacer",
+    clearAllNotificationsConfirm:
+      "Effacer toutes les notifications ? Cette action est definitive.",
   },
 
 

@@ -302,8 +302,8 @@ export function extractionMethodToExtractant(
 
 function table1SourceName(extractant: Extractant) {
   return extractant === "olsen_kcl"
-    ? "Tabla N.° 1 — Olsen Modificado / KCl 1N"
-    : "Tabla N.° 1 — Mehlich III";
+    ? "Olsen Modified / KCl 1N"
+    : "Mehlich III";
 }
 
 /** Tabla N.° 1 adequate band for the selected extractant + parameter, if present. */

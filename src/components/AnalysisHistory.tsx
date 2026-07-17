@@ -1407,10 +1407,37 @@ function ReportPreviewModal({
   const [activeFilter, setActiveFilter] = useState<PreviewGroupKey>("all");
   const [actionsOpen, setActionsOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0 });
+    setActionsOpen(false);
   }, [analysis.analysis_id, loading]);
+
+  useEffect(() => {
+    if (!actionsOpen) return;
+
+    function handlePointerDown(event: MouseEvent | TouchEvent) {
+      const target = event.target as Node | null;
+      if (!target || !actionsMenuRef.current) return;
+      if (!actionsMenuRef.current.contains(target)) {
+        setActionsOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setActionsOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [actionsOpen]);
 
   const groupedValues = useMemo(
     () => ({
@@ -1525,8 +1552,8 @@ function ReportPreviewModal({
 
   return (
     <section className="animate-slide-up">
-      <div className="history-preview values-screen-panel flex max-h-[calc(100dvh-7.5rem)] w-full flex-col overflow-hidden rounded-2xl">
-        <header className="values-screen-panel__header shrink-0 px-3 py-2.5 sm:px-4">
+      <div className="history-preview values-screen-panel flex max-h-[calc(100dvh-7.5rem)] w-full flex-col rounded-2xl">
+        <header className="values-screen-panel__header history-preview__header shrink-0 px-3 py-2.5 sm:px-4">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <BackButton onClick={onClose} label={l.back} className="mb-1.5" />
@@ -1547,7 +1574,7 @@ function ReportPreviewModal({
               </p>
             </div>
 
-            <div className="relative flex shrink-0 gap-1">
+            <div className="relative flex shrink-0 gap-1" ref={actionsMenuRef}>
               <IconButton
                 title={l.edit}
                 onClick={onEdit}
@@ -1562,57 +1589,68 @@ function ReportPreviewModal({
                 {actionsOpen ? <X size={16} /> : <MoreHorizontal size={16} />}
               </IconButton>
               {actionsOpen ? (
-                <div className="history-preview-menu">
-                  <button type="button" onClick={onExport}>
-                    <Download size={14} />
+                <div className="history-preview-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActionsOpen(false);
+                      onExport();
+                    }}
+                  >
+                    <Download size={14} aria-hidden />
                     {l.export}
                   </button>
                   {onOpenVersions ? (
                     <button
                       type="button"
+                      role="menuitem"
                       onClick={() => {
                         setActionsOpen(false);
                         onOpenVersions();
                       }}
                     >
-                      <GitBranch size={14} />
+                      <GitBranch size={14} aria-hidden />
                       {l.versions}
                     </button>
                   ) : null}
                   {analysis.is_deleted ? (
                     <button
                       type="button"
+                      role="menuitem"
                       onClick={() => {
                         setActionsOpen(false);
                         onRestore();
                       }}
                     >
-                      <RotateCcw size={14} />
+                      <RotateCcw size={14} aria-hidden />
                       {l.restore}
                     </button>
                   ) : (
                     <button
                       type="button"
+                      role="menuitem"
                       className="history-preview-menu__danger"
                       onClick={() => {
                         setActionsOpen(false);
                         onDelete();
                       }}
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={14} aria-hidden />
                       {l.delete}
                     </button>
                   )}
                   {analysis.is_deleted ? (
                     <button
                       type="button"
+                      role="menuitem"
                       className="history-preview-menu__danger"
                       onClick={() => {
                         setActionsOpen(false);
                         onDelete();
                       }}
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={14} aria-hidden />
                       {l.deletePermanently}
                     </button>
                   ) : null}

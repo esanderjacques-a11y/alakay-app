@@ -78,13 +78,13 @@ const pt = {
   extractionMethodBray: "Bray",
   extractionMethodActive: "Faixas de P: {method}",
   generalCropExtractionHint:
-    "Escolha faixas de suficiência Geral, ou Olsen / Mehlich (Tabla N.° 1) para fósforo.",
+    "Escolha faixas de suficiência Geral, ou Olsen / Mehlich para fósforo.",
   soilExtractionHint:
     "Escolha faixas de suficiência da cultura, ou Olsen / Mehlich para bandas de fósforo conforme o método.",
   exportGeneralCropExtractionNote:
-    "Cultura geral com {method}: as faixas de nutrientes da Tabla N.° 1 seguem {method} (não a suficiência da cultura).",
+    "Cultura geral com {method}: as faixas de nutrientes seguem o extrator {method} (não a suficiência da cultura).",
   exportExtractionMethodNote:
-    "As faixas de nutrientes da Tabla N.° 1 seguem o extrator {method} (não a suficiência da cultura).",
+    "As faixas de nutrientes seguem o extrator {method} (não a suficiência da cultura).",
   exportFoliarExtractionNote:
     "Análise foliar com {method}: a interpretação de fósforo prioriza faixas ligadas a {method} quando disponíveis.",
   exportRecommendationsHint:
@@ -172,6 +172,8 @@ const pt = {
   valuesGroupSecondary: "Outros parâmetros",
   parameterLabel: "Parâmetro",
   valueLabel: "Valor",
+  clearAllValues: "Limpar valores",
+  clearValuesConfirm: "Limpar todos os valores inseridos? Esta ação não pode ser desfeita.",
   importCsvExcel: "Importar CSV/Excel",
   addCustomParameter: "Adicionar parâmetro personalizado",
   manageCustomData: "Gerenciar dados personalizados",
@@ -246,6 +248,7 @@ const pt = {
   levelAcceptable: "Aceitável",
   userCustomRange: "Faixa personalizada do usuário",
   manualSource: "Manual",
+  labReportRangeSource: "Relatório do laboratório",
   databaseSource: "Banco de dados",
   officialRangeSource: "Faixa oficial",
   categoryOther: "Outro",
@@ -681,6 +684,15 @@ const pt = {
     allCaughtUp: "Está em dia",
     markAllRead: "Marcar tudo como lido",
     emptyNotifications: "Ainda não há notificações.",
+    notifGroupToday: "Hoje",
+    notifGroupYesterday: "Ontem",
+    notifGroupThisWeek: "Esta semana",
+    notifGroupThisMonth: "Este mês",
+    notifGroupOlder: "Anteriores",
+    clearNotification: "Limpar",
+    clearAllNotifications: "Limpar tudo",
+    clearAllNotificationsConfirm:
+      "Limpar todas as notificações? Esta ação não pode ser desfeita.",
   },
 
 

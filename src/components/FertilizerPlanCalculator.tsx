@@ -490,22 +490,46 @@ export default function FertilizerPlanCalculator({
 
   useEmitCalculatorOutputs(onOutputsChange, reportOutputs);
 
-  useEffect(() => {
-    if (!onDosePlanChange) return;
-    onDosePlanChange({
+  const onDosePlanChangeRef = useRef(onDosePlanChange);
+  onDosePlanChangeRef.current = onDosePlanChange;
+
+  const dosePlanPayload = useMemo(
+    () => ({
       doses: plan?.doses ?? [],
       areaHa: plan?.areaHa ?? 0,
       irrigationSystem,
       irrigationTable: reference.irrigationEfficiency,
       recommendations: planRecommendations,
-    });
-  }, [
-    plan,
-    planRecommendations,
-    irrigationSystem,
-    reference.irrigationEfficiency,
-    onDosePlanChange,
-  ]);
+    }),
+    [plan, planRecommendations, irrigationSystem, reference.irrigationEfficiency]
+  );
+
+  const dosePlanPayloadRef = useRef(dosePlanPayload);
+  dosePlanPayloadRef.current = dosePlanPayload;
+
+  const dosePlanSignature = useMemo(
+    () =>
+      JSON.stringify({
+        areaHa: dosePlanPayload.areaHa,
+        irrigationSystem: dosePlanPayload.irrigationSystem,
+        irrigationTable: dosePlanPayload.irrigationTable,
+        recommendations: dosePlanPayload.recommendations,
+        doses: dosePlanPayload.doses.map((dose) => ({
+          key: dose.key,
+          nutrient: dose.nutrient,
+          dosisOxideKgHa: dose.dosisOxideKgHa,
+          notRequired: dose.notRequired,
+          viaEncalado: dose.viaEncalado,
+          demandaKgHa: dose.demandaKgHa,
+        })),
+      }),
+    [dosePlanPayload]
+  );
+
+  useEffect(() => {
+    if (!onDosePlanChangeRef.current) return;
+    onDosePlanChangeRef.current(dosePlanPayloadRef.current);
+  }, [dosePlanSignature]);
 
   const selectedDose = plan?.doses.find((d) => d.key === selectedDoseKey) || null;
   const hasActiveDoses = Boolean(

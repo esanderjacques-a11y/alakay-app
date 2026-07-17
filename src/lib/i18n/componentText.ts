@@ -1049,11 +1049,11 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     labDataRequiredDesc:
       "Enter soil analysis values first so doses and saturations use your sample — not empty defaults.",
     openValues: "Open values",
-    importFromValues: "Import",
-    importFromValuesHint: "Copy the latest Values into calculator fields (overwrites remembered inputs).",
-    importFromValuesDone: "Imported {count} values from Values.",
-    importFromValuesEmpty: "No Values data to import yet. Enter values first.",
-    importFromValuesStale: "Values changed since the last import. Tap Import from Values to update.",
+    importFromValues: "Refresh",
+    importFromValuesHint: "Refresh calculator fields with the latest Values (overwrites remembered inputs).",
+    importFromValuesDone: "Refreshed {count} values from Values.",
+    importFromValuesEmpty: "No Values data to refresh from yet. Enter values first.",
+    importFromValuesStale: "Values changed since the last sync. Tap Refresh to update.",
     nutrientGrade: "Nutrient in product (%)",
     efficiency: "Efficiency (%)",
     limeMethod: "Method",
@@ -1387,13 +1387,13 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendValidationAl: "Exchangeable aluminum must be ≥ 0.",
     phAmendCaSatTarget: "Target Ca saturation (%)",
     phAmendCaSatHint:
-      "Tutoría §§1.4–1.5: Cal is calculated only when CICe / V% / acidity indicate liming. Target Ca saturation defaults to 68% (mid of Tabla N.° 2 61–75%).",
+      "Cal is calculated only when CICe / V% / acidity indicate liming. Target Ca saturation defaults to 68% (mid of the adequate 61–75% band).",
     phAmendValidationCa: "Exchangeable Ca must be ≥ 0.",
     phAmendNoReqMissingCa: "Enter exchangeable Ca (cmol(+)/kg) to calculate Cal from Ca saturation.",
     phAmendNoReqChemistryOk:
       "No amendment needed: CICe cation distribution and base saturation (V%) are within sufficient ranges.",
     phAmendExplainCaSaturation:
-      "Tutoría Cal method: Ca deficit from CICe × target Ca% (Tabla N.° 2), converted to kg Ca/ha → CaO ×1.4 → product / CaO% / PRNT. Only when liming is indicated.",
+      "Ca deficit from CICe × target Ca%, converted to kg Ca/ha → CaO ×1.4 → product / CaO% / PRNT. Only when liming is indicated.",
     phAmendExplainBaseSaturation:
       "Estimates lime from the gap between current and target base saturation (V%), CEC, incorporation depth and bulk density.",
     phAmendExplainExchangeableAcidity:
@@ -1552,11 +1552,11 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     labDataRequiredDesc:
       "Ingrese primero el análisis de suelo para que dosis y saturaciones usen su muestra — no valores vacíos.",
     openValues: "Abrir valores",
-    importFromValues: "Importar",
-    importFromValuesHint: "Copia los Valores actuales a la calculadora (sobrescribe entradas guardadas).",
-    importFromValuesDone: "Se importaron {count} valores desde Valores.",
+    importFromValues: "Actualizar",
+    importFromValuesHint: "Actualiza los campos de la calculadora con los Valores más recientes (sobrescribe entradas guardadas).",
+    importFromValuesDone: "Se actualizaron {count} valores desde Valores.",
     importFromValuesEmpty: "Aún no hay datos en Valores. Ingrese valores primero.",
-    importFromValuesStale: "Los Valores cambiaron desde la última importación. Pulse Importar desde Valores.",
+    importFromValuesStale: "Los Valores cambiaron desde la última sincronización. Pulse Actualizar.",
     nutrientGrade: "Nutriente en el producto (%)",
     efficiency: "Eficiencia (%)",
     limeMethod: "Método",
@@ -1889,13 +1889,13 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendValidationAl: "El aluminio intercambiable debe ser ≥ 0.",
     phAmendCaSatTarget: "Saturación de Ca objetivo (%)",
     phAmendCaSatHint:
-      "Tutoría §§1.4–1.5: la Cal solo se calcula cuando CICe / V% / acidez indican encalado. Meta de Ca por defecto 68% (medio Tabla N.° 2, 61–75%).",
+      "La Cal solo se calcula cuando CICe / V% / acidez indican encalado. Meta de Ca por defecto 68% (medio de la banda adecuada 61–75%).",
     phAmendValidationCa: "El Ca intercambiable debe ser ≥ 0.",
     phAmendNoReqMissingCa: "Ingrese Ca intercambiable (cmol(+)/kg) para calcular la Cal por saturación de Ca.",
     phAmendNoReqChemistryOk:
       "No se requiere enmienda: la distribución de cationes en la CICe y la saturación de bases (V%) están en rangos suficientes.",
     phAmendExplainCaSaturation:
-      "Método Tutoría de Cal: déficit de Ca = CICe × %Ca meta (Tabla N.° 2), a kg Ca/ha → CaO ×1,4 → producto / %CaO / PRNT. Solo si el encalado está indicado.",
+      "Déficit de Ca = CICe × %Ca meta, a kg Ca/ha → CaO ×1,4 → producto / %CaO / PRNT. Solo si el encalado está indicado.",
     phAmendExplainBaseSaturation:
       "Estima la cal a partir de la brecha entre saturación de bases actual y objetivo (V%), CIC, profundidad y densidad aparente.",
     phAmendExplainExchangeableAcidity:
@@ -2057,11 +2057,11 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     labDataRequiredDesc:
       "Saisissez d'abord l'analyse de sol pour que doses et saturations utilisent votre échantillon — pas des valeurs vides.",
     openValues: "Ouvrir les valeurs",
-    importFromValues: "Importer",
-    importFromValuesHint: "Copie les Valeurs actuelles dans le calculateur (écrase les saisies mémorisées).",
-    importFromValuesDone: "{count} valeurs importées depuis Valeurs.",
+    importFromValues: "Actualiser",
+    importFromValuesHint: "Actualise les champs du calculateur avec les dernières Valeurs (écrase les saisies mémorisées).",
+    importFromValuesDone: "{count} valeurs actualisées depuis Valeurs.",
     importFromValuesEmpty: "Pas encore de données dans Valeurs. Saisissez d'abord des valeurs.",
-    importFromValuesStale: "Les Valeurs ont changé depuis le dernier import. Appuyez sur Importer depuis Valeurs.",
+    importFromValuesStale: "Les Valeurs ont changé depuis la dernière synchronisation. Appuyez sur Actualiser.",
     nutrientGrade: "Nutriment dans le produit (%)",
     efficiency: "Efficacité (%)",
     limeMethod: "Méthode",
@@ -2386,13 +2386,13 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendValidationAl: "L'aluminium échangeable doit être ≥ 0.",
     phAmendCaSatTarget: "Saturation en Ca cible (%)",
     phAmendCaSatHint:
-      "Tutoría §§1.4–1.5 : la chaux n'est calculée que si CICe / V% / acidité indiquent un chaulage. Cible Ca par défaut 68% (milieu Tabla N.° 2, 61–75%).",
+      "La chaux n'est calculée que si CICe / V% / acidité indiquent un chaulage. Cible Ca par défaut 68% (milieu de la bande adéquate 61–75%).",
     phAmendValidationCa: "Le Ca échangeable doit être ≥ 0.",
     phAmendNoReqMissingCa: "Saisir le Ca échangeable (cmol(+)/kg) pour calculer la chaux par saturation en Ca.",
     phAmendNoReqChemistryOk:
       "Aucun amendement nécessaire : distribution des cations de la CICe et saturation en bases (V%) dans les plages suffisantes.",
     phAmendExplainCaSaturation:
-      "Méthode Tutoría : déficit Ca = CICe × %Ca cible (Tabla N.° 2), en kg Ca/ha → CaO ×1,4 → produit / %CaO / PRNT. Seulement si le chaulage est indiqué.",
+      "Déficit Ca = CICe × %Ca cible, en kg Ca/ha → CaO ×1,4 → produit / %CaO / PRNT. Seulement si le chaulage est indiqué.",
     phAmendExplainBaseSaturation:
       "Estime la chaux à partir de l'écart entre saturation de bases actuelle et cible (V%), CEC, profondeur et densité.",
     phAmendExplainExchangeableAcidity:
@@ -2554,11 +2554,11 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     labDataRequiredDesc:
       "Antre analiz tè a anvan pou dòz ak satitrasyon itilize echantiyon ou — pa valè vid.",
     openValues: "Louvri valè yo",
-    importFromValues: "Enpòte",
-    importFromValuesHint: "Kopi Valè yo nan kalkilatè a (ranplase sa ou te sove).",
-    importFromValuesDone: "Yo enpòte {count} valè soti nan Valè.",
+    importFromValues: "Aktyalize",
+    importFromValuesHint: "Aktyalize chan kalkilatè yo ak dènye Valè yo (ranplase sa ou te sove).",
+    importFromValuesDone: "Yo aktyalize {count} valè soti nan Valè.",
     importFromValuesEmpty: "Pokò gen done nan Valè. Antre valè anvan.",
-    importFromValuesStale: "Valè yo chanje depi dènye enpòtasyon an. Peze Enpòte soti nan Valè.",
+    importFromValuesStale: "Valè yo chanje depi dènye senkronizasyon an. Peze Aktyalize.",
     nutrientGrade: "Eleman nan pwodwi (%)",
     efficiency: "Efikasite (%)",
     limeMethod: "Metòd",
@@ -2883,13 +2883,13 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendValidationAl: "Aliminyòm echanjabl dwe ≥ 0.",
     phAmendCaSatTarget: "Saturasyon Ca objektif (%)",
     phAmendCaSatHint:
-      "Tutoría §§1.4–1.5: kalkile Kal sèlman lè CICe / V% / asidite montre bezwen kalk. Objektif Ca pa defo 68% (mitan Tabla N.° 2, 61–75%).",
+      "Kalkile Kal sèlman lè CICe / V% / asidite montre bezwen kalk. Objektif Ca pa defo 68% (mitan bann adekwa 61–75%).",
     phAmendValidationCa: "Ca echanjab dwe ≥ 0.",
     phAmendNoReqMissingCa: "Antre Ca echanjab (cmol(+)/kg) pou kalkile Kal dapre saturasyon Ca.",
     phAmendNoReqChemistryOk:
       "Pa gen amandman nesesè: distribisyon katyon CICe ak saturasyon baz (V%) nan ranje ase.",
     phAmendExplainCaSaturation:
-      "Metòd Tutoría Kal: defisi Ca = CICe × %Ca objektif (Tabla N.° 2), an kg Ca/ha → CaO ×1,4 → pwodui / %CaO / PRNT. Sèlman si kalkaj endike.",
+      "Defisi Ca = CICe × %Ca objektif, an kg Ca/ha → CaO ×1,4 → pwodui / %CaO / PRNT. Sèlman si kalkaj endike.",
     phAmendExplainBaseSaturation:
       "Estime chò selon diferans saturasyon baz aktyèl ak objektif (V%), CEC, pwofondè ak dansite.",
     phAmendExplainExchangeableAcidity:
@@ -3049,11 +3049,11 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     labDataRequiredDesc:
       "Insira primeiro a análise de solo para que doses e saturações usem sua amostra — não valores vazios.",
     openValues: "Abrir valores",
-    importFromValues: "Importar",
-    importFromValuesHint: "Copia os Valores atuais para a calculadora (substitui entradas guardadas).",
-    importFromValuesDone: "Importados {count} valores de Valores.",
+    importFromValues: "Atualizar",
+    importFromValuesHint: "Atualiza os campos da calculadora com os Valores mais recentes (substitui entradas guardadas).",
+    importFromValuesDone: "Atualizados {count} valores de Valores.",
     importFromValuesEmpty: "Ainda não há dados em Valores. Insira valores primeiro.",
-    importFromValuesStale: "Os Valores mudaram desde a última importação. Toque em Importar de Valores.",
+    importFromValuesStale: "Os Valores mudaram desde a última sincronização. Toque em Atualizar.",
     nutrientGrade: "Nutriente no produto (%)",
     efficiency: "Eficiência (%)",
     limeMethod: "Método",
@@ -3378,13 +3378,13 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendValidationAl: "O alumínio trocável deve ser ≥ 0.",
     phAmendCaSatTarget: "Saturação de Ca alvo (%)",
     phAmendCaSatHint:
-      "Tutoría §§1.4–1.5: a Cal só é calculada quando CICe / V% / acidez indicam calagem. Meta de Ca padrão 68% (meio da Tabla N.° 2, 61–75%).",
+      "A Cal só é calculada quando CICe / V% / acidez indicam calagem. Meta de Ca padrão 68% (meio da faixa adequada 61–75%).",
     phAmendValidationCa: "O Ca trocável deve ser ≥ 0.",
     phAmendNoReqMissingCa: "Informe Ca trocável (cmol(+)/kg) para calcular a Cal por saturação de Ca.",
     phAmendNoReqChemistryOk:
       "Nenhuma correção necessária: distribuição de cátions na CICe e saturação de bases (V%) dentro das faixas suficientes.",
     phAmendExplainCaSaturation:
-      "Método Tutoría de Cal: déficit de Ca = CICe × %Ca meta (Tabla N.° 2), em kg Ca/ha → CaO ×1,4 → produto / %CaO / PRNT. Só quando a calagem for indicada.",
+      "Déficit de Ca = CICe × %Ca meta, em kg Ca/ha → CaO ×1,4 → produto / %CaO / PRNT. Só quando a calagem for indicada.",
     phAmendExplainBaseSaturation:
       "Estima a cal a partir da diferença entre saturação de bases atual e alvo (V%), CTC, profundidade e densidade.",
     phAmendExplainExchangeableAcidity:
@@ -3545,11 +3545,11 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     labDataRequiredDesc:
       "Weka uchanganuzi wa udongo kwanza ili dozi na kueneza zitumiwe kutoka sampuli yako — si thamani tupu.",
     openValues: "Fungua thamani",
-    importFromValues: "Leta",
-    importFromValuesHint: "Nakili Thamani za sasa kwenye kikokotoo (hubadilisha zilizohifadhiwa).",
-    importFromValuesDone: "Zimeingizwa thamani {count} kutoka Thamani.",
+    importFromValues: "Sasisha",
+    importFromValuesHint: "Sasisha sehemu za kikokotoo kwa Thamani za hivi karibuni (hubadilisha zilizohifadhiwa).",
+    importFromValuesDone: "Zimesasishwa thamani {count} kutoka Thamani.",
     importFromValuesEmpty: "Bado hakuna data katika Thamani. Weka thamani kwanza.",
-    importFromValuesStale: "Thamani zimebadilika tangu ulete wa mwisho. Gusa Leta kutoka Thamani.",
+    importFromValuesStale: "Thamani zimebadilika tangu usawazishaji wa mwisho. Gusa Sasisha.",
     nutrientGrade: "Kirutubisho kwenye bidhaa (%)",
     efficiency: "Ufanisi (%)",
     limeMethod: "Mbinu",
@@ -3874,13 +3874,13 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendValidationAl: "Alumini inayobadilishika lazima iwe ≥ 0.",
     phAmendCaSatTarget: "Kuenea kwa Ca lengwa (%)",
     phAmendCaSatHint:
-      "Tutoría §§1.4–1.5: chokaa inahesabiwa tu wakati CICe / V% / asidi inaonyesha hitaji. Lengo la Ca chaguomsingi 68% (katikati ya Tabla N.° 2, 61–75%).",
+      "Chokaa inahesabiwa tu wakati CICe / V% / asidi inaonyesha hitaji. Lengo la Ca chaguomsingi 68% (katikati ya bendi ya kutosha 61–75%).",
     phAmendValidationCa: "Ca inayobadilishika lazima iwe ≥ 0.",
     phAmendNoReqMissingCa: "Weka Ca inayobadilishika (cmol(+)/kg) ili kuhesabu chokaa kutoka kuenea kwa Ca.",
     phAmendNoReqChemistryOk:
       "Hakuna marekebisho yanayohitajika: usambazaji wa CICe na ushibaji wa besi (V%) uko katika safu za kutosha.",
     phAmendExplainCaSaturation:
-      "Mbinu ya Tutoría ya chokaa: upungufu wa Ca = CICe × %Ca lengwa (Tabla N.° 2), hadi kg Ca/ha → CaO ×1.4 → bidhaa / %CaO / PRNT. Tu wakati uwekaji chokaa unahitajika.",
+      "Upungufu wa Ca = CICe × %Ca lengwa, hadi kg Ca/ha → CaO ×1.4 → bidhaa / %CaO / PRNT. Tu wakati uwekaji chokaa unahitajika.",
     phAmendExplainBaseSaturation:
       "Inakadiria chokaa kutoka tofauti kati ya kuenea kwa besi ya sasa na lengwa (V%), CEC, kina na msongamano.",
     phAmendExplainExchangeableAcidity:

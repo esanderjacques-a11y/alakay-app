@@ -147,6 +147,7 @@
   parameterLabel: "Parameter",
   valueLabel: "Value",
   clearAllValues: "Clear values",
+  clearValuesConfirm: "Clear all entered values? This cannot be undone.",
   importCsvExcel: "Import CSV/Excel",
   addCustomParameter: "Add custom parameter",
   manageCustomData: "Manage custom data",
@@ -212,7 +213,7 @@
     "General reference mode: these ranges are approximate.",
   generalReferenceModeTitle: "General reference mode",
   generalCropExtractionHint:
-    "Choose General sufficiency ranges, or Olsen / Mehlich (Tabla N.° 1) for phosphorus.",
+    "Choose General sufficiency ranges, or Olsen / Mehlich for phosphorus.",
   soilExtractionHint:
     "Choose crop-specific sufficiency ranges, or Olsen / Mehlich for method-specific phosphorus bands.",
   extractionMethodLabel: "Sufficiency / extraction",
@@ -223,9 +224,9 @@
   extractionMethodBray: "Bray",
   extractionMethodActive: "P ranges: {method}",
   exportGeneralCropExtractionNote:
-    "General crop with {method}: nutrient ranges in Tabla N.° 1 follow {method} (not crop sufficiency).",
+    "General crop with {method}: nutrient ranges follow the {method} extractant (not crop-specific sufficiency).",
   exportExtractionMethodNote:
-    "Nutrient ranges in Tabla N.° 1 follow the {method} extractant (not crop sufficiency).",
+    "Nutrient ranges follow the {method} extractant (not crop-specific sufficiency).",
   exportFoliarExtractionNote:
     "Foliar analysis with {method}: phosphorus interpretation prefers {method}-linked ranges when available.",
   exportRecommendationsHint:
@@ -299,6 +300,7 @@
   confidenceGeneral: "General",
   userCustomRange: "User custom range",
   manualSource: "Manual",
+  labReportRangeSource: "Lab report",
   databaseSource: "Database",
   officialRangeSource: "Official range",
   adviceBulkDensityVeryHigh:
@@ -886,6 +888,14 @@
     allCaughtUp: "You're all caught up",
     markAllRead: "Mark all read",
     emptyNotifications: "No notifications yet.",
+    notifGroupToday: "Today",
+    notifGroupYesterday: "Yesterday",
+    notifGroupThisWeek: "This week",
+    notifGroupThisMonth: "This month",
+    notifGroupOlder: "Earlier",
+    clearNotification: "Clear",
+    clearAllNotifications: "Clear all",
+    clearAllNotificationsConfirm: "Clear all notifications? This cannot be undone.",
   },
 };
 

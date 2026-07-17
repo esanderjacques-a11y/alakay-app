@@ -158,6 +158,7 @@
   parameterLabel: "Parámetro",
   valueLabel: "Valor",
   clearAllValues: "Limpiar valores",
+  clearValuesConfirm: "¿Borrar todos los valores ingresados? Esta acción no se puede deshacer.",
   importCsvExcel: "Importar CSV/Excel",
   addCustomParameter: "Agregar parámetro personalizado",
   manageCustomData: "Gestionar datos personalizados",
@@ -227,7 +228,7 @@
     "Modo de referencia general: estos rangos son aproximados.",
   generalReferenceModeTitle: "Modo de referencia general",
   generalCropExtractionHint:
-    "Elija rangos de suficiencia General, u Olsen / Mehlich (Tabla N.° 1) para fósforo.",
+    "Elija rangos de suficiencia General, u Olsen / Mehlich para fósforo.",
   soilExtractionHint:
     "Elija rangos de suficiencia del cultivo, u Olsen / Mehlich para bandas de fósforo según el método.",
   extractionMethodLabel: "Método",
@@ -238,9 +239,9 @@
   extractionMethodBray: "Bray",
   extractionMethodActive: "Rangos de P: {method}",
   exportGeneralCropExtractionNote:
-    "Cultivo general con {method}: los rangos de nutrientes de la Tabla N.° 1 siguen {method} (no la suficiencia del cultivo).",
+    "Cultivo general con {method}: los rangos de nutrientes siguen el extractante {method} (no la suficiencia del cultivo).",
   exportExtractionMethodNote:
-    "Los rangos de nutrientes de la Tabla N.° 1 siguen el extractante {method} (no la suficiencia del cultivo).",
+    "Los rangos de nutrientes siguen el extractante {method} (no la suficiencia del cultivo).",
   exportFoliarExtractionNote:
     "Análisis foliar con {method}: la interpretación de fósforo prioriza rangos vinculados a {method} cuando están disponibles.",
   exportRecommendationsHint:
@@ -315,6 +316,7 @@
   confidenceGeneral: "General",
   userCustomRange: "Rango personalizado del usuario",
   manualSource: "Manual",
+  labReportRangeSource: "Informe de laboratorio",
   databaseSource: "Base de datos",
   officialRangeSource: "Rango oficial",
   adviceBulkDensityVeryHigh:
@@ -903,6 +905,15 @@
     allCaughtUp: "Estás al día",
     markAllRead: "Marcar todo leído",
     emptyNotifications: "Aún no hay notificaciones.",
+    notifGroupToday: "Hoy",
+    notifGroupYesterday: "Ayer",
+    notifGroupThisWeek: "Esta semana",
+    notifGroupThisMonth: "Este mes",
+    notifGroupOlder: "Anteriores",
+    clearNotification: "Eliminar",
+    clearAllNotifications: "Eliminar todas",
+    clearAllNotificationsConfirm:
+      "¿Eliminar todas las notificaciones? Esto no se puede deshacer.",
   },
 
 

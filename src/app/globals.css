@@ -3894,14 +3894,28 @@ html[data-theme="dark"] .app-header {
     color: var(--glass-text-muted, #8e8e93);
   }
 
+  .history-preview {
+    overflow: visible;
+    min-height: 0;
+  }
+
+  .history-preview__header,
+  .history-preview .values-screen-panel__header {
+    overflow: visible;
+    position: relative;
+    z-index: 40;
+  }
+
   .history-preview-menu {
     position: absolute;
     top: calc(100% + 0.35rem);
     right: 0;
-    z-index: 5;
+    z-index: 50;
     display: grid;
     gap: 0.2rem;
     min-width: 12.5rem;
+    width: max-content;
+    max-width: min(18rem, calc(100vw - 2rem));
     border: 1px solid var(--glass-border);
     border-radius: 0.85rem;
     background: var(--glass-surface-strong, #fff);
@@ -3911,16 +3925,18 @@ html[data-theme="dark"] .app-header {
 
   .history-preview-menu button {
     display: inline-flex;
+    width: 100%;
     align-items: center;
     gap: 0.45rem;
     border: 0;
     border-radius: 0.55rem;
     background: transparent;
-    padding: 0.45rem 0.55rem;
-    font-size: 0.78rem;
+    padding: 0.55rem 0.65rem;
+    font-size: 0.8125rem;
     font-weight: 650;
     color: inherit;
     text-align: left;
+    white-space: nowrap;
     cursor: pointer;
   }
 
@@ -3939,6 +3955,7 @@ html[data-theme="dark"] .app-header {
     font-size: 0.68rem;
     line-height: 1.35;
     color: var(--glass-text-muted, #6c6c70);
+    white-space: normal;
   }
 
   .history-preview-filters {
@@ -4652,6 +4669,52 @@ html[data-theme="dark"] .app-header {
 
   .plan-timeline-card__action--danger {
     color: #b91c1c;
+  }
+
+  .notifications-group__title {
+    margin: 0;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted, #6c6c70);
+  }
+
+  .notifications-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.4rem;
+    align-items: stretch;
+  }
+
+  .notifications-item__main {
+    width: 100%;
+    text-align: left;
+  }
+
+  .notifications-item__clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    min-height: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: #b91c1c;
+    cursor: pointer;
+  }
+
+  .notifications-item__clear:hover {
+    background: rgb(254 226 226 / 0.55);
+  }
+
+  html[data-theme="dark"] .notifications-item__clear {
+    color: #fca5a5;
+  }
+
+  html[data-theme="dark"] .notifications-item__clear:hover {
+    background: rgb(127 29 29 / 0.35);
   }
 
   .plan-timeline-line,
@@ -7618,7 +7681,7 @@ html[data-theme="dark"] .app-header {
     min-height: 0;
     height: 100%;
     overflow: hidden;
-    padding: max(0.25rem, var(--safe-top, 0px))
+    padding: max(0.85rem, var(--safe-top, 0px))
       max(0.25rem, var(--app-page-gutter-x, 0.875rem))
       max(0.5rem, var(--safe-bottom, 0px));
     background: transparent;
@@ -7688,7 +7751,7 @@ html[data-theme="dark"] .app-header {
     min-height: 0;
     height: 100%;
     overflow: hidden;
-    padding: max(0.25rem, var(--safe-top, 0px))
+    padding: max(0.85rem, var(--safe-top, 0px))
       max(0.25rem, var(--app-page-gutter-x, 0.875rem))
       max(0.5rem, var(--safe-bottom, 0px));
     background: transparent;
@@ -7699,7 +7762,7 @@ html[data-theme="dark"] .app-header {
     flex-shrink: 0;
     align-items: flex-start;
     gap: 0.65rem;
-    padding-bottom: 0.35rem;
+    padding: 0.25rem 0 0.5rem;
   }
 
   .lab-import-page:has(.lab-import-page__body--review) .lab-import-page__header {
@@ -8313,7 +8376,7 @@ html[data-theme="dark"] .app-header {
     padding: 0.28rem 0.35rem;
     font-size: 0.75rem;
     font-weight: 700;
-    text-align: right;
+    text-align: left;
   }
 
   html[data-theme="dark"] .lab-import-review-compact__value-input {
@@ -8801,6 +8864,8 @@ html[data-theme="dark"] .app-header {
     border-radius: 1rem;
     border: 1px solid var(--glass-border);
     background: rgb(15 23 42 / 0.92);
+    touch-action: none;
+    user-select: none;
   }
 
   .lab-scan-crop-stage__image {
@@ -8809,6 +8874,8 @@ html[data-theme="dark"] .app-header {
     max-height: 18rem;
     object-fit: contain;
     background: rgb(15 23 42);
+    pointer-events: none;
+    user-select: none;
   }
 
   .lab-scan-crop-stage__frame {
@@ -8816,27 +8883,101 @@ html[data-theme="dark"] .app-header {
     inset: var(--crop-top, 6%) var(--crop-right, 6%) var(--crop-bottom, 6%) var(--crop-left, 6%);
     border: 2px solid rgb(var(--accent-400-rgb, 74 222 128) / 0.95);
     border-radius: 0.35rem;
-    pointer-events: none;
+    cursor: move;
+    pointer-events: auto;
     box-shadow: 0 0 0 9999px rgb(15 23 42 / 0.48);
+    touch-action: none;
   }
 
-  .lab-scan-crop-controls {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem 0.75rem;
+  .lab-scan-crop-stage__frame::before,
+  .lab-scan-crop-stage__frame::after {
+    content: "";
+    position: absolute;
+    inset: 33.333% 0;
+    border-block: 1px solid rgb(255 255 255 / 0.45);
+    pointer-events: none;
   }
 
-  .lab-scan-crop-controls__field {
-    display: grid;
-    gap: 0.25rem;
-    font-size: 0.72rem;
-    font-weight: 600;
+  .lab-scan-crop-stage__frame::after {
+    inset: 0 33.333%;
+    border-block: 0;
+    border-inline: 1px solid rgb(255 255 255 / 0.45);
+  }
+
+  .lab-scan-crop-stage__handle {
+    position: absolute;
+    z-index: 2;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    background: var(--accent-600, #16a34a);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.32);
+    touch-action: none;
+  }
+
+  .lab-scan-crop-stage__handle--top-left {
+    top: 0;
+    left: 0;
+    transform: translate(-50%, -50%);
+    cursor: nwse-resize;
+  }
+
+  .lab-scan-crop-stage__handle--top {
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    cursor: ns-resize;
+  }
+
+  .lab-scan-crop-stage__handle--top-right {
+    top: 0;
+    right: 0;
+    transform: translate(50%, -50%);
+    cursor: nesw-resize;
+  }
+
+  .lab-scan-crop-stage__handle--right {
+    top: 50%;
+    right: 0;
+    transform: translate(50%, -50%);
+    cursor: ew-resize;
+  }
+
+  .lab-scan-crop-stage__handle--bottom-right {
+    right: 0;
+    bottom: 0;
+    transform: translate(50%, 50%);
+    cursor: nwse-resize;
+  }
+
+  .lab-scan-crop-stage__handle--bottom {
+    bottom: 0;
+    left: 50%;
+    transform: translate(-50%, 50%);
+    cursor: ns-resize;
+  }
+
+  .lab-scan-crop-stage__handle--bottom-left {
+    bottom: 0;
+    left: 0;
+    transform: translate(-50%, 50%);
+    cursor: nesw-resize;
+  }
+
+  .lab-scan-crop-stage__handle--left {
+    top: 50%;
+    left: 0;
+    transform: translate(-50%, -50%);
+    cursor: ew-resize;
+  }
+
+  .lab-scan-crop-hint {
+    margin: -0.2rem 0 0;
+    text-align: center;
+    font-size: 0.75rem;
+    line-height: 1.35;
     color: var(--text-muted, #6c6c70);
-  }
-
-  .lab-scan-crop-controls__field input[type="range"] {
-    width: 100%;
-    accent-color: var(--accent-700, #15803d);
   }
 
   /* Calculator pages — shared compact form + result cards */
@@ -12433,9 +12574,48 @@ html[data-theme="dark"] .app-header {
     overflow: visible;
   }
 
+  th.values-table-cell--level {
+    text-align: right;
+  }
+
+  .values-table-clear-wrap {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+  }
+
   .values-table-cell--level .values-live-interp {
     justify-content: flex-end;
     width: 100%;
+  }
+
+  .values-table-clear-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin-inline-start: auto;
+    margin-inline-end: 0;
+    border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-muted, #6c6c70);
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .values-table-clear-btn:hover,
+  .values-table-clear-btn:focus-visible {
+    color: rgb(190 18 60);
+    border-color: rgb(190 18 60 / 0.4);
+    background: rgb(190 18 60 / 0.08);
+  }
+
+  html[data-theme="dark"] .values-table-clear-btn:hover,
+  html[data-theme="dark"] .values-table-clear-btn:focus-visible {
+    color: rgb(253 164 175);
+    border-color: rgb(253 164 175 / 0.35);
+    background: rgb(253 164 175 / 0.12);
   }
 
   .values-table-cell--value {

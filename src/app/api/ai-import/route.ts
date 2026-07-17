@@ -130,7 +130,8 @@ function buildAiImportInstructionsForLanguage(language: string) {
     "The text field must be a faithful row-by-row transcription of useful result tables and nearby sample metadata, not a summary or explanation.",
     "The rows field must contain lab results only: {parameter,value,unit,sample,method,source,confidence}.",
     "Rows are required when result tables are visible. Extract every real numeric result row that belongs to the lab analysis tables.",
-    "Do not infer, calculate, translate, or convert units. Keep the reported value and reported unit exactly as printed.",
+    "Do not convert values between units. Keep each reported value with the unit from the SAME column it came from.",
+    "Unit tracking is critical: rows.unit must match the column header or inline unit printed beside that value. Never put a meq/100g or cmol(+)/kg label on a value taken from an mg/kg, ppm, or mg kg-1 column.",
     "If the document states that results are in ppm, parts per million, or mg/kg (for example a note above a table), set metadata.defaultUnitSystem to ppm or mg/kg accordingly.",
     "When a table has an Optimal Range, Target Value, Reference Range, or similar column, put that text in rows.reportRange for the matching parameter. Do not put range text in rows.value.",
     "When a table has a Rating column (Optimal, High, Low, etc.), put that label in rows.reportRating.",
@@ -139,7 +140,9 @@ function buildAiImportInstructionsForLanguage(language: string) {
     "Keep sample/lot/plot names on every row when several plots, lots, or samples appear.",
     "For wide multi-sample reports, sample IDs belong in sample and lab numbers belong in source or metadata; neither is a lab result value.",
     "If a table has Result, Resultado, Resultados, Valor, Concentracion, or Current columns, use those columns as the true values.",
-    "If a table has two result columns for the same variable, such as mg/kg and meq/100g, prefer the column that matches a document-level unit statement. When the report says results are in ppm or mg/kg, use that column. When no document unit statement exists, prefer meq/100g or cmol(+)/kg for exchangeable bases. Do not convert.",
+    "Dual result columns (common for Ca, Mg, K, Na): when the same nutrient has both a mass column (mg/kg, ppm, mg kg-1) AND an exchange column (meq/100g, cmol(+)/kg, cmolc/kg), prefer the mass column (mg/kg or ppm) and set rows.unit to that mass unit. Only use the meq/cmol column when the mass column is blank or the document clearly says bases are reported only as meq/cmol. Never mix: do not take the mg/kg number and label it meq or cmol.",
+    "Magnitude sanity check for exchangeable bases: Ca/Mg/K/Na values like 50–2000 are almost always mg/kg or ppm, not cmol(+)/kg or meq/100g (those are usually below about 40). If unsure which dual column was read, choose mg/kg.",
+    "CEC / CIC / CICE and exchangeable acidity (H+Al, EA) usually stay in cmol(+)/kg or meq/100g — do not force those into mg/kg.",
     "Include texture rows when present: Sand/Arena, Silt/Limo, Clay/Arcilla, and texture class when shown.",
     "If a wide table has sample rows and parameter columns, create one row per sample and parameter.",
     "Do not mix two parameters in one row. One row must contain one parameter and one numeric value.",
@@ -348,7 +351,46 @@ function normalizeImportedRowShape(
     if (!unit) unit = "pH";
   }
 
+  // Dual-column labs: Ca/Mg/K/Na values like 156/120/620 are mg/kg, not meq/cmol.
+  unit = reconcileBaseUnitLabel(parameter, symbol, unit, parsedValue);
+
   return { parameter, value, unit };
+}
+
+function reconcileBaseUnitLabel(
+  parameter: string,
+  symbol: string,
+  unit: string,
+  value: number | null
+) {
+  if (value === null || !Number.isFinite(value)) return unit;
+  const text = `${parameter} ${symbol}`.toLowerCase();
+  const isBase =
+    /\b(potassium|potasio|potassio|magnesium|magnesio|calcium|calcio|sodium|sodio|\bk\b|\bmg\b|\bca\b|\bna\b)\b/.test(
+      text
+    ) && !/\b(cec|cic|cice|acidez|acidity|aluminum|aluminio|\bal\b)\b/.test(text);
+  if (!isBase) return unit;
+
+  const unitRaw = unit.toLowerCase().replace(/\s+/g, "");
+  const looksExchange = unitRaw.includes("cmol") || unitRaw.includes("meq");
+  const looksMass =
+    unitRaw === "ppm" ||
+    unitRaw.includes("mg/kg") ||
+    unitRaw.includes("mgkg") ||
+    unitRaw === "ug/g";
+
+  const massLike =
+    (/\b(calcium|calcio|\bca\b)\b/.test(text) && value > 40) ||
+    (/\b(magnesium|magnesio|\bmg\b)\b/.test(text) && value > 20) ||
+    (/\b(potassium|potasio|potassio|\bk\b)\b/.test(text) && value > 8) ||
+    (/\b(sodium|sodio|\bna\b)\b/.test(text) && value > 8);
+
+  if (massLike && (looksExchange || !unit.trim())) {
+    return "mg/kg";
+  }
+  if (!unit.trim() && massLike) return "mg/kg";
+  if (looksMass) return unit || "mg/kg";
+  return unit;
 }
 
 function normalizeAiImportPayload(

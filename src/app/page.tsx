@@ -969,7 +969,7 @@ function translateSourceName(
     "official ranges": t.officialRangeSource,
   };
 
-  return labels[normalized] || sourceName;
+  return labels[normalized] || sourceName.replace(/Tabla\s*N\.?\s*°?\s*\d+\s*[—–-]?\s*/gi, "").trim() || sourceName;
 }
 
 function translateCountryRegion(
@@ -1105,6 +1105,9 @@ export default function HomePage() {
   const [sampleType, setSampleType] = useState<"soil" | "foliar">("soil");
   const [extractionMethod, setExtractionMethod] = useState<ExtractionMethod>("olsen");
   const [values, setValues] = useState<Record<string, string>>({});
+  const [labReportRanges, setLabReportRanges] = useState<
+    Record<string, { min: number | null; max: number | null; raw: string; rating?: string | null }>
+  >({});
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
   const [selectedUnitDisplayKeys, setSelectedUnitDisplayKeys] = useState<
     Record<string, string>
@@ -1471,6 +1474,7 @@ export default function HomePage() {
 
     queueMicrotask(() => {
       setValues(incomingValues);
+      setLabReportRanges({});
 
       setSelectedUnits((previous) => ({
         ...previous,
@@ -1953,6 +1957,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
   function clearAllValues() {
     setValues({});
+    setLabReportRanges({});
     setResults([]);
     setResultsExtractionMethod(null);
     setMissingResults([]);
@@ -1979,6 +1984,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
     setSampleType(nextSampleType);
     setValues({});
+    setLabReportRanges({});
     setSelectedUnits({});
     setSelectedUnitDisplayKeys({});
     setResults([]);
@@ -2000,7 +2006,11 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     importedValues: Record<string, string>,
     importedUnits: Record<string, number>,
     metadata?: ImportedLabMetadata,
-    importedUnitDisplayKeys: Record<string, string> = {}
+    importedUnitDisplayKeys: Record<string, string> = {},
+    importedReportRanges: Record<
+      string,
+      { min: number | null; max: number | null; raw: string; rating?: string | null }
+    > = {}
   ) {
     applyImportedMetadata(metadata);
 
@@ -2008,6 +2018,18 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       ...previous,
       ...importedValues,
     }));
+
+    setLabReportRanges((previous) => {
+      const next = { ...previous };
+      for (const key of Object.keys(importedValues)) {
+        if (importedReportRanges[key]) {
+          next[key] = importedReportRanges[key];
+        } else {
+          delete next[key];
+        }
+      }
+      return next;
+    });
 
     setSelectedUnits((previous) => ({
       ...previous,
@@ -2143,6 +2165,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setCropId(999);
     setSampleType("soil");
     setValues({});
+    setLabReportRanges({});
     setSelectedUnits({});
     setSelectedUnitDisplayKeys({});
     setSelectedCategory("All");
@@ -2400,6 +2423,45 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
     try {
     for (const item of filledValues) {
+        const labRange = labReportRanges[item.parameter_key];
+        if (
+          labRange &&
+          (labRange.min !== null || labRange.max !== null)
+        ) {
+          const logicInput = {
+            parameter_id: item.parameter_id || 0,
+            parameter_name: item.parameter_name,
+            value: item.value,
+            min: labRange.min,
+            max: labRange.max,
+          };
+
+          interpretedResults.push({
+            parameter_key: item.parameter_key,
+            crop_id: interpretationCropId,
+            crop_name: null,
+            sample_type: sampleType,
+            parameter_id: item.parameter_id,
+            custom_parameter_id: item.custom_parameter_id,
+            parameter_name: item.parameter_name,
+            unit_id: item.unit_id,
+            unit_symbol: item.unit_symbol,
+            min: labRange.min,
+            max: labRange.max,
+            confidence: "exact",
+            is_proxy: false,
+            source_name: t.labReportRangeSource || "Lab report",
+            interpretation_note: labRange.rating?.trim() || null,
+            value: item.value,
+            level_code: getLevelCode(logicInput),
+            final_group_code: getFinalGroupCode(logicInput),
+            advice: getSimpleAdvice(logicInput),
+            display_parameter_name: item.display_name,
+          });
+
+          continue;
+        }
+
         const userRange = await findUserCustomRange({
           parameter_id: item.parameter_id,
           custom_parameter_id: item.custom_parameter_id,
@@ -2671,6 +2733,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     currentStep,
     pendingEditableAnalysis,
     values,
+    labReportRanges,
     selectedUnits,
     selectedUnitDisplayKeys,
     extractionMethod,
@@ -2962,9 +3025,9 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         ? formatMessage(
             isGeneralCrop
               ? t.exportGeneralCropExtractionNote ||
-                  "General crop with {method}: nutrient ranges in Tabla N.° 1 follow {method} (not crop sufficiency)."
+                  "General crop with {method}: nutrient ranges follow the {method} extractant (not crop-specific sufficiency)."
               : t.exportExtractionMethodNote ||
-                  "Nutrient ranges in Tabla N.° 1 follow the {method} extractant (not crop sufficiency).",
+                  "Nutrient ranges follow the {method} extractant (not crop-specific sufficiency).",
             { method: methodLabel }
           )
         : formatMessage(
@@ -4165,19 +4228,6 @@ function SetupScreen({
             />
           </div>
         </SetupInlineField>
-        <p className="setup-inline-hint">
-          {sampleType === "foliar"
-            ? t.foliarExtractionHint ||
-              "Choose crop-specific sufficiency ranges, Olsen, or Mehlich for foliar phosphorus interpretation."
-            : isGeneralCrop
-              ? t.generalCropExtractionHint ||
-                "Choose General sufficiency ranges, or Olsen / Mehlich (Tabla N.° 1) for phosphorus."
-              : t.soilExtractionHint ||
-                "Choose crop-specific sufficiency ranges, or Olsen / Mehlich for method-specific phosphorus bands."}
-        </p>
-        {isGeneralCrop ? (
-          <p className="setup-inline-hint">{t.generalCropWarning}</p>
-        ) : null}
 
         <div className="setup-skip-row">
           <button type="button" onClick={handleSkipCrop} className="setup-skip-btn">
@@ -4913,6 +4963,23 @@ function ValuesScreen({
                 </th>
                 <th className="values-table-cell values-table-cell--level px-1 py-2">
                   <span className="sr-only">{t.interpretationDetail}</span>
+                  {hasEnteredValues ? (
+                    <div className="values-table-clear-wrap">
+                      <button
+                        type="button"
+                        className="values-table-clear-btn"
+                        onClick={() => {
+                          if (window.confirm(t.clearValuesConfirm)) {
+                            clearAllValues();
+                          }
+                        }}
+                        title={t.clearAllValues}
+                        aria-label={t.clearAllValues}
+                      >
+                        <Eraser size={14} aria-hidden />
+                      </button>
+                    </div>
+                  ) : null}
                 </th>
               </tr>
             </thead>
@@ -5907,16 +5974,6 @@ function ResultsSection({
                   : SOIL_EXTRACTION_OPTIONS
               }
             />
-            <p className="values-block-hint mt-2">
-              {sampleType === "foliar"
-                ? t.foliarExtractionHint ||
-                  "Choose crop-specific sufficiency ranges, Olsen, or Mehlich for foliar phosphorus interpretation."
-                : isGeneralCrop
-                  ? t.generalCropExtractionHint ||
-                    "Choose General sufficiency ranges, or Olsen / Mehlich (Tabla N.° 1) for phosphorus."
-                  : t.soilExtractionHint ||
-                    "Choose crop-specific sufficiency ranges, or Olsen / Mehlich for method-specific phosphorus bands."}
-            </p>
           </div>
         ) : null}
 

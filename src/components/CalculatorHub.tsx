@@ -11,7 +11,7 @@ import {
   Droplets,
   FileText,
   FlaskConical,
-  Import,
+  RefreshCcw,
   Leaf,
   Percent,
   Sprout,
@@ -299,14 +299,13 @@ function CalculatorHubBody({
   userId?: string | null;
   farmName?: string | null;
 }) {
-  const { importFromValues, valuesOutOfSync, lastImportFingerprint } = useCalculatorMemory();
+  const { importFromValues, valuesOutOfSync } = useCalculatorMemory();
   const sharedCations = useSharedCationInputs(lab);
   const effectiveLab = useMemo(
     () => enrichLabWithResolvedCations(lab, sharedCations),
     [lab, sharedCations]
   );
   const [importMessage, setImportMessage] = useState("");
-  const autoImportedRef = useRef(false);
   const [hubMode, setHubMode] = useState<HubMode>("guided");
   const calculatorTabs = useMemo(
     () => visibleCalculatorTabs(sampleType),
@@ -345,6 +344,17 @@ function CalculatorHubBody({
   );
   const [fertilizerApplyLines, setFertilizerApplyLines] = useState<string[]>([]);
   const costFromPlannerRef = useRef(false);
+  const fertilizerPlanRef = useRef(fertilizerPlan);
+  fertilizerPlanRef.current = fertilizerPlan;
+
+  const handleDosePlanChange = useCallback(
+    (plan: FertilizerPlanSnapshot) => {
+      if (sameFertilizerPlan(fertilizerPlanRef.current, plan)) return;
+      setFertilizerPlan(plan);
+      onFertilizerPlanChange?.(plan);
+    },
+    [onFertilizerPlanChange]
+  );
 
   function switchHubMode(mode: HubMode) {
     setHubMode(mode);
@@ -515,14 +525,13 @@ function CalculatorHubBody({
     return () => window.clearTimeout(timer);
   }, [importMessage]);
 
-  // First visit (no saved import): pull Values into calculator memory automatically once.
+  // Keep calculators in sync with the Values page: whenever lab values change,
+  // they automatically replace remembered calculator inputs (no manual refresh needed).
   useEffect(() => {
-    if (autoImportedRef.current) return;
-    if (lastImportFingerprint) return;
     if (!hasLabData) return;
-    autoImportedRef.current = true;
+    if (!valuesOutOfSync) return;
     importFromValues();
-  }, [hasLabData, lastImportFingerprint, importFromValues]);
+  }, [hasLabData, valuesOutOfSync, importFromValues]);
 
   return (
     <section className="animate-slide-up">
@@ -589,8 +598,8 @@ function CalculatorHubBody({
                 title={t.importFromValuesHint}
                 aria-label={t.importFromValuesHint}
               >
-                <Import size={14} aria-hidden />
-                <span>{t.importFromValues || "Import"}</span>
+                <RefreshCcw size={14} aria-hidden />
+                <span>{t.importFromValues || "Refresh"}</span>
                 {valuesOutOfSync ? (
                   <span className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
                 ) : null}
@@ -786,10 +795,7 @@ function CalculatorHubBody({
               layout={fieldsLayout}
               showCalculatorFormulas={showCalculatorFormulas}
               onOutputsChange={(outputs) => reportOutputs("fertilizer", outputs)}
-              onDosePlanChange={(plan) => {
-                setFertilizerPlan(plan);
-                onFertilizerPlanChange?.(plan);
-              }}
+              onDosePlanChange={handleDosePlanChange}
               onOpenCostPage={() => setActive("fertilizerCost")}
             />
           ) : (
@@ -2497,6 +2503,30 @@ function sameOutputs(previous: CalculationOutput[], next: CalculationOutput[]) {
       sameAlternatives
     );
   });
+}
+
+function sameFertilizerPlan(previous: FertilizerPlanSnapshot, next: FertilizerPlanSnapshot) {
+  if (previous.areaHa !== next.areaHa) return false;
+  if (previous.irrigationSystem !== next.irrigationSystem) return false;
+  if (previous.recommendations.length !== next.recommendations.length) return false;
+  if (!previous.recommendations.every((line, i) => line === next.recommendations[i])) return false;
+  if (previous.doses.length !== next.doses.length) return false;
+  if (
+    !previous.doses.every((dose, i) => {
+      const compare = next.doses[i];
+      return (
+        Boolean(compare) &&
+        dose.key === compare.key &&
+        dose.dosisOxideKgHa === compare.dosisOxideKgHa &&
+        dose.notRequired === compare.notRequired &&
+        dose.viaEncalado === compare.viaEncalado &&
+        dose.demandaKgHa === compare.demandaKgHa
+      );
+    })
+  ) {
+    return false;
+  }
+  return JSON.stringify(previous.irrigationTable) === JSON.stringify(next.irrigationTable);
 }
 
 function buildDopRows(

@@ -417,7 +417,7 @@ export function buildNutrientDosePlan(
         substitution: `${round(key === "n" ? extractionUsed.n : key === "p" ? (mode === "elemental" ? extractionUsed.p2o5 / factors.pToP2o5 : extractionUsed.p2o5) : key === "k" ? (mode === "elemental" ? extractionUsed.k2o / factors.kToK2o : extractionUsed.k2o) : mode === "elemental" ? extractionUsed.mgo / factors.mgToMgo : extractionUsed.mgo, 3)} × ${yieldTarget}`,
         result: String(round(demandaDisplay, 2)),
         unit: unitHa,
-        tableRef: "Tabla N.° 5",
+        tableRef: undefined,
       },
       {
         label: `Suministro ${nutrientLabel}`,
@@ -428,11 +428,11 @@ export function buildNutrientDosePlan(
       },
       {
         label: `Eficiencia ${nutrientLabel}`,
-        formula: "Eficiencia (fracción) — Tabla N.° 7 / sistema de riego",
+        formula: "Eficiencia (fracción) — sistema de riego",
         substitution: `${round(eficiencia * 100, 1)}%`,
         result: String(round(eficiencia, 3)),
         unit: "",
-        tableRef: "Tabla N.° 7",
+        tableRef: undefined,
       },
       {
         label: `Dosis ${nutrientLabel}`,
@@ -516,15 +516,15 @@ export function buildNutrientDosePlan(
       substitution: `${extractionUsed.n} × ${yieldTarget}`,
       result: String(round(demandN, 2)),
       unit: "kg N/ha",
-      tableRef: "Tabla N.° 5",
+      tableRef: undefined,
     },
     {
       label: `Eficiencia ${labels.n}`,
-      formula: "Eficiencia — Tabla N.° 7 / sistema de riego",
+      formula: "Eficiencia — sistema de riego",
       substitution: `${round(effN * 100, 1)}%`,
       result: String(round(effN, 3)),
       unit: "",
-      tableRef: "Tabla N.° 7",
+      tableRef: undefined,
     },
     {
       label: `Dosis ${labels.n}`,
@@ -558,7 +558,7 @@ export function buildNutrientDosePlan(
         : "Sin dato de P",
     result: String(round(toDisplayKg(supplyP2o5, "p", mode, factors), 2)),
     unit: nutrientHaUnit("p", mode),
-    tableRef: "Tabla N.° 4",
+    tableRef: undefined,
   });
 
   const doseK = buildFertilizerDose(
@@ -579,7 +579,7 @@ export function buildNutrientDosePlan(
         : "Sin dato de K",
     result: String(round(toDisplayKg(supplyK2o, "k", mode, factors), 2)),
     unit: nutrientHaUnit("k", mode),
-    tableRef: "Tabla N.° 4 / 6",
+    tableRef: undefined,
   });
 
   const doseMg = buildFertilizerDose(
@@ -600,7 +600,7 @@ export function buildNutrientDosePlan(
         : "Sin dato de Mg",
     result: String(round(toDisplayKg(supplyMgo, "mg", mode, factors), 2)),
     unit: nutrientHaUnit("mg", mode),
-    tableRef: "Tabla N.° 4 / 6",
+    tableRef: undefined,
   });
 
   // Tutoría §§1.4–1.5: deficit-first Cal / gypsum — only when CICe / V% chemistry indicates need.
@@ -610,10 +610,10 @@ export function buildNutrientDosePlan(
     {
       label: "Déficit de Ca / enmienda",
       formula: "Sin dosis — CICe / V% en rango suficiente",
-      substitution: "Tabla N.° 2 rangos adecuados",
+      substitution: "Rangos de saturación adecuados",
       result: "—",
       unit: "kg/ha",
-      tableRef: "Tabla N.° 2 · Tutoría §§1.4–1.5",
+      tableRef: undefined,
       interpretation:
         "No se requiere aplicación de cal o yeso: la distribución de bases en la CICe y/o V% está en rango suficiente.",
     },
@@ -651,7 +651,7 @@ export function buildNutrientDosePlan(
         substitution: `${cal.caTargetCmol > 0 ? chemGate.sat.cec : 0} × (${cal.caTargetPercent} / 100)`,
         result: String(cal.caTargetCmol),
         unit: "cmol(+)/kg",
-        tableRef: "Tabla N.° 2",
+        tableRef: undefined,
       },
       {
         label: "Déficit de Ca",
@@ -659,7 +659,7 @@ export function buildNutrientDosePlan(
         substitution: `${cal.caTargetCmol} − ${caCmol}`,
         result: String(cal.caDeficitCmol),
         unit: "cmol(+)/kg",
-        tableRef: "Tutoría §1.4",
+        tableRef: undefined,
       },
       {
         label: "Ca elemental",
@@ -667,7 +667,7 @@ export function buildNutrientDosePlan(
         substitution: `MS ${cal.soilMassKgHa} kg/ha`,
         result: String(cal.caKgHa),
         unit: "kg Ca/ha",
-        tableRef: "Tutoría §1.4",
+        tableRef: undefined,
       },
       {
         label: "CaO requerido",
@@ -675,7 +675,7 @@ export function buildNutrientDosePlan(
         substitution: `${cal.caKgHa} × ${factors.caToCao}`,
         result: String(cal.caoKgHa),
         unit: "kg CaO/ha",
-        tableRef: "Tabla N.° 4",
+        tableRef: undefined,
       },
     ];
 
@@ -692,7 +692,7 @@ export function buildNutrientDosePlan(
           : `${cal.caoKgHa} / (${limeCaoPercent} / 100) / (${prnt} / 100)`,
         result: String(productKgHa),
         unit: "kg/ha",
-        tableRef: "Tabla N.° 12 · Tutoría §1.5",
+        tableRef: undefined,
         interpretation: useGypsumProduct
           ? "Yeso (sin subir pH): déficit de Ca sin vía de encalado y/o sodicidad."
           : limeMaterial === "dolomitic_lime"
@@ -706,7 +706,7 @@ export function buildNutrientDosePlan(
         substitution: `Sat Ca ${cal.caCurrentPercent}% ≥ ${cal.caTargetPercent}%`,
         result: "—",
         unit: "kg/ha",
-        tableRef: "Tabla N.° 2",
+        tableRef: undefined,
         interpretation:
           "No se requiere dosis: la saturación de Ca ya alcanza o supera la meta.",
       });

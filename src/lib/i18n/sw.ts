@@ -77,13 +77,13 @@ const sw = {
   extractionMethodBray: "Bray",
   extractionMethodActive: "Viwango vya P: {method}",
   generalCropExtractionHint:
-    "Chagua viwango vya kutosha vya Jumla, au Olsen / Mehlich (Tabla N.° 1) kwa fosforasi.",
+    "Chagua viwango vya kutosha vya Jumla, au Olsen / Mehlich kwa fosforasi.",
   soilExtractionHint:
     "Chagua viwango vya kutosha vya zao, au Olsen / Mehlich kwa bendi za fosforasi kulingana na mbinu.",
   exportGeneralCropExtractionNote:
-    "Zao la jumla na {method}: viwango vya virutubisho vya Tabla N.° 1 hufuata {method} (si utoshelezi wa zao).",
+    "Zao la jumla na {method}: viwango vya virutubisho hufuata extractant {method} (si utoshelezi wa zao).",
   exportExtractionMethodNote:
-    "Viwango vya virutubisho vya Tabla N.° 1 hufuata extractant {method} (si utoshelezi wa zao).",
+    "Viwango vya virutubisho hufuata extractant {method} (si utoshelezi wa zao).",
   exportFoliarExtractionNote:
     "Uchambuzi wa majani na {method}: tafsiri ya fosforasi inapendelea viwango vilivyounganishwa na {method} vinapopatikana.",
   exportRecommendationsHint:
@@ -168,6 +168,8 @@ const sw = {
   valuesGroupSecondary: "Vigezo vingine",
   parameterLabel: "Kigezo",
   valueLabel: "Thamani",
+  clearAllValues: "Futa thamani",
+  clearValuesConfirm: "Futa thamani zote zilizowekwa? Kitendo hiki hakiwezi kutenduliwa.",
   importCsvExcel: "Ingiza CSV/Excel",
   addCustomParameter: "Ongeza kigezo maalum",
   manageCustomData: "Dhibiti data maalum",
@@ -670,6 +672,15 @@ const sw = {
     allCaughtUp: "Uko sawa",
     markAllRead: "Weka zote kama zimesomwa",
     emptyNotifications: "Bado hakuna arifa.",
+    notifGroupToday: "Leo",
+    notifGroupYesterday: "Jana",
+    notifGroupThisWeek: "Wiki hii",
+    notifGroupThisMonth: "Mwezi huu",
+    notifGroupOlder: "Zilizopita",
+    clearNotification: "Futa",
+    clearAllNotifications: "Futa zote",
+    clearAllNotificationsConfirm:
+      "Futa arifa zote? Hili haliwezi kutenduliwa.",
   },
 
 

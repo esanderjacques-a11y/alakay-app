@@ -11,6 +11,7 @@ import {
 import type { Language } from "@/lib/i18n";
 import {
   deleteCalendarEventRemote,
+  deleteNotificationsRemote,
   deleteUserNoteRemote,
   fetchPlanningBundle,
   pushPlanningBundle,
@@ -330,6 +331,24 @@ export function markAllNotificationsRead() {
       )
     );
   });
+}
+
+export function removeNotification(id: string) {
+  const state = readState();
+  const next = state.notifications.filter((item) => item.id !== id);
+  if (next.length === state.notifications.length) return;
+  state.notifications = next;
+  writeState(state);
+  queueRemote(() => deleteNotificationsRemote(activeUserId!, [id]));
+}
+
+export function clearAllNotifications() {
+  const state = readState();
+  const ids = state.notifications.map((item) => item.id);
+  if (ids.length === 0) return;
+  state.notifications = [];
+  writeState(state);
+  queueRemote(() => deleteNotificationsRemote(activeUserId!, ids));
 }
 
 export function unreadNotificationCount(now = new Date()): number {

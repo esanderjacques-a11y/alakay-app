@@ -1,6 +1,14 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent,
+} from "react";
 import {
   ArrowLeft,
   Camera,
@@ -20,7 +28,12 @@ import {
   documentContextFromMetadata,
   formatReportReferenceRange,
   inferRowReportUnit,
+  isExchangeCationUnit,
+  isMassOrExchangeBaseKey,
+  looksLikeMassConcentrationValue,
   mergeDocumentUnitContext,
+  parseReportReferenceRange,
+  reconcileReportedUnit,
   type DocumentUnitContext,
 } from "@/lib/import/importUnitContext";
 import type { Language } from "@/lib/translations";
@@ -196,7 +209,11 @@ type Props = {
     importedValues: Record<string, string>,
     importedUnits: Record<string, number>,
     metadata?: ImportMetadata,
-    importedUnitDisplayKeys?: Record<string, string>
+    importedUnitDisplayKeys?: Record<string, string>,
+    importedReportRanges?: Record<
+      string,
+      { min: number | null; max: number | null; raw: string; rating?: string | null }
+    >
   ) => void;
   onEnterImportReview?: () => void;
   presentation?: "overlay" | "page";
@@ -212,6 +229,31 @@ type CropInsets = {
 };
 
 const DEFAULT_CROP_INSETS: CropInsets = { top: 6, left: 6, right: 6, bottom: 6 };
+const MIN_CROP_SIZE_PERCENT = 12;
+
+type CropDragMode =
+  | "move"
+  | "top"
+  | "right"
+  | "bottom"
+  | "left"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
+type CropDragState = {
+  mode: CropDragMode;
+  startX: number;
+  startY: number;
+  width: number;
+  height: number;
+  insets: CropInsets;
+};
+
+function clampCropValue(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
 
 async function cropImageBlob(source: Blob, insets: CropInsets): Promise<Blob> {
   const bitmap = await createImageBitmap(source);
@@ -968,7 +1010,15 @@ function findUnitSelection(
     sortedDefaults[0] ||
     parameter.available_units[0];
 
-  if (!rawUnit?.trim()) {
+  // Fix AI/OCR mismatches: bases reported as cmol/meq when the magnitude is ppm/mg/kg.
+  const reconciledUnit = reconcileReportedUnit(
+    rawUnit,
+    parameter.parameter_key,
+    numericValue,
+    documentContext
+  );
+
+  if (!reconciledUnit?.trim()) {
     const inferredMass = inferRowReportUnit(
       undefined,
       parameter.parameter_key,
@@ -979,6 +1029,21 @@ function findUnitSelection(
       return findUnitSelection(parameter, inferredMass, documentContext, numericValue);
     }
 
+    // For Ca/Mg/K/Na with mass-like values, never fall back to the parameter's
+    // default cmol(+)/kg when mg/kg is available.
+    if (
+      preferredMgKg &&
+      isMassOrExchangeBaseKey(parameter.parameter_key) &&
+      numericValue !== undefined &&
+      looksLikeMassConcentrationValue(parameter.parameter_key, numericValue)
+    ) {
+      return {
+        unitId: preferredMgKg.unit_id,
+        displayKey: getUnitOptionKey(preferredMgKg),
+        quality: "compatible" as const,
+      };
+    }
+
     return {
       unitId: defaultOption?.unit_id || parameter.unit_id,
       displayKey: defaultOption ? getUnitOptionKey(defaultOption) : null,
@@ -986,8 +1051,8 @@ function findUnitSelection(
     };
   }
 
-  const normalizedRawUnit = normalizeUnitForMatching(rawUnit);
-  const rawUnitLiteral = rawUnit.trim().toLowerCase().replace(/\s+/g, "");
+  const normalizedRawUnit = normalizeUnitForMatching(reconciledUnit);
+  const rawUnitLiteral = reconciledUnit.trim().toLowerCase().replace(/\s+/g, "");
   // ppm ≡ mg/kg — prefer showing mg/kg when the lab reports either.
   if (rawUnitLiteral === "ppm" || rawUnitLiteral === "ug/g" || rawUnitLiteral === "µg/g") {
     if (preferredMgKg) {
@@ -1001,8 +1066,10 @@ function findUnitSelection(
 
   const literalMatch = parameter.available_units.find((unit) => {
     return (
-      String(unit.display_symbol || "").trim().toLowerCase() === rawUnit.trim().toLowerCase() ||
-      String(unit.unit_symbol || "").trim().toLowerCase() === rawUnit.trim().toLowerCase()
+      String(unit.display_symbol || "").trim().toLowerCase() ===
+        reconciledUnit.trim().toLowerCase() ||
+      String(unit.unit_symbol || "").trim().toLowerCase() ===
+        reconciledUnit.trim().toLowerCase()
     );
   });
   if (literalMatch) {
@@ -1029,7 +1096,7 @@ function findUnitSelection(
   }
 
   const compatibleMatch = parameter.available_units.find((unit) =>
-    canConvertLabUnit(rawUnit, unit.unit_symbol || unit.display_symbol)
+    canConvertLabUnit(reconciledUnit, unit.unit_symbol || unit.display_symbol)
   );
 
   if (compatibleMatch) {
@@ -1041,9 +1108,23 @@ function findUnitSelection(
         .replace(/\s+/g, "");
       return (
         (raw === "mg/kg" || raw === "mgkg-1") &&
-        canConvertLabUnit(rawUnit, unit.unit_symbol || unit.display_symbol)
+        canConvertLabUnit(reconciledUnit, unit.unit_symbol || unit.display_symbol)
       );
     });
+    // Never map a mass-like base value onto cmol via meq↔cmol equivalence.
+    if (
+      preferredMgKg &&
+      isMassOrExchangeBaseKey(parameter.parameter_key) &&
+      isExchangeCationUnit(reconciledUnit) &&
+      numericValue !== undefined &&
+      looksLikeMassConcentrationValue(parameter.parameter_key, numericValue)
+    ) {
+      return {
+        unitId: preferredMgKg.unit_id,
+        displayKey: getUnitOptionKey(preferredMgKg),
+        quality: "compatible" as const,
+      };
+    }
     const selected = compatibleMgKg || compatibleMatch;
     return {
       unitId: selected.unit_id,
@@ -1128,6 +1209,7 @@ function resolveRowImportState(
     );
     const ready =
       selectedUnit.quality === "exact" || selectedUnit.quality === "compatible";
+    const canImport = Boolean(selectedUnit.unitId && selectedUnit.displayKey);
     return {
       ...row,
       value: normalizedValue,
@@ -1136,7 +1218,14 @@ function resolveRowImportState(
       selectedUnitDisplayKey: selectedUnit.displayKey,
       status: ready ? "matched" : "unmatched",
       message: ready ? "Ready." : "Review unit.",
-      selected: ready ? (preserveSelected ? row.selected : true) : false,
+      // Uncertain rows stay off by default, but keep a manual check if the user opted in.
+      selected: ready
+        ? preserveSelected
+          ? row.selected
+          : true
+        : preserveSelected && canImport
+          ? row.selected
+          : false,
     };
   }
 
@@ -1147,6 +1236,12 @@ function resolveRowImportState(
     message: "Ready.",
     selected: preserveSelected ? row.selected || false : true,
   };
+}
+
+/** Row has parameter + value + unit and can be included in import (even if flagged for review). */
+function isImportableRow(row: ImportPreviewRow): boolean {
+  if (!row.matchedParameterKey || !row.selectedUnitId) return false;
+  return normalizeNumericValue(row.value) !== "";
 }
 
 function getParameterLabel(parameter: ParameterForImport) {
@@ -1602,6 +1697,8 @@ export default function LabValueImporter({
   const [scanStep, setScanStep] = useState<ScanStep>("camera");
   const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(null);
   const [cropInsets, setCropInsets] = useState<CropInsets>(DEFAULT_CROP_INSETS);
+  const cropStageRef = useRef<HTMLDivElement | null>(null);
+  const cropDragRef = useRef<CropDragState | null>(null);
   const capturedBlobRef = useRef<Blob | null>(null);
   const cameraStartingRef = useRef(false);
   const [loadingStartedAt, setLoadingStartedAt] = useState<number | null>(null);
@@ -1617,7 +1714,7 @@ export default function LabValueImporter({
   }, [parameters]);
 
   const selectedRows = previewRows.filter(
-    (row) => row.selected && row.status === "matched" && row.matchedParameterKey
+    (row) => row.selected && isImportableRow(row)
   );
 
   const overwriteCount = selectedRows.filter((row) => {
@@ -2163,6 +2260,88 @@ export default function LabValueImporter({
     resetScanFlow();
   }
 
+  function beginCropDrag(
+    event: PointerEvent<HTMLElement>,
+    mode: CropDragMode
+  ) {
+    const stage = cropStageRef.current;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    stage.setPointerCapture(event.pointerId);
+    cropDragRef.current = {
+      mode,
+      startX: event.clientX,
+      startY: event.clientY,
+      width: rect.width,
+      height: rect.height,
+      insets: cropInsets,
+    };
+  }
+
+  function moveCropDrag(event: PointerEvent<HTMLDivElement>) {
+    const drag = cropDragRef.current;
+    if (!drag) return;
+
+    event.preventDefault();
+    const dx = ((event.clientX - drag.startX) / drag.width) * 100;
+    const dy = ((event.clientY - drag.startY) / drag.height) * 100;
+    const next = { ...drag.insets };
+    const cropWidth = 100 - drag.insets.left - drag.insets.right;
+    const cropHeight = 100 - drag.insets.top - drag.insets.bottom;
+
+    if (drag.mode === "move") {
+      next.left = clampCropValue(drag.insets.left + dx, 0, 100 - cropWidth);
+      next.right = 100 - next.left - cropWidth;
+      next.top = clampCropValue(drag.insets.top + dy, 0, 100 - cropHeight);
+      next.bottom = 100 - next.top - cropHeight;
+    } else {
+      if (drag.mode.includes("left")) {
+        next.left = clampCropValue(
+          drag.insets.left + dx,
+          0,
+          100 - drag.insets.right - MIN_CROP_SIZE_PERCENT
+        );
+      }
+      if (drag.mode.includes("right")) {
+        next.right = clampCropValue(
+          drag.insets.right - dx,
+          0,
+          100 - drag.insets.left - MIN_CROP_SIZE_PERCENT
+        );
+      }
+      if (drag.mode.includes("top")) {
+        next.top = clampCropValue(
+          drag.insets.top + dy,
+          0,
+          100 - drag.insets.bottom - MIN_CROP_SIZE_PERCENT
+        );
+      }
+      if (drag.mode.includes("bottom")) {
+        next.bottom = clampCropValue(
+          drag.insets.bottom - dy,
+          0,
+          100 - drag.insets.top - MIN_CROP_SIZE_PERCENT
+        );
+      }
+    }
+
+    setCropInsets(next);
+  }
+
+  function endCropDrag(event: PointerEvent<HTMLDivElement>) {
+    if (!cropDragRef.current) return;
+    cropDragRef.current = null;
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      /* Pointer capture may already be released by the browser. */
+    }
+  }
+
   async function handleFileUpload(file: File) {
     setLoading(true);
     setLoadingLabel("Reading your file...");
@@ -2513,6 +2692,10 @@ export default function LabValueImporter({
     const importedValues: Record<string, string> = {};
     const importedUnits: Record<string, number> = {};
     const importedUnitDisplayKeys: Record<string, string> = {};
+    const importedReportRanges: Record<
+      string,
+      { min: number | null; max: number | null; raw: string; rating?: string | null }
+    > = {};
 
     for (const row of rowsToImport) {
       if (!row.matchedParameterKey || !row.selectedUnitId) continue;
@@ -2523,9 +2706,24 @@ export default function LabValueImporter({
       if (row.selectedUnitDisplayKey) {
         importedUnitDisplayKeys[row.matchedParameterKey] = row.selectedUnitDisplayKey;
       }
+      const parsedRange = parseReportReferenceRange(row.reportReferenceRange);
+      if (parsedRange) {
+        importedReportRanges[row.matchedParameterKey] = {
+          min: parsedRange.min,
+          max: parsedRange.max,
+          raw: parsedRange.raw,
+          rating: row.reportRating || null,
+        };
+      }
     }
 
-    onImportValues(importedValues, importedUnits, importMetadata, importedUnitDisplayKeys);
+    onImportValues(
+      importedValues,
+      importedUnits,
+      importMetadata,
+      importedUnitDisplayKeys,
+      importedReportRanges
+    );
     if (activeCacheId) {
       markImportCacheValidated(activeCacheId);
     }
@@ -2704,11 +2902,15 @@ export default function LabValueImporter({
             >
               {capturedPreviewUrl ? (
                 <div
+                  ref={cropStageRef}
                   className={
                     isPage
                       ? "lab-scan-page__crop lab-scan-crop-stage"
                       : "lab-scan-crop-stage"
                   }
+                  onPointerMove={moveCropDrag}
+                  onPointerUp={endCropDrag}
+                  onPointerCancel={endCropDrag}
                   style={
                     {
                       "--crop-top": `${cropInsets.top}%`,
@@ -2722,73 +2924,43 @@ export default function LabValueImporter({
                     src={capturedPreviewUrl}
                     alt="Captured lab report preview"
                     className="lab-scan-crop-stage__image"
+                    draggable={false}
                   />
-                  <div className="lab-scan-crop-stage__frame" aria-hidden />
+                  <div
+                    className="lab-scan-crop-stage__frame"
+                    role="group"
+                    aria-label="Crop area. Drag to move, or drag the handles to resize."
+                    onPointerDown={(event) => beginCropDrag(event, "move")}
+                  >
+                    {[
+                      ["top-left", "Resize top left"],
+                      ["top", "Resize top"],
+                      ["top-right", "Resize top right"],
+                      ["right", "Resize right"],
+                      ["bottom-right", "Resize bottom right"],
+                      ["bottom", "Resize bottom"],
+                      ["bottom-left", "Resize bottom left"],
+                      ["left", "Resize left"],
+                    ].map(([mode, label]) => (
+                      <span
+                        key={mode}
+                        className={`lab-scan-crop-stage__handle lab-scan-crop-stage__handle--${mode}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={label}
+                        onPointerDown={(event) =>
+                          beginCropDrag(event, mode as CropDragMode)
+                        }
+                      />
+                    ))}
+                  </div>
                 </div>
               ) : null}
 
-              <div className="lab-scan-crop-controls">
-                <label className="lab-scan-crop-controls__field">
-                  <span>Top</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={35}
-                    value={cropInsets.top}
-                    onChange={(event) =>
-                      setCropInsets((previous) => ({
-                        ...previous,
-                        top: Number(event.target.value),
-                      }))
-                    }
-                  />
-                </label>
-                <label className="lab-scan-crop-controls__field">
-                  <span>Bottom</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={35}
-                    value={cropInsets.bottom}
-                    onChange={(event) =>
-                      setCropInsets((previous) => ({
-                        ...previous,
-                        bottom: Number(event.target.value),
-                      }))
-                    }
-                  />
-                </label>
-                <label className="lab-scan-crop-controls__field">
-                  <span>Left</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={35}
-                    value={cropInsets.left}
-                    onChange={(event) =>
-                      setCropInsets((previous) => ({
-                        ...previous,
-                        left: Number(event.target.value),
-                      }))
-                    }
-                  />
-                </label>
-                <label className="lab-scan-crop-controls__field">
-                  <span>Right</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={35}
-                    value={cropInsets.right}
-                    onChange={(event) =>
-                      setCropInsets((previous) => ({
-                        ...previous,
-                        right: Number(event.target.value),
-                      }))
-                    }
-                  />
-                </label>
-              </div>
+              <p className="lab-scan-crop-hint">
+                Drag the green box to move it. Pull a corner or side to crop the
+                report before analysis.
+              </p>
 
               <div className="lab-scan-screen__actions">
                 <button
@@ -3330,7 +3502,7 @@ function ImportReviewList({
                   <input
                     type="checkbox"
                     checked={row.selected}
-                    disabled={row.status !== "matched"}
+                    disabled={!isImportableRow(row)}
                     onChange={(event) => onSelectRow(row.id, event.target.checked)}
                     aria-label={`Import ${displayName}`}
                   />
@@ -3520,7 +3692,7 @@ function ImportReviewList({
                       <input
                         type="checkbox"
                         checked={row.selected}
-                        disabled={row.status !== "matched"}
+                        disabled={!isImportableRow(row)}
                         onChange={(event) => onSelectRow(row.id, event.target.checked)}
                         onClick={(event) => event.stopPropagation()}
                         aria-label={`Import ${fullName}`}

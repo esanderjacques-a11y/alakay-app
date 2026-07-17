@@ -153,6 +153,7 @@
   parameterLabel: "Paramèt",
   valueLabel: "Valè",
   clearAllValues: "Efase valè yo",
+  clearValuesConfirm: "Efase tout valè ou antre yo? Ou pa ka defèt sa.",
   importCsvExcel: "Enpòte CSV/Excel",
   addCustomParameter: "Ajoute paramèt pèsonalize",
   manageCustomData: "Jere done pèsonalize",
@@ -227,13 +228,13 @@
   extractionMethodBray: "Bray",
   extractionMethodActive: "Entèval P: {method}",
   generalCropExtractionHint:
-    "Chwazi entèval sufizans Jeneral, oswa Olsen / Mehlich (Tabla N.° 1) pou fosfò.",
+    "Chwazi entèval sufizans Jeneral, oswa Olsen / Mehlich pou fosfò.",
   soilExtractionHint:
     "Chwazi entèval sufizans rekòt la, oswa Olsen / Mehlich pou bann fosfò selon metòd la.",
   exportGeneralCropExtractionNote:
-    "Rekòt jeneral ak {method}: entèval nitritif Tabla N.° 1 swiv {method} (pa sufizans rekòt la).",
+    "Rekòt jeneral ak {method}: entèval nitritif yo swiv ekstraktan {method} (pa sufizans rekòt la).",
   exportExtractionMethodNote:
-    "Entèval nitritif Tabla N.° 1 swiv ekstraktan {method} (pa sufizans rekòt la).",
+    "Entèval nitritif yo swiv ekstraktan {method} (pa sufizans rekòt la).",
   exportFoliarExtractionNote:
     "Analiz fèy ak {method}: entèpretasyon fosfò prefere entèval ki mare ak {method} lè yo disponib.",
   exportRecommendationsHint:
@@ -308,6 +309,7 @@
   confidenceGeneral: "Jeneral",
   userCustomRange: "entèval pèsonalize itilizatè",
   manualSource: "Manyèl",
+  labReportRangeSource: "Rapò laboratwa",
   databaseSource: "Baz done",
   officialRangeSource: "entèval ofisyèl",
   adviceBulkDensityVeryHigh:
@@ -891,6 +893,15 @@
     allCaughtUp: "Ou a jou",
     markAllRead: "Make tout li",
     emptyNotifications: "Poko gen notifikasyon.",
+    notifGroupToday: "Jodi a",
+    notifGroupYesterday: "Ye",
+    notifGroupThisWeek: "Semèn sa a",
+    notifGroupThisMonth: "Mwa sa a",
+    notifGroupOlder: "Anvan yo",
+    clearNotification: "Efase",
+    clearAllNotifications: "Efase tout",
+    clearAllNotificationsConfirm:
+      "Efase tout notifikasyon yo? Ou pa ka defèt aksyon sa a.",
   },
 
 

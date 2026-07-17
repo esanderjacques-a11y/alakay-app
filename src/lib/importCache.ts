@@ -27,6 +27,8 @@ export type CachedImportRow = {
   status: "matched" | "unmatched" | "invalid";
   message: string;
   selected: boolean;
+  reportReferenceRange?: string | null;
+  reportRating?: string | null;
 };
 
 export type CachedImportEntry = {

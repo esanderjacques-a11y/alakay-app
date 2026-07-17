@@ -544,7 +544,7 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
         detailCurrent = gypsumCal.caCurrentPercent;
         detailTarget = gypsumCal.caTargetPercent;
         detailCec = input.cec;
-        formula = "Gypsum = (Ca deficit → CaO) / (14% CaO) · Tabla N.° 12 yeso";
+        formula = "Gypsum = (Ca deficit → CaO) / (14% CaO)";
         if (gypsumCal.noRequirement || productKgHa <= 0) {
           noRequirement = true;
           noRequirementReason = "current_meets_target";

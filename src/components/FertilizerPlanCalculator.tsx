@@ -660,9 +660,8 @@ export default function FertilizerPlanCalculator({
           defaultOpen
         >
           {showCropPicker ? (
-            <div className="calc-page__crop grid gap-2 px-3 py-3">
+            <div className="calc-page__crop grid gap-2 py-2">
               <SelectField
-                label={t.fertilizerPlanCrop || "Crop"}
                 value={selectedTableCropKey}
                 onChange={setSelectedTableCropKey}
                 options={cropOptions}
@@ -1231,7 +1230,7 @@ function SelectField({
   searchable,
   searchPlaceholder,
 }: {
-  label: string;
+  label?: string;
   value: string;
   onChange: (value: string) => void;
   options: Array<[string, string]>;

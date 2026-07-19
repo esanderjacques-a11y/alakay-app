@@ -4579,6 +4579,86 @@ html[data-theme="dark"] .app-header {
     border-color: rgb(255 255 255 / 0.06);
   }
 
+  /*
+   * Calculator light-theme contrast (phones).
+   * Translucent glass over the green gradient + Tailwind slate-500/600
+   * washes out on mobile panels even when it looks fine on a laptop.
+   * Keep surfaces more opaque and darken helper/body text inside calc pages.
+   */
+  html:not([data-theme="dark"]) .calculator-hub-panel .calc-surface,
+  html:not([data-theme="dark"]) .calc-page .calc-surface {
+    background: rgb(255 255 255 / 0.9);
+  }
+
+  html:not([data-theme="dark"]) .calculator-hub-panel .calc-surface-muted,
+  html:not([data-theme="dark"]) .calculator-hub-panel .calc-surface-inner,
+  html:not([data-theme="dark"]) .calculator-hub-panel .calc-stage-card,
+  html:not([data-theme="dark"]) .calculator-hub-panel .calc-chart-plot,
+  html:not([data-theme="dark"]) .calc-page .calc-surface-muted,
+  html:not([data-theme="dark"]) .calc-page .calc-surface-inner,
+  html:not([data-theme="dark"]) .calc-page .calc-stage-card,
+  html:not([data-theme="dark"]) .calc-page .calc-chart-plot {
+    background: rgb(255 255 255 / 0.82);
+  }
+
+  html:not([data-theme="dark"]) .calculator-hub-panel .calc-field-input,
+  html:not([data-theme="dark"]) .calc-page .calc-field-input,
+  html:not([data-theme="dark"]) .calculator-hub-panel select.calc-field-input,
+  html:not([data-theme="dark"]) .calc-page select.calc-field-input {
+    background: rgb(255 255 255 / 0.92);
+    color: #1c1c1e;
+  }
+
+  html:not([data-theme="dark"]) .calculator-hub-panel .text-slate-400,
+  html:not([data-theme="dark"]) .calc-page .text-slate-400 {
+    color: #64748b;
+  }
+
+  html:not([data-theme="dark"]) .calculator-hub-panel .text-slate-500,
+  html:not([data-theme="dark"]) .calc-page .text-slate-500 {
+    color: #475569;
+  }
+
+  html:not([data-theme="dark"]) .calculator-hub-panel .text-slate-600,
+  html:not([data-theme="dark"]) .calc-page .text-slate-600 {
+    color: #334155;
+  }
+
+  html:not([data-theme="dark"]) .calculator-hub-panel .text-slate-700,
+  html:not([data-theme="dark"]) .calc-page .text-slate-700 {
+    color: #1e293b;
+  }
+
+  html:not([data-theme="dark"]) .calculator-hub-panel .text-emerald-700,
+  html:not([data-theme="dark"]) .calc-page .text-emerald-700 {
+    color: #166534;
+  }
+
+  html:not([data-theme="dark"]) .calculator-hub-panel .text-emerald-800,
+  html:not([data-theme="dark"]) .calc-page .text-emerald-800 {
+    color: #14532d;
+  }
+
+  html:not([data-theme="dark"]) .calculator-hub-panel .text-green-800,
+  html:not([data-theme="dark"]) .calc-page .text-green-800 {
+    color: #166534;
+  }
+
+  html:not([data-theme="dark"]) .calculator-hub-panel .text-green-950,
+  html:not([data-theme="dark"]) .calc-page .text-green-950 {
+    color: #052e16;
+  }
+
+  html:not([data-theme="dark"]) .calculator-hub-tab {
+    color: #545458;
+    background: rgb(255 255 255 / 0.86);
+  }
+
+  html:not([data-theme="dark"]) .calc-chip,
+  html:not([data-theme="dark"]) .calc-value-pill {
+    color: #545458;
+  }
+
   /* Planning / farms — follow theme, accent, glass, font tokens */
   .plan-timeline {
     position: relative;
@@ -5897,7 +5977,7 @@ html[data-theme="dark"] .app-header {
   .fertilizer-plan__section-summary {
     font-size: 0.75rem;
     font-weight: 500;
-    color: #64748b;
+    color: #475569;
     letter-spacing: normal;
     text-transform: none;
     overflow: hidden;

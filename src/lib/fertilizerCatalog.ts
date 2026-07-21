@@ -53,7 +53,7 @@ export const COMMERCIAL_FERTILIZERS: CommercialFertilizer[] = [
   },
   {
     key: "calcium_nitrate",
-    label: "Calcium nitrate",
+    label: "Nitrato de calcio",
     analysis: "15.5-0-0 + 26.5% CaO",
     grade: { n: 15.5, cao: 26.5 },
   },

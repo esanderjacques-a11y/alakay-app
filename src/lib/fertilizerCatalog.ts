@@ -53,6 +53,12 @@ export const COMMERCIAL_FERTILIZERS: CommercialFertilizer[] = [
   },
   {
     key: "calcium_nitrate",
+    label: "Calcium nitrate",
+    analysis: "15.5-0-0 + 26.5% CaO",
+    grade: { n: 15.5, cao: 26.5 },
+  },
+  {
+    key: "nitrato_de_calcio",
     label: "Nitrato de calcio",
     analysis: "15.5-0-0 + 26.5% CaO",
     grade: { n: 15.5, cao: 26.5 },
@@ -195,7 +201,10 @@ export function matchCatalogProductKey(
   if (/\blime\b|cal agricola|agricultural lime|calcit/.test(token)) {
     return "agricultural_lime";
   }
-  if (/calcium nitrate|nitrato de calcio|calcium_nitrate/.test(token)) {
+  if (/nitrato de calcio|nitrato_de_calcio/.test(token)) {
+    return "nitrato_de_calcio";
+  }
+  if (/calcium nitrate|calcium_nitrate/.test(token)) {
     return "calcium_nitrate";
   }
   if (/npk\s*15/.test(token)) return "npk_15_15_15";

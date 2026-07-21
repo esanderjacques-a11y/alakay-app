@@ -102,7 +102,12 @@ const SINGLES_PREFERRED: Partial<Record<OptimizeNutrient, string[]>> = {
   p2o5: ["tsp", "dap", "map"],
   k2o: ["mop", "sop"],
   mgo: ["kieserite", "magnesium_sulfate"],
-  cao: ["calcium_nitrate", "gypsum", "agricultural_lime"],
+  cao: [
+    "calcium_nitrate",
+    "nitrato_de_calcio",
+    "gypsum",
+    "agricultural_lime",
+  ],
 };
 
 const COMPOUND_PREFERRED = ["npk_15_15_15", "npk_10_30_10", "dap", "map"];

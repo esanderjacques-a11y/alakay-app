@@ -287,11 +287,12 @@ export default function FertilizerPlanCalculator({
     0
   );
 
-  /** Known doses stored on oxide basis (N elemental, P₂O₅, K₂O, MgO). */
+  /** Known doses stored on oxide basis (N elemental, P₂O₅, K₂O, MgO, CaO). */
   const [manualNOxide, setManualNOxide] = useMemoryNumber("fertilizer", "manualDoseN", 0);
   const [manualPOxide, setManualPOxide] = useMemoryNumber("fertilizer", "manualDoseP", 0);
   const [manualKOxide, setManualKOxide] = useMemoryNumber("fertilizer", "manualDoseK", 0);
   const [manualMgOxide, setManualMgOxide] = useMemoryNumber("fertilizer", "manualDoseMg", 0);
+  const [manualCaOxide, setManualCaOxide] = useMemoryNumber("fertilizer", "manualDoseCa", 0);
 
   const extractOxide = useMemo<ExtractionOxide>(
     () => ({
@@ -369,6 +370,7 @@ export default function FertilizerPlanCalculator({
         p2o5KgHa: manualPOxide,
         k2oKgHa: manualKOxide,
         mgoKgHa: manualMgOxide,
+        caoKgHa: manualCaOxide,
         area,
         areaUnit,
         displayMode,
@@ -411,6 +413,7 @@ export default function FertilizerPlanCalculator({
     manualPOxide,
     manualKOxide,
     manualMgOxide,
+    manualCaOxide,
     extractOxide,
     yieldTarget,
     depthCm,
@@ -461,14 +464,18 @@ export default function FertilizerPlanCalculator({
     return [...plan.recommendations, ...amendmentLines];
   }, [plan, calcMode, lab, organicMatter, t]);
 
-  function displayManualDose(oxideKgHa: number, key: "n" | "p" | "k" | "mg") {
+  function displayManualDose(oxideKgHa: number, key: "n" | "p" | "k" | "mg" | "ca") {
     if (displayMode === "oxide" || key === "n") return oxideKgHa;
     if (key === "p") return oxideKgHa / factors.pToP2o5;
     if (key === "k") return oxideKgHa / factors.kToK2o;
+    if (key === "ca") return oxideKgHa / factors.caToCao;
     return oxideKgHa / factors.mgToMgo;
   }
 
-  function setManualDoseFromDisplay(key: "n" | "p" | "k" | "mg", displayValue: number) {
+  function setManualDoseFromDisplay(
+    key: "n" | "p" | "k" | "mg" | "ca",
+    displayValue: number
+  ) {
     const oxide =
       displayMode === "oxide" || key === "n"
         ? displayValue
@@ -476,10 +483,13 @@ export default function FertilizerPlanCalculator({
           ? displayValue * factors.pToP2o5
           : key === "k"
             ? displayValue * factors.kToK2o
-            : displayValue * factors.mgToMgo;
+            : key === "ca"
+              ? displayValue * factors.caToCao
+              : displayValue * factors.mgToMgo;
     if (key === "n") setManualNOxide(oxide);
     else if (key === "p") setManualPOxide(oxide);
     else if (key === "k") setManualKOxide(oxide);
+    else if (key === "ca") setManualCaOxide(oxide);
     else setManualMgOxide(oxide);
   }
 
@@ -632,6 +642,12 @@ export default function FertilizerPlanCalculator({
                 label={`${labels.mg} (kg/ha)`}
                 value={displayManualDose(manualMgOxide, "mg")}
                 onChange={(value) => setManualDoseFromDisplay("mg", value)}
+                preserveCase
+              />
+              <NumberField
+                label={`${labels.ca} (kg/ha)`}
+                value={displayManualDose(manualCaOxide, "ca")}
+                onChange={(value) => setManualDoseFromDisplay("ca", value)}
                 preserveCase
               />
               <NumberField label={t.area || "Area"} value={area} onChange={setArea} />

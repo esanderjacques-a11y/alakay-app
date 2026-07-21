@@ -798,8 +798,9 @@ export function buildNutrientDosePlan(
 }
 
 /**
- * Build a dose plan from known N / P₂O₅ / K₂O / MgO rates (kg/ha oxide basis).
+ * Build a dose plan from known N / P₂O₅ / K₂O / MgO / CaO rates (kg/ha oxide basis).
  * Use when the agronomic dose is already known and only product mass / cost are needed.
+ * CaO is marked via liming (same as the full nutritional plan).
  */
 export function buildManualDosePlan(input: {
   cultivo?: string | null;
@@ -807,6 +808,7 @@ export function buildManualDosePlan(input: {
   p2o5KgHa: number;
   k2oKgHa: number;
   mgoKgHa: number;
+  caoKgHa?: number;
   area: number;
   areaUnit: AreaUnit;
   displayMode?: NutrientDisplayMode;
@@ -820,11 +822,13 @@ export function buildManualDosePlan(input: {
   const cultivoLabel = (input.cultivo || "").trim() || "Manual doses";
 
   function manualDose(
-    key: Exclude<DoseNutrientKey, "ca">,
+    key: DoseNutrientKey,
     nutrientLabel: string,
     nutrientOxideLabel: string,
-    oxideKgHa: number
+    oxideKgHa: number,
+    options?: { viaEncalado?: boolean }
   ): FertilityDoseResult {
+    const viaEncalado = Boolean(options?.viaEncalado);
     const oxide = Math.max(0, num(oxideKgHa, 0));
     const notRequired = oxide <= 0;
     const dosisKgHaOxide = notRequired ? null : round(oxide, 2);
@@ -845,12 +849,12 @@ export function buildManualDosePlan(input: {
       nutrientOxide: nutrientOxideLabel,
       demandaKgHa: dosisDisplayHa ?? 0,
       suministroKgHa: 0,
-      eficiencia: 1,
+      eficiencia: viaEncalado ? 0 : 1,
       dosisKgHa: dosisDisplayHa,
       dosisOxideKgHa: dosisKgHaOxide,
       dosisPlot,
       notRequired,
-      viaEncalado: false,
+      viaEncalado,
       unitHa,
       unitPlot,
       steps: [
@@ -862,9 +866,13 @@ export function buildManualDosePlan(input: {
           unit: unitHa,
           interpretation: notRequired
             ? "Sin dosis — no se calcula producto para este nutriente."
-            : areaUnit !== "ha"
-              ? `Parcela: ${dosisPlot} ${unitPlot}`
-              : "Usar para estimar cantidad de fertilizante comercial y costo.",
+            : viaEncalado
+              ? areaUnit !== "ha"
+                ? `Parcela: ${dosisPlot} ${unitPlot}. Cubrir con encalado / enmienda cálcica.`
+                : "Cubrir con encalado / enmienda cálcica (no fertilizante NPK)."
+              : areaUnit !== "ha"
+                ? `Parcela: ${dosisPlot} ${unitPlot}`
+                : "Usar para estimar cantidad de fertilizante comercial y costo.",
         },
       ],
     };
@@ -875,9 +883,35 @@ export function buildManualDosePlan(input: {
     manualDose("p", labels.p, "P₂O₅", input.p2o5KgHa),
     manualDose("k", labels.k, "K₂O", input.k2oKgHa),
     manualDose("mg", labels.mg, "MgO", input.mgoKgHa),
+    manualDose("ca", labels.ca, "CaO", input.caoKgHa ?? 0, { viaEncalado: true }),
   ];
 
-  const active = doses.filter((d) => !d.notRequired);
+  const activeFertilizer = doses.filter((d) => !d.notRequired && !d.viaEncalado);
+  const activeLime = doses.filter((d) => !d.notRequired && d.viaEncalado);
+
+  const formatDoseLine = (d: FertilityDoseResult) =>
+    `${d.nutrient} (${d.dosisPlot ?? d.dosisKgHa} ${
+      d.dosisPlot != null && areaUnit !== "ha" ? d.unitPlot : d.unitHa
+    })`;
+
+  const recommendations: string[] = [
+    `Dosis conocidas (entrada manual)${cultivoLabel !== "Manual doses" ? ` · ${cultivoLabel}` : ""}.`,
+  ];
+  if (activeFertilizer.length) {
+    recommendations.push(
+      `Aplicar fertilizante para: ${activeFertilizer.map(formatDoseLine).join(", ")}.`
+    );
+  }
+  if (activeLime.length) {
+    recommendations.push(
+      `Cubrir con encalado / enmienda cálcica: ${activeLime.map(formatDoseLine).join(", ")}.`
+    );
+  }
+  if (!activeFertilizer.length && !activeLime.length) {
+    recommendations.push(
+      "Ingrese al menos una dosis mayor que cero para estimar productos y costos."
+    );
+  }
 
   return {
     cultivo: cultivoLabel,
@@ -891,19 +925,7 @@ export function buildManualDosePlan(input: {
     mineralizationScenario: "conservative",
     mineralizationCoef: 0,
     doses,
-    recommendations: [
-      `Dosis conocidas (entrada manual)${cultivoLabel !== "Manual doses" ? ` · ${cultivoLabel}` : ""}.`,
-      active.length
-        ? `Aplicar fertilizante para: ${active
-            .map(
-              (d) =>
-                `${d.nutrient} (${d.dosisPlot ?? d.dosisKgHa} ${
-                  d.dosisPlot != null && areaUnit !== "ha" ? d.unitPlot : d.unitHa
-                })`
-            )
-            .join(", ")}.`
-        : "Ingrese al menos una dosis mayor que cero para estimar productos y costos.",
-    ],
+    recommendations,
     sections: [],
   };
 }

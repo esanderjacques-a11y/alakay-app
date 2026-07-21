@@ -12,8 +12,8 @@ import {
 } from "@/lib/soilFertilityTables";
 import type { DoseNutrientKey } from "@/lib/soilFertilityPlan";
 
-/** Nutrients the cost optimizer covers (Ca is liming-only). */
-export type OptimizeNutrient = "n" | "p2o5" | "k2o" | "mgo";
+/** Nutrients the cost optimizer covers (including CaO from doses-only plans). */
+export type OptimizeNutrient = "n" | "p2o5" | "k2o" | "mgo" | "cao";
 
 export type NutrientTargets = Partial<Record<OptimizeNutrient, number>>;
 
@@ -28,7 +28,7 @@ export type BlendLine = {
   pricePerBag: number;
   costHa: number;
   /** Nutrients supplied by this line (kg oxide / ha). */
-  supplied: Partial<Record<OptimizeNutrient | "s" | "cao", number>>;
+  supplied: Partial<Record<OptimizeNutrient | "s", number>>;
 };
 
 export type NutrientCredit = {
@@ -45,7 +45,7 @@ export type BlendPlan = {
   credits: NutrientCredit[];
   /** Remaining unmet demand after allocation (should be ~0 when feasible). */
   unmet: NutrientTargets;
-  surplus: Partial<Record<OptimizeNutrient | "s" | "cao", number>>;
+  surplus: Partial<Record<OptimizeNutrient | "s", number>>;
   /** Dose key → primary product used to cover that nutrient (for UI apply). */
   primaryByDose: Partial<Record<DoseNutrientKey, string>>;
 };
@@ -73,13 +73,20 @@ export type CostScenario = {
   targets: NutrientTargets;
 };
 
-const OPTIMIZE_NUTRIENTS: OptimizeNutrient[] = ["n", "p2o5", "k2o", "mgo"];
+const OPTIMIZE_NUTRIENTS: OptimizeNutrient[] = [
+  "n",
+  "p2o5",
+  "k2o",
+  "mgo",
+  "cao",
+];
 
 const DOSE_BY_NUTRIENT: Record<OptimizeNutrient, DoseNutrientKey> = {
   n: "n",
   p2o5: "p",
   k2o: "k",
   mgo: "mg",
+  cao: "ca",
 };
 
 const NUTRIENT_BY_DOSE: Partial<Record<DoseNutrientKey, OptimizeNutrient>> = {
@@ -87,6 +94,7 @@ const NUTRIENT_BY_DOSE: Partial<Record<DoseNutrientKey, OptimizeNutrient>> = {
   p: "p2o5",
   k: "k2o",
   mg: "mgo",
+  ca: "cao",
 };
 
 const SINGLES_PREFERRED: Partial<Record<OptimizeNutrient, string[]>> = {
@@ -94,6 +102,7 @@ const SINGLES_PREFERRED: Partial<Record<OptimizeNutrient, string[]>> = {
   p2o5: ["tsp", "dap", "map"],
   k2o: ["mop", "sop"],
   mgo: ["kieserite", "magnesium_sulfate"],
+  cao: ["calcium_nitrate", "gypsum", "agricultural_lime"],
 };
 
 const COMPOUND_PREFERRED = ["npk_15_15_15", "npk_10_30_10", "dap", "map"];
@@ -169,7 +178,7 @@ function applyProduct(
   product: CommercialFertilizer,
   kgHa: number,
   remaining: NutrientTargets,
-  surplus: Partial<Record<OptimizeNutrient | "s" | "cao", number>>,
+  surplus: Partial<Record<OptimizeNutrient | "s", number>>,
   credits: NutrientCredit[],
   primaryByDose: Partial<Record<DoseNutrientKey, string>>,
   pricePerBag: number,
@@ -177,11 +186,7 @@ function applyProduct(
 ): BlendLine {
   const binding = bindingNutrient(product, remaining);
   const supplied: BlendLine["supplied"] = {};
-  for (const nutrient of [
-    ...OPTIMIZE_NUTRIENTS,
-    "s" as const,
-    "cao" as const,
-  ]) {
+  for (const nutrient of [...OPTIMIZE_NUTRIENTS, "s" as const]) {
     const pct = product.grade[nutrient as FertilizerNutrient] || 0;
     if (pct <= 0) continue;
     const amount = kgHa * (pct / 100);
@@ -529,7 +534,7 @@ export function blendFromSelection(
     };
   }
 
-  const order: DoseNutrientKey[] = ["n", "p", "k", "mg"];
+  const order: DoseNutrientKey[] = ["n", "p", "k", "mg", "ca"];
   const uniqueKeys: string[] = [];
   for (const doseKey of order) {
     const nutrient = NUTRIENT_BY_DOSE[doseKey];

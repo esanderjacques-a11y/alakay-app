@@ -49,6 +49,7 @@ const NUTRIENT_LABEL: Record<string, string> = {
   p2o5: "P₂O₅",
   k2o: "K₂O",
   mgo: "MgO",
+  cao: "CaO",
 };
 
 const PRIMARY_STRATEGY_IDS = new Set([

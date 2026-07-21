@@ -80,6 +80,7 @@ const nutrientByDose: Partial<Record<DoseNutrientKey, FertilizerNutrient>> = {
   p: "p2o5",
   k: "k2o",
   mg: "mgo",
+  ca: "cao",
 };
 
 const defaultProductByDose: Partial<Record<DoseNutrientKey, string>> = {
@@ -87,6 +88,7 @@ const defaultProductByDose: Partial<Record<DoseNutrientKey, string>> = {
   p: "dap",
   k: "mop",
   mg: "kieserite",
+  ca: "calcium_nitrate",
 };
 
 const FERTILIZER_PLANNER_STORAGE_KEY = "cultosol_fertilizer_products_v2";

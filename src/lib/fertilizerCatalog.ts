@@ -58,6 +58,18 @@ export const COMMERCIAL_FERTILIZERS: CommercialFertilizer[] = [
     grade: { n: 15.5, cao: 26.5 },
   },
   {
+    key: "gypsum",
+    label: "Gypsum",
+    analysis: "14% CaO + 18% S",
+    grade: { cao: 14, s: 18 },
+  },
+  {
+    key: "agricultural_lime",
+    label: "Agricultural lime",
+    analysis: "40% CaO",
+    grade: { cao: 40 },
+  },
+  {
     key: "ammonium_sulfate",
     label: "Ammonium sulfate",
     analysis: "21-0-0 + 24% S",
@@ -179,6 +191,13 @@ export function matchCatalogProductKey(
   if (/\bsop\b|sulfate of potash|sulphate of potash/.test(token)) return "sop";
   if (/\btsp\b|triple super/.test(token)) return "tsp";
   if (/kieserite/.test(token)) return "kieserite";
+  if (/\bgypsum\b|\byeso\b/.test(token)) return "gypsum";
+  if (/\blime\b|cal agricola|agricultural lime|calcit/.test(token)) {
+    return "agricultural_lime";
+  }
+  if (/calcium nitrate|nitrato de calcio|calcium_nitrate/.test(token)) {
+    return "calcium_nitrate";
+  }
   if (/npk\s*15/.test(token)) return "npk_15_15_15";
   if (/npk\s*10/.test(token)) return "npk_10_30_10";
   return null;

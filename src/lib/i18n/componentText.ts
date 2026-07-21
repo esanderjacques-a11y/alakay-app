@@ -1211,7 +1211,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerProductsTitle: "Products & bag prices",
     fertilizerCostMixTitle: "Recommended mixes",
     fertilizerProductsBlendHint:
-      "Edit products and bag prices for My selection. Amounts follow the active mix above (nutrient credits included).",
+      "Edit products and bag prices for My selection. The mix uses the fewest of your picks that still meet nutrient targets (multi-nutrient credits included).",
     fertilizerBlendCovered: "Covered in mix / not primary",
     fertilizerPriceNoCountry: "Select a country in the report details for local currency.",
     fertilizerPriceBasisBag:
@@ -1220,6 +1220,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPricePerBag: "Price / bag (saco)",
     fertilizerBags: "bags",
     fertilizerBag: "bag",
+    fertilizerPerPlot: "per plot",
     fertilizerProductAmountHa: "Product / ha",
     fertilizerProductAmountPlot: "Product / plot",
     fertilizerCostHa: "Cost / ha",
@@ -1251,6 +1252,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioNeedPrices:
       "Add bag prices for the fertilizers you can buy so the optimizer can build scenarios.",
     fertilizerScenarioCredits: "Nutrient credits",
+    fertilizerScenarioPickLabel: "Mix strategy",
+    fertilizerScenarioProductsIn: "Products in this mix",
     fertilizerScenarioCreditLine:
       "{product} supplies {kg} kg {nutrient}/ha — reducing the need for a second product.",
     fertilizerScenarioApply: "Use this mix",
@@ -1265,6 +1268,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioAppliedIrrig:
       "Mix applied to your current plan doses. Compare-by-irrigation rates stay for comparison only.",
     fertilizerScenarioVsCurrentDose: "doses rebuilt for this irrigation",
+    fertilizerViewLabel: "Show",
+    fertilizerViewPrices: "Prices",
+    fertilizerViewQuantity: "Quantity",
+    fertilizerQuantityPlot: "Plot quantity",
     fertilizerProductsCount: "products",
     fertilizerSoilOnly: "The nutritional plan is available for soil analyses.",
     phAmendCropCaoTitle: "Crop CaO demand (liming)",
@@ -1713,7 +1720,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerProductsTitle: "Productos y precios por saco",
     fertilizerCostMixTitle: "Mezclas recomendadas",
     fertilizerProductsBlendHint:
-      "Edite productos y precios para Mi seleccion. Las cantidades siguen la mezcla activa (con creditos de nutrientes).",
+      "Edite productos y precios para Mi selección. La mezcla usa el menor número de sus productos que aún cubre los nutrientes (créditos multi-nutriente incluidos).",
     fertilizerBlendCovered: "Cubierto en la mezcla / no primario",
     fertilizerPriceNoCountry: "Seleccione un país en los datos del informe para la moneda local.",
     fertilizerPriceBasisBag:
@@ -1722,6 +1729,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPricePerBag: "Precio / saco",
     fertilizerBags: "sacos",
     fertilizerBag: "saco",
+    fertilizerPerPlot: "por parcela",
     fertilizerProductAmountHa: "Producto / ha",
     fertilizerProductAmountPlot: "Producto / parcela",
     fertilizerCostHa: "Costo / ha",
@@ -1753,6 +1761,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioNeedPrices:
       "Agregue precios por saco de los fertilizantes disponibles para generar escenarios.",
     fertilizerScenarioCredits: "Créditos de nutrientes",
+    fertilizerScenarioPickLabel: "Estrategia de mezcla",
+    fertilizerScenarioProductsIn: "Productos en esta mezcla",
     fertilizerScenarioCreditLine:
       "{product} aporta {kg} kg {nutrient}/ha — reduce la necesidad de otro producto.",
     fertilizerScenarioApply: "Usar esta mezcla",
@@ -1767,6 +1777,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioAppliedIrrig:
       "Mezcla aplicada a las dosis actuales. Las tasas por riego son solo para comparar.",
     fertilizerScenarioVsCurrentDose: "dosis recalculadas para este riego",
+    fertilizerViewLabel: "Mostrar",
+    fertilizerViewPrices: "Precios",
+    fertilizerViewQuantity: "Cantidad",
+    fertilizerQuantityPlot: "Cantidad parcela",
     fertilizerProductsCount: "productos",
     fertilizerSoilOnly: "El plan nutricional está disponible para análisis de suelo.",
     phAmendCropCaoTitle: "Demanda de CaO del cultivo (encalado)",
@@ -2219,7 +2233,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerProductsTitle: "Produits et prix au sac",
     fertilizerCostMixTitle: "Melanges recommandes",
     fertilizerProductsBlendHint:
-      "Modifiez produits et prix pour Ma selection. Les quantites suivent le melange actif (credits inclus).",
+      "Modifiez produits et prix pour Ma sélection. Le mélange utilise le moins de vos produits qui couvrent encore les besoins (crédits multi-nutriments inclus).",
     fertilizerBlendCovered: "Couvert dans le melange / non primaire",
     fertilizerPriceNoCountry: "Sélectionnez un pays dans les détails du rapport pour la devise locale.",
     fertilizerPriceBasisBag:
@@ -2228,6 +2242,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPricePerBag: "Prix / sac",
     fertilizerBags: "sacs",
     fertilizerBag: "sac",
+    fertilizerPerPlot: "par parcelle",
     fertilizerProductAmountHa: "Produit / ha",
     fertilizerProductAmountPlot: "Produit / parcelle",
     fertilizerCostHa: "Coût / ha",
@@ -2259,6 +2274,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioNeedPrices:
       "Ajoutez les prix par sac des engrais disponibles pour générer des scénarios.",
     fertilizerScenarioCredits: "Crédits nutritionnels",
+    fertilizerScenarioPickLabel: "Stratégie de mélange",
+    fertilizerScenarioProductsIn: "Produits de ce mélange",
     fertilizerScenarioCreditLine:
       "{product} apporte {kg} kg {nutrient}/ha — réduit le besoin d’un autre produit.",
     fertilizerScenarioApply: "Utiliser ce mélange",
@@ -2273,6 +2290,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioAppliedIrrig:
       "Melange applique aux doses actuelles. Les taux irrigation restent pour comparaison.",
     fertilizerScenarioVsCurrentDose: "doses recalculees pour cette irrigation",
+    fertilizerViewLabel: "Afficher",
+    fertilizerViewPrices: "Prix",
+    fertilizerViewQuantity: "Quantité",
+    fertilizerQuantityPlot: "Quantité parcelle",
     fertilizerProductsCount: "produits",
     fertilizerSoilOnly: "Le plan nutritionnel est disponible pour les analyses de sol.",
     areaUnit: "Unité",
@@ -2716,7 +2737,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerProductsTitle: "Pwodui ak pri sak",
     fertilizerCostMixTitle: "Melanj rekòmande",
     fertilizerProductsBlendHint:
-      "Modifye pwodui ak pri pou Seleksyon mwen. Kantite yo swiv melanj aktif la.",
+      "Modifye pwodui ak pri pou Seleksyon mwen. Melanj lan itilize pi piti kantite pwodui ou chwazi ki toujou kouvri bezwen yo (kredi plizyè nitiman enkli).",
     fertilizerBlendCovered: "Kouvri nan melanj / pa prensipal",
     fertilizerPriceNoCountry: "Chwazi yon peyi nan detay rapò a pou lajan lokal la.",
     fertilizerPriceBasisBag:
@@ -2725,6 +2746,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPricePerBag: "Pri / sak",
     fertilizerBags: "sak",
     fertilizerBag: "sak",
+    fertilizerPerPlot: "pou pakèl la",
     fertilizerProductAmountHa: "Pwodui / ha",
     fertilizerProductAmountPlot: "Pwodui / pakèl",
     fertilizerCostHa: "Pri / ha",
@@ -2756,6 +2778,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioNeedPrices:
       "Ajoute pri pou chak sak nan angre ou ka achte pou jenere senaryo yo.",
     fertilizerScenarioCredits: "Kredi nitiman",
+    fertilizerScenarioPickLabel: "Estrateji melanj",
+    fertilizerScenarioProductsIn: "Pwodui nan melanj sa a",
     fertilizerScenarioCreditLine:
       "{product} bay {kg} kg {nutrient}/ha — redwi bezwen yon lòt pwodui.",
     fertilizerScenarioApply: "Itilize melanj sa a",
@@ -2770,6 +2794,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioAppliedIrrig:
       "Melanj aplike sou dòz aktyèl yo. Taux irigasyon yo rete pou konparezon.",
     fertilizerScenarioVsCurrentDose: "dòz rekalkile pou irigasyon sa a",
+    fertilizerViewLabel: "Montre",
+    fertilizerViewPrices: "Pri",
+    fertilizerViewQuantity: "Kantite",
+    fertilizerQuantityPlot: "Kantite pasèl",
     fertilizerProductsCount: "pwodui",
     fertilizerSoilOnly: "Plan nitrisyonèl la disponib pou analiz tè.",
     areaUnit: "Inite",
@@ -3211,7 +3239,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerProductsTitle: "Produtos e preços por saco",
     fertilizerCostMixTitle: "Misturas recomendadas",
     fertilizerProductsBlendHint:
-      "Edite produtos e preços para Minha seleção. As quantidades seguem a mistura ativa.",
+      "Edite produtos e preços para Minha seleção. A mistura usa o menor número dos seus produtos que ainda cobre os nutrientes (créditos multi-nutriente incluídos).",
     fertilizerBlendCovered: "Coberto na mistura / não primário",
     fertilizerPriceNoCountry: "Selecione um país nos detalhes do relatório para a moeda local.",
     fertilizerPriceBasisBag:
@@ -3220,6 +3248,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPricePerBag: "Preço / saco",
     fertilizerBags: "sacos",
     fertilizerBag: "saco",
+    fertilizerPerPlot: "por parcela",
     fertilizerProductAmountHa: "Produto / ha",
     fertilizerProductAmountPlot: "Produto / parcela",
     fertilizerCostHa: "Custo / ha",
@@ -3251,6 +3280,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioNeedPrices:
       "Adicione preços por saco dos fertilizantes disponíveis para gerar cenários.",
     fertilizerScenarioCredits: "Créditos de nutrientes",
+    fertilizerScenarioPickLabel: "Estratégia de mistura",
+    fertilizerScenarioProductsIn: "Produtos desta mistura",
     fertilizerScenarioCreditLine:
       "{product} fornece {kg} kg {nutrient}/ha — reduz a necessidade de outro produto.",
     fertilizerScenarioApply: "Usar esta mistura",
@@ -3265,6 +3296,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioAppliedIrrig:
       "Mistura aplicada às doses atuais. Taxas de irrigação ficam só para comparação.",
     fertilizerScenarioVsCurrentDose: "doses recalculadas para esta irrigação",
+    fertilizerViewLabel: "Mostrar",
+    fertilizerViewPrices: "Preços",
+    fertilizerViewQuantity: "Quantidade",
+    fertilizerQuantityPlot: "Quantidade parcela",
     fertilizerProductsCount: "produtos",
     fertilizerSoilOnly: "O plano nutricional está disponível para análises de solo.",
     areaUnit: "Unidade",
@@ -3707,7 +3742,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerProductsTitle: "Bidhaa na bei za gunia",
     fertilizerCostMixTitle: "Mchanganyiko uliopendekezwa",
     fertilizerProductsBlendHint:
-      "Hariri bidhaa na bei kwa Uchaguzi wangu. Vipimo vinafuata mchanganyiko amilifu.",
+      "Hariri bidhaa na bei kwa Uchaguzi wangu. Mchanganyiko hutumia bidhaa chache zaidi kati ya ulizochagua zinazotosha mahitaji (mikopo ya virutubisho mingi ikijumuishwa).",
     fertilizerBlendCovered: "Imefunikwa kwenye mchanganyiko / si ya msingi",
     fertilizerPriceNoCountry: "Chagua nchi kwenye maelezo ya ripoti kwa sarafu ya ndani.",
     fertilizerPriceBasisBag:
@@ -3716,6 +3751,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPricePerBag: "Bei / gunia",
     fertilizerBags: "magunia",
     fertilizerBag: "gunia",
+    fertilizerPerPlot: "kwa shamba",
     fertilizerProductAmountHa: "Bidhaa / ha",
     fertilizerProductAmountPlot: "Bidhaa / shamba",
     fertilizerCostHa: "Gharama / ha",
@@ -3747,6 +3783,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioNeedPrices:
       "Weka bei za gunia za mbolea unazoweza kununua ili kujenga hali.",
     fertilizerScenarioCredits: "Mikopo ya lishe",
+    fertilizerScenarioPickLabel: "Mkakati wa mchanganyiko",
+    fertilizerScenarioProductsIn: "Bidhaa katika mchanganyiko huu",
     fertilizerScenarioCreditLine:
       "{product} hutoa {kg} kg {nutrient}/ha — inapunguza hitaji la bidhaa nyingine.",
     fertilizerScenarioApply: "Tumia mchanganyiko huu",
@@ -3761,6 +3799,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioAppliedIrrig:
       "Mchanganyiko umetumika kwenye vipimo vya sasa. Viwango vya umwagiliaji ni kwa kulinganisha.",
     fertilizerScenarioVsCurrentDose: "vipimo vimehesabiwa upya kwa umwagiliaji huu",
+    fertilizerViewLabel: "Onyesha",
+    fertilizerViewPrices: "Bei",
+    fertilizerViewQuantity: "Kiasi",
+    fertilizerQuantityPlot: "Kiasi cha shamba",
     fertilizerProductsCount: "bidhaa",
     fertilizerSoilOnly: "Mpango wa lishe unapatikana kwa uchambuzi wa udongo.",
     areaUnit: "Kitengo",

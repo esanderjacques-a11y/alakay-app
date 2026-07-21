@@ -5,6 +5,8 @@ import type { DoseNutrientKey } from "@/lib/soilFertilityPlan";
 import type { IrrigationSystem } from "@/lib/soilFertilityTables";
 import MenuSelect from "@/components/ui/MenuSelect";
 
+export type FertilizerCostViewMode = "prices" | "quantity";
+
 type Props = {
   scenarios: CostScenario[];
   activeId: string;
@@ -17,6 +19,8 @@ type Props = {
   areaHa: number;
   currency: string;
   missingPrices?: Array<{ key: string; label: string }>;
+  viewMode: FertilizerCostViewMode;
+  onViewModeChange: (mode: FertilizerCostViewMode) => void;
   t: Record<string, string>;
 };
 
@@ -62,6 +66,8 @@ export default function FertilizerCostScenarios({
   areaHa,
   currency,
   missingPrices = [],
+  viewMode,
+  onViewModeChange,
   t,
 }: Props) {
   const active =
@@ -77,10 +83,26 @@ export default function FertilizerCostScenarios({
   const irrigFilters = scenarios.filter((s) => s.kind === "irrigation");
   const plan = active.plan;
   const plotCost = plan ? plan.costHa * areaHa : null;
+  const plotKg = plan
+    ? plan.lines.reduce((sum, line) => sum + line.kgHa * areaHa, 0)
+    : null;
+  const plotBags = plan
+    ? plan.lines.reduce((sum, line) => sum + line.bagsHa * areaHa, 0)
+    : null;
 
   const baseline =
     scenarios.find((s) => s.recommended && s.plan)?.plan?.costHa ??
     scenarios.find((s) => s.plan)?.plan?.costHa ??
+    null;
+  const baselineKg =
+    scenarios.find((s) => s.recommended && s.plan)?.plan?.lines.reduce(
+      (sum, line) => sum + line.kgHa,
+      0
+    ) ??
+    scenarios.find((s) => s.plan)?.plan?.lines.reduce(
+      (sum, line) => sum + line.kgHa,
+      0
+    ) ??
     null;
 
   const comparable = scenarios.filter(
@@ -92,26 +114,48 @@ export default function FertilizerCostScenarios({
       ? active.irrigationSystem
       : "__none__";
 
+  const showPrices = viewMode === "prices";
+
   return (
     <section className="grid gap-3">
-      <div>
-        <p className="text-xs text-slate-600 dark:text-slate-300">
-          {t.fertilizerCostScenariosDesc ||
-            "Pick a mix. Multi-nutrient products credit all nutrients they supply — totals match what you apply."}
+      <div className="grid gap-1.5">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+          {t.fertilizerViewLabel || "Show"}
         </p>
+        <div className="flex flex-wrap gap-1.5">
+          <FilterChip
+            active={viewMode === "prices"}
+            recommended={false}
+            disabled={false}
+            onClick={() => onViewModeChange("prices")}
+            label={t.fertilizerViewPrices || "Prices"}
+          />
+          <FilterChip
+            active={viewMode === "quantity"}
+            recommended={false}
+            disabled={false}
+            onClick={() => onViewModeChange("quantity")}
+            label={t.fertilizerViewQuantity || "Quantity"}
+          />
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {primaryStrategies.map((scenario) => (
-          <FilterChip
-            key={scenario.id}
-            active={active.id === scenario.id}
-            recommended={scenario.recommended}
-            disabled={!scenario.feasible && scenario.kind !== "current_selection"}
-            onClick={() => onSelect(scenario.id)}
-            label={scenarioLabel(scenario, t)}
-          />
-        ))}
+      <div className="grid gap-1.5">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+          {t.fertilizerScenarioPickLabel || "Mix strategy"}
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {primaryStrategies.map((scenario) => (
+            <FilterChip
+              key={scenario.id}
+              active={active.id === scenario.id}
+              recommended={scenario.recommended}
+              disabled={!scenario.feasible && scenario.kind !== "current_selection"}
+              onClick={() => onSelect(scenario.id)}
+              label={scenarioLabel(scenario, t)}
+            />
+          ))}
+        </div>
       </div>
 
       {irrigFilters.length > 0 ? (
@@ -187,25 +231,54 @@ export default function FertilizerCostScenarios({
             </div>
             <div className="text-right">
               <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-                {t.fertilizerCostPlot || "Plot cost"}
+                {showPrices
+                  ? t.fertilizerCostPlot || "Plot cost"
+                  : t.fertilizerQuantityPlot || "Plot quantity"}
               </p>
               <p className="text-lg font-bold text-green-950 dark-text-primary">
-                {plotCost == null ? "—" : formatMoney(plotCost, currency)}
+                {showPrices
+                  ? plotCost == null
+                    ? "—"
+                    : formatMoney(plotCost, currency)
+                  : plotKg == null
+                    ? "—"
+                    : `${plotKg.toFixed(1)} kg`}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {formatMoney(plan.costHa, currency)} / ha
-              </p>
+              {showPrices && Math.abs(areaHa - 1) > 0.001 ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {formatMoney(plan.costHa, currency)} / ha
+                </p>
+              ) : null}
+              {!showPrices && plotBags != null ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {plotBags.toFixed(1)} {t.fertilizerBags || "bags"}
+                  {Math.abs(areaHa - 1) > 0.001
+                    ? ` · ${plan.lines.reduce((sum, line) => sum + line.kgHa, 0).toFixed(1)} kg/ha`
+                    : ""}
+                </p>
+              ) : null}
             </div>
           </div>
 
-          <BlendLinesList plan={plan} areaHa={areaHa} currency={currency} t={t} />
+          <div className="grid gap-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+              {t.fertilizerScenarioProductsIn || "Products in this mix"}
+            </p>
+            <BlendLinesList
+              plan={plan}
+              areaHa={areaHa}
+              currency={currency}
+              viewMode={viewMode}
+              t={t}
+            />
+          </div>
 
           {plan.credits.length > 0 ? (
-            <div className="rounded-xl bg-white/60 px-3 py-2 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">
+            <div className="rounded-xl border border-emerald-900/10 bg-white/40 p-3 text-xs text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
               <p className="font-semibold text-emerald-900 dark:text-emerald-300">
                 {t.fertilizerScenarioCredits || "Nutrient credits"}
               </p>
-              <ul className="mt-1 space-y-0.5">
+              <ul className="mt-1.5 space-y-1 leading-relaxed">
                 {plan.credits.map((credit) => (
                   <li key={`${credit.fromProductKey}-${credit.nutrient}`}>
                     {t.fertilizerScenarioCreditLine
@@ -254,8 +327,20 @@ export default function FertilizerCostScenarios({
               <ul className="mt-2 grid gap-1">
                 {comparable.slice(0, 8).map((scenario) => {
                   const cost = scenario.plan!.costHa * areaHa;
-                  const delta =
-                    baseline != null ? scenario.plan!.costHa - baseline : null;
+                  const kg = scenario.plan!.lines.reduce(
+                    (sum, line) => sum + line.kgHa * areaHa,
+                    0
+                  );
+                  const delta = showPrices
+                    ? baseline != null
+                      ? scenario.plan!.costHa - baseline
+                      : null
+                    : baselineKg != null
+                      ? scenario.plan!.lines.reduce(
+                          (sum, line) => sum + line.kgHa,
+                          0
+                        ) - baselineKg
+                      : null;
                   return (
                     <li key={scenario.id}>
                       <button
@@ -267,8 +352,11 @@ export default function FertilizerCostScenarios({
                           {scenarioLabel(scenario, t)}
                         </span>
                         <span className="shrink-0 font-semibold text-green-950 dark-text-primary">
-                          {formatMoney(cost, currency)}
-                          {delta != null && Math.abs(delta) > 0.01 ? (
+                          {showPrices
+                            ? formatMoney(cost, currency)
+                            : `${kg.toFixed(1)} kg`}
+                          {delta != null &&
+                          Math.abs(delta) > (showPrices ? 0.01 : 0.05) ? (
                             <span
                               className={
                                 delta > 0
@@ -277,7 +365,9 @@ export default function FertilizerCostScenarios({
                               }
                             >
                               {delta > 0 ? "+" : ""}
-                              {formatMoney(delta * areaHa, currency)}
+                              {showPrices
+                                ? formatMoney(delta * areaHa, currency)
+                                : `${(delta * areaHa).toFixed(1)} kg`}
                             </span>
                           ) : null}
                         </span>
@@ -298,33 +388,42 @@ function BlendLinesList({
   plan,
   areaHa,
   currency,
+  viewMode,
   t,
 }: {
   plan: BlendPlan;
   areaHa: number;
   currency: string;
+  viewMode: FertilizerCostViewMode;
   t: Record<string, string>;
 }) {
+  const showPrices = viewMode === "prices";
   return (
-    <ul className="grid gap-2">
-      {plan.lines.map((line) => (
+    <ul className="grid">
+      {plan.lines.map((line, index) => (
         <li
           key={line.productKey}
-          className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl bg-white/70 px-3 py-2 text-xs dark:bg-white/5"
+          className={`flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5 text-xs ${
+            index > 0
+              ? "border-t border-emerald-900/10 dark:border-white/10"
+              : "pt-0"
+          }`}
         >
-          <div>
+          <div className="min-w-0">
             <p className="font-semibold text-green-950 dark-text-primary">
               {line.label}{" "}
               <span className="font-normal text-slate-500">· {line.analysis}</span>
             </p>
             <p className="mt-0.5 text-slate-500 dark:text-slate-400">
-              {line.kgHa.toFixed(1)} kg/ha · {(line.bagsHa * areaHa).toFixed(1)}{" "}
-              {t.fertilizerBags || "bags"} /{" "}
-              {t.fertilizerProductAmountPlot || "plot"}
+              {showPrices
+                ? `${line.kgHa.toFixed(1)} kg/ha · ${(line.bagsHa * areaHa).toFixed(1)} ${t.fertilizerBags || "bags"} ${t.fertilizerPerPlot || "per plot"}`
+                : `${(line.kgHa * areaHa).toFixed(1)} kg ${t.fertilizerPerPlot || "per plot"} · ${line.kgHa.toFixed(1)} kg/ha`}
             </p>
           </div>
-          <p className="font-semibold text-green-950 dark-text-primary">
-            {formatMoney(line.costHa * areaHa, currency)}
+          <p className="shrink-0 font-semibold text-green-950 dark-text-primary">
+            {showPrices
+              ? formatMoney(line.costHa * areaHa, currency)
+              : `${(line.bagsHa * areaHa).toFixed(1)} ${t.fertilizerBags || "bags"}`}
           </p>
         </li>
       ))}

@@ -492,8 +492,24 @@ function searchBestBlend(
 }
 
 /**
- * Evaluate user's current per-dose product picks with full nutrient credit.
- * Applies products in dose order N → P → K → Mg; each product credits all nutrients.
+ * Rank candidate blends: prefer fewer products, then lower cost.
+ * Used for "My selection" so multi-nutrient picks drop redundant products.
+ */
+function pickBestSelectionPlan(candidates: Array<BlendPlan | null>): BlendPlan | null {
+  const feasible = candidates.filter((c): c is BlendPlan => Boolean(c));
+  if (feasible.length === 0) return null;
+  feasible.sort((a, b) => {
+    if (a.productCount !== b.productCount) return a.productCount - b.productCount;
+    return a.costHa - b.costHa;
+  });
+  return feasible[0];
+}
+
+/**
+ * Evaluate user's current per-dose product picks.
+ * Optimizes within the selected product set (fewest products + value), so a
+ * compound like DAP can cover N and P without forcing every dose product.
+ * Fills residuals from the full catalog only when the selection cannot cover.
  */
 export function blendFromSelection(
   targets: NutrientTargets,
@@ -501,8 +517,7 @@ export function blendFromSelection(
   prices: ProductPriceMap,
   bagKg: number = DEFAULT_FERTILIZER_BAG_KG
 ): BlendPlan | null {
-  const remaining = cloneTargets(targets);
-  if (targetSum(remaining) <= 0) {
+  if (targetSum(cloneTargets(targets)) <= 0) {
     return {
       lines: [],
       costHa: 0,
@@ -526,63 +541,60 @@ export function blendFromSelection(
 
   if (uniqueKeys.length === 0) return null;
 
-  const credits: NutrientCredit[] = [];
-  const surplus: BlendPlan["surplus"] = {};
-  const primaryByDose: BlendPlan["primaryByDose"] = {};
-  const lines: BlendLine[] = [];
+  const multiNutrientFirst = [...uniqueKeys].sort((a, b) => {
+    const productA = COMMERCIAL_FERTILIZERS.find((p) => p.key === a);
+    const productB = COMMERCIAL_FERTILIZERS.find((p) => p.key === b);
+    const coverA = productA
+      ? nutrientsCovered(productA).filter((n) => (targets[n] || 0) > 0).length
+      : 0;
+    const coverB = productB
+      ? nutrientsCovered(productB).filter((n) => (targets[n] || 0) > 0).length
+      : 0;
+    if (coverA !== coverB) return coverB - coverA;
+    return uniqueKeys.indexOf(a) - uniqueKeys.indexOf(b);
+  });
 
-  for (const productKey of uniqueKeys) {
-    const product = COMMERCIAL_FERTILIZERS.find((p) => p.key === productKey);
-    if (!product) continue;
-    const mass = massToCloseBinding(product, remaining);
-    if (!(mass > 0.05)) continue;
-    const line = applyProduct(
-      product,
-      mass,
-      remaining,
-      surplus,
-      credits,
-      primaryByDose,
-      prices[productKey],
-      bagKg
-    );
-    lines.push(line);
-  }
+  // Best scenario among the selected fertilizers only
+  const withinSelection = pickBestSelectionPlan([
+    allocateBlend(targets, prices, bagKg, {
+      bias: "compound",
+      allowedKeys: uniqueKeys,
+      forceOrder: multiNutrientFirst,
+    }),
+    allocateBlend(targets, prices, bagKg, {
+      bias: "compound",
+      allowedKeys: uniqueKeys,
+    }),
+    allocateBlend(targets, prices, bagKg, {
+      bias: "value",
+      allowedKeys: uniqueKeys,
+      forceOrder: multiNutrientFirst,
+    }),
+    allocateBlend(targets, prices, bagKg, {
+      bias: "value",
+      allowedKeys: uniqueKeys,
+    }),
+  ]);
 
-  // Fill residuals with best singles if selection didn't cover everything
-  if (targetSum(remaining) > 0.5) {
-    const fill = allocateBlend(remaining, prices, bagKg, { bias: "single" });
-    if (!fill) return null;
-    for (const line of fill.lines) {
-      const existing = lines.find((l) => l.productKey === line.productKey);
-      if (existing) {
-        existing.kgHa = round2(existing.kgHa + line.kgHa);
-        existing.bagsHa = round2(existing.bagsHa + line.bagsHa);
-        existing.costHa = round2(existing.costHa + line.costHa);
-      } else {
-        lines.push(line);
-      }
-    }
-    for (const [k, v] of Object.entries(fill.primaryByDose)) {
-      const doseKey = k as DoseNutrientKey;
-      if (!primaryByDose[doseKey]) primaryByDose[doseKey] = v;
-    }
-    credits.push(...fill.credits);
-    Object.assign(remaining, fill.unmet);
-  }
+  if (withinSelection) return withinSelection;
 
-  const unmet = cloneTargets(remaining);
-  if (targetSum(unmet) > 0.5) return null;
+  // Selection cannot cover alone — force selected products first, then fill
+  const withFill = pickBestSelectionPlan([
+    allocateBlend(targets, prices, bagKg, {
+      bias: "compound",
+      forceOrder: multiNutrientFirst,
+    }),
+    allocateBlend(targets, prices, bagKg, {
+      bias: "value",
+      forceOrder: multiNutrientFirst,
+    }),
+    allocateBlend(targets, prices, bagKg, {
+      bias: "single",
+      forceOrder: multiNutrientFirst,
+    }),
+  ]);
 
-  return {
-    lines,
-    costHa: round2(lines.reduce((s, l) => s + l.costHa, 0)),
-    productCount: lines.length,
-    credits,
-    unmet,
-    surplus,
-    primaryByDose,
-  };
+  return withFill;
 }
 
 /** Build oxide targets from dose results (current irrigation / efficiencies). */

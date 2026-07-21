@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import FertilizerCostScenarios from "@/components/FertilizerCostScenarios";
+import FertilizerCostScenarios, {
+  type FertilizerCostViewMode,
+} from "@/components/FertilizerCostScenarios";
 import MenuSelect from "@/components/ui/MenuSelect";
 import {
   COMMERCIAL_FERTILIZERS,
@@ -120,6 +122,7 @@ export default function FertilizerProductPlanner({
   const [manualPrices, setManualPrices] = useState<Record<string, string>>({});
   const [storageReady, setStorageReady] = useState(false);
   const [activeScenarioId, setActiveScenarioId] = useState("recommended");
+  const [viewMode, setViewMode] = useState<FertilizerCostViewMode>("prices");
   const [applyNote, setApplyNote] = useState("");
   const [stockProductKeys, setStockProductKeys] = useState<string[]>([]);
 
@@ -469,30 +472,66 @@ export default function FertilizerProductPlanner({
                 </label>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
-                <Metric
-                  label={t.fertilizerProductAmountHa || "Product / ha"}
-                  value={
-                    row.blendLine
-                      ? `${row.blendLine.kgHa.toFixed(1)} kg · ${row.blendLine.bagsHa.toFixed(1)} ${t.fertilizerBags || "bags"}`
-                      : t.fertilizerBlendCovered || "Covered in mix / not primary"
-                  }
-                />
-                <Metric
-                  label={t.fertilizerProductAmountPlot || "Product / plot"}
-                  value={
-                    row.blendLine
-                      ? `${(row.blendLine.kgHa * areaHa).toFixed(1)} kg · ${(row.blendLine.bagsHa * areaHa).toFixed(1)} ${t.fertilizerBags || "bags"}`
-                      : "—"
-                  }
-                />
-                <Metric
-                  label={t.fertilizerCostPlot || "Plot cost"}
-                  value={
-                    row.blendLine
-                      ? formatMoney(row.blendLine.costHa * areaHa, displayCurrency)
-                      : "—"
-                  }
-                />
+                {viewMode === "quantity" ? (
+                  <>
+                    <Metric
+                      label={t.fertilizerProductAmountHa || "Product / ha"}
+                      value={
+                        row.blendLine
+                          ? `${row.blendLine.kgHa.toFixed(1)} kg · ${row.blendLine.bagsHa.toFixed(1)} ${t.fertilizerBags || "bags"}`
+                          : t.fertilizerBlendCovered ||
+                            "Covered in mix / not primary"
+                      }
+                    />
+                    <Metric
+                      label={t.fertilizerProductAmountPlot || "Product / plot"}
+                      value={
+                        row.blendLine
+                          ? `${(row.blendLine.kgHa * areaHa).toFixed(1)} kg · ${(row.blendLine.bagsHa * areaHa).toFixed(1)} ${t.fertilizerBags || "bags"}`
+                          : "—"
+                      }
+                    />
+                    <Metric
+                      label={t.fertilizerQuantityPlot || "Plot quantity"}
+                      value={
+                        row.blendLine
+                          ? `${(row.blendLine.kgHa * areaHa).toFixed(1)} kg`
+                          : "—"
+                      }
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Metric
+                      label={t.fertilizerCostHa || "Cost / ha"}
+                      value={
+                        row.blendLine
+                          ? formatMoney(row.blendLine.costHa, displayCurrency)
+                          : t.fertilizerBlendCovered ||
+                            "Covered in mix / not primary"
+                      }
+                    />
+                    <Metric
+                      label={t.fertilizerCostPlot || "Plot cost"}
+                      value={
+                        row.blendLine
+                          ? formatMoney(
+                              row.blendLine.costHa * areaHa,
+                              displayCurrency
+                            )
+                          : "—"
+                      }
+                    />
+                    <Metric
+                      label={t.fertilizerPricePerBag || "Price / bag (saco)"}
+                      value={
+                        row.pricePerBag != null
+                          ? formatMoney(row.pricePerBag, displayCurrency)
+                          : "—"
+                      }
+                    />
+                  </>
+                )}
               </div>
               <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
                 {row.manual
@@ -534,9 +573,9 @@ export default function FertilizerProductPlanner({
                     {line.label} · {line.analysis}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {line.kgHa.toFixed(1)} kg/ha ·{" "}
-                    {formatMoney(line.costHa * areaHa, displayCurrency)}{" "}
-                    {t.fertilizerCostPlot || "plot"}
+                    {viewMode === "quantity"
+                      ? `${(line.kgHa * areaHa).toFixed(1)} kg ${t.fertilizerPerPlot || "per plot"} · ${line.kgHa.toFixed(1)} kg/ha · ${(line.bagsHa * areaHa).toFixed(1)} ${t.fertilizerBags || "bags"}`
+                      : `${formatMoney(line.costHa * areaHa, displayCurrency)} ${t.fertilizerCostPlot || "plot"} · ${line.kgHa.toFixed(1)} kg/ha`}
                   </p>
                   <label className="calc-field-label mt-2 grid gap-1">
                     {`${t.fertilizerPricePerBag || "Price / bag (saco)"} (${displayCurrency})`}
@@ -610,6 +649,8 @@ export default function FertilizerProductPlanner({
         areaHa={areaHa}
         currency={displayCurrency}
         missingPrices={missingPrices}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
         t={t}
       />
     </div>
@@ -654,7 +695,7 @@ export default function FertilizerProductPlanner({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-emerald-50/80 p-2 dark:bg-emerald-950/30">
+    <div className="calc-metric p-2">
       <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
         {label}
       </p>

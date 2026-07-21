@@ -4507,6 +4507,19 @@ html[data-theme="dark"] .app-header {
     -webkit-backdrop-filter: blur(calc(10px * var(--app-blur, 1))) saturate(1.04);
   }
 
+  /* Metric tiles inside calculator cards. A saturated accent tint (instead of
+     a near-white accent-50 wash) so they keep visible color on phone panels. */
+  .calc-metric {
+    border-radius: 0.75rem;
+    background: rgb(var(--accent-200-rgb, 187 247 208) / 0.45);
+    border: 1px solid rgb(var(--accent-300-rgb, 134 239 172) / 0.35);
+  }
+
+  html[data-theme="dark"] .calc-metric {
+    background: rgb(var(--accent-400-rgb, 74 222 128) / 0.12);
+    border-color: rgb(var(--accent-400-rgb, 74 222 128) / 0.2);
+  }
+
   .calc-chip {
     display: inline-flex;
     align-items: center;
@@ -4581,13 +4594,13 @@ html[data-theme="dark"] .app-header {
 
   /*
    * Calculator light-theme contrast (phones).
-   * Translucent glass over the green gradient + Tailwind slate-500/600
-   * washes out on mobile panels even when it looks fine on a laptop.
-   * Keep surfaces more opaque and darken helper/body text inside calc pages.
+   * Slightly stronger glass (still translucent + blurred, so the glass UI is
+   * preserved) plus darker helper/body text — low-saturation slate washes out
+   * on mobile panels even when it looks fine on a laptop.
    */
   html:not([data-theme="dark"]) .calculator-hub-panel .calc-surface,
   html:not([data-theme="dark"]) .calc-page .calc-surface {
-    background: rgb(255 255 255 / 0.9);
+    background: rgb(255 255 255 / 0.58);
   }
 
   html:not([data-theme="dark"]) .calculator-hub-panel .calc-surface-muted,
@@ -4598,14 +4611,14 @@ html[data-theme="dark"] .app-header {
   html:not([data-theme="dark"]) .calc-page .calc-surface-inner,
   html:not([data-theme="dark"]) .calc-page .calc-stage-card,
   html:not([data-theme="dark"]) .calc-page .calc-chart-plot {
-    background: rgb(255 255 255 / 0.82);
+    background: rgb(255 255 255 / 0.44);
   }
 
   html:not([data-theme="dark"]) .calculator-hub-panel .calc-field-input,
   html:not([data-theme="dark"]) .calc-page .calc-field-input,
   html:not([data-theme="dark"]) .calculator-hub-panel select.calc-field-input,
   html:not([data-theme="dark"]) .calc-page select.calc-field-input {
-    background: rgb(255 255 255 / 0.92);
+    background: rgb(255 255 255 / 0.66);
     color: #1c1c1e;
   }
 
@@ -4651,7 +4664,7 @@ html[data-theme="dark"] .app-header {
 
   html:not([data-theme="dark"]) .calculator-hub-tab {
     color: #545458;
-    background: rgb(255 255 255 / 0.86);
+    background: rgb(255 255 255 / 0.55);
   }
 
   html:not([data-theme="dark"]) .calc-chip,

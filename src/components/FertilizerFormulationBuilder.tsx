@@ -1722,7 +1722,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
               </>
             ) : (
               <div className="space-y-2">
-                <p className="text-xs text-amber-800 dark:text-amber-200">
+                <p className="fertilizer-formulation-hint">
                   {strategy === "manual" && selectedKeys.length === 0
                     ? t.fertilizerFormulationSelectProducts ||
                       "Select at least one fertilizer to build a mix."

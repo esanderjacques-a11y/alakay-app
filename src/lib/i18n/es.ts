@@ -74,7 +74,7 @@
   homeHeroCycle2: "¿Qué vas a hacer hoy?",
   homeHeroCycle3:
     "Dame información y te diré qué le pide tu cultivo o tu suelo.",
-  homeSearchPlaceholder: "Buscar acciones o fincas…",
+  homeSearchPlaceholder: "Buscar acciones, herramientas, ajustes o fincas…",
   homeSearchEmpty: "Sin coincidencias. Prueba otra búsqueda.",
   inputData: "Ingresar datos",
   inputDataShort: "Entrada manual",

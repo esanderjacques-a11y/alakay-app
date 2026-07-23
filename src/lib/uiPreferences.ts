@@ -98,9 +98,10 @@ export function applyTheme(theme: AppTheme, darkVariant: DarkVariant = readStore
 export function applyAccentColor(
   accent: AccentColor,
   theme: AppTheme = readStoredTheme(),
-  darkVariant: DarkVariant = readStoredDarkVariant()
+  darkVariant: DarkVariant = readStoredDarkVariant(),
+  glassUi: boolean = readStoredGlassUi()
 ) {
-  applyAccentPalette(accent, theme, darkVariant);
+  applyAccentPalette(accent, theme, darkVariant, glassUi);
 }
 
 export function readStoredAccent(): AccentColor {
@@ -175,6 +176,13 @@ export function applyGlassUi(enabled: boolean) {
   document.documentElement.style.setProperty(
     "--app-blur",
     enabled ? "1" : "0"
+  );
+  /* Refresh glass surface tokens — accent palette owns inline CSS vars. */
+  applyAccentPalette(
+    readStoredAccent(),
+    readStoredTheme(),
+    readStoredDarkVariant(),
+    enabled
   );
 }
 

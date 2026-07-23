@@ -1210,7 +1210,12 @@ export default function AppSettingsScreen({
       onLanguageChange(nextSettings.general.language);
     }
     onThemePreferenceChange(nextSettings.general.theme);
-    applyAccentColor(nextSettings.general.accentColor, resolvedTheme, darkVariant);
+    applyAccentColor(
+      nextSettings.general.accentColor,
+      resolvedTheme,
+      darkVariant,
+      nextSettings.general.glassUi
+    );
     applyBrightness(nextSettings.general.brightness);
     applySaturation(nextSettings.general.saturation);
     applyContrast(nextSettings.general.contrast);

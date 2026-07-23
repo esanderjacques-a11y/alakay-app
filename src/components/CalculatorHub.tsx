@@ -128,6 +128,8 @@ type Props = {
   showCalculatorFormulas?: boolean;
   userId?: string | null;
   farmName?: string | null;
+  initialActiveKey?: string | null;
+  onInitialActiveKeyConsumed?: () => void;
 };
 
 type CalculatorKey =
@@ -213,6 +215,8 @@ export default function CalculatorHub({
   showCalculatorFormulas = false,
   userId = null,
   farmName = null,
+  initialActiveKey = null,
+  onInitialActiveKeyConsumed,
 }: Props) {
   const t = calculatorHubText[language] || calculatorHubText.en;
   const defaultCalculatorFilter: CalculatorKey = "priority";
@@ -248,6 +252,8 @@ export default function CalculatorHub({
         showCalculatorFormulas={showCalculatorFormulas}
         userId={userId}
         farmName={farmName}
+        initialActiveKey={initialActiveKey}
+        onInitialActiveKeyConsumed={onInitialActiveKeyConsumed}
       />
     </CalculatorMemoryProvider>
   );
@@ -276,6 +282,8 @@ function CalculatorHubBody({
   showCalculatorFormulas = false,
   userId = null,
   farmName = null,
+  initialActiveKey = null,
+  onInitialActiveKeyConsumed,
 }: {
   t: Record<string, string>;
   language: Language;
@@ -303,6 +311,8 @@ function CalculatorHubBody({
   showCalculatorFormulas?: boolean;
   userId?: string | null;
   farmName?: string | null;
+  initialActiveKey?: string | null;
+  onInitialActiveKeyConsumed?: () => void;
 }) {
   const { importFromValues, valuesOutOfSync } = useCalculatorMemory();
   const sharedCations = useSharedCationInputs(lab);
@@ -335,6 +345,19 @@ function CalculatorHubBody({
       );
     }
   }, [active, calculatorTabs, defaultCalculatorFilter, guidedSteps, hubMode]);
+
+  useEffect(() => {
+    if (!initialActiveKey) return;
+    const key = initialActiveKey as CalculatorKey;
+    if (!calculatorTabs.some((tab) => tab.key === key)) {
+      onInitialActiveKeyConsumed?.();
+      return;
+    }
+    setHubMode("explorer");
+    setActive(key);
+    onInitialActiveKeyConsumed?.();
+  }, [initialActiveKey, calculatorTabs, onInitialActiveKeyConsumed]);
+
   const [guidedIndex, setGuidedIndex] = useState(0);
   const [fertilizerPlan, setFertilizerPlan] = useState<FertilizerPlanSnapshot>({
     doses: [],

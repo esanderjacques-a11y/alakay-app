@@ -129,7 +129,8 @@ function withAlpha(hslColor: string, alpha: number) {
 export function buildAccentCssVariables(
   accent: AccentColor,
   theme: AppTheme,
-  darkVariant: DarkVariant = "classic"
+  darkVariant: DarkVariant = "classic",
+  glassUi = true
 ) {
   const isDark = theme === "dark";
   const hslScale = isDark
@@ -158,6 +159,17 @@ export function buildAccentCssVariables(
     : `radial-gradient(ellipse 110% 75% at 8% -12%, ${withAlpha(scale[200], 0.58)}, transparent 52%), radial-gradient(ellipse 95% 65% at 96% 14%, ${withAlpha(scale[300], 0.42)}, transparent 54%), radial-gradient(ellipse 90% 55% at 50% 108%, ${withAlpha(scale[100], 0.72)}, transparent 50%), linear-gradient(165deg, ${scale[50]} 0%, ${withAlpha(scale[100], 0.88)} 36%, #f8fafc 58%, ${scale[50]} 100%)`;
 
   const authGradient = mainGradient;
+
+  /* Dark glass: same surfaces as before, slightly less opaque so tiles feel less black. */
+  const darkGlassSurface = glassUi
+    ? withAlpha(darkSurfaceRaised, 0.62)
+    : darkSurface;
+  const darkGlassSurfaceStrong = glassUi
+    ? withAlpha(darkSurface, 0.7)
+    : darkSurface;
+  const darkGlassSurfaceMuted = glassUi
+    ? "rgb(24 24 24 / 0.46)"
+    : darkSurfaceRaised;
 
   const vars: Record<string, string> = {
     "--accent-50": scale[50],
@@ -198,7 +210,9 @@ export function buildAccentCssVariables(
     "--dark-hover-top": withAlpha(darkSurfaceRaised, 0.96),
     "--dark-hover-bottom": withAlpha(darkSurface, 0.92),
     "--dark-disabled-bg": "rgb(255 255 255 / 0.03)",
-    "--auth-card-bg": isDark ? withAlpha(darkSurface, 0.82) : "rgb(var(--accent-100-rgb) / 0.76)",
+    "--auth-card-bg": isDark
+      ? withAlpha(darkSurface, 0.82)
+      : "rgb(var(--accent-100-rgb) / 0.76)",
     "--auth-card-border": isDark ? darkBorder : withAlpha(scale[200], 0.85),
     "--auth-card-shadow": isDark
       ? "0 18px 44px rgba(0, 0, 0, 0.3)"
@@ -213,13 +227,13 @@ export function buildAccentCssVariables(
       ? darkBorder
       : withAlpha(scale[200], 0.85),
     "--glass-surface": isDark
-      ? withAlpha(darkSurfaceRaised, 0.74)
+      ? darkGlassSurface
       : "rgb(var(--accent-50-rgb) / 0.68)",
     "--glass-surface-strong": isDark
-      ? withAlpha(darkSurface, 0.82)
+      ? darkGlassSurfaceStrong
       : "rgb(var(--accent-100-rgb) / 0.76)",
     "--glass-surface-muted": isDark
-      ? "rgb(24 24 24 / 0.58)"
+      ? darkGlassSurfaceMuted
       : "rgb(var(--accent-100-rgb) / 0.52)",
     "--glass-chrome-surface": "var(--glass-surface)",
     "--glass-chrome-border": "var(--glass-border)",
@@ -242,12 +256,18 @@ export function buildAccentCssVariables(
 export function applyAccentTheme(
   accent: AccentColor,
   theme: AppTheme,
-  darkVariant: DarkVariant = "classic"
+  darkVariant: DarkVariant = "classic",
+  glassUi = true
 ) {
   if (typeof document === "undefined") return;
 
   document.documentElement.dataset.accent = accent;
-  const variables = buildAccentCssVariables(accent, theme, darkVariant);
+  const variables = buildAccentCssVariables(
+    accent,
+    theme,
+    darkVariant,
+    glassUi
+  );
 
   for (const [name, value] of Object.entries(variables)) {
     document.documentElement.style.setProperty(name, value);

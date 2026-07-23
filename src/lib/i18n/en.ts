@@ -69,7 +69,7 @@
   homeHeroCycle2: "What are you up to today?",
   homeHeroCycle3:
     "Give me information, I will tell you what your crop or soil is asking for.",
-  homeSearchPlaceholder: "Search actions or farms…",
+  homeSearchPlaceholder: "Search actions, tools, settings, or farms…",
   homeSearchEmpty: "No matches. Try another search.",
   inputData: "Input data",
   inputDataShort: "Manual entry",

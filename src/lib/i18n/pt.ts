@@ -130,7 +130,7 @@ const pt = {
   homeHeroCycle2: "O que você vai fazer hoje?",
   homeHeroCycle3:
     "Me dê informações e eu direi o que sua cultura ou solo está pedindo.",
-  homeSearchPlaceholder: "Buscar ações ou fazendas…",
+  homeSearchPlaceholder: "Buscar ações, ferramentas, ajustes ou fazendas…",
   homeSearchEmpty: "Nenhuma correspondência. Tente outra busca.",
   inputData: "Inserir dados",
   inputDataShort: "Entrada manual",

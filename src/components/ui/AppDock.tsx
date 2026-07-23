@@ -34,6 +34,29 @@ type DockStep = {
   disabled?: boolean;
 };
 
+function isTextEditable(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+
+  const tag = target.tagName;
+  if (tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (tag !== "INPUT") return false;
+
+  const type = (target as HTMLInputElement).type || "text";
+  return ![
+    "button",
+    "checkbox",
+    "color",
+    "file",
+    "hidden",
+    "image",
+    "radio",
+    "range",
+    "reset",
+    "submit",
+  ].includes(type);
+}
+
 export default function AppDock({
   currentStep,
   onStepChange,
@@ -41,10 +64,16 @@ export default function AppDock({
   hasHistoryOrProgress,
   labels,
 }: Props) {
-  const [hidden, setHidden] = useState(false);
+  const [scrollHidden, setScrollHidden] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [canPortal, setCanPortal] = useState(false);
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
+  const keyboardOpenRef = useRef(false);
+  const blurTimer = useRef<number | null>(null);
+  const baselineViewportHeight = useRef(0);
+
+  const hidden = scrollHidden || keyboardOpen;
 
   useEffect(() => {
     queueMicrotask(() => setCanPortal(true));
@@ -58,18 +87,95 @@ export default function AppDock({
   }, [hidden]);
 
   useEffect(() => {
+    keyboardOpenRef.current = keyboardOpen;
+  }, [keyboardOpen]);
+
+  useEffect(() => {
+    function setKeyboard(next: boolean) {
+      keyboardOpenRef.current = next;
+      setKeyboardOpen(next);
+      if (next) setScrollHidden(true);
+    }
+
+    function onFocusIn(event: FocusEvent) {
+      if (!isTextEditable(event.target)) return;
+      if (blurTimer.current != null) {
+        window.clearTimeout(blurTimer.current);
+        blurTimer.current = null;
+      }
+      setKeyboard(true);
+    }
+
+    function onFocusOut() {
+      if (blurTimer.current != null) window.clearTimeout(blurTimer.current);
+      // Allow focus to move between fields without flashing the dock.
+      blurTimer.current = window.setTimeout(() => {
+        blurTimer.current = null;
+        if (isTextEditable(document.activeElement)) return;
+        setKeyboard(false);
+        if (window.scrollY < 60) setScrollHidden(false);
+      }, 120);
+    }
+
+    function syncViewportKeyboard() {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      if (!baselineViewportHeight.current) {
+        baselineViewportHeight.current = Math.max(vv.height, window.innerHeight);
+      }
+      // Grow baseline when chrome expands (keyboard closed / URL bar hidden).
+      if (vv.height > baselineViewportHeight.current) {
+        baselineViewportHeight.current = vv.height;
+      }
+      const shrinkage = baselineViewportHeight.current - vv.height;
+      const likelyKeyboard = shrinkage > 140;
+      if (likelyKeyboard) {
+        setKeyboard(true);
+        return;
+      }
+      if (!isTextEditable(document.activeElement)) {
+        setKeyboard(false);
+        if (window.scrollY < 60) setScrollHidden(false);
+      }
+    }
+
+    baselineViewportHeight.current = Math.max(
+      window.visualViewport?.height || 0,
+      window.innerHeight
+    );
+
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    window.visualViewport?.addEventListener("resize", syncViewportKeyboard);
+    window.visualViewport?.addEventListener("scroll", syncViewportKeyboard);
+
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+      window.visualViewport?.removeEventListener("resize", syncViewportKeyboard);
+      window.visualViewport?.removeEventListener("scroll", syncViewportKeyboard);
+      if (blurTimer.current != null) window.clearTimeout(blurTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
     function onScroll() {
+      if (keyboardOpenRef.current) return;
       if (ticking.current) return;
       ticking.current = true;
       window.requestAnimationFrame(() => {
+        if (keyboardOpenRef.current) {
+          ticking.current = false;
+          return;
+        }
         const y = window.scrollY;
         const delta = y - lastScrollY.current;
         if (y < 60) {
-          setHidden(false);
+          setScrollHidden(false);
         } else if (delta > 6) {
-          setHidden(true);
+          setScrollHidden(true);
         } else if (delta < -6) {
-          setHidden(false);
+          setScrollHidden(false);
         }
         lastScrollY.current = y;
         ticking.current = false;
@@ -113,7 +219,7 @@ export default function AppDock({
     ? createPortal(
         <nav
           aria-label="Main navigation"
-          className="app-dock"
+          className={`app-dock${keyboardOpen ? " app-dock--keyboard" : ""}`}
           style={{
             transform: hidden ? "translateY(100%)" : "translateY(0)",
             transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",

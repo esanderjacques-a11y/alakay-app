@@ -1086,6 +1086,9 @@ export default function HomePage() {
   const labImportReturnStepRef = useRef<AppStep>("home");
   const [settingsInitialSection, setSettingsInitialSection] =
     useState<SettingsSectionId | undefined>(undefined);
+  const [calculatorFocusKey, setCalculatorFocusKey] = useState<string | null>(
+    null
+  );
   const historyReadyRef = useRef(false);
   const handlingPopStateRef = useRef(false);
 
@@ -3506,6 +3509,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           <section className="home-screen-wrap">
             <HomeScreen
               t={t}
+              language={language}
               session={session}
               guestMode={guestMode}
               displayName={displayName}
@@ -3514,7 +3518,10 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               onImportCamera={openImportCamera}
               onImportFile={openImportFilePage}
               goResults={() => setCurrentStep("history")}
-              goCalculators={() => setCurrentStep("calculators")}
+              goCalculators={() => {
+                setCalculatorFocusKey(null);
+                setCurrentStep("calculators");
+              }}
               goFarms={() => {
                 setOpenFarmId(null);
                 setCurrentStep("farms");
@@ -3525,6 +3532,67 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                 setCurrentStep("farms");
               }}
               hasResultsOrProgress={hasHistoryOrProgress}
+              onNavigateSearch={(destination) => {
+                switch (destination.kind) {
+                  case "new-analysis":
+                    resetAnalysis();
+                    break;
+                  case "import-camera":
+                    openImportCamera();
+                    break;
+                  case "import-file":
+                    openImportFilePage();
+                    break;
+                  case "import-menu":
+                    openImportFilePage();
+                    break;
+                  case "history":
+                    setCurrentStep("history");
+                    break;
+                  case "calculators":
+                    setCalculatorFocusKey(destination.calculatorKey ?? null);
+                    setCurrentStep("calculators");
+                    break;
+                  case "farms":
+                    setOpenFarmId(null);
+                    setCurrentStep("farms");
+                    break;
+                  case "farm":
+                    setFarmName(destination.farmName);
+                    setOpenFarmId(destination.farmId);
+                    setCurrentStep("farms");
+                    break;
+                  case "calendar":
+                    setCurrentStep("calendar");
+                    break;
+                  case "notes":
+                    setCurrentStep("notes");
+                    break;
+                  case "notifications":
+                    setCurrentStep("notifications");
+                    break;
+                  case "settings":
+                    setSettingsInitialSection(destination.section);
+                    stepBeforeSettingsRef.current = "home";
+                    setCurrentStep("settings");
+                    break;
+                  case "billing":
+                    billingReturnStepRef.current = "home";
+                    setCurrentStep("billing");
+                    break;
+                  case "about":
+                    setCurrentStep("about");
+                    break;
+                  case "custom-data":
+                    setCurrentStep("custom-data");
+                    break;
+                  case "recycle":
+                    setCurrentStep("recycle");
+                    break;
+                  default:
+                    break;
+                }
+              }}
             />
           </section>
         ) : currentStep === "setup" ? (
@@ -3742,6 +3810,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             showCalculatorFormulas={effectiveShowCalculatorFormulas(appSettings)}
             userId={session?.user && !guestMode ? session.user.id : null}
             farmName={farmName}
+            initialActiveKey={calculatorFocusKey}
+            onInitialActiveKeyConsumed={() => setCalculatorFocusKey(null)}
             parameterUnits={Object.fromEntries(
               parameters.map((parameter) => {
                 const { selectedUnit } = resolveParameterUnitState(
@@ -4156,7 +4226,7 @@ function SetupScreen({
   }
 
   return (
-    <section onKeyDown={handleSetupKeyDown} className="flex flex-col gap-4 pb-32">
+    <section onKeyDown={handleSetupKeyDown} className="flex flex-col gap-4 pb-8">
       <div className="flex items-center gap-3 px-1 pb-1 pt-2">
         <BackButton variant="icon" onClick={goHome} label={t.start} />
         <h1 className="flex-1 text-lg font-bold dark-text-primary">{t.setupTitle}</h1>
@@ -4307,19 +4377,6 @@ function SetupScreen({
             t={t}
           />
         ) : null}
-      </div>
-
-      <div className="app-fixed-action-bar fixed inset-x-0 z-[11000]">
-        <div className="app-content-shell app-page-pad-x py-3">
-          <button
-            type="button"
-            onClick={goToValues}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-green-700 px-5 py-3.5 font-semibold text-white shadow-sm transition-all active:scale-[0.98] hover:bg-green-800"
-          >
-            {t.continueShort}
-            <ArrowRight size={18} />
-          </button>
-        </div>
       </div>
     </section>
   );

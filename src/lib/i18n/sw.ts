@@ -130,7 +130,7 @@ const sw = {
   homeHeroCycle2: "Unafanya nini leo?",
   homeHeroCycle3:
     "Nipe taarifa na nitakuambia zao au udongo wako unachoomba.",
-  homeSearchPlaceholder: "Tafuta vitendo au mashamba…",
+  homeSearchPlaceholder: "Tafuta vitendo, zana, mipangilio au mashamba…",
   homeSearchEmpty: "Hakuna mechi. Jaribu utafutaji mwingine.",
   inputData: "Weka data",
   inputDataShort: "Uingizaji wa mkono",

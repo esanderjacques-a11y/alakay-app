@@ -53,18 +53,70 @@ function buildSystemPrompt(language: string, context: JackoAppContext | null) {
   const contextBlock = formatJackoContextForPrompt(context);
   return [
     "You are Jacko, Cultosol's agronomic assistant for soil and foliar analysis, fertilization planning, bodega/stock, calendar, and field workflow.",
-    "Be concise, practical, and farmer-friendly. Prefer clear numbered steps and quick recommendations over long theory.",
-    "You know Cultosol's About page (developer, mission, vision, contact). Answer those questions immediately from ABOUT CULTOSOL—do not claim you do not know.",
+    "STYLE (strict):",
+    "- Be assertive and direct. Lead with the answer or action — no warm-ups, apologies, or filler.",
+    "- Keep replies short: usually 2–5 short sentences, or up to 5 tight bullet lines. Never write essays.",
+    "- Prefer concrete numbers, product names, and next steps from APP CONTEXT over generic agronomy advice.",
+    "- Plain text only. No markdown (no **, #, `, code fences). No emojis. Use simple - bullets if needed.",
+    "- Write normal letters for the reply language (correct accents). Never output escape codes like \\u00e1 or HTML entities.",
+    "You know Cultosol's About page (developer, mission, vision, contact). Answer those immediately from ABOUT CULTOSOL—do not claim you do not know.",
     "You are connected to the user's live Cultosol session. Prefer APP CONTEXT values, interpretations, and calculator outputs over asking them to retype.",
     "When they ask for a recommendation, start from current deficiencies/warnings and any fertilizer doses already calculated.",
     "Never invent lab values. If a needed value is genuinely missing from APP CONTEXT, ask one short clarifying question.",
-    "When recommending fertilizers or rates, remind users to validate against local lab results and local regulations.",
+    "Skip long regulatory disclaimers unless rates could be unsafe; one short caution line is enough when relevant.",
     `Reply in ${languageName}.`,
     aboutBlock,
     contextBlock,
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+/** Strip markdown / escapes so chat bubbles show clean readable text. */
+function sanitizeJackoReply(raw: string) {
+  let text = raw.replace(/\r\n/g, "\n").trim();
+
+  // Decode literal \uXXXX / \xXX sequences models sometimes emit as text.
+  text = text.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) =>
+    String.fromCharCode(Number.parseInt(hex, 16))
+  );
+  text = text.replace(/\\x([0-9a-fA-F]{2})/g, (_, hex: string) =>
+    String.fromCharCode(Number.parseInt(hex, 16))
+  );
+
+  // Common HTML entities that should be real characters.
+  text = text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'");
+
+  // Drop fenced code / leftover fences.
+  text = text.replace(/```[\s\S]*?```/g, (block) =>
+    block.replace(/```[a-zA-Z0-9_-]*\n?/g, "").replace(/```/g, "").trim()
+  );
+
+  // Strip common markdown chrome (bubbles are plain text).
+  text = text
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s*[-*+]\s+/gm, "- ");
+
+  // Soft-fix classic UTF-8 mojibake (e.g. "misiÃ³n" → "misión").
+  if (/Ã[¡¿°£¢¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿À-ÿ]|â[€™œ]/.test(text)) {
+    const decoded = Buffer.from(text, "latin1").toString("utf8");
+    if (decoded && !decoded.includes("\uFFFD")) {
+      text = decoded;
+    }
+  }
+
+  return text.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 export async function GET() {
@@ -142,8 +194,8 @@ export async function POST(request: Request) {
           process.env.OPENAI_JACKO_MODEL ||
           process.env.OPENAI_IMPORT_MODEL ||
           "gpt-4o-mini",
-        temperature: 0.35,
-        max_tokens: 1100,
+        temperature: 0.25,
+        max_tokens: 520,
         messages: [
           { role: "system", content: buildSystemPrompt(language, context) },
           ...cleaned,
@@ -162,9 +214,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const reply =
+    const reply = sanitizeJackoReply(
       payload.choices?.[0]?.message?.content?.trim() ||
-      "I could not generate a reply right now.";
+        "I could not generate a reply right now."
+    );
 
     if (userId && userId !== "guest" && !isAdminEmail(email)) {
       mockRecordAiQuestion(userId, getServerBillingConfig());

@@ -222,14 +222,6 @@ export default function CalculatorHub({
   );
   const hasLabData = labHasUsefulSoilData(lab);
   const suggestions = getSuggestions(lab, results, t);
-  const hasEnteredValues = useMemo(
-    () =>
-      Object.values(values).some((value) => String(value || "").trim() !== ""),
-    [values]
-  );
-  // Guided is the starting mode only when the Values page has data or an analysis is open.
-  const preferGuidedDefault =
-    hasEnteredValues || results.length > 0 || hasLabData;
 
   return (
     <CalculatorMemoryProvider sampleType={sampleType} lab={lab}>
@@ -242,7 +234,6 @@ export default function CalculatorHub({
         selectedCropName={selectedCropName}
         selectedCountry={selectedCountry}
         hasLabData={hasLabData}
-        preferGuidedDefault={preferGuidedDefault}
         suggestions={suggestions}
         goToValues={goToValues}
         onOpenCalendar={onOpenCalendar}
@@ -271,7 +262,6 @@ function CalculatorHubBody({
   selectedCropName,
   selectedCountry,
   hasLabData,
-  preferGuidedDefault,
   suggestions,
   goToValues,
   onOpenCalendar,
@@ -295,7 +285,6 @@ function CalculatorHubBody({
   selectedCropName?: string | null;
   selectedCountry?: string | null;
   hasLabData: boolean;
-  preferGuidedDefault: boolean;
   suggestions: Array<{ key: CalculatorKey; title: string; desc: string }>;
   goToValues?: () => void;
   onOpenCalendar?: () => void;
@@ -322,9 +311,8 @@ function CalculatorHubBody({
     [lab, sharedCations]
   );
   const [importMessage, setImportMessage] = useState("");
-  const [hubMode, setHubMode] = useState<HubMode>(() =>
-    preferGuidedDefault ? "guided" : "explorer"
-  );
+  // Explore is always the landing mode; Guided is opt-in via the toggle.
+  const [hubMode, setHubMode] = useState<HubMode>("explorer");
   const calculatorTabs = useMemo(
     () => visibleCalculatorTabs(sampleType),
     [sampleType]
@@ -333,12 +321,7 @@ function CalculatorHubBody({
     const visibleKeys = new Set(calculatorTabs.map((tab) => tab.key));
     return GUIDED_STEPS[sampleType].filter((key) => visibleKeys.has(key));
   }, [sampleType, calculatorTabs]);
-  const [active, setActive] = useState<CalculatorKey>(() => {
-    if (preferGuidedDefault) {
-      return GUIDED_STEPS[sampleType][0] || defaultCalculatorFilter;
-    }
-    return defaultCalculatorFilter;
-  });
+  const [active, setActive] = useState<CalculatorKey>(defaultCalculatorFilter);
   const [browseLayout, setBrowseLayout] = useViewLayoutPreference("calculator-hub");
   const fieldsLayout = browseLayout;
 
@@ -556,9 +539,9 @@ function CalculatorHubBody({
 
   return (
     <section className="animate-slide-up">
-      <div className="calculator-hub-panel values-screen-panel--open px-0 pb-6 pt-0">
-        {/* Page header */}
-        <div className="flex flex-col gap-2 px-1 pb-3 pt-2">
+      <div className="calculator-hub-panel values-screen-panel--open px-0 pb-8 pt-0">
+        {/* Page header — horizontal inset comes from .app-main-shell */}
+        <div className="calculator-hub-chrome flex flex-col gap-2.5 pb-4 pt-1">
           <div className="flex items-center gap-2 min-w-0">
             <BackButton
               variant="icon"
@@ -593,20 +576,20 @@ function CalculatorHubBody({
               <button
                 type="button"
                 role="tab"
-                aria-selected={hubMode === "guided"}
-                onClick={() => switchHubMode("guided")}
-                className={`hub-mode-toggle__btn ${hubMode === "guided" ? "hub-mode-toggle__btn--active" : ""}`}
-              >
-                {t.hubModeGuided}
-              </button>
-              <button
-                type="button"
-                role="tab"
                 aria-selected={hubMode === "explorer"}
                 onClick={() => switchHubMode("explorer")}
                 className={`hub-mode-toggle__btn ${hubMode === "explorer" ? "hub-mode-toggle__btn--active" : ""}`}
               >
                 {t.hubModeExplorer}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={hubMode === "guided"}
+                onClick={() => switchHubMode("guided")}
+                className={`hub-mode-toggle__btn ${hubMode === "guided" ? "hub-mode-toggle__btn--active" : ""}`}
+              >
+                {t.hubModeGuided}
               </button>
             </div>
             <div className="calculator-hub-actions">
@@ -652,7 +635,7 @@ function CalculatorHubBody({
         </div>
 
         {!hasLabData ? (
-          <div className="mx-1 mb-3 rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-3 dark:border-amber-900/40 dark:bg-amber-950/30" role="status">
+          <div className="mb-4 rounded-xl border border-amber-200/80 bg-amber-50 px-3.5 py-3.5 dark:border-amber-900/40 dark:bg-amber-950/30" role="status">
             <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
               {t.labDataRequiredTitle}
             </p>
@@ -673,7 +656,7 @@ function CalculatorHubBody({
 
         <CalculatorFieldsLayoutContext.Provider value={fieldsLayout}>
         {hubMode === "guided" && guidedSteps.length > 0 ? (
-          <div className="calc-guided-stepper px-1 pb-3">
+          <div className="calc-guided-stepper calculator-hub-nav pb-4">
             <div className="calc-guided-stepper__track">
               {guidedSteps.map((key, index) => (
                 <button
@@ -747,7 +730,7 @@ function CalculatorHubBody({
           </div>
         ) : null}
         {hubMode === "explorer" && browseLayout === "list" ? (
-          <div className="px-1 pb-3">
+          <div className="calculator-hub-nav pb-4">
             <MenuSelect
               label={t.calculatorPickerLabel}
               heading={t.calculatorPickerLabel}
@@ -763,8 +746,8 @@ function CalculatorHubBody({
           </div>
         ) : null}
         {hubMode === "explorer" && browseLayout !== "list" ? (
-          <div className="calculator-hub-tabs overflow-x-auto scrollbar-none px-1 pb-3">
-            <div className="flex w-max min-w-full gap-1.5">
+          <div className="calculator-hub-tabs calculator-hub-nav overflow-x-auto scrollbar-none pb-4">
+            <div className="flex w-max min-w-full gap-2">
               {calculatorTabs.map((tab) => (
                 <button
                   key={tab.key}
@@ -966,7 +949,9 @@ function CalculatorPage({
   className?: string;
 }) {
   return (
-    <div className={`calc-page px-0 space-y-4 ${className}`.trim()}>{children}</div>
+    <div className={`calc-page calculator-hub-page space-y-4 ${className}`.trim()}>
+      {children}
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Shuffle } from "lucide-react";
+import { Search, Shuffle } from "lucide-react";
 import AddCustomFertilizerForm from "@/components/AddCustomFertilizerForm";
 import MenuSelect from "@/components/ui/MenuSelect";
 import {
@@ -805,34 +805,43 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
               </div>
             ) : (
               <>
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="relative min-w-[10rem] flex-1">
-                    <span className="sr-only">
-                      {t.fertilizerSearchPlaceholder ||
-                        "Search by name or nutrient (N, P, K…)"}
-                    </span>
-                    <input
-                      className="calc-field-input w-full pr-10"
-                      value={productSearch}
-                      onChange={(event) => setProductSearch(event.target.value)}
-                      placeholder={
-                        t.fertilizerSearchPlaceholder ||
-                        "Search by name or nutrient (N, P, K…)"
-                      }
-                    />
-                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[11px] font-semibold uppercase tracking-wide text-emerald-800/70">
-                      {t.fertilizerSearchAction || "Search"}
-                    </span>
-                  </label>
-                  <button
-                    type="button"
-                    className="rounded-xl bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-900"
-                    onClick={() => setShowAddFertilizer((open) => !open)}
-                  >
-                    {showAddFertilizer
-                      ? t.fertilizerAddProductCancel || "Cancel"
-                      : t.fertilizerAddProduct || "Add fertilizer"}
-                  </button>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                    {t.fertilizerSearchPlaceholder ||
+                      "Search by name or nutrient (N, P, K…)"}
+                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <label className="relative min-w-0 flex-1">
+                      <span className="sr-only">
+                        {t.fertilizerSearchAction || "Search"}
+                      </span>
+                      <Search
+                        size={15}
+                        aria-hidden
+                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-emerald-800/70 dark:text-emerald-200/70"
+                      />
+                      <input
+                        className="calc-field-input w-full pl-9"
+                        value={productSearch}
+                        onChange={(event) =>
+                          setProductSearch(event.target.value)
+                        }
+                        placeholder={
+                          t.fertilizerSearchPlaceholderShort ||
+                          "Name or N, P, K…"
+                        }
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-xl bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-900"
+                      onClick={() => setShowAddFertilizer((open) => !open)}
+                    >
+                      {showAddFertilizer
+                        ? t.fertilizerAddProductCancel || "Cancel"
+                        : t.fertilizerAddProduct || "Add fertilizer"}
+                    </button>
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -867,13 +876,13 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                     onCancel={() => setShowAddFertilizer(false)}
                   />
                 ) : null}
-                <div className="max-h-64 space-y-1.5 overflow-y-auto pr-0.5">
+                <div className="max-h-72 space-y-2 overflow-y-auto pr-0.5">
                   {productsByCategory.map((group) => (
-                    <div key={group.id} className="space-y-0.5">
-                      <p className="text-[10px] font-bold tracking-wide text-emerald-800">
+                    <div key={group.id} className="space-y-1">
+                      <p className="text-xs font-bold tracking-wide text-emerald-800">
                         {categoryLabel(group.id)}
                       </p>
-                      <ul className="formulation-product-grid grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-4">
+                      <ul className="formulation-product-grid grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4">
                         {group.products.map((product) => {
                           const checked = selectedKeys.includes(product.key);
                           const isMulti = nutrientCount(product) >= 2;
@@ -885,13 +894,13 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                                 aria-pressed={checked}
                                 title={`${product.label} · ${product.analysis}`}
                                 className={[
-                                  "formulation-product-tile flex w-full items-center gap-1 rounded-md border px-1.5 py-1 text-left transition",
+                                  "formulation-product-tile flex w-full items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left transition",
                                   checked
                                     ? "border-emerald-800 bg-emerald-800 text-white shadow-sm"
                                     : "border-emerald-900/15 bg-white/60 text-green-950 hover:border-emerald-700/50 dark:border-white/10 dark:bg-white/5 dark:text-slate-100",
                                 ].join(" ")}
                               >
-                                <span className="min-w-0 flex-1 truncate text-[10px] font-semibold leading-tight">
+                                <span className="min-w-0 flex-1 truncate text-xs font-semibold leading-snug">
                                   <span
                                     className={
                                       checked ? "text-white" : "dark-text-primary"
@@ -914,7 +923,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                                 {isMulti ? (
                                   <span
                                     className={[
-                                      "shrink-0 text-[8px] font-semibold uppercase tracking-wide",
+                                      "shrink-0 text-[10px] font-semibold uppercase tracking-wide",
                                       checked
                                         ? "text-emerald-100"
                                         : "text-emerald-700",

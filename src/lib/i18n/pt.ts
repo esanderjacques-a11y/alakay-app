@@ -517,9 +517,10 @@ const pt = {
   jackoSubtitle: "Assistente agronómico Cultosol",
   jackoPlaceholder: "Pergunte ao Jacko — ele lê a sua análise atual…",
   jackoSend: "Enviar",
+  jackoNewChat: "Novo chat",
   jackoThinking: "Jacko está a pensar…",
   jackoIntro:
-    "Olá — sou o Jacko. Conheço a página Sobre o Cultosol (criador, missão, visão) e também posso usar os seus valores, interpretações, doses e calendário. Toque num atalho ou escreva mais curto.",
+    "Olá — sou o Jacko, o seu copiloto Cultosol. Tenho os seus valores, doses e calendário prontos… e também a história da app. Por onde começamos?",
   jackoContextReady: "Ligado aos seus dados atuais do Cultosol",
   jackoQuickCreator: "Quem criou o Cultosol?",
   jackoQuickMission: "Missão e visão",

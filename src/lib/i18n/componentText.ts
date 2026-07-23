@@ -1106,6 +1106,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationEnterBatch:
       "Enter a batch size greater than zero to see scaled amounts.",
     fertilizerSearchPlaceholder: "Search by name or nutrient (N, P, K…)",
+    fertilizerSearchPlaceholderShort: "Name or N, P, K…",
     fertilizerSearchAction: "Search",
     fertilizerSearchHint:
       "Search in each product list, or add a missing fertilizer.",
@@ -1724,6 +1725,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationEnterBatch:
       "Ingrese un tamaño de lote mayor que cero para ver cantidades escaladas.",
     fertilizerSearchPlaceholder: "Buscar por nombre o nutriente (N, P, K…)",
+    fertilizerSearchPlaceholderShort: "Nombre o N, P, K…",
     fertilizerSearchAction: "Buscar",
     fertilizerSearchHint:
       "Busque en cada lista de productos, o agregue un fertilizante faltante.",
@@ -2339,6 +2341,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationEnterBatch:
       "Saisissez une taille de lot > 0 pour voir les quantités.",
     fertilizerSearchPlaceholder: "Rechercher par nom ou nutriment (N, P, K…)",
+    fertilizerSearchPlaceholderShort: "Nom ou N, P, K…",
     fertilizerSearchAction: "Rechercher",
     fertilizerSearchHint:
       "Recherchez dans chaque liste, ou ajoutez un engrais manquant.",
@@ -2946,6 +2949,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationEnterBatch:
       "Antre yon gwosè lot > 0 pou wè kantite yo.",
     fertilizerSearchPlaceholder: "Chèche non oswa nitiman (N, P, K…)",
+    fertilizerSearchPlaceholderShort: "Non oswa N, P, K…",
     fertilizerSearchAction: "Chèche",
     fertilizerSearchHint:
       "Chèche nan chak lis pwodui, oswa ajoute yon angre ki manke.",
@@ -3551,6 +3555,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationEnterBatch:
       "Informe um tamanho de lote > 0 para ver as quantidades.",
     fertilizerSearchPlaceholder: "Pesquisar por nome ou nutriente (N, P, K…)",
+    fertilizerSearchPlaceholderShort: "Nome ou N, P, K…",
     fertilizerSearchAction: "Pesquisar",
     fertilizerSearchHint:
       "Pesquise em cada lista de produtos, ou adicione um fertilizante em falta.",
@@ -4157,6 +4162,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationEnterBatch:
       "Weka ukubwa wa kundi > 0 ili kuona wingi.",
     fertilizerSearchPlaceholder: "Tafuta jina au virutubisho (N, P, K…)",
+    fertilizerSearchPlaceholderShort: "Jina au N, P, K…",
     fertilizerSearchAction: "Tafuta",
     fertilizerSearchHint:
       "Tafuta katika kila orodha ya bidhaa, au ongeza mbolea inayokosekana.",

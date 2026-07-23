@@ -506,9 +506,10 @@ const sw = {
   jackoSubtitle: "Msaidizi wa kilimo wa Cultosol",
   jackoPlaceholder: "Uliza Jacko — anaweza kusoma uchambuzi wako…",
   jackoSend: "Tuma",
+  jackoNewChat: "Mazungumzo mapya",
   jackoThinking: "Jacko anafikiria…",
   jackoIntro:
-    "Habari — mimi ni Jacko. Ninajua ukurasa wa Kuhusu Cultosol (msanidi, dhamira, maono) na pia naweza kutumia thamani, tafsiri, dozi na kalenda yako. Gusa swali la haraka au andika fupi.",
+    "Habari — mimi ni Jacko, copiloti wako wa Cultosol. Nina thamani, dozi na kalenda yako tayari… pamoja na hadithi ya programu. Tuanze wapi?",
   jackoContextReady: "Imeunganishwa na data yako ya sasa ya Cultosol",
   jackoQuickCreator: "Nani aliumba Cultosol?",
   jackoQuickMission: "Dhamira na maono",

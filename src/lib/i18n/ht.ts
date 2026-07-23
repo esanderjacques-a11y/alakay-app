@@ -714,9 +714,10 @@
   jackoSubtitle: "Asistan agronomik Cultosol",
   jackoPlaceholder: "Mande Jacko — li ka li analiz aktyèl ou…",
   jackoSend: "Voye",
+  jackoNewChat: "Nouvo chat",
   jackoThinking: "Jacko ap panse…",
   jackoIntro:
-    "Bonjou — mwen se Jacko. Mwen konnen paj Sou Cultosol (devlopè, misyon, vizyon) epi mwen ka itilize valè, entèpretasyon, dòz ak kalandriye ou yo. Tape yon kesyon rapid oswa ekri pi kout.",
+    "Bonjou — mwen se Jacko, kopilot Cultosol ou. Mwen gen valè, dòz ak kalandriye ou yo pare… ansanm ak istwa aplikasyon an. Kote n ap kòmanse?",
   jackoContextReady: "Konekte ak done Cultosol aktyèl ou",
   jackoQuickCreator: "Ki moun ki kreye Cultosol?",
   jackoQuickMission: "Misyon ak vizyon",

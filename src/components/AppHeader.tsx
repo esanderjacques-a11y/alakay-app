@@ -136,6 +136,7 @@ export default function AppHeader({
     thinking: t.jackoThinking,
     intro: t.jackoIntro,
     close: t.close,
+    newChat: t.jackoNewChat,
     error: t.jackoError,
     contextReady: t.jackoContextReady,
     quickReview: t.jackoQuickReview,

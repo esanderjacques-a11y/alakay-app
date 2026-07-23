@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bot, Send, X } from "lucide-react";
+import { Bot, MessageSquarePlus, Send, X } from "lucide-react";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
 import {
   jackoContextHasData,
@@ -30,6 +30,7 @@ type Props = {
     thinking: string;
     intro: string;
     close: string;
+    newChat: string;
     error: string;
     contextReady?: string;
     quickReview?: string;
@@ -145,25 +146,36 @@ export default function JackoBot({
             <span className="jacko-avatar grid h-9 w-9 place-items-center rounded-xl">
               <Bot size={18} />
             </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-extrabold dark-text-primary">
-                {labels.title}
-              </p>
-              <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
-                {hasLiveData && labels.contextReady
-                  ? labels.contextReady
-                  : labels.subtitle}
-              </p>
-            </div>
+            <p className="min-w-0 truncate text-sm font-extrabold dark-text-primary">
+              {labels.title}
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={labels.close}
-            className="app-header__icon-btn h-8 w-8 grid place-items-center rounded-xl"
-          >
-            <X size={16} />
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (busy) return;
+                setMessages([]);
+                setDraft("");
+                setError("");
+                window.requestAnimationFrame(() => inputRef.current?.focus());
+              }}
+              disabled={busy || (messages.length === 0 && !draft && !error)}
+              aria-label={labels.newChat}
+              title={labels.newChat}
+              className="app-header__icon-btn h-8 w-8 grid place-items-center rounded-xl disabled:opacity-40"
+            >
+              <MessageSquarePlus size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={labels.close}
+              className="app-header__icon-btn h-8 w-8 grid place-items-center rounded-xl"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </header>
 
         <div

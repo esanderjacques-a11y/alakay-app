@@ -704,9 +704,10 @@
   jackoSubtitle: "Cultosol agronomic assistant",
   jackoPlaceholder: "Ask Jacko — he can read your current analysis…",
   jackoSend: "Send",
+  jackoNewChat: "New chat",
   jackoThinking: "Jacko is thinking…",
   jackoIntro:
-    "Hi — I'm Jacko. I know Cultosol's About page (creator, mission, vision) and I can also use your live lab values, interpretations, doses, and calendar. Tap a quick ask or type a shorter question.",
+    "Hey — I'm Jacko, your Cultosol copilot. I've got your values, doses, and calendar ready… plus the story behind the app. Where should we start?",
   jackoContextReady: "Connected to your current Cultosol data",
   jackoQuickCreator: "Who created Cultosol?",
   jackoQuickMission: "Mission & vision",

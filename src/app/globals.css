@@ -461,6 +461,18 @@ textarea {
     padding-block: 0.25rem;
   }
 
+  /* Hub lives inside .app-main-shell — no second horizontal inset. */
+  .calculator-hub-panel .calc-page,
+  .calculator-hub-panel .calculator-hub-page {
+    padding-inline: 0;
+    padding-block: 0.125rem 0.75rem;
+  }
+
+  .calculator-hub-panel .calculator-hub-chrome,
+  .calculator-hub-panel .calculator-hub-nav {
+    min-width: 0;
+  }
+
   .app-content-shell--settings {
     max-width: min(100%, var(--settings-shell-max));
   }
@@ -6016,7 +6028,7 @@ html[data-theme="dark"] .app-header {
   }
 
   .formulation-product-tile {
-    min-height: 1.75rem;
+    min-height: 2.125rem;
   }
 
   .formulation-product-tile:active {

@@ -814,7 +814,8 @@ textarea {
   .app-dock {
     position: fixed;
     inset-inline: 0;
-    bottom: 0;
+    /* Cancel visual-viewport lift so the dock stays on the layout bottom. */
+    bottom: calc(-1 * var(--dock-vv-lift, 0px));
     z-index: 15001;
     box-sizing: border-box;
     background: var(--glass-chrome-surface);
@@ -827,13 +828,24 @@ textarea {
     padding-bottom: constant(safe-area-inset-bottom);
     padding-bottom: var(--safe-bottom);
     pointer-events: auto;
-    /* Keep dock on the layout viewport — don't ride the soft keyboard. */
-    transform: translateZ(0);
+    transform: translate3d(0, 0, 0);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .app-dock.app-dock--keyboard {
+  .app-dock.app-dock--scroll-hidden {
+    transform: translate3d(0, 100%, 0);
     pointer-events: none;
-    visibility: hidden;
+  }
+
+  /* Instant hide while typing — do not animate up with the soft keyboard. */
+  .app-dock.app-dock--keyboard,
+  html[data-keyboard-open="true"] .app-dock {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: none !important;
+    transform: translate3d(0, 110%, 0) !important;
+    bottom: calc(-1 * var(--dock-vv-lift, 0px)) !important;
   }
 
   .app-chrome-layer .app-dock {
@@ -5432,16 +5444,16 @@ html[data-theme="dark"] .app-header {
 
   .calculator-action-card {
     display: flex;
-    min-height: 5rem;
+    min-height: 0;
     width: 100%;
     min-width: 0;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.625rem;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
     border-radius: 1rem;
     border: 1px solid var(--glass-border);
     background: var(--glass-surface-muted);
-    padding: 0.875rem;
+    padding: 0.7rem 0.85rem;
     text-align: left;
     box-shadow: var(--card-shadow);
     backdrop-filter: blur(calc(22px * var(--app-blur, 1))) saturate(1.2);
@@ -5847,8 +5859,26 @@ html[data-theme="dark"] .app-header {
 
   .calculator-hub-action--stale {
     border-color: rgb(245 158 11 / 0.35);
-    background: rgb(245 158 11 / 0.14);
+    background: rgb(245 158 11 / 0.12);
     color: #b45309;
+  }
+
+  .calculator-hub-action--icon {
+    position: relative;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+  }
+
+  .calculator-hub-action__dot {
+    position: absolute;
+    top: 0.28rem;
+    right: 0.28rem;
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 999px;
+    background: #f59e0b;
   }
 
   .calculator-hub-action--stale:hover {
@@ -6040,6 +6070,141 @@ html[data-theme="dark"] .app-header {
 
   .formulation-product-tile:active {
     transform: scale(0.98);
+  }
+
+  .formulation-best-mix-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    border-radius: 999px;
+    border: 1px solid var(--glass-border, rgb(6 78 59 / 0.18));
+    background: var(--glass-surface, rgb(255 255 255 / 0.72));
+    color: var(--accent-800, #166534);
+    transition: opacity 0.15s ease, background 0.15s ease;
+  }
+
+  .formulation-best-mix-nav:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .formulation-best-mix-scroll {
+    display: flex;
+    gap: 0.65rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 0.15rem;
+    padding: 0.1rem 0.15rem 0.35rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .formulation-best-mix-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .formulation-best-mix-card {
+    flex: 0 0 min(78%, 17.5rem);
+    scroll-snap-align: center;
+    text-align: left;
+    border-radius: 0.85rem;
+    border: 1px solid rgb(6 78 59 / 0.14);
+    background: rgb(255 255 255 / 0.62);
+    padding: 0.7rem 0.8rem;
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      background 0.15s ease;
+  }
+
+  .formulation-best-mix-card--active {
+    border-color: rgb(6 95 70 / 0.85);
+    background: rgb(236 253 245 / 0.95);
+    box-shadow: 0 0 0 1px rgb(6 95 70 / 0.2);
+  }
+
+  .formulation-best-mix-card__title {
+    margin: 0 0 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #065f46;
+  }
+
+  .formulation-best-mix-card__title span {
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #64748b;
+  }
+
+  .formulation-best-mix-card__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.2rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #14532d;
+  }
+
+  .formulation-best-mix-dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+
+  .formulation-best-mix-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    border: none;
+    padding: 0;
+    background: rgb(6 78 59 / 0.22);
+  }
+
+  .formulation-best-mix-dot--active {
+    width: 1rem;
+    background: #066e4a;
+  }
+
+  html[data-theme="dark"] .formulation-best-mix-nav {
+    color: #bbf7d0;
+  }
+
+  html[data-theme="dark"] .formulation-best-mix-card {
+    border-color: rgb(255 255 255 / 0.12);
+    background: rgb(255 255 255 / 0.05);
+  }
+
+  html[data-theme="dark"] .formulation-best-mix-card--active {
+    border-color: rgb(52 211 153 / 0.55);
+    background: rgb(6 78 59 / 0.35);
+    box-shadow: 0 0 0 1px rgb(52 211 153 / 0.2);
+  }
+
+  html[data-theme="dark"] .formulation-best-mix-card__title {
+    color: #6ee7b7;
+  }
+
+  html[data-theme="dark"] .formulation-best-mix-card__title span {
+    color: rgb(226 232 240 / 0.55);
+  }
+
+  html[data-theme="dark"] .formulation-best-mix-card__list {
+    color: #e2e8f0;
+  }
+
+  html[data-theme="dark"] .formulation-best-mix-dot {
+    background: rgb(255 255 255 / 0.22);
+  }
+
+  html[data-theme="dark"] .formulation-best-mix-dot--active {
+    background: #6ee7b7;
   }
 
   .fertilizer-plan__section:first-of-type {
@@ -10632,22 +10797,70 @@ html[data-theme="dark"] .app-header {
   }
 
   .settings-page__actions-bar {
-    position: sticky;
-    top: var(--sticky-viewport-top, calc(var(--safe-top, 0px) + var(--app-header-visible-height, 3.25rem)));
     z-index: 10040;
     display: flex;
     justify-content: flex-end;
     align-items: center;
     gap: 0.375rem;
-    margin: -0.35rem 0 0.5rem;
-    padding: 0.25rem 0.25rem 0.35rem;
-    background: transparent;
-    border: none;
     pointer-events: none;
   }
 
   .settings-page__actions-bar > * {
     pointer-events: auto;
+  }
+
+  /* Near top of page: sit in normal flow under the header (no overlay). */
+  .settings-page__actions-bar--top {
+    position: relative;
+    top: auto;
+    margin: 0 0 0.65rem;
+    padding: 0.35rem 0.35rem 0.45rem;
+    border-radius: 0.85rem;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface-strong, var(--glass-surface));
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(calc(16px * var(--app-blur, 1))) saturate(1.08);
+    -webkit-backdrop-filter: blur(calc(16px * var(--app-blur, 1))) saturate(1.08);
+  }
+
+  /* Scrolled: pin above the bottom edge so sliders stay clear. */
+  .settings-page__actions-bar--bottom {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    top: auto;
+    margin: 0;
+    padding: 0.65rem max(0.75rem, var(--safe-left, 0px))
+      max(0.75rem, var(--safe-bottom, 0px)) max(0.75rem, var(--safe-right, 0px));
+    border-radius: 0;
+    border: none;
+    border-top: 1px solid var(--glass-border);
+    background: var(--glass-surface-strong, var(--glass-surface));
+    box-shadow: 0 -6px 24px rgb(0 0 0 / 0.08);
+    backdrop-filter: blur(calc(18px * var(--app-blur, 1))) saturate(1.1);
+    -webkit-backdrop-filter: blur(calc(18px * var(--app-blur, 1))) saturate(1.1);
+    animation: settings-save-dock-in 0.22s ease-out both;
+  }
+
+  .settings-page--save-dock-bottom {
+    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  @keyframes settings-save-dock-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.65rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .settings-page__actions-bar--bottom {
+      animation: none;
+    }
   }
 
   .settings-page__history-btn {
@@ -17372,6 +17585,10 @@ html[data-theme="dark"] .app-header {
 
   html[data-dock-hidden="true"] .scroll-edge-buttons {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+  }
+
+  html[data-settings-save-dock="bottom"] .scroll-edge-buttons {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 4.5rem);
   }
 
   .scroll-edge-buttons__btn {

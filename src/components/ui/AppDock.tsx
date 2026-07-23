@@ -34,6 +34,10 @@ type DockStep = {
   disabled?: boolean;
 };
 
+type NavigatorWithVirtualKeyboard = Navigator & {
+  virtualKeyboard?: { overlaysContent: boolean };
+};
+
 function isTextEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
@@ -57,6 +61,31 @@ function isTextEditable(target: EventTarget | null): boolean {
   ].includes(type);
 }
 
+function setHtmlKeyboardOpen(open: boolean) {
+  if (open) {
+    document.documentElement.dataset.keyboardOpen = "true";
+  } else {
+    delete document.documentElement.dataset.keyboardOpen;
+  }
+}
+
+function syncDockViewportLift() {
+  const vv = window.visualViewport;
+  if (!vv) {
+    document.documentElement.style.setProperty("--dock-vv-lift", "0px");
+    return;
+  }
+  // How far the visual viewport has shrunk/shifted — browsers that pin
+  // `position: fixed` to the visual viewport lift the dock by this amount.
+  const raw = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+  // Ignore small URL-bar chrome changes; only cancel real keyboard lift.
+  const lift =
+    document.documentElement.dataset.keyboardOpen === "true" || raw > 120
+      ? raw
+      : 0;
+  document.documentElement.style.setProperty("--dock-vv-lift", `${lift}px`);
+}
+
 export default function AppDock({
   currentStep,
   onStepChange,
@@ -73,28 +102,36 @@ export default function AppDock({
   const blurTimer = useRef<number | null>(null);
   const baselineViewportHeight = useRef(0);
 
-  const hidden = scrollHidden || keyboardOpen;
+  const scrollAway = scrollHidden && !keyboardOpen;
 
   useEffect(() => {
     queueMicrotask(() => setCanPortal(true));
   }, []);
 
   useEffect(() => {
+    const hidden = scrollHidden || keyboardOpen;
     document.documentElement.dataset.dockHidden = hidden ? "true" : "false";
     return () => {
       delete document.documentElement.dataset.dockHidden;
     };
-  }, [hidden]);
+  }, [scrollHidden, keyboardOpen]);
 
   useEffect(() => {
     keyboardOpenRef.current = keyboardOpen;
   }, [keyboardOpen]);
 
   useEffect(() => {
+    // Chromium: keep layout stable; keyboard overlays instead of resizing.
+    const vk = (navigator as NavigatorWithVirtualKeyboard).virtualKeyboard;
+    if (vk) vk.overlaysContent = true;
+
     function setKeyboard(next: boolean) {
+      // Sync DOM before React paint so the dock never rides the keyboard up.
+      setHtmlKeyboardOpen(next);
       keyboardOpenRef.current = next;
       setKeyboardOpen(next);
       if (next) setScrollHidden(true);
+      syncDockViewportLift();
     }
 
     function onFocusIn(event: FocusEvent) {
@@ -114,10 +151,11 @@ export default function AppDock({
         if (isTextEditable(document.activeElement)) return;
         setKeyboard(false);
         if (window.scrollY < 60) setScrollHidden(false);
-      }, 120);
+      }, 160);
     }
 
     function syncViewportKeyboard() {
+      syncDockViewportLift();
       const vv = window.visualViewport;
       if (!vv) return;
       if (!baselineViewportHeight.current) {
@@ -128,33 +166,37 @@ export default function AppDock({
         baselineViewportHeight.current = vv.height;
       }
       const shrinkage = baselineViewportHeight.current - vv.height;
-      const likelyKeyboard = shrinkage > 140;
-      if (likelyKeyboard) {
+      const likelyKeyboard = shrinkage > 120;
+      if (likelyKeyboard || isTextEditable(document.activeElement)) {
         setKeyboard(true);
         return;
       }
-      if (!isTextEditable(document.activeElement)) {
-        setKeyboard(false);
-        if (window.scrollY < 60) setScrollHidden(false);
-      }
+      setKeyboard(false);
+      if (window.scrollY < 60) setScrollHidden(false);
     }
 
     baselineViewportHeight.current = Math.max(
       window.visualViewport?.height || 0,
       window.innerHeight
     );
+    syncDockViewportLift();
+    setHtmlKeyboardOpen(isTextEditable(document.activeElement));
 
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
     window.visualViewport?.addEventListener("resize", syncViewportKeyboard);
     window.visualViewport?.addEventListener("scroll", syncViewportKeyboard);
+    window.addEventListener("resize", syncDockViewportLift);
 
     return () => {
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
       window.visualViewport?.removeEventListener("resize", syncViewportKeyboard);
       window.visualViewport?.removeEventListener("scroll", syncViewportKeyboard);
+      window.removeEventListener("resize", syncDockViewportLift);
       if (blurTimer.current != null) window.clearTimeout(blurTimer.current);
+      setHtmlKeyboardOpen(false);
+      document.documentElement.style.removeProperty("--dock-vv-lift");
     };
   }, []);
 
@@ -219,11 +261,10 @@ export default function AppDock({
     ? createPortal(
         <nav
           aria-label="Main navigation"
-          className={`app-dock${keyboardOpen ? " app-dock--keyboard" : ""}`}
-          style={{
-            transform: hidden ? "translateY(100%)" : "translateY(0)",
-            transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",
-          }}
+          aria-hidden={keyboardOpen || undefined}
+          className={`app-dock${keyboardOpen ? " app-dock--keyboard" : ""}${
+            scrollAway ? " app-dock--scroll-hidden" : ""
+          }`}
         >
           <div className="app-dock__inner flex items-stretch justify-around">
             {visibleSteps.map((step) => {
@@ -235,6 +276,7 @@ export default function AppDock({
                   key={step.id}
                   type="button"
                   disabled={disabled}
+                  tabIndex={keyboardOpen ? -1 : undefined}
                   onClick={() => onStepChange(step.id)}
                   className={`touch-target flex min-h-[3.75rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-all ${
                     active

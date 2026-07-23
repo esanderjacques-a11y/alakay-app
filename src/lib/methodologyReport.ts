@@ -272,30 +272,56 @@ export async function exportMethodologyPdf(fileName = "cultosol-metodologia-calc
     y += 1;
   }
 
-  // Cover / header
+  // Cover / header — measure first, then paint band + text so nothing overlaps.
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(13);
+  const coverTitle = pdf.splitTextToSize(
+    "Metodología de la Calculadora / Calculator Methodology",
+    contentWidth
+  );
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+  const introLines = pdf.splitTextToSize(
+    "Este documento describe, en español e inglés, cada fórmula y paso de cálculo utilizado por el módulo de calculadora, con sus tablas y fuentes de referencia. / This document describes, in Spanish and English, every formula and calculation step used by the calculator module, with its reference tables and sources.",
+    contentWidth
+  );
+  // Title at y=20 (app), title lines from 30, intro, then date.
+  let coverBottom = 30 + coverTitle.length * 6 + 2 + introLines.length * 5 + 2 + 5 + 8;
+  const headerH = Math.max(60, coverBottom);
+
   pdf.setFillColor(240, 253, 244);
-  pdf.rect(0, 0, pageWidth, 60, "F");
+  pdf.rect(0, 0, pageWidth, headerH, "F");
   pdf.setDrawColor(187, 247, 208);
   pdf.setLineWidth(0.4);
-  pdf.line(0, 60, pageWidth, 60);
+  pdf.line(0, headerH, pageWidth, headerH);
+
   pdf.setTextColor(22, 101, 52);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(20);
   pdf.text("Cultosol", margin, 20);
   pdf.setFontSize(13);
-  pdf.text("Metodología de la Calculadora / Calculator Methodology", margin, 30);
+  let coverY = 30;
+  for (const line of coverTitle) {
+    pdf.text(line, margin, coverY);
+    coverY += 6;
+  }
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
   pdf.setTextColor(71, 85, 105);
-  const introLines = pdf.splitTextToSize(
-    "Este documento describe, en español e inglés, cada fórmula y paso de cálculo utilizado por el módulo de calculadora, con sus tablas y fuentes de referencia. / This document describes, in Spanish and English, every formula and calculation step used by the calculator module, with its reference tables and sources.",
-    contentWidth
-  );
-  pdf.text(introLines, margin, 38);
+  coverY += 2;
+  for (const line of introLines) {
+    pdf.text(line, margin, coverY);
+    coverY += 5;
+  }
+  coverY += 2;
   pdf.setFontSize(8.5);
   pdf.setTextColor(100, 116, 139);
-  pdf.text(`Generado / Generated: ${new Date().toLocaleDateString()}`, margin, 55);
-  y = 68;
+  pdf.text(
+    `Generado / Generated: ${new Date().toLocaleDateString()}`,
+    margin,
+    coverY
+  );
+  y = headerH + 8;
 
   for (const section of SECTIONS) {
     ensureSpace(16);

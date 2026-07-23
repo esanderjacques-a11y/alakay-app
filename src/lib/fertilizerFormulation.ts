@@ -169,39 +169,50 @@ function targetSum(targets: FormulationGrade) {
   return FORMULATION_NUTRIENTS.reduce((sum, key) => sum + (targets[key] || 0), 0);
 }
 
-/** Product already is the finished target grade — not useful as a formulation ingredient. */
-function isFinishedGradeMatch(
-  product: CommercialFertilizer,
-  target: FormulationGrade
-) {
-  if (targetSum(target) <= 0) return false;
-  for (const nutrient of FORMULATION_NUTRIENTS) {
-    const want = target[nutrient] || 0;
-    const have = product.grade[nutrient] || 0;
-    if (Math.abs(want - have) > 0.51) return false;
-  }
-  return true;
-}
-
 function nutrientsCovered(product: CommercialFertilizer): FertilizerNutrient[] {
   return FORMULATION_NUTRIENTS.filter((n) => (product.grade[n] || 0) > 0);
 }
 
 function massToCloseBinding(
   product: CommercialFertilizer,
-  remaining: FormulationGrade
+  remaining: FormulationGrade,
+  options?: { exact?: boolean }
 ): number {
-  let massNeeded = 0;
+  const exact = options?.exact === true;
+  let massNeeded = Infinity;
   let helps = false;
   for (const nutrient of FORMULATION_NUTRIENTS) {
-    const need = remaining[nutrient] || 0;
     const pct = product.grade[nutrient] || 0;
-    if (need <= 0 || pct <= 0) continue;
+    if (pct <= 0) continue;
+    const need = remaining[nutrient] || 0;
+    if (need <= 0.05) {
+      // Product still carries this nutrient — any added mass oversupplies.
+      if (exact) return 0;
+      continue;
+    }
     helps = true;
     const kg = need / (pct / 100);
-    massNeeded = massNeeded === 0 ? kg : Math.min(massNeeded, kg);
+    massNeeded = Math.min(massNeeded, kg);
   }
-  return helps ? massNeeded : 0;
+  return helps && Number.isFinite(massNeeded) ? massNeeded : 0;
+}
+
+/** Delivered nutrient kg must match targets (no shortfall or oversupply). */
+function nutrientsMatchTargets(
+  delivered: FormulationGrade,
+  targetsKg: FormulationGrade,
+  tol = 0.45
+) {
+  for (const nutrient of FORMULATION_NUTRIENTS) {
+    const want = targetsKg[nutrient] || 0;
+    const have = delivered[nutrient] || 0;
+    if (want <= 0) {
+      if (have > tol) return false;
+      continue;
+    }
+    if (Math.abs(have - want) > tol) return false;
+  }
+  return true;
 }
 
 function scoreProduct(
@@ -209,12 +220,13 @@ function scoreProduct(
   remaining: FormulationGrade,
   prices: Record<string, number>,
   bagKg: number,
-  bias: "value" | "compound" | "single"
+  bias: "value" | "compound" | "single",
+  exact = false
 ): number {
   const covered = nutrientsCovered(product).filter((n) => (remaining[n] || 0) > 0);
   if (covered.length === 0) return -Infinity;
 
-  const mass = massToCloseBinding(product, remaining);
+  const mass = massToCloseBinding(product, remaining, { exact });
   if (mass <= 0) return -Infinity;
 
   let usefulKg = 0;
@@ -240,6 +252,22 @@ function scoreProduct(
     // Prefer multi-nutrient products: they credit several oxides at once.
     score *= 1 + (covered.length - 1) * 0.55;
     if (covered.length >= 2) score *= 1.15;
+  }
+
+  // Exact mixes: prefer products that close more of the remaining demand
+  // without locking unbalanced N-P-K ratios (e.g. 15-15-15 for 10-30-10).
+  if (exact && covered.length >= 2) {
+    const ratios: number[] = [];
+    for (const n of covered) {
+      const need = remaining[n] || 0;
+      const pct = product.grade[n] || 0;
+      if (need > 0.05 && pct > 0) ratios.push(need / pct);
+    }
+    if (ratios.length >= 2) {
+      const minR = Math.min(...ratios);
+      const maxR = Math.max(...ratios);
+      if (maxR > minR * 1.35) score *= 0.35;
+    }
   }
 
   return score;
@@ -273,6 +301,7 @@ function allocateRecipe(
   const forceQueue = [...(options.forceOrder || [])];
   const maxSteps = 32;
   const requireExact = options.requireExact !== false;
+  const bindOpts = { exact: requireExact };
 
   for (let step = 0; step < maxSteps && targetSum(remaining) > 0.05; step++) {
     let product: CommercialFertilizer | undefined;
@@ -280,7 +309,7 @@ function allocateRecipe(
     while (forceQueue.length > 0 && !product) {
       const key = forceQueue.shift()!;
       const candidate = byKey.get(key);
-      if (candidate && massToCloseBinding(candidate, remaining) > 0) {
+      if (candidate && massToCloseBinding(candidate, remaining, bindOpts) > 0) {
         product = candidate;
       }
     }
@@ -293,7 +322,8 @@ function allocateRecipe(
           remaining,
           prices,
           bagKg,
-          options.bias
+          options.bias,
+          requireExact
         );
         if (score > bestScore) {
           bestScore = score;
@@ -304,7 +334,7 @@ function allocateRecipe(
 
     if (!product) break;
 
-    const mass = massToCloseBinding(product, remaining);
+    const mass = massToCloseBinding(product, remaining, bindOpts);
     if (!(mass > 0.05)) break;
 
     // Credit every nutrient the product carries (multi-nutrient sources).
@@ -328,6 +358,9 @@ function allocateRecipe(
   const unmet = cloneTargets(remaining);
   if (requireExact && targetSum(unmet) > 0.5) return null;
   if (lines.length === 0) return null;
+  if (requireExact && !nutrientsMatchTargets(nutrientsFromLines(lines), targetsKg)) {
+    return null;
+  }
   return { lines, unmet };
 }
 
@@ -463,6 +496,9 @@ function collectExactRecipes(
   ) => {
     if (!result || result.lines.length === 0) return;
     if (targetSum(result.unmet) > 0.5) return;
+    if (!nutrientsMatchTargets(nutrientsFromLines(result.lines), targetsKg)) {
+      return;
+    }
     const sig = recipeSignature(result.lines);
     if (seen.has(sig)) return;
     seen.add(sig);
@@ -527,9 +563,11 @@ function filterCatalog(
   sourceCatalog: CommercialFertilizer[],
   allowed: string[] | null,
   targetsKg: FormulationGrade,
-  targetGrade: FormulationGrade
+  _targetGrade: FormulationGrade
 ) {
-  const eligible = sourceCatalog
+  // Keep finished-grade matches (e.g. NPK 10-30-10 for a 10-30-10 target):
+  // Best mix prefers the fewest products that hit the exact formula.
+  return sourceCatalog
     .filter((product) => {
       if (allowed && allowed.length > 0) return allowed.includes(product.key);
       return true;
@@ -537,10 +575,41 @@ function filterCatalog(
     .filter((product) =>
       nutrientsCovered(product).some((n) => (targetsKg[n] || 0) > 0)
     );
-  const withoutFinished = eligible.filter(
-    (product) => !isFinishedGradeMatch(product, targetGrade)
+}
+
+function recipeProductMass(lines: RawLine[]) {
+  return round2(lines.reduce((sum, line) => sum + line.kg, 0));
+}
+
+/** Among exact recipes, prefer bag-fitting mixes, then fewest products. */
+function compareExactMixRecipes(a: CostedRecipe, b: CostedRecipe) {
+  if (a.lines.length !== b.lines.length) return a.lines.length - b.lines.length;
+  const near =
+    Math.abs(a.cost - b.cost) <= Math.max(a.cost, b.cost, 1) * COST_NEAR_PCT;
+  if (near) return a.lines.length - b.lines.length;
+  if (a.cost > 0 && b.cost > 0) return a.cost - b.cost;
+  if (a.cost > 0) return -1;
+  if (b.cost > 0) return 1;
+  return 0;
+}
+
+function rankExactMixRecipes(
+  recipes: CostedRecipe[],
+  batchMassKg: number
+): CostedRecipe[] {
+  if (recipes.length === 0) return [];
+  const fitting = recipes.filter(
+    (recipe) => recipeProductMass(recipe.lines) <= batchMassKg + 0.05
   );
-  return withoutFinished.length > 0 ? withoutFinished : eligible;
+  const pool = fitting.length > 0 ? fitting : recipes;
+  return [...pool].sort(compareExactMixRecipes);
+}
+
+function pickBestExactMix(
+  recipes: CostedRecipe[],
+  batchMassKg: number
+): CostedRecipe | null {
+  return rankExactMixRecipes(recipes, batchMassKg)[0] || null;
 }
 
 function scaleRawLines(lines: RawLine[], factor: number): RawLine[] {
@@ -592,10 +661,169 @@ function gradeFromNutrients(
   return grade;
 }
 
+function finalizeFormulationResult(args: {
+  best: CostedRecipe;
+  exactMatch: boolean;
+  autoCanSolve: boolean;
+  input: BuildFormulationInput;
+  targetGrade: FormulationGrade;
+  batchMassKg: number;
+  bagKg: number;
+  prices: Record<string, number>;
+  empty: FormulationResult;
+}): FormulationResult {
+  const {
+    best,
+    autoCanSolve,
+    input,
+    targetGrade,
+    batchMassKg,
+    bagKg,
+    prices,
+    empty,
+  } = args;
+  let exactMatch = args.exactMatch;
+  let workingLines = best.lines;
+  let nutrientsDelivered = nutrientsFromLines(workingLines);
+  let productMassKg = round2(
+    workingLines.reduce((sum, line) => sum + line.kg, 0)
+  );
+
+  if (!(productMassKg > 0)) {
+    return { ...empty, autoCanSolve };
+  }
+
+  const finishMode = input.finishMode;
+  const fillers =
+    finishMode === "filler" ? resolveSelectedFillers(input) : [];
+
+  // Over-mass: scale down proportionally so the bag still fits 100 kg.
+  if (productMassKg > batchMassKg + 0.05) {
+    const factor = batchMassKg / productMassKg;
+    workingLines = scaleRawLines(workingLines, factor);
+    nutrientsDelivered = nutrientsFromLines(workingLines);
+    productMassKg = round2(
+      workingLines.reduce((sum, line) => sum + line.kg, 0)
+    );
+    exactMatch = false;
+  }
+
+  if (finishMode === "filler") {
+    const fillerMassKg = Math.max(0, round2(batchMassKg - productMassKg));
+    const lines: FormulationLine[] = workingLines.map((line) => ({
+      productKey: line.product.key,
+      label: line.product.label,
+      analysis: line.product.analysis,
+      kg: line.kg,
+      isFiller: false,
+    }));
+
+    if (fillerMassKg > 0.05 && fillers.length > 0) {
+      const share = round2(fillerMassKg / fillers.length);
+      let assigned = 0;
+      fillers.forEach((filler, index) => {
+        const kg =
+          index === fillers.length - 1
+            ? round2(fillerMassKg - assigned)
+            : share;
+        assigned = round2(assigned + kg);
+        if (kg > 0.005) {
+          lines.push({
+            productKey: filler.key,
+            label: filler.label,
+            analysis: filler.description,
+            kg,
+            isFiller: true,
+          });
+        }
+      });
+    }
+
+    const finalMass = round2(productMassKg + fillerMassKg);
+    const outputGrade = gradeFromNutrients(nutrientsDelivered, finalMass);
+    if (!gradesClose(outputGrade, targetGrade)) exactMatch = false;
+
+    const unmet = exactMatch ? {} : cloneTargets(best.unmet);
+    if (!exactMatch) {
+      for (const nutrient of FORMULATION_NUTRIENTS) {
+        const want = targetGrade[nutrient] || 0;
+        const have = outputGrade[nutrient] || 0;
+        if (want > have + 0.3) {
+          unmet[nutrient] = round2(((want - have) / 100) * batchMassKg);
+        } else {
+          delete unmet[nutrient];
+        }
+      }
+    }
+
+    return {
+      feasible: true,
+      exactMatch,
+      autoCanSolve,
+      lines,
+      nutrientsDelivered,
+      productMassKg,
+      fillerMassKg,
+      batchMassKg: finalMass,
+      targetGrade,
+      outputGrade: exactMatch ? targetGrade : outputGrade,
+      gradeLabel: gradeLabelFrom(exactMatch ? targetGrade : outputGrade),
+      scaleFactor: 1,
+      unmet,
+      unmetLabels: unmetLabelsFrom(unmet),
+      estimatedCost: best.cost > 0 ? best.cost : null,
+      fillers,
+    };
+  }
+
+  const adjustedGrade = gradeFromNutrients(nutrientsDelivered, productMassKg);
+  const scaleFactor = round2(batchMassKg / productMassKg);
+  const scaledLines: FormulationLine[] = workingLines.map((line) => ({
+    productKey: line.product.key,
+    label: line.product.label,
+    analysis: line.product.analysis,
+    kg: round2(line.kg * scaleFactor),
+    isFiller: false,
+  }));
+  const scaledMass = round2(
+    scaledLines.reduce((sum, line) => sum + line.kg, 0)
+  );
+  const scaledNutrients = nutrientsFromLines(
+    workingLines.map((line) => ({
+      product: line.product,
+      kg: line.kg * scaleFactor,
+    }))
+  );
+  const costBase = recipeCost(workingLines, prices, bagKg);
+  const estimatedCost =
+    costBase > 0 ? round2(costBase * scaleFactor) : null;
+  const unmet = exactMatch ? {} : cloneTargets(best.unmet);
+
+  return {
+    feasible: true,
+    exactMatch,
+    autoCanSolve,
+    lines: scaledLines,
+    nutrientsDelivered: scaledNutrients,
+    productMassKg,
+    fillerMassKg: 0,
+    batchMassKg: scaledMass,
+    targetGrade,
+    outputGrade: adjustedGrade,
+    gradeLabel: gradeLabelFrom(adjustedGrade),
+    scaleFactor,
+    unmet,
+    unmetLabels: unmetLabelsFrom(unmet),
+    estimatedCost,
+    fillers: [],
+  };
+}
+
 /**
  * Build a bag formulation for a target grade and batch size.
- * Credits multi-nutrient products. When the allowed products cannot hit the
- * exact target, returns the closest achievable grade (exactMatch: false).
+ * Best mix searches exact recipes and prefers the fewest products that truly
+ * hit the grade. When exact is impossible, returns the closest blend
+ * (exactMatch: false) so the UI can ask before accepting an adjusted formula.
  */
 export function buildFormulation(
   input: BuildFormulationInput
@@ -664,17 +892,15 @@ export function buildFormulation(
     if (!(fullPrices[product.key] > 0)) fullPrices[product.key] = 1;
   }
   const autoCanSolve = Boolean(
-    pickBestRecipe(
-      runAttempts(
+    pickBestExactMix(
+      collectExactRecipes(
         targetsKg,
         fullCatalog,
         fullPrices,
         bagKg,
-        prices,
-        true,
-        "mix"
+        prices
       ),
-      "mix"
+      batchMassKg
     )
   );
 
@@ -682,7 +908,6 @@ export function buildFormulation(
   let exactMatch = false;
 
   if (optimizeFor === "random") {
-    // Random exact mixes always search the full catalog.
     best = pickRandomExactRecipe(
       targetsKg,
       fullCatalog,
@@ -698,6 +923,32 @@ export function buildFormulation(
           targetsKg,
           fullCatalog,
           fullPrices,
+          bagKg,
+          prices,
+          false,
+          "mix"
+        ),
+        "mix"
+      );
+    }
+  } else if (optimizeFor === "mix") {
+    best = pickBestExactMix(
+      collectExactRecipes(
+        targetsKg,
+        catalog,
+        effectivePrices,
+        bagKg,
+        prices
+      ),
+      batchMassKg
+    );
+    exactMatch = Boolean(best);
+    if (!best) {
+      best = pickBestRecipe(
+        runAttempts(
+          targetsKg,
+          catalog,
+          effectivePrices,
           bagKg,
           prices,
           false,
@@ -741,144 +992,98 @@ export function buildFormulation(
     return { ...empty, autoCanSolve };
   }
 
-  let workingLines = best.lines;
-  let nutrientsDelivered = nutrientsFromLines(workingLines);
-  let productMassKg = round2(
-    workingLines.reduce((sum, line) => sum + line.kg, 0)
-  );
-
-  if (!(productMassKg > 0)) {
-    return { ...empty, autoCanSolve };
-  }
-
-  const finishMode = input.finishMode;
-  const fillers =
-    finishMode === "filler" ? resolveSelectedFillers(input) : [];
-
-  // Over-mass: scale down proportionally so the bag still fits 100 kg.
-  if (productMassKg > batchMassKg + 0.05) {
-    const factor = batchMassKg / productMassKg;
-    workingLines = scaleRawLines(workingLines, factor);
-    nutrientsDelivered = nutrientsFromLines(workingLines);
-    productMassKg = round2(
-      workingLines.reduce((sum, line) => sum + line.kg, 0)
-    );
-    exactMatch = false;
-  }
-
-  if (finishMode === "filler") {
-    const fillerMassKg = Math.max(0, round2(batchMassKg - productMassKg));
-    const lines: FormulationLine[] = workingLines.map((line) => ({
-      productKey: line.product.key,
-      label: line.product.label,
-      analysis: line.product.analysis,
-      kg: line.kg,
-      isFiller: false,
-    }));
-
-    if (fillerMassKg > 0.05 && fillers.length > 0) {
-      const share = round2(fillerMassKg / fillers.length);
-      let assigned = 0;
-      fillers.forEach((filler, index) => {
-        const kg =
-          index === fillers.length - 1
-            ? round2(fillerMassKg - assigned)
-            : share;
-        assigned = round2(assigned + kg);
-        if (kg > 0.005) {
-          lines.push({
-            productKey: filler.key,
-            label: filler.label,
-            analysis: filler.description,
-            kg,
-            isFiller: true,
-          });
-        }
-      });
-    }
-
-    const finalMass = round2(productMassKg + fillerMassKg);
-    const outputGrade = gradeFromNutrients(nutrientsDelivered, finalMass);
-    if (!gradesClose(outputGrade, targetGrade)) exactMatch = false;
-
-    const unmet = exactMatch ? {} : cloneTargets(best.unmet);
-    // Recompute unmet from grade gap when we had to adjust.
-    if (!exactMatch) {
-      for (const nutrient of FORMULATION_NUTRIENTS) {
-        const want = targetGrade[nutrient] || 0;
-        const have = outputGrade[nutrient] || 0;
-        if (want > have + 0.3) {
-          unmet[nutrient] = round2(((want - have) / 100) * batchMassKg);
-        } else {
-          delete unmet[nutrient];
-        }
-      }
-    }
-
-    return {
-      feasible: true,
-      exactMatch,
-      autoCanSolve,
-      lines,
-      nutrientsDelivered,
-      productMassKg,
-      fillerMassKg,
-      batchMassKg: finalMass,
-      targetGrade,
-      outputGrade: exactMatch ? targetGrade : outputGrade,
-      gradeLabel: gradeLabelFrom(exactMatch ? targetGrade : outputGrade),
-      scaleFactor: 1,
-      unmet,
-      unmetLabels: unmetLabelsFrom(unmet),
-      estimatedCost: best.cost > 0 ? best.cost : null,
-      fillers,
-    };
-  }
-
-  // No filler: concentrate grade and scale to desired batch of the concentrated mix.
-  const adjustedGrade = gradeFromNutrients(nutrientsDelivered, productMassKg);
-  const scaleFactor = round2(batchMassKg / productMassKg);
-  const scaledLines: FormulationLine[] = workingLines.map((line) => ({
-    productKey: line.product.key,
-    label: line.product.label,
-    analysis: line.product.analysis,
-    kg: round2(line.kg * scaleFactor),
-    isFiller: false,
-  }));
-  const scaledMass = round2(
-    scaledLines.reduce((sum, line) => sum + line.kg, 0)
-  );
-  const scaledNutrients = nutrientsFromLines(
-    workingLines.map((line) => ({
-      product: line.product,
-      kg: line.kg * scaleFactor,
-    }))
-  );
-  const costBase = recipeCost(workingLines, prices, bagKg);
-  const estimatedCost =
-    costBase > 0 ? round2(costBase * scaleFactor) : null;
-
-  if (!gradesClose(adjustedGrade, targetGrade)) exactMatch = false;
-  const unmet = exactMatch ? {} : cloneTargets(best.unmet);
-
-  return {
-    feasible: true,
+  return finalizeFormulationResult({
+    best,
     exactMatch,
     autoCanSolve,
-    lines: scaledLines,
-    nutrientsDelivered: scaledNutrients,
-    productMassKg,
-    fillerMassKg: 0,
-    batchMassKg: scaledMass,
+    input,
     targetGrade,
-    outputGrade: adjustedGrade,
-    gradeLabel: gradeLabelFrom(adjustedGrade),
-    scaleFactor,
-    unmet,
-    unmetLabels: unmetLabelsFrom(unmet),
-    estimatedCost,
+    batchMassKg,
+    bagKg,
+    prices,
+    empty,
+  });
+}
+
+/**
+ * Top exact Best mix scenarios (fewest products first), for carousel UI.
+ * Returns at most `limit` exact recipes that hit the target grade.
+ */
+export function listBestMixScenarios(
+  input: BuildFormulationInput,
+  limit = 3
+): FormulationResult[] {
+  const targetGrade = cleanGrade(input.targetGrade);
+  const batchMassKg = toKg(input.batchSize, input.unit);
+  const bagKg =
+    input.bagKg && input.bagKg > 0 ? input.bagKg : DEFAULT_FERTILIZER_BAG_KG;
+  const prices = input.prices || {};
+  const empty: FormulationResult = {
+    feasible: false,
+    exactMatch: false,
+    autoCanSolve: false,
+    lines: [],
+    nutrientsDelivered: {},
+    productMassKg: 0,
+    fillerMassKg: 0,
+    batchMassKg,
+    targetGrade,
+    outputGrade: targetGrade,
+    gradeLabel: gradeLabelFrom(targetGrade),
+    scaleFactor: 1,
+    unmet: targetGrade,
+    unmetLabels: unmetLabelsFrom(targetGrade),
+    estimatedCost: null,
     fillers: [],
   };
+
+  if (!(batchMassKg > 0) || targetSum(targetGrade) <= 0 || limit <= 0) {
+    return [];
+  }
+
+  const targetsKg: FormulationGrade = {};
+  for (const nutrient of FORMULATION_NUTRIENTS) {
+    const pct = targetGrade[nutrient];
+    if (pct != null && pct > 0) {
+      targetsKg[nutrient] = round2((pct / 100) * batchMassKg);
+    }
+  }
+
+  const sourceCatalog = input.catalog?.length
+    ? input.catalog
+    : listAllFertilizers();
+  const catalog = filterCatalog(sourceCatalog, null, targetsKg, targetGrade);
+  const effectivePrices: Record<string, number> = { ...prices };
+  for (const product of catalog) {
+    if (!(effectivePrices[product.key] > 0)) effectivePrices[product.key] = 1;
+  }
+
+  const ranked = rankExactMixRecipes(
+    collectExactRecipes(
+      targetsKg,
+      catalog,
+      effectivePrices,
+      bagKg,
+      prices
+    ),
+    batchMassKg
+  ).slice(0, limit);
+
+  return ranked
+    .map((best) =>
+      finalizeFormulationResult({
+        best,
+        exactMatch: true,
+        autoCanSolve: true,
+        input: { ...input, optimizeFor: "mix" },
+        targetGrade,
+        batchMassKg,
+        bagKg,
+        prices,
+        empty,
+      })
+    )
+    .filter((result) => result.feasible && result.exactMatch);
 }
 
 export function listFormulationProducts() {

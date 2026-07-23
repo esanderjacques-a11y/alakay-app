@@ -703,18 +703,31 @@ export async function exportAnalysisPdf(options: {
   function drawKvRow(label: string, value: string, unit = "") {
     const left = pdfSafe(label);
     const right = pdfSafe(`${value}${unit ? ` ${unit}` : ""}`);
-    ensureSpace(12);
+    const padX = 3;
+    const labelMaxW = contentWidth * 0.58;
+    const valueMaxW = contentWidth * 0.38;
+    const lineH = 4.6;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    const labelLines = pdf.splitTextToSize(left, labelMaxW);
+    pdf.setFont("helvetica", "normal");
+    const valueLines = pdf.splitTextToSize(right, valueMaxW);
+    const lineCount = Math.max(labelLines.length, valueLines.length, 1);
+    const rowH = Math.max(10, lineCount * lineH + 5);
+
+    ensureSpace(rowH + 2);
     pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
-    pdf.roundedRect(margin, y, contentWidth, 10, 1.5, 1.5, "F");
+    pdf.roundedRect(margin, y, contentWidth, rowH, 1.5, 1.5, "F");
+
+    const textY = y + 5.5;
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(10);
     pdf.setTextColor(INK[0], INK[1], INK[2]);
-    const labelLines = pdf.splitTextToSize(left, contentWidth * 0.58);
-    pdf.text(labelLines[0], margin + 3, y + 6.5);
+    pdf.text(labelLines, margin + padX, textY);
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-    pdf.text(right, pageWidth - margin - 3, y + 6.5, { align: "right" });
-    y += 12;
+    pdf.text(valueLines, pageWidth - margin - padX, textY, { align: "right" });
+    y += rowH + 2;
   }
 
   function drawCover() {
@@ -776,33 +789,68 @@ export async function exportAnalysisPdf(options: {
     const usable = metaPairs.filter(([, value]) => Boolean(value?.trim()));
     const gap = 3;
     const colW = (contentWidth - gap) / 2;
-    const rowH = 14;
-    let col = 0;
-    let rowY = y;
+    const labelLineH = 3.6;
+    const valueLineH = 4.8;
+    const cellPad = 3.5;
 
-    for (const [label, value] of usable) {
-      const x = margin + col * (colW + gap);
-      ensureSpace(rowH + 2);
-      if (col === 0) rowY = y;
-      pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
-      pdf.roundedRect(x, rowY, colW, rowH, 1.5, 1.5, "F");
+    // Precompute wrapped content and row heights so paired cells stay aligned.
+    const cells = usable.map(([label, value]) => {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(8);
-      pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-      pdf.text(pdfSafe(label).toUpperCase(), x + 3, rowY + 4.8);
+      const labelLines = pdf.splitTextToSize(
+        pdfSafe(label).toUpperCase(),
+        colW - 6
+      );
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(11);
-      pdf.setTextColor(INK[0], INK[1], INK[2]);
-      const clipped = pdf.splitTextToSize(pdfSafe(String(value)), colW - 6);
-      pdf.text(clipped[0], x + 3, rowY + 10.5);
+      const valueLines = pdf.splitTextToSize(
+        pdfSafe(String(value)),
+        colW - 6
+      );
+      const h =
+        cellPad +
+        labelLines.length * labelLineH +
+        1.5 +
+        valueLines.length * valueLineH +
+        cellPad;
+      return { labelLines, valueLines, h: Math.max(14, h) };
+    });
 
-      col += 1;
-      if (col >= 2) {
-        col = 0;
-        y = rowY + rowH + 2.5;
+    for (let i = 0; i < cells.length; i += 2) {
+      const left = cells[i];
+      const right = cells[i + 1];
+      const rowH = Math.max(left.h, right?.h ?? 0);
+      ensureSpace(rowH + 2.5);
+      const rowY = y;
+
+      for (const [cell, colIndex] of [
+        [left, 0] as const,
+        ...(right ? ([[right, 1] as const] as const) : []),
+      ]) {
+        const x = margin + colIndex * (colW + gap);
+        pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
+        pdf.roundedRect(x, rowY, colW, rowH, 1.5, 1.5, "F");
+
+        let textY = rowY + cellPad + 2.8;
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(8);
+        pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+        for (const line of cell.labelLines) {
+          pdf.text(line, x + 3, textY);
+          textY += labelLineH;
+        }
+        textY += 1.2;
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(11);
+        pdf.setTextColor(INK[0], INK[1], INK[2]);
+        for (const line of cell.valueLines) {
+          pdf.text(line, x + 3, textY);
+          textY += valueLineH;
+        }
       }
+
+      y = rowY + rowH + 2.5;
     }
-    if (col !== 0) y = rowY + rowH + 2.5;
 
     if (usable.length === 0 && reportMeta?.details?.length) {
       for (const detail of reportMeta.details) {
@@ -836,7 +884,14 @@ export async function exportAnalysisPdf(options: {
 
     const gap = 3;
     const cardW = (contentWidth - gap * 2) / 3;
-    const cardH = 30;
+    const titleLineH = 3.4;
+    const titles = cards.map((card) => {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8);
+      return pdf.splitTextToSize(card.title, cardW - 8).slice(0, 2);
+    });
+    const maxTitleLines = Math.max(...titles.map((lines) => lines.length), 1);
+    const cardH = Math.max(30, 18 + maxTitleLines * titleLineH + 4);
     ensureSpace(cardH + 4);
     const top = y;
 
@@ -859,8 +914,11 @@ export async function exportAnalysisPdf(options: {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(8);
       pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-      const titleLines = pdf.splitTextToSize(card.title, cardW - 8);
-      pdf.text(titleLines.slice(0, 2), x + 4, top + 22);
+      let titleY = top + 22;
+      for (const line of titles[index]) {
+        pdf.text(line, x + 4, titleY);
+        titleY += titleLineH;
+      }
     });
 
     y = top + cardH + 6;
@@ -916,17 +974,22 @@ export async function exportAnalysisPdf(options: {
       );
     }
     if (quick) {
-      ensureSpace(22);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      const title = L("exportQuickInterpretation", "Quick interpretation");
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      const wrap = pdf.splitTextToSize(pdfSafe(quick), contentWidth - 10);
+      const boxH = Math.max(16, 8 + wrap.length * 5 + 4);
+      ensureSpace(boxH + 4);
       pdf.setFillColor(236, 253, 245);
       pdf.setDrawColor(BRAND[0], BRAND[1], BRAND[2]);
       pdf.setLineWidth(0.4);
-      const wrap = pdf.splitTextToSize(pdfSafe(quick), contentWidth - 10);
-      const boxH = Math.max(16, wrap.length * 5 + 8);
       pdf.roundedRect(margin, y, contentWidth, boxH, 2, 2, "FD");
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(9);
       pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-      pdf.text(L("exportQuickInterpretation", "Quick interpretation"), margin + 4, y + 5);
+      pdf.text(title, margin + 4, y + 5);
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(10);
       pdf.setTextColor(INK[0], INK[1], INK[2]);
@@ -1103,7 +1166,8 @@ export async function exportAnalysisPdf(options: {
       pdf.setTextColor(255, 255, 255);
       let x = margin;
       for (const col of cols) {
-        pdf.text(col.label, x + 2, y + 6);
+        const headerLines = pdf.splitTextToSize(col.label, col.w * scale - 3);
+        pdf.text(headerLines[0], x + 2, y + 6);
         x += col.w * scale;
       }
       y += 10;
@@ -1112,14 +1176,8 @@ export async function exportAnalysisPdf(options: {
     drawHeader();
 
     products.forEach((product, index) => {
-      ensureSpace(12);
-      if (index % 2 === 0) {
-        pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
-        pdf.rect(margin, y - 1, contentWidth, 11, "F");
-      }
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9.5);
-      pdf.setTextColor(INK[0], INK[1], INK[2]);
 
       const rate =
         product.bagsHa != null
@@ -1139,14 +1197,25 @@ export async function exportAnalysisPdf(options: {
         pdfSafe(price),
         pdfSafe(cost),
       ];
+      const wrapped = cells.map((cell, i) =>
+        pdf.splitTextToSize(cell, cols[i].w * scale - 3)
+      );
+      const lineCount = Math.max(...wrapped.map((lines) => lines.length), 1);
+      const rowH = Math.max(11, lineCount * 4.4 + 3);
+
+      ensureSpace(rowH + 1);
+      if (index % 2 === 0) {
+        pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
+        pdf.rect(margin, y - 1, contentWidth, rowH, "F");
+      }
+      pdf.setTextColor(INK[0], INK[1], INK[2]);
       let x = margin;
-      cells.forEach((cell, i) => {
+      wrapped.forEach((lines, i) => {
         const w = cols[i].w * scale;
-        const lines = pdf.splitTextToSize(cell, w - 3);
-        pdf.text(lines[0], x + 2, y + 5.5);
+        pdf.text(lines, x + 2, y + 4.5);
         x += w;
       });
-      y += 11;
+      y += rowH;
     });
 
     const totalCost = products.reduce(
@@ -1214,7 +1283,6 @@ export async function exportAnalysisPdf(options: {
     drawHeader();
 
     for (const row of rows) {
-      ensureSpace(12);
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9.5);
       pdf.setTextColor(INK[0], INK[1], INK[2]);
@@ -1229,11 +1297,14 @@ export async function exportAnalysisPdf(options: {
         methodLines.length,
         1
       );
-      pdf.text(dateLines[0], colDate, y);
-      pdf.text(qtyLines[0], colQty, y);
-      pdf.text(fertLines[0], colFert, y);
-      pdf.text(methodLines[0], colMethod, y);
-      y += Math.max(6, lineCount * 4.2);
+      const rowH = Math.max(6, lineCount * 4.2);
+      ensureSpace(rowH + 2);
+      if (y === margin) drawHeader();
+      pdf.text(dateLines, colDate, y);
+      pdf.text(qtyLines, colQty, y);
+      pdf.text(fertLines, colFert, y);
+      pdf.text(methodLines, colMethod, y);
+      y += rowH + 1.5;
     }
     y += 3;
   }

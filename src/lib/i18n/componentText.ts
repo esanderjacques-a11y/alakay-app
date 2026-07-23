@@ -1008,17 +1008,17 @@ export const importedLabCacheText = {
 
 export const calculatorHubText: Record<Language, Record<string, string>> = {
   en: {
-    title: "CALCULATORS",
+    title: "Calculators",
     subtitle: "Use lab values when available, or enter the missing data manually.",
     back: "Back",
     backToCalculators: "Back to calculators",
     all: "All",
     priority: "Recommended",
-    cic: "CIC, bases & ratios",
-    amendment: "pH & amendments",
-    fertilizer: "Nutritional plan",
-    fertilizerCost: "Fertilizer cost",
-    fertilizerFormulation: "Fertilizer formulation",
+    cic: "CIC & bases",
+    amendment: "pH",
+    fertilizer: "Nutrition",
+    fertilizerCost: "Cost",
+    fertilizerFormulation: "Formulation",
     fertilizerFormulationDesc:
       "Build a custom grade from raw materials. Auto-pick the best mix, or choose what you have available.",
     fertilizerFormulationTarget: "Target grade",
@@ -1028,6 +1028,15 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationUnit: "Unit",
     fertilizerFormulationStrategy: "Product strategy",
     fertilizerFormulationBestMix: "Best mix",
+    fertilizerFormulationBestMixScenarios: "Best mix scenarios",
+    fertilizerFormulationBestMixScenariosHint:
+      "Swipe or use the arrows to compare the top exact mixes (fewest products first).",
+    fertilizerFormulationBestMixScenarioOf: "{current} of {total}",
+    fertilizerFormulationBestMixScenarioLabel: "Scenario {n}",
+    fertilizerFormulationBestMixPrev: "Previous scenario",
+    fertilizerFormulationBestMixNext: "Next scenario",
+    fertilizerFormulationBestMixProduct: "product",
+    fertilizerFormulationBestMixProducts: "products",
     fertilizerFormulationMyProducts: "Select product",
     fertilizerFormulationBestValue: "Best value",
     fertilizerFormulationMixProducts: "Fertilizers in this mix",
@@ -1075,8 +1084,14 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Selected products cannot make the exact target grade",
     fertilizerFormulationInexactBody:
       "Multi-nutrient fertilizers are credited together. Closest achievable grade with your selection: {grade}.",
+    fertilizerFormulationInexactTitleBestMix:
+      "Cannot make the exact target grade with Best mix",
+    fertilizerFormulationInexactBodyBestMix:
+      "Best mix could not hit this grade exactly. Closest achievable grade: {grade}.",
     fertilizerFormulationInfeasibleBody:
       "Your selection cannot supply this grade. Switch to Best mix or Best value, or shuffle a random exact mix.",
+    fertilizerFormulationInfeasibleBodyBestMix:
+      "No exact mix was found for this grade. Try Best value, or change the target nutrients.",
     fertilizerFormulationUnmet: "Short on",
     fertilizerFormulationUseClosest: "1. Use closest formula ({grade})",
     fertilizerFormulationSwitchBestMix: "2. Switch to Best mix",
@@ -1127,6 +1142,30 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationFormulaPrefix: "Formula",
     fertilizerFormulationSaved:
       "Formula saved. It is now available in fertilizer lists.",
+    fertilizerFormulationExportPdf: "Export recipe PDF",
+    fertilizerFormulationExportPdfDesc:
+      "Download a PDF of this formulation recipe.",
+    fertilizerFormulationExportPdfConfirm: "Download PDF",
+    fertilizerFormulationExportingPdf: "Exporting…",
+    fertilizerFormulationExportIncludePrices:
+      "Include prices and estimated cost?",
+    fertilizerFormulationExportIncludePricesHint:
+      "Adds bag prices, line costs, and total estimated cost when available.",
+    fertilizerFormulationPdfTitle: "Fertilizer formulation recipe",
+    fertilizerFormulationPdfSubtitle: "Blend composition summary",
+    fertilizerFormulationPdfGrade: "Grade",
+    fertilizerFormulationPdfTarget: "Target N-P-K",
+    fertilizerFormulationPdfProduct: "Product",
+    fertilizerFormulationPdfAnalysis: "Analysis",
+    fertilizerFormulationPdfPercent: "%",
+    fertilizerFormulationPdfMass: "Mass",
+    fertilizerFormulationPdfLineCost: "Cost",
+    fertilizerFormulationPdfProduction: "Production batch",
+    fertilizerFormulationPdfComposition: "Composition",
+    fertilizerFormulationPdfActiveShare: "Active ingredients",
+    fertilizerFormulationPdfFillerShare: "Filler",
+    exportCancel: "Cancel",
+    appName: "Cultosol",
     fertilizerCostCta: "See prices & cost scenarios",
     fertilizerCostBack: "Back to nutritional plan",
     fertilizerCostNeedPlan:
@@ -1627,17 +1666,17 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Amendment: consider organic matter (manure, compost, or cover crops) — soil OM is low.",
   },
   es: {
-    title: "CALCULADORAS",
+    title: "Calculadoras",
     subtitle: "Use los valores del laboratorio si existen, o complete los datos faltantes.",
     back: "Atrás",
     backToCalculators: "Volver a calculadoras",
     all: "Todo",
     priority: "Recomendadas",
-    cic: "CIC, bases y relaciones",
-    amendment: "pH y enmiendas",
-    fertilizer: "Plan nutricional",
-    fertilizerCost: "Costo de fertilizantes",
-    fertilizerFormulation: "Formulación de fertilizante",
+    cic: "CIC y bases",
+    amendment: "pH",
+    fertilizer: "Nutrición",
+    fertilizerCost: "Costo",
+    fertilizerFormulation: "Formulación",
     fertilizerFormulationDesc:
       "Cree un grado a medida con materias primas. Elija la mejor mezcla o los productos que tiene.",
     fertilizerFormulationTarget: "Grado objetivo",
@@ -1647,6 +1686,15 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationUnit: "Unidad",
     fertilizerFormulationStrategy: "Estrategia de productos",
     fertilizerFormulationBestMix: "Mejor mezcla",
+    fertilizerFormulationBestMixScenarios: "Escenarios de mejor mezcla",
+    fertilizerFormulationBestMixScenariosHint:
+      "Deslice o use las flechas para comparar las mejores mezclas exactas (menos productos primero).",
+    fertilizerFormulationBestMixScenarioOf: "{current} de {total}",
+    fertilizerFormulationBestMixScenarioLabel: "Escenario {n}",
+    fertilizerFormulationBestMixPrev: "Escenario anterior",
+    fertilizerFormulationBestMixNext: "Escenario siguiente",
+    fertilizerFormulationBestMixProduct: "producto",
+    fertilizerFormulationBestMixProducts: "productos",
     fertilizerFormulationMyProducts: "Seleccionar producto",
     fertilizerFormulationBestValue: "Mejor valor",
     fertilizerFormulationMixProducts: "Fertilizantes en esta mezcla",
@@ -1694,8 +1742,14 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Los productos seleccionados no pueden formar el grado exacto",
     fertilizerFormulationInexactBody:
       "Los fertilizantes multinutrientes se acreditan juntos. Grado más cercano con su selección: {grade}.",
+    fertilizerFormulationInexactTitleBestMix:
+      "No se puede formar el grado exacto con Mejor mezcla",
+    fertilizerFormulationInexactBodyBestMix:
+      "Mejor mezcla no pudo alcanzar este grado exactamente. Grado más cercano: {grade}.",
     fertilizerFormulationInfeasibleBody:
       "Su selección no puede aportar este grado. Cambie a Mejor mezcla o Mejor valor, o baraje una mezcla exacta aleatoria.",
+    fertilizerFormulationInfeasibleBodyBestMix:
+      "No se encontró una mezcla exacta para este grado. Pruebe Mejor valor, o cambie los nutrientes objetivo.",
     fertilizerFormulationUnmet: "Falta",
     fertilizerFormulationUseClosest: "1. Usar fórmula más cercana ({grade})",
     fertilizerFormulationSwitchBestMix: "2. Cambiar a Mejor mezcla",
@@ -1746,6 +1800,30 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationFormulaPrefix: "Fórmula",
     fertilizerFormulationSaved:
       "Fórmula guardada. Ya está disponible en las listas de fertilizantes.",
+    fertilizerFormulationExportPdf: "Exportar receta PDF",
+    fertilizerFormulationExportPdfDesc:
+      "Descargue un PDF de esta receta de formulación.",
+    fertilizerFormulationExportPdfConfirm: "Descargar PDF",
+    fertilizerFormulationExportingPdf: "Exportando…",
+    fertilizerFormulationExportIncludePrices:
+      "¿Incluir precios y costo estimado?",
+    fertilizerFormulationExportIncludePricesHint:
+      "Añade precios por saco, costos por línea y el costo total estimado cuando estén disponibles.",
+    fertilizerFormulationPdfTitle: "Receta de formulación de fertilizante",
+    fertilizerFormulationPdfSubtitle: "Resumen de composición de la mezcla",
+    fertilizerFormulationPdfGrade: "Grado",
+    fertilizerFormulationPdfTarget: "N-P-K objetivo",
+    fertilizerFormulationPdfProduct: "Producto",
+    fertilizerFormulationPdfAnalysis: "Análisis",
+    fertilizerFormulationPdfPercent: "%",
+    fertilizerFormulationPdfMass: "Masa",
+    fertilizerFormulationPdfLineCost: "Costo",
+    fertilizerFormulationPdfProduction: "Lote de producción",
+    fertilizerFormulationPdfComposition: "Composición",
+    fertilizerFormulationPdfActiveShare: "Ingredientes activos",
+    fertilizerFormulationPdfFillerShare: "Relleno",
+    exportCancel: "Cancelar",
+    appName: "Cultosol",
     fertilizerCostCta: "Ver precios y escenarios de costo",
     fertilizerCostBack: "Volver al plan nutricional",
     fertilizerCostNeedPlan:
@@ -2248,17 +2326,17 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Enmienda: considere materia orgánica (estiércol, compost o cultivos de cobertura) — la MO del suelo es baja.",
   },
   fr: {
-    title: "CALCULATEURS",
+    title: "Calculateurs",
     subtitle: "Utilisez les valeurs du laboratoire ou complétez les données manquantes.",
     back: "Retour",
     backToCalculators: "Retour aux calculateurs",
     all: "Tout",
     priority: "Recommandés",
-    cic: "CIC, bases et ratios",
-    amendment: "pH et amendements",
-    fertilizer: "Plan nutritionnel",
-    fertilizerCost: "Coût des engrais",
-    fertilizerFormulation: "Formulation d’engrais",
+    cic: "CIC et bases",
+    amendment: "pH",
+    fertilizer: "Nutrition",
+    fertilizerCost: "Coût",
+    fertilizerFormulation: "Formulation",
     fertilizerFormulationDesc:
       "Créez un grade personnalisé à partir de matières premières. Meilleur mélange auto ou produits disponibles.",
     fertilizerFormulationTarget: "Grade cible",
@@ -2268,6 +2346,15 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationUnit: "Unité",
     fertilizerFormulationStrategy: "Stratégie produits",
     fertilizerFormulationBestMix: "Meilleur mélange",
+    fertilizerFormulationBestMixScenarios: "Scénarios du meilleur mélange",
+    fertilizerFormulationBestMixScenariosHint:
+      "Glissez ou utilisez les flèches pour comparer les meilleurs mélanges exacts (le moins de produits d’abord).",
+    fertilizerFormulationBestMixScenarioOf: "{current} sur {total}",
+    fertilizerFormulationBestMixScenarioLabel: "Scénario {n}",
+    fertilizerFormulationBestMixPrev: "Scénario précédent",
+    fertilizerFormulationBestMixNext: "Scénario suivant",
+    fertilizerFormulationBestMixProduct: "produit",
+    fertilizerFormulationBestMixProducts: "produits",
     fertilizerFormulationMyProducts: "Choisir produit",
     fertilizerFormulationBestValue: "Meilleure valeur",
     fertilizerFormulationSelectAll: "Tout sélectionner",
@@ -2310,8 +2397,14 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Les produits choisis ne peuvent pas former le grade exact",
     fertilizerFormulationInexactBody:
       "Les engrais multi-nutriments sont crédités ensemble. Grade le plus proche avec votre sélection : {grade}.",
+    fertilizerFormulationInexactTitleBestMix:
+      "Impossible d’atteindre le grade exact avec Meilleur mélange",
+    fertilizerFormulationInexactBodyBestMix:
+      "Le Meilleur mélange n’a pas pu atteindre ce grade exactement. Grade le plus proche : {grade}.",
     fertilizerFormulationInfeasibleBody:
       "Votre sélection ne peut pas fournir ce grade. Passez au Meilleur mélange ou à la Meilleure valeur, ou tirez un mélange exact aléatoire.",
+    fertilizerFormulationInfeasibleBodyBestMix:
+      "Aucun mélange exact n’a été trouvé pour ce grade. Essayez Meilleure valeur, ou modifiez les nutriments cibles.",
     fertilizerFormulationUnmet: "Manque",
     fertilizerFormulationUseClosest: "1. Utiliser la formule la plus proche ({grade})",
     fertilizerFormulationSwitchBestMix: "2. Passer au Meilleur mélange",
@@ -2362,6 +2455,30 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationFormulaPrefix: "Formule",
     fertilizerFormulationSaved:
       "Formule enregistrée. Elle est maintenant disponible dans les listes.",
+    fertilizerFormulationExportPdf: "Exporter la recette PDF",
+    fertilizerFormulationExportPdfDesc:
+      "Téléchargez un PDF de cette recette de formulation.",
+    fertilizerFormulationExportPdfConfirm: "Télécharger le PDF",
+    fertilizerFormulationExportingPdf: "Exportation…",
+    fertilizerFormulationExportIncludePrices:
+      "Inclure les prix et le coût estimé ?",
+    fertilizerFormulationExportIncludePricesHint:
+      "Ajoute les prix au sac, les coûts par ligne et le coût total estimé lorsqu’ils sont disponibles.",
+    fertilizerFormulationPdfTitle: "Recette de formulation d’engrais",
+    fertilizerFormulationPdfSubtitle: "Résumé de composition du mélange",
+    fertilizerFormulationPdfGrade: "Formule",
+    fertilizerFormulationPdfTarget: "N-P-K cible",
+    fertilizerFormulationPdfProduct: "Produit",
+    fertilizerFormulationPdfAnalysis: "Analyse",
+    fertilizerFormulationPdfPercent: "%",
+    fertilizerFormulationPdfMass: "Masse",
+    fertilizerFormulationPdfLineCost: "Coût",
+    fertilizerFormulationPdfProduction: "Lot de production",
+    fertilizerFormulationPdfComposition: "Composition",
+    fertilizerFormulationPdfActiveShare: "Matières actives",
+    fertilizerFormulationPdfFillerShare: "Charge",
+    exportCancel: "Annuler",
+    appName: "Cultosol",
     fertilizerCostCta: "Voir les prix et scénarios de coût",
     fertilizerCostBack: "Retour au plan nutritionnel",
     fertilizerCostNeedPlan:
@@ -2856,17 +2973,17 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Amendement : envisagez de la matière organique (fumier, compost ou couverts) — la MO du sol est faible.",
   },
   ht: {
-    title: "KALKILATÈ",
+    title: "Kalkilatè",
     subtitle: "Sèvi ak valè laboratwa yo si yo la, oswa entre sa ki manke yo manyèlman.",
     back: "Tounen",
     backToCalculators: "Tounen nan kalkilatè yo",
     all: "Tout",
     priority: "Rekòmande",
-    cic: "CIC, baz ak rapò",
-    amendment: "pH ak amandman",
-    fertilizer: "Plan nitrisyonèl",
-    fertilizerCost: "Pri angre",
-    fertilizerFormulation: "Fòmilasyon angre",
+    cic: "CIC ak baz",
+    amendment: "pH",
+    fertilizer: "Nitrisyon",
+    fertilizerCost: "Pri",
+    fertilizerFormulation: "Fòmilasyon",
     fertilizerFormulationDesc:
       "Kreye yon gradyan pèsonalize ak matyè premyè. Pi bon melanj oto oswa pwodui ou genyen.",
     fertilizerFormulationTarget: "Gradyan objektif",
@@ -2876,6 +2993,15 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationUnit: "Inite",
     fertilizerFormulationStrategy: "Estrateji pwodui",
     fertilizerFormulationBestMix: "Pi bon melanj",
+    fertilizerFormulationBestMixScenarios: "Senaryo pi bon melanj",
+    fertilizerFormulationBestMixScenariosHint:
+      "Glise oswa itilize flèch yo pou konpare pi bon melanj egzak yo (mwens pwodui anvan).",
+    fertilizerFormulationBestMixScenarioOf: "{current} nan {total}",
+    fertilizerFormulationBestMixScenarioLabel: "Senaryo {n}",
+    fertilizerFormulationBestMixPrev: "Senaryo anvan",
+    fertilizerFormulationBestMixNext: "Pwochen senaryo",
+    fertilizerFormulationBestMixProduct: "pwodwi",
+    fertilizerFormulationBestMixProducts: "pwodwi",
     fertilizerFormulationMyProducts: "Chwazi pwodui",
     fertilizerFormulationBestValue: "Pi bon valè",
     fertilizerFormulationSelectAll: "Chwazi tout",
@@ -2918,8 +3044,14 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Pwodui yo chwazi pa ka fè gradyan egzak la",
     fertilizerFormulationInexactBody:
       "Angre milti-nitiman yo kredite ansanm. Gradyan ki pi pre ak seleksyon ou: {grade}.",
+    fertilizerFormulationInexactTitleBestMix:
+      "Pa ka fè gradyan egzak la ak Pi bon melanj",
+    fertilizerFormulationInexactBodyBestMix:
+      "Pi bon melanj pa t ka rive nan gradyan sa a egzakteman. Gradyan ki pi pre: {grade}.",
     fertilizerFormulationInfeasibleBody:
       "Seleksyon ou pa ka bay gradyan sa a. Chanje pou Pi bon melanj oswa Pi bon valè, oswa melanje yon melanj egzak oaza.",
+    fertilizerFormulationInfeasibleBodyBestMix:
+      "Pa jwenn yon melanj egzak pou gradyan sa a. Eseye Pi bon valè, oswa chanje nitiman sib yo.",
     fertilizerFormulationUnmet: "Manque",
     fertilizerFormulationUseClosest: "1. Itilize fòmil ki pi pre ({grade})",
     fertilizerFormulationSwitchBestMix: "2. Chanje pou Pi bon melanj",
@@ -2970,6 +3102,30 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationFormulaPrefix: "Fòmil",
     fertilizerFormulationSaved:
       "Fòmil anrejistre. Li disponib kounye a nan lis angre yo.",
+    fertilizerFormulationExportPdf: "Ekspòte resèt PDF",
+    fertilizerFormulationExportPdfDesc:
+      "Telechaje yon PDF nan resèt fòmilasyon sa a.",
+    fertilizerFormulationExportPdfConfirm: "Telechaje PDF",
+    fertilizerFormulationExportingPdf: "Ap ekspòte…",
+    fertilizerFormulationExportIncludePrices:
+      "Mete pri ak pri estime yo ladan?",
+    fertilizerFormulationExportIncludePricesHint:
+      "Ajoute pri pa sak, pri pa liy, ak pri total estime lè yo disponib.",
+    fertilizerFormulationPdfTitle: "Resèt fòmilasyon angre",
+    fertilizerFormulationPdfSubtitle: "Rezime konpozisyon melanj lan",
+    fertilizerFormulationPdfGrade: "Grad",
+    fertilizerFormulationPdfTarget: "N-P-K sib",
+    fertilizerFormulationPdfProduct: "Pwodwi",
+    fertilizerFormulationPdfAnalysis: "Analiz",
+    fertilizerFormulationPdfPercent: "%",
+    fertilizerFormulationPdfMass: "Mas",
+    fertilizerFormulationPdfLineCost: "Pri",
+    fertilizerFormulationPdfProduction: "Lo pwodiksyon",
+    fertilizerFormulationPdfComposition: "Konpozisyon",
+    fertilizerFormulationPdfActiveShare: "Engredyan aktif",
+    fertilizerFormulationPdfFillerShare: "Ranpli",
+    exportCancel: "Anile",
+    appName: "Cultosol",
     fertilizerCostCta: "Gade pri ak senaryo pri",
     fertilizerCostBack: "Tounen nan plan nitrisyonèl",
     fertilizerCostNeedPlan:
@@ -3462,17 +3618,17 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Amandman: konsidere matyè òganik (fimye, konpòs oswa rekòt kouvèti) — MO tè a ba.",
   },
   pt: {
-    title: "CALCULADORAS",
+    title: "Calculadoras",
     subtitle: "Use valores do laboratório quando existirem, ou complete os dados faltantes.",
     back: "Voltar",
     backToCalculators: "Voltar às calculadoras",
     all: "Tudo",
     priority: "Recomendadas",
-    cic: "CIC, bases e relações",
-    amendment: "pH e corretivos",
-    fertilizer: "Plano nutricional",
-    fertilizerCost: "Custo de fertilizantes",
-    fertilizerFormulation: "Formulação de fertilizante",
+    cic: "CIC e bases",
+    amendment: "pH",
+    fertilizer: "Nutrição",
+    fertilizerCost: "Custo",
+    fertilizerFormulation: "Formulação",
     fertilizerFormulationDesc:
       "Crie um grau sob medida com matérias-primas. Melhor mistura automática ou produtos disponíveis.",
     fertilizerFormulationTarget: "Grau alvo",
@@ -3482,6 +3638,15 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationUnit: "Unidade",
     fertilizerFormulationStrategy: "Estratégia de produtos",
     fertilizerFormulationBestMix: "Melhor mistura",
+    fertilizerFormulationBestMixScenarios: "Cenários da melhor mistura",
+    fertilizerFormulationBestMixScenariosHint:
+      "Deslize ou use as setas para comparar as melhores misturas exatas (menos produtos primeiro).",
+    fertilizerFormulationBestMixScenarioOf: "{current} de {total}",
+    fertilizerFormulationBestMixScenarioLabel: "Cenário {n}",
+    fertilizerFormulationBestMixPrev: "Cenário anterior",
+    fertilizerFormulationBestMixNext: "Próximo cenário",
+    fertilizerFormulationBestMixProduct: "produto",
+    fertilizerFormulationBestMixProducts: "produtos",
     fertilizerFormulationMyProducts: "Selecionar produto",
     fertilizerFormulationBestValue: "Melhor valor",
     fertilizerFormulationSelectAll: "Selecionar tudo",
@@ -3524,8 +3689,14 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Os produtos selecionados não podem formar o grau exato",
     fertilizerFormulationInexactBody:
       "Fertilizantes multinutrientes são creditados juntos. Grau mais próximo com sua seleção: {grade}.",
+    fertilizerFormulationInexactTitleBestMix:
+      "Não é possível formar o grau exato com Melhor mistura",
+    fertilizerFormulationInexactBodyBestMix:
+      "Melhor mistura não conseguiu atingir este grau exatamente. Grau mais próximo: {grade}.",
     fertilizerFormulationInfeasibleBody:
       "Sua seleção não consegue fornecer este grau. Mude para Melhor mistura ou Melhor valor, ou sorteie uma mistura exata aleatória.",
+    fertilizerFormulationInfeasibleBodyBestMix:
+      "Nenhuma mistura exata foi encontrada para este grau. Tente Melhor valor, ou altere os nutrientes alvo.",
     fertilizerFormulationUnmet: "Falta",
     fertilizerFormulationUseClosest: "1. Usar fórmula mais próxima ({grade})",
     fertilizerFormulationSwitchBestMix: "2. Mudar para Melhor mistura",
@@ -3576,6 +3747,30 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationFormulaPrefix: "Fórmula",
     fertilizerFormulationSaved:
       "Fórmula salva. Agora está disponível nas listas de fertilizantes.",
+    fertilizerFormulationExportPdf: "Exportar receita PDF",
+    fertilizerFormulationExportPdfDesc:
+      "Baixe um PDF desta receita de formulação.",
+    fertilizerFormulationExportPdfConfirm: "Baixar PDF",
+    fertilizerFormulationExportingPdf: "Exportando…",
+    fertilizerFormulationExportIncludePrices:
+      "Incluir preços e custo estimado?",
+    fertilizerFormulationExportIncludePricesHint:
+      "Adiciona preços por saco, custos por linha e o custo total estimado quando disponíveis.",
+    fertilizerFormulationPdfTitle: "Receita de formulação de fertilizante",
+    fertilizerFormulationPdfSubtitle: "Resumo da composição da mistura",
+    fertilizerFormulationPdfGrade: "Grau",
+    fertilizerFormulationPdfTarget: "N-P-K alvo",
+    fertilizerFormulationPdfProduct: "Produto",
+    fertilizerFormulationPdfAnalysis: "Análise",
+    fertilizerFormulationPdfPercent: "%",
+    fertilizerFormulationPdfMass: "Massa",
+    fertilizerFormulationPdfLineCost: "Custo",
+    fertilizerFormulationPdfProduction: "Lote de produção",
+    fertilizerFormulationPdfComposition: "Composição",
+    fertilizerFormulationPdfActiveShare: "Ingredientes ativos",
+    fertilizerFormulationPdfFillerShare: "Enchimento",
+    exportCancel: "Cancelar",
+    appName: "Cultosol",
     fertilizerCostCta: "Ver preços e cenários de custo",
     fertilizerCostBack: "Voltar ao plano nutricional",
     fertilizerCostNeedPlan:
@@ -4069,17 +4264,17 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Emenda: considere matéria orgânica (esterco, composto ou coberturas) — a MO do solo está baixa.",
   },
   sw: {
-    title: "VIKOKOTOZI",
+    title: "Vikokotozi",
     subtitle: "Tumia thamani za maabara zikiwepo, au jaza taarifa zinazokosekana.",
     back: "Rudi",
     backToCalculators: "Rudi kwenye vikokotozi",
     all: "Zote",
     priority: "Vinavyopendekezwa",
-    cic: "CIC, besi na uwiano",
-    amendment: "pH na marekebisho",
-    fertilizer: "Mpango wa lishe",
-    fertilizerCost: "Gharama ya mbolea",
-    fertilizerFormulation: "Uundaji wa mbolea",
+    cic: "CIC na besi",
+    amendment: "pH",
+    fertilizer: "Lishe",
+    fertilizerCost: "Gharama",
+    fertilizerFormulation: "Uundaji",
     fertilizerFormulationDesc:
       "Tengeneza daraja maalum kutoka malighafi. Mchanganyiko bora kiotomatiki au bidhaa ulizonazo.",
     fertilizerFormulationTarget: "Daraja lengwa",
@@ -4089,6 +4284,15 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationUnit: "Kipimo",
     fertilizerFormulationStrategy: "Mkakati wa bidhaa",
     fertilizerFormulationBestMix: "Mchanganyiko bora",
+    fertilizerFormulationBestMixScenarios: "Hali za mchanganyiko bora",
+    fertilizerFormulationBestMixScenariosHint:
+      "Telezesha au tumia mishale kulinganisha mchanganyiko bora wa exact (bidhaa chache kwanza).",
+    fertilizerFormulationBestMixScenarioOf: "{current} kati ya {total}",
+    fertilizerFormulationBestMixScenarioLabel: "Hali {n}",
+    fertilizerFormulationBestMixPrev: "Hali iliyotangulia",
+    fertilizerFormulationBestMixNext: "Hali inayofuata",
+    fertilizerFormulationBestMixProduct: "bidhaa",
+    fertilizerFormulationBestMixProducts: "bidhaa",
     fertilizerFormulationMyProducts: "Chagua bidhaa",
     fertilizerFormulationBestValue: "Thamani bora",
     fertilizerFormulationSelectAll: "Chagua zote",
@@ -4131,8 +4335,14 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Bidhaa zilizochaguliwa haziwezi kutengeneza daraja halisi",
     fertilizerFormulationInexactBody:
       "Mbolea zenye virutubisho vingi zinakubaliwa pamoja. Daraja la karibu zaidi kwa uchaguzi wako: {grade}.",
+    fertilizerFormulationInexactTitleBestMix:
+      "Haiwezi kutengeneza daraja halisi kwa Mchanganyiko bora",
+    fertilizerFormulationInexactBodyBestMix:
+      "Mchanganyiko bora haukufikia daraja hili kikamilifu. Daraja la karibu zaidi: {grade}.",
     fertilizerFormulationInfeasibleBody:
       "Uchaguzi wako hauwezi kutoa daraja hili. Badilisha kwenda Mchanganyiko bora au Thamani bora, au panga mchanganyiko halisi wa nasibu.",
+    fertilizerFormulationInfeasibleBodyBestMix:
+      "Hakuna mchanganyiko halisi uliopatikana kwa daraja hili. Jaribu Thamani bora, au badilisha virutubisho lengwa.",
     fertilizerFormulationUnmet: "Inakosa",
     fertilizerFormulationUseClosest: "1. Tumia fomula ya karibu ({grade})",
     fertilizerFormulationSwitchBestMix: "2. Badilisha kwenda Mchanganyiko bora",
@@ -4183,6 +4393,30 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationFormulaPrefix: "Fomula",
     fertilizerFormulationSaved:
       "Fomula imehifadhiwa. Sasa inapatikana katika orodha za mbolea.",
+    fertilizerFormulationExportPdf: "Hamisha mapishi PDF",
+    fertilizerFormulationExportPdfDesc:
+      "Pakua PDF ya mapishi haya ya fomula.",
+    fertilizerFormulationExportPdfConfirm: "Pakua PDF",
+    fertilizerFormulationExportingPdf: "Inahamisha…",
+    fertilizerFormulationExportIncludePrices:
+      "Jumuisha bei na gharama inayokadiriwa?",
+    fertilizerFormulationExportIncludePricesHint:
+      "Inaongeza bei kwa gunia, gharama kwa mstari, na jumla inayokadiriwa inapopatikana.",
+    fertilizerFormulationPdfTitle: "Mapishi ya fomula ya mbolea",
+    fertilizerFormulationPdfSubtitle: "Muhtasari wa muundo wa mchanganyiko",
+    fertilizerFormulationPdfGrade: "Daraja",
+    fertilizerFormulationPdfTarget: "N-P-K lengwa",
+    fertilizerFormulationPdfProduct: "Bidhaa",
+    fertilizerFormulationPdfAnalysis: "Uchambuzi",
+    fertilizerFormulationPdfPercent: "%",
+    fertilizerFormulationPdfMass: "Uzito",
+    fertilizerFormulationPdfLineCost: "Gharama",
+    fertilizerFormulationPdfProduction: "Kundi la uzalishaji",
+    fertilizerFormulationPdfComposition: "Muundo",
+    fertilizerFormulationPdfActiveShare: "Viungo amilifu",
+    fertilizerFormulationPdfFillerShare: "Kichujio",
+    exportCancel: "Ghairi",
+    appName: "Cultosol",
     fertilizerCostCta: "Angalia bei na hali za gharama",
     fertilizerCostBack: "Rudi kwenye mpango wa lishe",
     fertilizerCostNeedPlan:

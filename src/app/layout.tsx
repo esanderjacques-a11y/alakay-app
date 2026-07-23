@@ -60,8 +60,8 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
-  /* Keep fixed chrome (dock) stable when the soft keyboard opens. */
-  interactiveWidget: "resizes-visual",
+  /* Soft keyboard overlays content — fixed dock must not ride up with it. */
+  interactiveWidget: "overlays-content",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#059669" },
     { media: "(prefers-color-scheme: dark)", color: "#0f172a" },

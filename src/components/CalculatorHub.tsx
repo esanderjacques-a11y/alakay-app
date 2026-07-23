@@ -564,7 +564,7 @@ function CalculatorHubBody({
     <section className="animate-slide-up">
       <div className="calculator-hub-panel values-screen-panel--open px-0 pb-8 pt-0">
         {/* Page header — horizontal inset comes from .app-main-shell */}
-        <div className="calculator-hub-chrome flex flex-col gap-2.5 pb-4 pt-1">
+        <div className="calculator-hub-chrome flex flex-col gap-2 pb-3 pt-1">
           <div className="flex items-center gap-2 min-w-0">
             <BackButton
               variant="icon"
@@ -619,19 +619,18 @@ function CalculatorHubBody({
               <button
                 type="button"
                 onClick={handleImportFromValues}
-                className={`calculator-hub-action ${
+                className={`calculator-hub-action calculator-hub-action--icon ${
                   valuesOutOfSync ? "calculator-hub-action--stale" : ""
                 }`}
                 title={t.importFromValuesHint}
-                aria-label={t.importFromValuesHint}
+                aria-label={t.importFromValues || "Refresh"}
               >
-                <RefreshCcw size={14} aria-hidden />
-                <span>{t.importFromValues || "Refresh"}</span>
+                <RefreshCcw size={15} aria-hidden />
                 {valuesOutOfSync ? (
-                  <span className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
+                  <span className="calculator-hub-action__dot" aria-hidden />
                 ) : null}
               </button>
-              {goToValues ? (
+              {!hasLabData && goToValues ? (
                 <button
                   type="button"
                   onClick={goToValues}
@@ -642,28 +641,17 @@ function CalculatorHubBody({
               ) : null}
             </div>
           </div>
-          <p className="hub-mode-hint text-xs">
-            {hubMode === "guided" ? t.hubModeGuidedHint : t.hubModeExplorerHint}
-          </p>
           {importMessage ? (
             <p className="calculator-hub-status calculator-hub-status--success" role="status">
               {importMessage}
-            </p>
-          ) : valuesOutOfSync ? (
-            <p className="calculator-hub-status calculator-hub-status--stale" role="status">
-              {t.importFromValuesStale ||
-                "Values changed since the last import. Tap Import from Values to update."}
             </p>
           ) : null}
         </div>
 
         {!hasLabData ? (
-          <div className="mb-4 rounded-xl border border-amber-200/80 bg-amber-50 px-3.5 py-3.5 dark:border-amber-900/40 dark:bg-amber-950/30" role="status">
+          <div className="mb-3 rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-2.5 dark:border-amber-900/40 dark:bg-amber-950/30" role="status">
             <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
               {t.labDataRequiredTitle}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-amber-900/90 dark:text-amber-200/90">
-              {t.labDataRequiredDesc}
             </p>
             {goToValues ? (
               <button
@@ -744,12 +732,6 @@ function CalculatorHubBody({
                 </button>
               )}
             </div>
-            {guidedIndex >= guidedSteps.length - 1 ? (
-              <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                {t.hubModeFinishHint ||
-                  "Guided path complete. Schedule applications or generate a report."}
-              </p>
-            ) : null}
           </div>
         ) : null}
         {hubMode === "explorer" && browseLayout === "list" ? (
@@ -790,11 +772,6 @@ function CalculatorHubBody({
 
         {active === "priority" && browseLayout === "grid" ? (
           <PriorityCalculators t={t} suggestions={suggestions} setActive={setActive} />
-        ) : null}
-        {active === "priority" && browseLayout === "list" ? (
-          <CalculatorPage>
-            <p className="calc-surface p-4 text-sm text-slate-600">{t.calculatorListHint}</p>
-          </CalculatorPage>
         ) : null}
         {active === "cic" ? (
           <CicCalculator
@@ -938,12 +915,10 @@ function CalculatorHubBody({
 function CalcActionCard({
   icon,
   title,
-  desc,
   onClick,
 }: {
   icon: ReactNode;
   title: string;
-  desc: string;
   onClick: () => void;
 }) {
   return (
@@ -953,7 +928,6 @@ function CalcActionCard({
       </span>
       <span className="calculator-action-card__copy">
         <span className="calculator-action-card__title">{title}</span>
-        <span className="calculator-action-card__desc">{desc}</span>
       </span>
     </button>
   );
@@ -998,15 +972,14 @@ function PriorityCalculators({
   return (
     <CalculatorPage>
       <div className="calculator-actions-grid">
-      {suggestions.map((item) => (
-        <CalcActionCard
-          key={`${item.key}-${item.title}`}
-          icon={tabIconByKey[item.key]}
-          title={translateCalculatorText(item.title, t)}
-          desc={translateCalculatorText(item.desc, t)}
-          onClick={() => setActive(item.key)}
-        />
-      ))}
+        {suggestions.map((item) => (
+          <CalcActionCard
+            key={`${item.key}-${item.title}`}
+            icon={tabIconByKey[item.key]}
+            title={translateCalculatorText(item.title, t)}
+            onClick={() => setActive(item.key)}
+          />
+        ))}
       </div>
     </CalculatorPage>
   );

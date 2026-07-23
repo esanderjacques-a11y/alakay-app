@@ -1193,6 +1193,39 @@ export default function AppSettingsScreen({
   );
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
+  const [saveDock, setSaveDock] = useState<"top" | "bottom">("top");
+
+  useEffect(() => {
+    if (!isDirty) {
+      setSaveDock("top");
+      return;
+    }
+
+    function syncSaveDock() {
+      // Stay under the header near the top; pin to the bottom once content
+      // scrolls up so the bar never covers mid-page controls (sliders, etc.).
+      setSaveDock(window.scrollY > 72 ? "bottom" : "top");
+    }
+
+    syncSaveDock();
+    window.addEventListener("scroll", syncSaveDock, { passive: true });
+    window.visualViewport?.addEventListener("resize", syncSaveDock);
+    return () => {
+      window.removeEventListener("scroll", syncSaveDock);
+      window.visualViewport?.removeEventListener("resize", syncSaveDock);
+    };
+  }, [isDirty]);
+
+  useEffect(() => {
+    if (isDirty && saveDock === "bottom") {
+      document.documentElement.dataset.settingsSaveDock = "bottom";
+    } else {
+      delete document.documentElement.dataset.settingsSaveDock;
+    }
+    return () => {
+      delete document.documentElement.dataset.settingsSaveDock;
+    };
+  }, [isDirty, saveDock]);
 
   useEffect(() => {
     return () => {
@@ -1326,7 +1359,13 @@ export default function AppSettingsScreen({
 
   return (
     <section className="animate-slide-up">
-      <div className="settings-page w-full pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
+      <div
+        className={`settings-page w-full pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))]${
+          isDirty && saveDock === "bottom"
+            ? " settings-page--save-dock-bottom"
+            : ""
+        }`}
+      >
         <div className="settings-page__header mb-2 flex items-center gap-2 pt-1 pb-0.5">
           <BackButton
             variant="icon"
@@ -1353,7 +1392,11 @@ export default function AppSettingsScreen({
         </div>
 
         {isDirty ? (
-          <div className="settings-page__actions-bar">
+          <div
+            className={`settings-page__actions-bar settings-page__actions-bar--${saveDock}`}
+            role="toolbar"
+            aria-label={text.save}
+          >
             <button
               type="button"
               onClick={handleUndo}

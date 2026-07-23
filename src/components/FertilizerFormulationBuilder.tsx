@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Search, Shuffle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight, FileDown, Search, Shuffle } from "lucide-react";
 import AddCustomFertilizerForm from "@/components/AddCustomFertilizerForm";
+import AppModal from "@/components/AppModal";
 import MenuSelect from "@/components/ui/MenuSelect";
 import {
   DEFAULT_FERTILIZER_BAG_KG,
@@ -17,10 +18,13 @@ import { resolveProductPrices } from "@/lib/fertilizerCostOptimize";
 import {
   buildFormulation,
   fromKg,
+  listBestMixScenarios,
   type FormulationFinishMode,
   type FormulationGrade,
   type FormulationMassUnit,
+  type FormulationResult,
 } from "@/lib/fertilizerFormulation";
+import { exportFormulationPdf } from "@/lib/formulationPdf";
 import type { FertilizerNutrient } from "@/lib/fertilizerCatalog";
 
 type PriceRow = {
@@ -59,27 +63,6 @@ const PRODUCT_CATEGORY_ORDER: ProductCategoryId[] = [
   "secondary",
   "micro",
 ];
-
-function nutrientCount(
-  product: { grade: Partial<Record<FertilizerNutrient, number>> }
-) {
-  return (
-    [
-      "n",
-      "p2o5",
-      "k2o",
-      "mgo",
-      "cao",
-      "s",
-      "zn",
-      "b",
-      "fe",
-      "mn",
-      "cu",
-      "mo",
-    ] as FertilizerNutrient[]
-  ).filter((key) => (product.grade[key] || 0) > 0).length;
-}
 
 /** Place each product under the nutrient with the highest % in its grade. */
 function productCategory(
@@ -233,6 +216,20 @@ function formatMoney(value: number, currency: string) {
   }).format(value);
 }
 
+/** Skip analysis when the label already includes it (e.g. "NPK 15-15-15"). */
+function analysisAddsInfo(label: string, analysis: string) {
+  const grade = analysis.trim();
+  if (!grade) return false;
+  const name = label.trim().toLowerCase();
+  const needle = grade.toLowerCase();
+  if (name === needle) return false;
+  return !name.includes(needle);
+}
+
+function productDisplayTitle(label: string, analysis: string) {
+  return analysisAddsInfo(label, analysis) ? `${label} · ${analysis}` : label;
+}
+
 function FilterChip({
   label,
   active,
@@ -283,7 +280,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
   const [unit, setUnit] = useState<FormulationMassUnit>("kg");
   const [showBatchOptions, setShowBatchOptions] = useState(false);
   const [showCosts, setShowCosts] = useState(false);
-  const [strategy, setStrategy] = useState<StrategyMode>("manual");
+  const [strategy, setStrategy] = useState<StrategyMode>("auto");
   const [finishMode, setFinishMode] = useState<FormulationFinishMode>("filler");
   const [fillerChoice, setFillerChoice] = useState<string>(FILLER_AUTO);
   const [catalogVersion, setCatalogVersion] = useState(0);
@@ -296,11 +293,16 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
   /** When selected products can't hit the target, hide the recipe until a choice. */
   const [useRandomMix, setUseRandomMix] = useState(false);
   const [randomUnit, setRandomUnit] = useState(0);
+  const [bestMixIndex, setBestMixIndex] = useState(0);
+  const bestMixScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [currency, setCurrency] = useState("");
   const [prices, setPrices] = useState<PriceResponse | null>(null);
   const [manualPrices, setManualPrices] = useState<Record<string, string>>({});
   const [bagKg] = useState(DEFAULT_FERTILIZER_BAG_KG);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportIncludePrices, setExportIncludePrices] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const catalog = useMemo(
     () => listAllFertilizers(),
@@ -395,19 +397,21 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
   const formulaUnit: FormulationMassUnit =
     finishMode === "no_filler" ? unit : "kg";
 
-  const selectionResult = useMemo(
-    () =>
-      buildFormulation({
-        targetGrade,
-        batchSize: formulaBatchSize,
-        unit: formulaUnit,
-        finishMode,
-        allowedProductKeys: strategy === "manual" ? selectedKeys : null,
-        fillerKeys: [effectiveFillerKey],
-        prices: productPrices,
-        bagKg,
-        optimizeFor: strategy === "value" ? "value" : "mix",
-      }),
+  const formulationInput = useMemo(
+    () => ({
+      targetGrade,
+      batchSize: formulaBatchSize,
+      unit: formulaUnit,
+      finishMode,
+      allowedProductKeys: strategy === "manual" ? selectedKeys : null,
+      fillerKeys: [effectiveFillerKey],
+      prices: productPrices,
+      bagKg,
+      optimizeFor:
+        strategy === "value"
+          ? ("value" as const)
+          : ("mix" as const),
+    }),
     [
       targetGrade,
       formulaBatchSize,
@@ -421,31 +425,38 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
     ]
   );
 
+  const bestMixScenarios = useMemo(() => {
+    if (strategy !== "auto") return [] as FormulationResult[];
+    return listBestMixScenarios(
+      {
+        ...formulationInput,
+        allowedProductKeys: null,
+        optimizeFor: "mix",
+      },
+      3
+    );
+  }, [strategy, formulationInput]);
+
+  const selectionResult = useMemo(() => {
+    if (strategy === "auto" && bestMixScenarios.length > 0) {
+      const index = Math.min(
+        Math.max(0, bestMixIndex),
+        bestMixScenarios.length - 1
+      );
+      return bestMixScenarios[index];
+    }
+    return buildFormulation(formulationInput);
+  }, [strategy, bestMixScenarios, bestMixIndex, formulationInput]);
+
   const randomResult = useMemo(() => {
     if (!useRandomMix) return null;
     return buildFormulation({
-      targetGrade,
-      batchSize: formulaBatchSize,
-      unit: formulaUnit,
-      finishMode,
+      ...formulationInput,
       allowedProductKeys: null,
-      fillerKeys: [effectiveFillerKey],
-      prices: productPrices,
-      bagKg,
       optimizeFor: "random",
       randomUnit,
     });
-  }, [
-    useRandomMix,
-    randomUnit,
-    targetGrade,
-    formulaBatchSize,
-    formulaUnit,
-    finishMode,
-    effectiveFillerKey,
-    productPrices,
-    bagKg,
-  ]);
+  }, [useRandomMix, randomUnit, formulationInput]);
 
   const result = useRandomMix && randomResult ? randomResult : selectionResult;
 
@@ -453,20 +464,52 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
     (value) => (value || 0) > 0
   );
 
-  /** Selection cannot hit the exact target — offer closest / best mix / random. */
+  /** Exact target not met — ask before showing closest / adjusted recipe. */
   const selectionNeedsChoice =
-    strategy === "manual" &&
+    (strategy === "manual" || strategy === "auto") &&
     hasTargetGrade &&
     !selectionResult.exactMatch &&
-    (selectedKeys.length > 0 || selectionResult.autoCanSolve);
+    (strategy === "auto" ||
+      selectedKeys.length > 0 ||
+      selectionResult.autoCanSolve);
 
   const awaitingInexactChoice = selectionNeedsChoice && !useRandomMix;
 
   const showChoiceBanner = selectionNeedsChoice || useRandomMix;
+  const showBestMixCarousel =
+    strategy === "auto" &&
+    !useRandomMix &&
+    !awaitingInexactChoice &&
+    bestMixScenarios.length > 0;
 
   useEffect(() => {
     setUseRandomMix(false);
+    setBestMixIndex(0);
   }, [strategy, selectedKeys, targetGrade, finishMode, effectiveFillerKey]);
+
+  useEffect(() => {
+    if (bestMixIndex >= bestMixScenarios.length) {
+      setBestMixIndex(0);
+    }
+  }, [bestMixIndex, bestMixScenarios.length]);
+
+  useEffect(() => {
+    const root = bestMixScrollRef.current;
+    if (!root || !showBestMixCarousel) return;
+    const card = root.querySelector<HTMLElement>(
+      `[data-best-mix-index="${bestMixIndex}"]`
+    );
+    card?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+  }, [bestMixIndex, showBestMixCarousel]);
+
+  function selectBestMixScenario(index: number) {
+    if (index < 0 || index >= bestMixScenarios.length) return;
+    setBestMixIndex(index);
+  }
 
   const batchKg = useMemo(() => {
     if (!(batch > 0)) return 0;
@@ -500,6 +543,100 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
 
   function priceManualKey(productKey: string) {
     return `saco:${bagKg}:${displayCurrency}:${productKey}`;
+  }
+
+  function strategyLabelForPdf() {
+    if (useRandomMix) {
+      return t.fertilizerFormulationRandomMix || "Random mix";
+    }
+    if (strategy === "auto") {
+      return t.fertilizerFormulationBestMix || "Best mix";
+    }
+    if (strategy === "value") {
+      return t.fertilizerFormulationBestValue || "Best value";
+    }
+    return t.fertilizerFormulationMyProducts || "Select product";
+  }
+
+  async function handleExportPdf() {
+    if (!result.feasible || exportingPdf) return;
+    setExportingPdf(true);
+    try {
+      const pdfLines = result.lines.map((line) => {
+        const percent =
+          result.batchMassKg > 0 ? (line.kg / result.batchMassKg) * 100 : 0;
+        const bagPrice = productPrices[line.productKey];
+        const lineCost =
+          bagPrice > 0 && bagKg > 0 ? (line.kg / bagKg) * bagPrice : null;
+        return {
+          ...line,
+          displayMass: recipeMass(line.kg),
+          percent,
+          bagPrice: bagPrice > 0 ? bagPrice : null,
+          lineCost,
+        };
+      });
+
+      await exportFormulationPdf({
+        labels: {
+          title:
+            t.fertilizerFormulationPdfTitle || "Fertilizer formulation recipe",
+          subtitle:
+            t.fertilizerFormulationPdfSubtitle || "Blend composition summary",
+          grade: t.fertilizerFormulationPdfGrade || "Grade",
+          target: t.fertilizerFormulationPdfTarget || "Target N-P-K",
+          finishMode: t.fertilizerFormulationFinish || "Finish mode",
+          strategy: t.fertilizerFormulationStrategy || "Product strategy",
+          recipe: t.fertilizerFormulationResult || "Recipe",
+          product: t.fertilizerFormulationPdfProduct || "Product",
+          analysis: t.fertilizerFormulationPdfAnalysis || "Analysis",
+          percent: t.fertilizerFormulationPdfPercent || "%",
+          mass: t.fertilizerFormulationPdfMass || "Mass",
+          total: t.fertilizerFormulationTotal || "Total",
+          fillerTag: t.fertilizerFormulationFillerTag || "filler",
+          bagPrice: t.fertilizerPricePerBag || "Price / bag",
+          lineCost: t.fertilizerFormulationPdfLineCost || "Cost",
+          estimatedCost: t.fertilizerFormulationEstCost || "Estimated cost",
+          productionBatch:
+            t.fertilizerFormulationPdfProduction || "Production batch",
+          composition:
+            t.fertilizerFormulationPdfComposition || "Composition",
+          activeShare:
+            t.fertilizerFormulationPdfActiveShare || "Active ingredients",
+          fillerShare: t.fertilizerFormulationPdfFillerShare || "Filler",
+          appName: t.appName || "Cultosol",
+        },
+        result,
+        lines: pdfLines,
+        massUnit: recipeUnitLabel,
+        finishModeLabel:
+          finishMode === "filler"
+            ? t.fertilizerFormulationUseFiller || "Use filler"
+            : t.fertilizerFormulationNoFiller || "No filler (adjust grade)",
+        strategyLabel: strategyLabelForPdf(),
+        includePrices: exportIncludePrices,
+        currency: displayCurrency,
+        production:
+          productionScale > 0
+            ? {
+                lines: result.lines.map((line) => ({
+                  label: line.label,
+                  mass: displayMass(line.kg, true),
+                  isFiller: line.isFiller,
+                })),
+                totalMass: displayMass(result.batchMassKg, true),
+                unit: unitLabel,
+                estimatedCost:
+                  result.estimatedCost != null
+                    ? result.estimatedCost * productionScale
+                    : null,
+              }
+            : undefined,
+      });
+      setExportOpen(false);
+    } finally {
+      setExportingPdf(false);
+    }
   }
 
   function toggleProduct(key: string) {
@@ -885,14 +1022,20 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                       <ul className="formulation-product-grid grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4">
                         {group.products.map((product) => {
                           const checked = selectedKeys.includes(product.key);
-                          const isMulti = nutrientCount(product) >= 2;
+                          const showAnalysis = analysisAddsInfo(
+                            product.label,
+                            product.analysis
+                          );
                           return (
                             <li key={product.key}>
                               <button
                                 type="button"
                                 onClick={() => toggleProduct(product.key)}
                                 aria-pressed={checked}
-                                title={`${product.label} · ${product.analysis}`}
+                                title={productDisplayTitle(
+                                  product.label,
+                                  product.analysis
+                                )}
                                 className={[
                                   "formulation-product-tile flex w-full items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left transition",
                                   checked
@@ -908,30 +1051,20 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                                   >
                                     {product.label}
                                   </span>
-                                  <span
-                                    className={[
-                                      "font-normal",
-                                      checked
-                                        ? "text-white/80"
-                                        : "text-slate-500 dark:text-slate-400",
-                                    ].join(" ")}
-                                  >
-                                    {" · "}
-                                    {product.analysis}
-                                  </span>
+                                  {showAnalysis ? (
+                                    <span
+                                      className={[
+                                        "font-normal",
+                                        checked
+                                          ? "text-white/80"
+                                          : "text-slate-500 dark:text-slate-400",
+                                      ].join(" ")}
+                                    >
+                                      {" · "}
+                                      {product.analysis}
+                                    </span>
+                                  ) : null}
                                 </span>
-                                {isMulti ? (
-                                  <span
-                                    className={[
-                                      "shrink-0 text-[10px] font-semibold uppercase tracking-wide",
-                                      checked
-                                        ? "text-emerald-100"
-                                        : "text-emerald-700",
-                                    ].join(" ")}
-                                  >
-                                    {t.fertilizerFormulationMultiTag || "multi"}
-                                  </span>
-                                ) : null}
                               </button>
                             </li>
                           );
@@ -955,12 +1088,165 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
             )}
           </div>
         ) : (
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-              {t.fertilizerFormulationMixProducts || "Fertilizers in this mix"}
-            </p>
-            {result.feasible &&
-            result.lines.some((line) => !line.isFiller) ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                {showBestMixCarousel
+                  ? t.fertilizerFormulationBestMixScenarios ||
+                    "Best mix scenarios"
+                  : t.fertilizerFormulationMixProducts ||
+                    "Fertilizers in this mix"}
+              </p>
+              {showBestMixCarousel && bestMixScenarios.length > 1 ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="formulation-best-mix-nav"
+                    aria-label={
+                      t.fertilizerFormulationBestMixPrev || "Previous scenario"
+                    }
+                    disabled={bestMixIndex <= 0}
+                    onClick={() => selectBestMixScenario(bestMixIndex - 1)}
+                  >
+                    <ChevronLeft size={16} aria-hidden />
+                  </button>
+                  <span className="min-w-[3.5rem] text-center text-[11px] font-semibold text-emerald-900 dark:text-emerald-200">
+                    {(
+                      t.fertilizerFormulationBestMixScenarioOf ||
+                      "{current} of {total}"
+                    )
+                      .replace("{current}", String(bestMixIndex + 1))
+                      .replace("{total}", String(bestMixScenarios.length))}
+                  </span>
+                  <button
+                    type="button"
+                    className="formulation-best-mix-nav"
+                    aria-label={
+                      t.fertilizerFormulationBestMixNext || "Next scenario"
+                    }
+                    disabled={bestMixIndex >= bestMixScenarios.length - 1}
+                    onClick={() => selectBestMixScenario(bestMixIndex + 1)}
+                  >
+                    <ChevronRight size={16} aria-hidden />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            {showBestMixCarousel ? (
+              <>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t.fertilizerFormulationBestMixScenariosHint ||
+                    "Swipe or use the arrows to compare the top exact mixes (fewest products first)."}
+                </p>
+                <div
+                  ref={bestMixScrollRef}
+                  className="formulation-best-mix-scroll"
+                  onScroll={(event) => {
+                    const root = event.currentTarget;
+                    const cards = [
+                      ...root.querySelectorAll<HTMLElement>(
+                        "[data-best-mix-index]"
+                      ),
+                    ];
+                    if (cards.length === 0) return;
+                    const mid = root.scrollLeft + root.clientWidth / 2;
+                    let nearest = 0;
+                    let nearestDist = Infinity;
+                    for (const card of cards) {
+                      const center = card.offsetLeft + card.offsetWidth / 2;
+                      const dist = Math.abs(center - mid);
+                      if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearest = Number(card.dataset.bestMixIndex || 0);
+                      }
+                    }
+                    if (nearest !== bestMixIndex) setBestMixIndex(nearest);
+                  }}
+                >
+                  {bestMixScenarios.map((scenario, index) => {
+                    const products = scenario.lines.filter(
+                      (line) => !line.isFiller
+                    );
+                    const active = index === bestMixIndex;
+                    return (
+                      <button
+                        key={`best-mix-${index}-${products
+                          .map((line) => line.productKey)
+                          .join("+")}`}
+                        type="button"
+                        data-best-mix-index={index}
+                        aria-pressed={active}
+                        onClick={() => selectBestMixScenario(index)}
+                        className={[
+                          "formulation-best-mix-card",
+                          active
+                            ? "formulation-best-mix-card--active"
+                            : "",
+                        ].join(" ")}
+                      >
+                        <p className="formulation-best-mix-card__title">
+                          {(
+                            t.fertilizerFormulationBestMixScenarioLabel ||
+                            "Scenario {n}"
+                          ).replace("{n}", String(index + 1))}
+                          <span>
+                            {" · "}
+                            {products.length}{" "}
+                            {products.length === 1
+                              ? t.fertilizerFormulationBestMixProduct ||
+                                "product"
+                              : t.fertilizerFormulationBestMixProducts ||
+                                "products"}
+                          </span>
+                        </p>
+                        <ul className="formulation-best-mix-card__list">
+                          {products.map((line) => (
+                            <li key={`${index}-${line.productKey}`}>
+                              {line.label}
+                              {analysisAddsInfo(line.label, line.analysis)
+                                ? ` · ${line.analysis}`
+                                : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      </button>
+                    );
+                  })}
+                </div>
+                {bestMixScenarios.length > 1 ? (
+                  <div
+                    className="formulation-best-mix-dots"
+                    role="tablist"
+                    aria-label={
+                      t.fertilizerFormulationBestMixScenarios ||
+                      "Best mix scenarios"
+                    }
+                  >
+                    {bestMixScenarios.map((_, index) => (
+                      <button
+                        key={`dot-${index}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={index === bestMixIndex}
+                        className={[
+                          "formulation-best-mix-dot",
+                          index === bestMixIndex
+                            ? "formulation-best-mix-dot--active"
+                            : "",
+                        ].join(" ")}
+                        onClick={() => selectBestMixScenario(index)}
+                        aria-label={(
+                          t.fertilizerFormulationBestMixScenarioLabel ||
+                          "Scenario {n}"
+                        ).replace("{n}", String(index + 1))}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : result.feasible &&
+              result.lines.some((line) => !line.isFiller) ? (
               <ul className="grid gap-1">
                 {result.lines
                   .filter((line) => !line.isFiller)
@@ -971,10 +1257,12 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                     >
                       <p className="truncate text-green-950 dark-text-primary">
                         <span className="font-semibold">{line.label}</span>
-                        <span className="text-slate-500 dark:text-slate-400">
-                          {" · "}
-                          {line.analysis}
-                        </span>
+                        {analysisAddsInfo(line.label, line.analysis) ? (
+                          <span className="text-slate-500 dark:text-slate-400">
+                            {" · "}
+                            {line.analysis}
+                          </span>
+                        ) : null}
                       </p>
                     </li>
                   ))}
@@ -1076,22 +1364,31 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
         {showChoiceBanner ? (
           <div className="space-y-2 rounded-xl border border-emerald-900/10 bg-white/50 p-3 dark:border-white/10 dark:bg-white/5">
             <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-              {t.fertilizerFormulationInexactTitle ||
-                "Selected products cannot make the exact target grade"}
+              {strategy === "auto"
+                ? t.fertilizerFormulationInexactTitleBestMix ||
+                  "Cannot make the exact target grade with Best mix"
+                : t.fertilizerFormulationInexactTitle ||
+                  "Selected products cannot make the exact target grade"}
             </p>
             <p className="text-xs leading-snug text-slate-600 dark:text-slate-300">
               {selectionResult.feasible
                 ? (
-                    t.fertilizerFormulationInexactBody ||
-                    "Multi-nutrient fertilizers are credited together. Closest achievable grade with your selection: {grade}."
+                    strategy === "auto"
+                      ? t.fertilizerFormulationInexactBodyBestMix ||
+                        "Best mix could not hit this grade exactly. Closest achievable grade: {grade}."
+                      : t.fertilizerFormulationInexactBody ||
+                        "Multi-nutrient fertilizers are credited together. Closest achievable grade with your selection: {grade}."
                   ).replace("{grade}", selectionResult.gradeLabel) +
                   (selectionResult.unmetLabels.length > 0
                     ? ` ${
                         t.fertilizerFormulationUnmet || "Short on"
                       }: ${selectionResult.unmetLabels.join(", ")}.`
                     : "")
-                : t.fertilizerFormulationInfeasibleBody ||
-                  "Your selection cannot supply this grade. Switch to Best mix or Best value, or shuffle a random exact mix."}
+                : strategy === "auto"
+                  ? t.fertilizerFormulationInfeasibleBodyBestMix ||
+                    "No exact mix was found for this grade. Try Best value, or change the target nutrients."
+                  : t.fertilizerFormulationInfeasibleBody ||
+                    "Your selection cannot supply this grade. Switch to Best mix or Best value, or shuffle a random exact mix."}
             </p>
             <div className="flex flex-wrap gap-1.5 pt-0.5">
               {/* Same chip language as strategy: 1 Select product · 2 Best mix · 3 Best value */}
@@ -1354,12 +1651,12 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                                 ·{" "}
                                 {t.fertilizerFormulationFillerTag || "filler"}
                               </span>
-                            ) : (
+                            ) : analysisAddsInfo(line.label, line.analysis) ? (
                               <span className="font-normal text-slate-500">
                                 {" "}
                                 · {line.analysis}
                               </span>
-                            )}
+                            ) : null}
                           </p>
                         </div>
                         <p className="shrink-0 text-right font-semibold text-green-950 dark-text-primary">
@@ -1555,6 +1852,79 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
           ) : null}
         </section>
       ) : null}
+
+      {!awaitingInexactChoice && result.feasible ? (
+        <section className="calc-surface space-y-3 p-4">
+          <button
+            type="button"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900 sm:w-auto"
+            onClick={() => {
+              setExportIncludePrices(showCosts && result.estimatedCost != null);
+              setExportOpen(true);
+            }}
+          >
+            <FileDown className="size-4 shrink-0" aria-hidden />
+            {t.fertilizerFormulationExportPdf || "Export recipe PDF"}
+          </button>
+        </section>
+      ) : null}
+
+      <AppModal
+        open={exportOpen}
+        onClose={() => {
+          if (!exportingPdf) setExportOpen(false);
+        }}
+        title={t.fertilizerFormulationExportPdf || "Export recipe PDF"}
+        description={
+          t.fertilizerFormulationExportPdfDesc ||
+          "Download a PDF of this formulation recipe."
+        }
+        size="md"
+        closeLabel={t.close || "Close"}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setExportOpen(false)}
+              disabled={exportingPdf}
+              className="app-modal-btn app-modal-btn--secondary"
+            >
+              {t.exportCancel || "Cancel"}
+            </button>
+            <button
+              type="button"
+              disabled={exportingPdf}
+              onClick={() => void handleExportPdf()}
+              className="app-modal-btn app-modal-btn--primary"
+            >
+              <FileDown size={15} aria-hidden />
+              {exportingPdf
+                ? t.fertilizerFormulationExportingPdf || "Exporting…"
+                : t.fertilizerFormulationExportPdfConfirm || "Download PDF"}
+            </button>
+          </>
+        }
+      >
+        <label className="flex cursor-pointer items-start gap-3 text-sm text-green-950 dark-text-primary">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4 shrink-0 rounded border-emerald-900/30"
+            checked={exportIncludePrices}
+            onChange={(event) => setExportIncludePrices(event.target.checked)}
+            disabled={exportingPdf}
+          />
+          <span>
+            <span className="font-semibold">
+              {t.fertilizerFormulationExportIncludePrices ||
+                "Include prices and estimated cost?"}
+            </span>
+            <span className="mt-1 block text-xs font-normal text-slate-500 dark:text-slate-400">
+              {t.fertilizerFormulationExportIncludePricesHint ||
+                "Adds bag prices, line costs, and total estimated cost when available."}
+            </span>
+          </span>
+        </label>
+      </AppModal>
     </div>
   );
 }

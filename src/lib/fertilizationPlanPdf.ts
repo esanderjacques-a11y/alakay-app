@@ -180,16 +180,27 @@ export async function exportFertilizationPlanPdf(
   }
 
   function metaRow(label: string, value: string) {
-    ensureSpace(7);
+    const labelColW = 42;
+    const valueX = margin + labelColW;
+    const valueW = contentWidth - labelColW;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    const labelLines = pdf.splitTextToSize(label, labelColW - 2);
+    pdf.setFont("helvetica", "normal");
+    const valueLines = pdf.splitTextToSize(value || "—", valueW);
+    const lineCount = Math.max(labelLines.length, valueLines.length, 1);
+    const rowH = Math.max(6, lineCount * 4.2);
+    ensureSpace(rowH + 1);
+
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(9);
     pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-    pdf.text(label, margin, y);
+    pdf.text(labelLines, margin, y);
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(INK[0], INK[1], INK[2]);
-    const lines = pdf.splitTextToSize(value || "—", contentWidth - 42);
-    pdf.text(lines, margin + 40, y);
-    y += Math.max(6, lines.length * 4.2);
+    pdf.text(valueLines, valueX, y);
+    y += rowH;
   }
 
   // Header band

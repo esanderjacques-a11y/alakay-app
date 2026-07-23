@@ -4,6 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from "react";
 import {
   Activity,
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
   BarChart3,
   Calculator,
   CalendarDays,
@@ -41,6 +43,7 @@ import { calculatorHubText } from "@/lib/i18n/componentText";
 import { formatMessage } from "@/lib/i18n/format";
 import { getUptakeProfileForCrop } from "@/lib/i18n/uptakeProfiles";
 import { buildLabValueIndex, labHasUsefulSoilData } from "@/lib/labValueIndex";
+import { toMassPercent } from "@/lib/unitConversions";
 import {
   enrichLabWithResolvedCations,
 } from "@/lib/resolveCationInputs";
@@ -81,6 +84,7 @@ import { ViewLayoutToggle } from "@/components/ui/ViewLayoutToggle";
 import BackButton from "@/components/ui/BackButton";
 import ExportPdfIconButton from "@/components/ExportPdfIconButton";
 import ChartExpandShell from "@/components/ui/ChartExpandShell";
+import { buildCultosolChartWatermark } from "@/lib/chartPngExport";
 import type { ViewLayoutMode } from "@/lib/viewLayoutPreference";
 
 type ParameterLite = {
@@ -110,6 +114,8 @@ type Props = {
   sampleType: "soil" | "foliar";
   selectedCropName?: string | null;
   selectedCountry?: string | null;
+  /** Report / sampling date for chart PNG watermarks. */
+  reportDate?: string | null;
   /** Selected display unit per parameter_key (from Values). */
   parameterUnits?: Record<string, string>;
   goToValues?: () => void;
@@ -169,10 +175,20 @@ const tabs: Array<{ key: CalculatorKey; icon: ReactNode }> = [
 
 function visibleCalculatorTabs(sampleType: "soil" | "foliar") {
   return tabs.filter(({ key }) => {
-    if (key === "cic") return sampleType === "soil";
+    // Foliar-only tools
     if (key === "dop") return sampleType === "foliar";
-    if (key === "fertilizer" || key === "fertilizerCost" || key === "fertilizerFormulation")
+    // Soil-only tools (lime, CIC, fertilizer plan/cost/formulation, salinity)
+    if (
+      key === "cic" ||
+      key === "amendment" ||
+      key === "salinity" ||
+      key === "fertilizer" ||
+      key === "fertilizerCost" ||
+      key === "fertilizerFormulation"
+    ) {
       return sampleType === "soil";
+    }
+    // Shared: Recommended, absorption curve, nutrient graphs
     return true;
   });
 }
@@ -202,6 +218,7 @@ export default function CalculatorHub({
   sampleType,
   selectedCropName,
   selectedCountry,
+  reportDate = null,
   parameterUnits = {},
   goToValues,
   onOpenCalendar,
@@ -225,7 +242,7 @@ export default function CalculatorHub({
     [parameters, values, results, parameterUnits]
   );
   const hasLabData = labHasUsefulSoilData(lab);
-  const suggestions = getSuggestions(lab, results, t);
+  const suggestions = getSuggestions(lab, results, t, sampleType);
 
   return (
     <CalculatorMemoryProvider sampleType={sampleType} lab={lab}>
@@ -237,6 +254,7 @@ export default function CalculatorHub({
         sampleType={sampleType}
         selectedCropName={selectedCropName}
         selectedCountry={selectedCountry}
+        reportDate={reportDate}
         hasLabData={hasLabData}
         suggestions={suggestions}
         goToValues={goToValues}
@@ -267,6 +285,7 @@ function CalculatorHubBody({
   sampleType,
   selectedCropName,
   selectedCountry,
+  reportDate = null,
   hasLabData,
   suggestions,
   goToValues,
@@ -292,6 +311,7 @@ function CalculatorHubBody({
   sampleType: "soil" | "foliar";
   selectedCropName?: string | null;
   selectedCountry?: string | null;
+  reportDate?: string | null;
   hasLabData: boolean;
   suggestions: Array<{ key: CalculatorKey; title: string; desc: string }>;
   goToValues?: () => void;
@@ -321,7 +341,7 @@ function CalculatorHubBody({
     [lab, sharedCations]
   );
   const [importMessage, setImportMessage] = useState("");
-  // Explore is always the landing mode; Guided is opt-in via the toggle.
+  // Explore is always the landing mode; Guided is opt-in via the toggle (soil only).
   const [hubMode, setHubMode] = useState<HubMode>("explorer");
   const calculatorTabs = useMemo(
     () => visibleCalculatorTabs(sampleType),
@@ -331,6 +351,14 @@ function CalculatorHubBody({
     const visibleKeys = new Set(calculatorTabs.map((tab) => tab.key));
     return GUIDED_STEPS[sampleType].filter((key) => visibleKeys.has(key));
   }, [sampleType, calculatorTabs]);
+  const showHubModeToggle = sampleType === "soil";
+  const effectiveHubMode: HubMode = showHubModeToggle ? hubMode : "explorer";
+
+  useEffect(() => {
+    if (sampleType === "foliar" && hubMode !== "explorer") {
+      setHubMode("explorer");
+    }
+  }, [sampleType, hubMode]);
   const [active, setActive] = useState<CalculatorKey>(defaultCalculatorFilter);
   const [browseLayout, setBrowseLayout] = useViewLayoutPreference("calculator-hub");
   const fieldsLayout = browseLayout;
@@ -339,12 +367,12 @@ function CalculatorHubBody({
   useEffect(() => {
     if (!calculatorTabs.some((tab) => tab.key === active)) {
       setActive(
-        hubMode === "guided" && guidedSteps[0]
+        effectiveHubMode === "guided" && guidedSteps[0]
           ? guidedSteps[0]
           : defaultCalculatorFilter
       );
     }
-  }, [active, calculatorTabs, defaultCalculatorFilter, guidedSteps, hubMode]);
+  }, [active, calculatorTabs, defaultCalculatorFilter, guidedSteps, effectiveHubMode]);
 
   useEffect(() => {
     if (!initialActiveKey) return;
@@ -595,26 +623,30 @@ function CalculatorHubBody({
             />
           </div>
           <div className="flex items-center justify-between gap-2">
-            <div className="hub-mode-toggle inline-flex shrink-0" role="tablist" aria-label={t.hubModeLabel}>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={hubMode === "explorer"}
-                onClick={() => switchHubMode("explorer")}
-                className={`hub-mode-toggle__btn ${hubMode === "explorer" ? "hub-mode-toggle__btn--active" : ""}`}
-              >
-                {t.hubModeExplorer}
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={hubMode === "guided"}
-                onClick={() => switchHubMode("guided")}
-                className={`hub-mode-toggle__btn ${hubMode === "guided" ? "hub-mode-toggle__btn--active" : ""}`}
-              >
-                {t.hubModeGuided}
-              </button>
-            </div>
+            {showHubModeToggle ? (
+              <div className="hub-mode-toggle inline-flex shrink-0" role="tablist" aria-label={t.hubModeLabel}>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={hubMode === "explorer"}
+                  onClick={() => switchHubMode("explorer")}
+                  className={`hub-mode-toggle__btn ${hubMode === "explorer" ? "hub-mode-toggle__btn--active" : ""}`}
+                >
+                  {t.hubModeExplorer}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={hubMode === "guided"}
+                  onClick={() => switchHubMode("guided")}
+                  className={`hub-mode-toggle__btn ${hubMode === "guided" ? "hub-mode-toggle__btn--active" : ""}`}
+                >
+                  {t.hubModeGuided}
+                </button>
+              </div>
+            ) : (
+              <span />
+            )}
             <div className="calculator-hub-actions">
               <button
                 type="button"
@@ -666,7 +698,7 @@ function CalculatorHubBody({
         ) : null}
 
         <CalculatorFieldsLayoutContext.Provider value={fieldsLayout}>
-        {hubMode === "guided" && guidedSteps.length > 0 ? (
+        {effectiveHubMode === "guided" && guidedSteps.length > 0 ? (
           <div className="calc-guided-stepper calculator-hub-nav pb-4">
             <div className="calc-guided-stepper__track">
               {guidedSteps.map((key, index) => (
@@ -734,23 +766,7 @@ function CalculatorHubBody({
             </div>
           </div>
         ) : null}
-        {hubMode === "explorer" && browseLayout === "list" ? (
-          <div className="calculator-hub-nav pb-4">
-            <MenuSelect
-              label={t.calculatorPickerLabel}
-              heading={t.calculatorPickerLabel}
-              value={active}
-              onChange={(value) => setActive(value as CalculatorKey)}
-              variant="field"
-              fullWidth
-              options={calculatorTabs.map((tab) => ({
-                value: tab.key,
-                label: t[tab.key],
-              }))}
-            />
-          </div>
-        ) : null}
-        {hubMode === "explorer" && browseLayout !== "list" ? (
+        {effectiveHubMode === "explorer" ? (
           <div className="calculator-hub-tabs calculator-hub-nav overflow-x-auto scrollbar-none pb-4">
             <div className="flex w-max min-w-full gap-2">
               {calculatorTabs.map((tab) => (
@@ -770,7 +786,7 @@ function CalculatorHubBody({
           </div>
         ) : null}
 
-        {active === "priority" && browseLayout === "grid" ? (
+        {active === "priority" ? (
           <PriorityCalculators t={t} suggestions={suggestions} setActive={setActive} />
         ) : null}
         {active === "cic" ? (
@@ -886,6 +902,8 @@ function CalculatorHubBody({
               t={t}
               lab={effectiveLab}
               results={results}
+              selectedCropName={selectedCropName}
+              reportDate={reportDate}
               onOutputsChange={(outputs) => reportOutputs("dop", outputs)}
             />
           ) : (
@@ -1485,11 +1503,15 @@ function DopCalculator({
   t,
   lab,
   results,
+  selectedCropName,
+  reportDate,
   onOutputsChange,
 }: {
   t: Record<string, string>;
   lab: Map<string, CalculatorValue>;
   results: ResultLite[];
+  selectedCropName?: string | null;
+  reportDate?: string | null;
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
 }) {
   const [fallbackOptimum, setFallbackOptimum] = useState(1);
@@ -1502,6 +1524,14 @@ function DopCalculator({
     [dopRows]
   );
   const needsFallbackOptimum = dopRows.some((row) => row.usedFallback);
+  const downloadWatermark = useMemo(
+    () =>
+      buildCultosolChartWatermark({
+        date: reportDate,
+        crop: selectedCropName,
+      }),
+    [reportDate, selectedCropName]
+  );
 
   useEmitCalculatorOutputs(onOutputsChange, outputs);
 
@@ -1524,6 +1554,10 @@ function DopCalculator({
         closeLabel="Close"
         expandLabel="Expand chart"
         fullscreenClassName="chart-fullscreen--dop"
+        downloadLabel="Download PNG"
+        downloadWatermark={downloadWatermark}
+        downloadFileName={downloadWatermark}
+        downloadCaptureSelector=".dop-chart__board"
       >
         <DopVerticalChart t={t} rows={dopRows} compact />
       </ChartExpandShell>
@@ -1655,7 +1689,7 @@ function CropUptakeGuide({
   const height = 400;
   const paddingX = 48;
   const paddingTop = 26;
-  const paddingBottom = 70;
+  const paddingBottom = 82;
   const usableWidth = width - paddingX * 2;
   const usableHeight = height - paddingTop - paddingBottom;
   const points = profile.stages.map((stage, index) => {
@@ -1672,15 +1706,14 @@ function CropUptakeGuide({
     <CalculatorPage>
       <div className="uptake-guide">
         <header className="uptake-guide__intro">
-          <p className="uptake-guide__eyebrow">{t.uptakeCurve}</p>
-          <h2 className="uptake-guide__title">{profile.title}</h2>
+          <div className="uptake-guide__heading">
+            <h2 className="uptake-guide__title">{profile.title}</h2>
+            <p className="uptake-guide__eyebrow">{t.uptakeCurve}</p>
+          </div>
           <p className="uptake-guide__desc">{t.uptakeCurveDesc}</p>
         </header>
 
         <div className="uptake-chart-shell">
-          <p className="uptake-chart-rotate" role="note">
-            Rotate your phone to landscape for a clearer curve.
-          </p>
           <ChartExpandShell
             title={profile.title}
             closeLabel="Close"
@@ -1729,7 +1762,7 @@ function CropUptakeGuide({
                       <text
                         x={14}
                         y={y + 4}
-                        className="calc-chart-axis-label text-[11px] font-bold"
+                        className="calc-chart-axis-label"
                       >
                         {tick}%
                       </text>
@@ -1745,7 +1778,7 @@ function CropUptakeGuide({
                   points={path}
                 />
                 {points.map(({ stage, x, y }, index) => (
-                  <g key={stage.label}>
+                  <g key={stage.label || `stage-${index}`}>
                     <circle
                       cx={x}
                       cy={y}
@@ -1756,17 +1789,17 @@ function CropUptakeGuide({
                     />
                     <text
                       x={x}
-                      y={height - 36}
+                      y={height - 34}
                       textAnchor="middle"
-                      className="calc-chart-stage-label text-[11px] font-extrabold"
+                      className="calc-chart-stage-label"
                     >
                       {stage.label}
                     </text>
                     <text
                       x={x}
-                      y={height - 16}
+                      y={height - 14}
                       textAnchor="middle"
-                      className="calc-chart-axis-label text-[10px] font-bold"
+                      className="calc-chart-axis-label calc-chart-timing-label"
                     >
                       {stage.timing}
                     </text>
@@ -1913,45 +1946,113 @@ function SalinityCalculator({
   );
 }
 
-type GraphStyle = "histogram" | "line" | "pie";
+type GraphStyle = "histogram" | "pie";
+
+type GraphNutrient = CalculatorValue & { graphValue: number };
+
+const GRAPH_NUTRIENT_KEYS = [
+  "nitrogen",
+  "phosphorus",
+  "potassium",
+  "calcium",
+  "magnesium",
+  "sulfur",
+  "iron",
+  "zinc",
+  "manganese",
+  "copper",
+  "boron",
+] as const;
+
+const GRAPH_MICRO_KEYS = new Set([
+  "iron",
+  "zinc",
+  "manganese",
+  "copper",
+  "boron",
+]);
+
+function formatGraphPercent(value: number) {
+  if (value >= 10) return value.toFixed(1);
+  if (value >= 1) return value.toFixed(2);
+  if (value >= 0.01) return value.toFixed(3);
+  return value.toFixed(4);
+}
+
+/** Normalize lab concentrations to % for Nutrient Graphs only (not DOP).
+ *  Only ppm/mg/kg values are divided; values already in % are left as-is.
+ */
+function nutrientsForGraph(lab: Map<string, CalculatorValue>): GraphNutrient[] {
+  return GRAPH_NUTRIENT_KEYS.map((key) => lab.get(key))
+    .filter(Boolean)
+    .map((item) => {
+      const nutrient = item as CalculatorValue;
+      const asPercent = toMassPercent(nutrient.value, nutrient.unit, {
+        // Micros with no unit on foliar reports are usually ppm — never guess for macros.
+        assumePpmWhenUnitMissing: GRAPH_MICRO_KEYS.has(nutrient.key),
+      });
+      if (asPercent == null || !(asPercent > 0)) return null;
+      return {
+        ...nutrient,
+        value: asPercent,
+        unit: "%",
+        graphValue: asPercent,
+      };
+    })
+    .filter(Boolean) as GraphNutrient[];
+}
 
 function NutrientGraphs({ t, lab }: { t: Record<string, string>; lab: Map<string, CalculatorValue> }) {
   const [graphStyle, setGraphStyle] = useState<GraphStyle>("histogram");
-  const nutrients = ["nitrogen", "phosphorus", "potassium", "calcium", "magnesium", "sulfur", "iron", "zinc", "manganese", "copper", "boron"]
-    .map((key) => lab.get(key))
-    .filter(Boolean) as CalculatorValue[];
+  const nutrients = useMemo(() => nutrientsForGraph(lab), [lab]);
 
-  const maxValue = Math.max(...nutrients.map((item) => item.value), 1);
+  const maxValue = Math.max(...nutrients.map((item) => item.graphValue), 1e-6);
+  const chartTitle =
+    graphStyle === "pie" ? t.graphPie || "Pie chart" : t.graphHistogram || "Histogram";
 
   return (
     <CalculatorPage>
-      <div className="calc-surface p-4">
+      <div className="calc-page__params calc-surface space-y-3 p-3 sm:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <p className="text-sm font-bold text-[#1c1c1e] dark-text-primary">{t.macroMicro}</p>
-          <SelectField
-            label={t.graphStyle}
-            value={graphStyle}
-            onChange={(value) => setGraphStyle(value as GraphStyle)}
-            options={[
-              ["histogram", t.graphHistogram],
-              ["line", t.graphLine],
-              ["pie", t.graphPie],
-            ]}
-          />
-        </div>
-
-        <div className="mt-4 grid gap-3">
-        {nutrients.length === 0 ? (
-          <p className="text-sm text-slate-600">{t.noData}</p>
-        ) : graphStyle === "line" ? (
-          <LineGraph nutrients={nutrients} maxValue={maxValue} />
-        ) : graphStyle === "pie" ? (
-          <PieGraph nutrients={nutrients} />
-        ) : (
-          <HistogramGraph nutrients={nutrients} maxValue={maxValue} />
-        )}
+          <div className="min-w-0">
+            <p className="text-sm font-bold dark-text-primary">{t.macroMicro}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-[#6c6c70] dark-text-primary">
+              {t.graphValuesAsPercent ||
+                "Only ppm/mg/kg values are converted to % (÷ 10,000). Values already in % are unchanged."}
+            </p>
+          </div>
+          <div className="w-full sm:w-auto sm:min-w-[12rem]">
+            <SelectField
+              label={t.graphStyle}
+              value={graphStyle}
+              onChange={(value) => setGraphStyle(value as GraphStyle)}
+              options={[
+                ["histogram", t.graphHistogram],
+                ["pie", t.graphPie],
+              ]}
+            />
+          </div>
         </div>
       </div>
+
+      {nutrients.length === 0 ? (
+        <p className="calc-surface p-4 text-sm text-slate-600 dark-text-primary">{t.noData}</p>
+      ) : (
+        <ChartExpandShell
+          title={chartTitle}
+          closeLabel="Close"
+          expandLabel="Expand chart"
+          fullscreenClassName="chart-fullscreen--nutrient"
+          expandPlacement="overlay"
+          showInlineTitle={false}
+        >
+          {graphStyle === "pie" ? (
+            <PieGraph nutrients={nutrients} t={t} />
+          ) : (
+            <HistogramGraph nutrients={nutrients} maxValue={maxValue} />
+          )}
+        </ChartExpandShell>
+      )}
     </CalculatorPage>
   );
 }
@@ -1970,33 +2071,42 @@ const GRAPH_COLORS = [
   "#84cc16",
 ];
 
+function graphColorForKey(key: string) {
+  const index = GRAPH_NUTRIENT_KEYS.indexOf(
+    key as (typeof GRAPH_NUTRIENT_KEYS)[number]
+  );
+  return GRAPH_COLORS[(index >= 0 ? index : 0) % GRAPH_COLORS.length];
+}
+
 function HistogramGraph({
   nutrients,
   maxValue,
 }: {
-  nutrients: CalculatorValue[];
+  nutrients: GraphNutrient[];
   maxValue: number;
 }) {
+  const chartMaxH = 88;
   return (
-    <div className="overflow-x-auto rounded-2xl calc-surface-muted p-4">
-      <div className="flex min-w-[34rem] items-end gap-3">
-        {nutrients.map((item, index) => {
-          const height = Math.max(16, Math.min(180, (item.value / maxValue) * 180));
+    <div className="nutrient-graph nutrient-graph--hist chart-panel--compact calc-surface-muted">
+      <div className="nutrient-graph__hist">
+        {nutrients.map((item) => {
+          const height = Math.max(
+            6,
+            Math.min(chartMaxH, (item.graphValue / maxValue) * chartMaxH)
+          );
           return (
-            <div key={item.key} className="flex flex-1 flex-col items-center gap-2">
-              <span className="text-[11px] font-bold text-slate-600">
-                {item.value}
+            <div key={item.key} className="nutrient-graph__col">
+              <span className="nutrient-graph__value">
+                {formatGraphPercent(item.graphValue)}%
               </span>
               <span
-                className="w-full max-w-12 rounded-t-2xl shadow-sm"
+                className="nutrient-graph__bar"
                 style={{
                   height,
-                  background: `linear-gradient(180deg, ${GRAPH_COLORS[index % GRAPH_COLORS.length]}, var(--accent-600, #16a34a))`,
+                  background: `linear-gradient(180deg, ${graphColorForKey(item.key)}, var(--accent-600, #16a34a))`,
                 }}
               />
-              <span className="max-w-14 truncate text-[11px] font-extrabold text-green-950">
-                {item.label}
-              </span>
+              <span className="nutrient-graph__label">{item.label}</span>
             </div>
           );
         })}
@@ -2005,109 +2115,85 @@ function HistogramGraph({
   );
 }
 
-function LineGraph({
+function PieGraph({
   nutrients,
-  maxValue,
+  t,
 }: {
-  nutrients: CalculatorValue[];
-  maxValue: number;
+  nutrients: GraphNutrient[];
+  t: Record<string, string>;
 }) {
-  const width = 640;
-  const height = 260;
-  const padding = 34;
-  const usableWidth = width - padding * 2;
-  const usableHeight = height - padding * 2;
-  const points = nutrients.map((item, index) => {
-    const x =
-      nutrients.length === 1
-        ? width / 2
-        : padding + (index / (nutrients.length - 1)) * usableWidth;
-    const y = height - padding - (item.value / maxValue) * usableHeight;
-    return { item, x, y };
-  });
-  const path = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const [sortDesc, setSortDesc] = useState(true);
+
+  const total =
+    nutrients.reduce((sum, item) => sum + Math.max(0, item.graphValue), 0) || 1;
+
+  const slices = useMemo(() => {
+    const ordered = [...nutrients]
+      .map((item) => ({
+        item,
+        color: graphColorForKey(item.key),
+        percent: Math.max(0, item.graphValue) / total,
+      }))
+      .sort((a, b) =>
+        sortDesc ? b.percent - a.percent : a.percent - b.percent
+      );
+
+    let start = 0;
+    return ordered.map((entry) => {
+      const end = start + entry.percent * 100;
+      const slice = `${entry.color} ${start}% ${end}%`;
+      start = end;
+      return { ...entry, slice };
+    });
+  }, [nutrients, sortDesc, total]);
+
+  const sortLabel = sortDesc
+    ? t.graphSortHighToLow || "Highest to lowest"
+    : t.graphSortLowToHigh || "Lowest to highest";
 
   return (
-    <div className="calc-surface-muted overflow-x-auto p-4">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-72 min-w-[38rem] text-green-900"
-        role="img"
-      >
-        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="currentColor" strokeOpacity="0.25" />
-        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="currentColor" strokeOpacity="0.25" />
-        <polyline
-          fill="none"
-          stroke="var(--accent-700, #15803d)"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="5"
-          points={path}
-        />
-        {points.map(({ item, x, y }, index) => (
-          <g key={item.key}>
-            <circle
-              cx={x}
-              cy={y}
-              r="7"
-              fill={GRAPH_COLORS[index % GRAPH_COLORS.length]}
-              className="calc-chart-dot"
-              strokeWidth="3"
-            />
-            <text
-              x={x}
-              y={height - 8}
-              textAnchor="middle"
-              className="calc-chart-stage-label text-[12px] font-bold"
-            >
-              {item.label}
-            </text>
-            <text
-              x={x}
-              y={Math.max(16, y - 12)}
-              textAnchor="middle"
-              className="calc-chart-axis-label text-[11px] font-bold"
-            >
-              {item.value}
-            </text>
-          </g>
-        ))}
-      </svg>
-    </div>
-  );
-}
-
-function PieGraph({ nutrients }: { nutrients: CalculatorValue[] }) {
-  const total = nutrients.reduce((sum, item) => sum + Math.max(0, item.value), 0) || 1;
-  let start = 0;
-  const slices = nutrients.map((item, index) => {
-    const percent = Math.max(0, item.value) / total;
-    const end = start + percent * 100;
-    const slice = `${GRAPH_COLORS[index % GRAPH_COLORS.length]} ${start}% ${end}%`;
-    start = end;
-    return { item, slice, color: GRAPH_COLORS[index % GRAPH_COLORS.length], percent };
-  });
-
-  return (
-    <div className="calc-surface grid gap-4 rounded-2xl p-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
+    <div className="nutrient-graph nutrient-graph--pie chart-panel--compact calc-surface-muted">
       <div
-        className="mx-auto h-56 w-56 rounded-full shadow-inner"
+        className="nutrient-graph__pie-disc"
         style={{
           background: `conic-gradient(${slices.map((slice) => slice.slice).join(", ")})`,
         }}
+        role="img"
+        aria-label={t.graphPie || "Pie chart"}
       />
-      <div className="grid gap-2 sm:grid-cols-2">
-        {slices.map(({ item, color, percent }) => (
-          <div key={item.key} className="calc-surface-inner flex items-center gap-2 px-3 py-2">
-            <span className="h-3 w-3 rounded-full" style={{ background: color }} />
-            <span className="min-w-0 flex-1 truncate text-sm font-bold text-green-950">
-              {item.label}
-            </span>
-            <span className="text-xs font-bold text-slate-500">
-              {(percent * 100).toFixed(0)}%
-            </span>
-          </div>
-        ))}
+      <div className="nutrient-graph__legend">
+        <div className="nutrient-graph__legend-head">
+          <button
+            type="button"
+            onClick={() => setSortDesc((value) => !value)}
+            className="nutrient-graph__sort"
+            title={sortLabel}
+            aria-label={sortLabel}
+          >
+            {sortDesc ? (
+              <ArrowDownWideNarrow size={16} aria-hidden />
+            ) : (
+              <ArrowUpNarrowWide size={16} aria-hidden />
+            )}
+          </button>
+        </div>
+        <div className="nutrient-graph__legend-grid">
+          {slices.map(({ item, color, percent }) => (
+            <div key={item.key} className="nutrient-graph__legend-item calc-surface-inner">
+              <div className="nutrient-graph__legend-row">
+                <span
+                  className="nutrient-graph__swatch"
+                  style={{ background: color }}
+                />
+                <span className="nutrient-graph__legend-name">{item.label}</span>
+              </div>
+              <span className="nutrient-graph__legend-values">
+                {(percent * 100).toFixed(0)}%
+                <span>{formatGraphPercent(item.graphValue)}%</span>
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -2488,14 +2574,54 @@ function SelectField({
 function getSuggestions(
   lab: Map<string, CalculatorValue>,
   results: ResultLite[],
-  t: Record<string, string>
+  t: Record<string, string>,
+  sampleType: "soil" | "foliar"
 ) {
   const suggestions: Array<{ key: CalculatorKey; title: string; desc: string }> = [];
-  const hasCriticalPh = results.some((result) => /ph/i.test(result.parameter_name) && ["warning", "negative"].includes(result.final_group_code || ""));
-  const hasSalinity = results.some((result) => /conduct|ec|salin|sodium|sodio/i.test(result.parameter_name) && ["warning", "negative"].includes(result.final_group_code || ""));
+  const visible = new Set(visibleCalculatorTabs(sampleType).map((tab) => tab.key));
+
+  function push(item: { key: CalculatorKey; title: string; desc: string }) {
+    if (!visible.has(item.key)) return;
+    if (suggestions.some((existing) => existing.key === item.key)) return;
+    suggestions.push(item);
+  }
+
+  if (sampleType === "foliar") {
+    push({
+      key: "dop",
+      title: t.graphDop || t.dop || "DOP",
+      desc:
+        t.dopOptimumHelp ||
+        "Deviation from optimum for each foliar nutrient.",
+    });
+    push({
+      key: "uptake",
+      title: t.uptakeCurve || t.uptake || "Absorption",
+      desc:
+        t.uptakeCurveDesc ||
+        "General nutrient uptake timing for the selected crop.",
+    });
+    push({
+      key: "graphs",
+      title: t.nutrientGraphsTitle,
+      desc: t.nutrientGraphsDesc,
+    });
+    return suggestions;
+  }
+
+  const hasCriticalPh = results.some(
+    (result) =>
+      /ph/i.test(result.parameter_name) &&
+      ["warning", "negative"].includes(result.final_group_code || "")
+  );
+  const hasSalinity = results.some(
+    (result) =>
+      /conduct|ec|salin|sodium|sodio/i.test(result.parameter_name) &&
+      ["warning", "negative"].includes(result.final_group_code || "")
+  );
 
   if (hasCriticalPh || lab.has("ph")) {
-    suggestions.push({
+    push({
       key: "amendment",
       title: t.amendmentRequirementTitle,
       desc: t.amendmentRequirementDesc,
@@ -2503,7 +2629,7 @@ function getSuggestions(
   }
 
   if (hasSalinity || lab.has("sodium")) {
-    suggestions.push({
+    push({
       key: "salinity",
       title: t.salinityRequirementTitle,
       desc: t.salinityRequirementDesc,
@@ -2516,7 +2642,7 @@ function getSuggestions(
     lab.has("magnesium") ||
     lab.has("potassium")
   ) {
-    suggestions.push({
+    push({
       key: "cic",
       title: t.cicRequirementTitle,
       desc: t.cicRequirementDesc,
@@ -2529,17 +2655,20 @@ function getSuggestions(
     lab.has("magnesium") ||
     lab.has("organic_matter")
   ) {
-    suggestions.push({
+    push({
       key: "fertilizer",
       title: t.fertilizerPlanTab || t.fertilizerRequirementTitle,
-      desc: t.fertilizerPlanDoseDesc || t.fertilizerPlanDesc || t.fertilizerRequirementDesc,
+      desc:
+        t.fertilizerPlanDoseDesc ||
+        t.fertilizerPlanDesc ||
+        t.fertilizerRequirementDesc,
     });
-    suggestions.push({
+    push({
       key: "fertilizerCost",
       title: t.fertilizerCost || "Fertilizer cost",
       desc: t.fertilizerCostCta || "See prices & cost scenarios",
     });
-    suggestions.push({
+    push({
       key: "fertilizerFormulation",
       title: t.fertilizerFormulation || "Fertilizer formulation",
       desc:
@@ -2548,7 +2677,15 @@ function getSuggestions(
     });
   }
 
-  suggestions.push({
+  push({
+    key: "uptake",
+    title: t.uptakeCurve || t.uptake || "Absorption",
+    desc:
+      t.uptakeCurveDesc ||
+      "General nutrient uptake timing for the selected crop.",
+  });
+
+  push({
     key: "graphs",
     title: t.nutrientGraphsTitle,
     desc: t.nutrientGraphsDesc,

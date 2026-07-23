@@ -419,6 +419,7 @@ const sw = {
   exportReportDesc: "Chagua cha kujumuisha katika muhtasari huu wa kushiriki.",
   exportSectionCover: "Jalada (maelezo ya uchambuzi)",
   exportSectionSoilStatus: "Muhtasari wa hali ya udongo",
+  exportSectionFoliarStatus: "Muhtasari wa hali ya majani",
   exportSectionCicBases: "CIC, misingi na uwiano",
   exportSectionPhAmendments: "pH na marekebisho",
   exportSectionNutrientPlan: "Mpango wa lishe",
@@ -426,11 +427,23 @@ const sw = {
   exportSectionLogo: "Nembo",
   exportSectionSummary: "Kadi za muhtasari",
   exportSectionInterpretation: "Maelezo kamili ya vigezo",
+  exportInterpretationHint:
+    "Thamani, masafa, kiwango na ushauri kwa kila kigezo",
   exportSectionMissing: "Thamani zinazokosekana / bila masafa",
   exportSectionTexture: "Muundo wa udongo",
   exportSectionCalculations: "Matokeo ya vikokotozi",
   exportSectionLabValues: "Thamani asili za maabara",
-  exportSectionDop: "DOP (majani)",
+  exportSectionDop: "Chati ya DOP",
+  exportDopFromRangesHint:
+    "Inatokana na sehemu za kati za masafa ya kutosha ikiwa kikokotozi cha DOP hakijatumika",
+  exportDopChartNote:
+    "Mkengeuko kutoka kwa kiwango bora (%). Hasi = upungufu; chanya = ziada.",
+  exportDopDeficiency: "Upungufu",
+  exportDopOptimum: "Kiwango bora",
+  exportDopExcess: "Ziada",
+  exportLevel: "Kiwango",
+  exportRange: "Masafa",
+  exportNoRange: "Hakuna masafa",
   exportSectionRatios: "Uwiano wa virutubisho",
   exportChecklistTitle: "Kabla ya kuhamisha",
   exportChecklistHint:

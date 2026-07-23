@@ -393,6 +393,29 @@
   adviceVeryHigh:
     "Cette valeur est très élevée et demande une révision plus attentive avant les décisions de gestion.",
   adviceNormal: "Cette valeur est dans la plage de référence actuelle.",
+  adviceFoliarLow:
+    "Le niveau tissulaire est sous la plage de suffisance. Envisagez une nutrition foliaire ou un ajustement du programme de fertilité pour ce stade.",
+  adviceFoliarHigh:
+    "Le niveau tissulaire est au-dessus de la plage de suffisance. Vérifiez les apports récents et d'éventuels antagonismes avant d'ajouter plus de cet élément.",
+  adviceFoliarNormal: "Le niveau tissulaire est dans la plage de suffisance actuelle.",
+  exportFoliarRecLow:
+    "Nutriments foliaires prioritaires sous la suffisance : {list}. Envisagez une nutrition foliaire ou un ajustement du programme pour le stade actuel.",
+  exportFoliarRecHigh:
+    "Niveaux tissulaires au-dessus de la suffisance : {list}. Vérifiez les apports récents et d'éventuels antagonismes.",
+  exportFoliarRecOk:
+    "La plupart des nutriments foliaires sont dans les plages de suffisance. Utilisez le DOP et le stade cultural pour affiner le timing.",
+  exportFoliarRecDopHint:
+    "Comparez avec le graphique DOP pour voir carence vs excès par rapport à l'optimum de chaque nutriment.",
+  exportFoliarQuickLow:
+    "Tissu sous la suffisance : {list}. Envisagez une nutrition foliaire au stade actuel.",
+  exportFoliarQuickHigh: "Tissu au-dessus de la suffisance : {list}.",
+  exportFoliarQuickOk:
+    "La plupart des nutriments foliaires sont dans les plages de suffisance.",
+  exportSectionNutrientPie: "Camembert de distribution des nutriments",
+  exportNutrientPieHint:
+    "Montre comment les nutriments sont répartis dans le tissu de la plante",
+  exportNutrientPieNote:
+    "Part relative des nutriments mesurés dans la plante (ppm convertis en % de matière sèche). Montre l'équilibre de composition, pas la suffisance.",
 
   customCropRange: "Plage personnalisée pour la culture",
   generalCustomRange: "Plage personnalisée générale",
@@ -641,6 +664,7 @@
   exportReportDesc: "Choisissez le contenu de ce résumé à partager.",
   exportSectionCover: "Couverture (détails de l'analyse)",
   exportSectionSoilStatus: "Résumé de l'état du sol",
+  exportSectionFoliarStatus: "Résumé de l'état foliaire",
   exportSectionCicBases: "CIC, bases et ratios",
   exportSectionPhAmendments: "pH et amendements",
   exportSectionNutrientPlan: "Plan nutritionnel",
@@ -648,11 +672,23 @@
   exportSectionLogo: "Logo",
   exportSectionSummary: "Cartes résumé",
   exportSectionInterpretation: "Détail complet des paramètres",
+  exportInterpretationHint:
+    "Valeur, plage, niveau et conseil pour chaque paramètre",
   exportSectionMissing: "Valeurs manquantes / sans plage",
   exportSectionTexture: "Texture du sol",
   exportSectionCalculations: "Résultats des calculateurs",
   exportSectionLabValues: "Valeurs labo originales",
-  exportSectionDop: "DOP (foliaire)",
+  exportSectionDop: "Graphique DOP",
+  exportDopFromRangesHint:
+    "Calculé à partir des milieux des plages de suffisance si le calculateur DOP n'a pas été lancé",
+  exportDopChartNote:
+    "Écart par rapport à l'optimum (%). Négatif = carence ; positif = excès.",
+  exportDopDeficiency: "Carence",
+  exportDopOptimum: "Optimum",
+  exportDopExcess: "Excès",
+  exportLevel: "Niveau",
+  exportRange: "Plage",
+  exportNoRange: "Sans plage",
   exportSectionRatios: "Ratios nutritifs",
   exportChecklistTitle: "Avant d'exporter",
   exportChecklistHint:

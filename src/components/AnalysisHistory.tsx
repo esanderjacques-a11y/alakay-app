@@ -885,6 +885,7 @@ export default function AnalysisHistory({
           exporting={exportingPdf}
           checklist={pendingExportChecklist}
           calculatorPacks={[]}
+          hasRecommendations
         />
       </>
     );
@@ -1129,6 +1130,7 @@ export default function AnalysisHistory({
         exporting={exportingPdf}
         checklist={pendingExportChecklist}
         calculatorPacks={[]}
+        hasRecommendations
       />
     </section>
   );

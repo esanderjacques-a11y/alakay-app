@@ -138,10 +138,24 @@ export function getFinalGroupCode(input: LogicInput) {
   return "neutral";
 }
 
-export function getSimpleAdvice(input: LogicInput) {
+export function getSimpleAdvice(
+  input: LogicInput,
+  sampleType: "soil" | "foliar" = "soil"
+) {
+  const level = getLevelCode(input);
+
+  if (sampleType === "foliar") {
+    if (level === "low") {
+      return "Tissue level is below the sufficiency range. Consider foliar nutrition or adjusting the fertility program for this crop stage.";
+    }
+    if (level === "high" || level === "very_high") {
+      return "Tissue level is above the sufficiency range. Review recent applications and possible antagonisms before adding more of this nutrient.";
+    }
+    return "Tissue level is within the current sufficiency range.";
+  }
+
   const name = input.parameter_name;
   const value = input.value;
-  const level = getLevelCode(input);
 
   if (isBulkDensity(name)) {
     if (value > 1.65) {

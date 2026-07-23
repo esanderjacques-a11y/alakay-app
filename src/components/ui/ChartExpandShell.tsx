@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Maximize2, X } from "lucide-react";
+import { Download, Maximize2, X } from "lucide-react";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
+import { downloadElementAsPng } from "@/lib/chartPngExport";
 
 type Props = {
   title: string;
@@ -16,6 +17,14 @@ type Props = {
   expandPlacement?: "toolbar" | "overlay";
   /** On expand, try browser fullscreen + landscape lock (phones/tablets). */
   lockLandscapeOnExpand?: boolean;
+  /** Show a PNG download control in fullscreen. */
+  downloadLabel?: string;
+  /** Watermark drawn at the bottom of the exported PNG. */
+  downloadWatermark?: string;
+  /** Suggested download filename (`.png` added if missing). */
+  downloadFileName?: string;
+  /** CSS selector scoped to the fullscreen body for capture target. */
+  downloadCaptureSelector?: string;
 };
 
 type OrientationLockType =
@@ -76,11 +85,18 @@ export default function ChartExpandShell({
   showInlineTitle = true,
   expandPlacement = "toolbar",
   lockLandscapeOnExpand = false,
+  downloadLabel,
+  downloadWatermark,
+  downloadFileName,
+  downloadCaptureSelector = ".dop-chart__board, .chart-panel--compact, .uptake-chart-panel, .nutrient-graph",
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState(false);
   const presence = useAnimatedPresence(open);
   const overlayExpand = expandPlacement === "overlay";
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const landscapeArmedRef = useRef(false);
 
   useEffect(() => {
@@ -109,6 +125,32 @@ export default function ChartExpandShell({
 
   function close() {
     setOpen(false);
+  }
+
+  async function handleDownload() {
+    if (!downloadLabel || downloading) return;
+    const root = bodyRef.current;
+    if (!root) return;
+    const target =
+      (downloadCaptureSelector
+        ? (root.querySelector(downloadCaptureSelector) as HTMLElement | null)
+        : null) || root;
+    setDownloadError(false);
+    setDownloading(true);
+    try {
+      const watermark = downloadWatermark || "CULTOSOL";
+      const fileName = downloadFileName || watermark;
+      await downloadElementAsPng({
+        element: target,
+        fileName,
+        watermark,
+      });
+    } catch (error) {
+      console.error("Chart PNG download failed", error);
+      setDownloadError(true);
+    } finally {
+      setDownloading(false);
+    }
   }
 
   const expandButton = (
@@ -159,19 +201,52 @@ export default function ChartExpandShell({
         >
           <div className="chart-fullscreen__bar">
             <p className="chart-fullscreen__title">{title}</p>
-            <button
-              type="button"
-              className="chart-expand-shell__btn"
-              onClick={close}
-              aria-label={closeLabel}
-            >
-              <X size={18} />
-            </button>
+            <div className="chart-fullscreen__actions">
+              {downloadLabel ? (
+                <button
+                  type="button"
+                  className={`chart-expand-shell__btn${
+                    downloadError ? " chart-expand-shell__btn--error" : ""
+                  }`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void handleDownload();
+                  }}
+                  aria-label={
+                    downloadError
+                      ? `${downloadLabel} failed — tap to retry`
+                      : downloading
+                        ? "Preparing PNG…"
+                        : downloadLabel
+                  }
+                  title={
+                    downloadError
+                      ? "Download failed — tap to retry"
+                      : downloadLabel
+                  }
+                  disabled={downloading}
+                  aria-busy={downloading}
+                >
+                  <Download size={18} />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="chart-expand-shell__btn"
+                onClick={close}
+                aria-label={closeLabel}
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
           <p className="chart-fullscreen__rotate-hint" role="note">
             Rotate to landscape for the best view
           </p>
-          <div className="chart-fullscreen__body">{children}</div>
+          <div ref={bodyRef} className="chart-fullscreen__body">
+            {children}
+          </div>
         </div>
       ) : null}
     </>

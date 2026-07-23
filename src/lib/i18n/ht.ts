@@ -384,6 +384,29 @@
   adviceVeryHigh:
     "Valè sa a twò wo epi li bezwen plis verifikasyon anvan desizyon jesyon.",
   adviceNormal: "Valè sa a nan entèval referans aktyèl la.",
+  adviceFoliarLow:
+    "Nivo nan tisi a pi ba pase ranje sufizans lan. Konsidere nitrisyon fey oswa ajiste pwogram fètilite a pou etap rekòt sa a.",
+  adviceFoliarHigh:
+    "Nivo nan tisi a pi wo pase ranje sufizans lan. Verifye aplikasyon ki fèt dènyèman ak antagonis posib anvan ou ajoute plis eleman sa a.",
+  adviceFoliarNormal: "Nivo nan tisi a nan ranje sufizans aktyèl la.",
+  exportFoliarRecLow:
+    "Eleman nitritif fey priyorite anba sufizans: {list}. Konsidere nitrisyon fey oswa ajiste pwogram fètilite a pou etap aktyèl la.",
+  exportFoliarRecHigh:
+    "Nivo tisi pi wo pase sufizans: {list}. Verifye aplikasyon ki fèt dènyèman ak antagonis posib.",
+  exportFoliarRecOk:
+    "Pifò eleman nitritif fey yo nan ranje sufizans. Sèvi ak DOP ak etap rekòt pou rafine moman an.",
+  exportFoliarRecDopHint:
+    "Konpare ak grafik DOP pou wè defisyans vs depase parapò ak optimal chak eleman.",
+  exportFoliarQuickLow:
+    "Tisi anba sufizans: {list}. Konsidere nitrisyon fey pou etap aktyèl la.",
+  exportFoliarQuickHigh: "Tisi pi wo pase sufizans: {list}.",
+  exportFoliarQuickOk:
+    "Pifò eleman nitritif fey yo nan ranje sufizans.",
+  exportSectionNutrientPie: "Grafik distribisyon eleman nitritif",
+  exportNutrientPieHint:
+    "Montre kijan eleman nitritif yo distribiye nan tisi plant la",
+  exportNutrientPieNote:
+    "Pati relatif eleman nitritif mezire nan plant la (ppm konvèti an % matyè sèch). Montre balans konpozisyon, pa sufizans.",
 
   customCropRange: "entèval pèsonalize pou plant",
   generalCustomRange: "entèval pèsonalize jeneral",
@@ -628,6 +651,7 @@
   exportReportDesc: "Chwazi sa pou mete nan rezime sa a pou pataje.",
   exportSectionCover: "Kouvèti (detay analiz)",
   exportSectionSoilStatus: "Rezime eta tè a",
+  exportSectionFoliarStatus: "Rezime eta fèy",
   exportSectionCicBases: "CIC, baz ak rapò",
   exportSectionPhAmendments: "pH ak amandman",
   exportSectionNutrientPlan: "Plan nitrisyonèl",
@@ -635,11 +659,23 @@
   exportSectionLogo: "Logo",
   exportSectionSummary: "Kat rezime",
   exportSectionInterpretation: "Detay konplè paramèt yo",
+  exportInterpretationHint:
+    "Valè, ranje, nivo ak konsèy pou chak paramèt",
   exportSectionMissing: "Valè ki manke / san ranje",
   exportSectionTexture: "Teksti tè a",
   exportSectionCalculations: "Rezilta kalkilatè yo",
   exportSectionLabValues: "Valè laboratwa orijinal yo",
-  exportSectionDop: "DOP (fey)",
+  exportSectionDop: "Grafik DOP",
+  exportDopFromRangesHint:
+    "Kalkile ak mitan ranje sufizans yo si kalkilatè DOP la poko kouri",
+  exportDopChartNote:
+    "Eka parapò ak optimal la (%). Negatif = defisyans; pozitif = depase.",
+  exportDopDeficiency: "Defisyans",
+  exportDopOptimum: "Optimal",
+  exportDopExcess: "Depase",
+  exportLevel: "Nivo",
+  exportRange: "Ranje",
+  exportNoRange: "San ranje",
   exportSectionRatios: "Rapò eleman nitritif",
   exportChecklistTitle: "Anvan ou ekspòte",
   exportChecklistHint:

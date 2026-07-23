@@ -38,6 +38,19 @@ type NavigatorWithVirtualKeyboard = Navigator & {
   virtualKeyboard?: { overlaysContent: boolean };
 };
 
+/** Mirrors `data-keyboard-open` for syncDockViewportLift (module-level). */
+let dockKeyboardActive = false;
+
+function isStandalonePwa() {
+  if (typeof window === "undefined") return false;
+  const mqStandalone = window.matchMedia("(display-mode: standalone)").matches;
+  const mqFullscreen = window.matchMedia("(display-mode: fullscreen)").matches;
+  const iosStandalone =
+    "standalone" in window.navigator &&
+    Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
+  return mqStandalone || mqFullscreen || iosStandalone;
+}
+
 function isTextEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
@@ -62,6 +75,7 @@ function isTextEditable(target: EventTarget | null): boolean {
 }
 
 function setHtmlKeyboardOpen(open: boolean) {
+  dockKeyboardActive = open;
   if (open) {
     document.documentElement.dataset.keyboardOpen = "true";
   } else {
@@ -75,12 +89,21 @@ function syncDockViewportLift() {
     document.documentElement.style.setProperty("--dock-vv-lift", "0px");
     return;
   }
+
   // How far the visual viewport has shrunk/shifted — browsers that pin
   // `position: fixed` to the visual viewport lift the dock by this amount.
-  // Always cancel the offset (even small focus/URL-bar shifts); a stale
-  // residual is what left the dock stuck slightly high after search focus.
   const raw = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-  document.documentElement.style.setProperty("--dock-vv-lift", `${raw}px`);
+
+  // Installed PWA has no URL chrome. Any residual lift with the keyboard
+  // closed leaves the dock floating mid-screen (common on iOS/Android PWAs).
+  if (isStandalonePwa() && !dockKeyboardActive) {
+    document.documentElement.style.setProperty("--dock-vv-lift", "0px");
+    return;
+  }
+
+  // Browser tabs: ignore tiny URL-bar noise; keep real keyboard compensation.
+  const lift = dockKeyboardActive || raw >= 80 ? raw : 0;
+  document.documentElement.style.setProperty("--dock-vv-lift", `${lift}px`);
 }
 
 function likelySoftKeyboardDevice() {
@@ -152,6 +175,12 @@ export default function AppDock({
           setScrollHidden(false);
         }
       }, 280);
+      // PWA keyboards animate longer; clear any leftover lift after settle.
+      if (isStandalonePwa()) {
+        window.setTimeout(() => {
+          if (!dockKeyboardActive) syncDockViewportLift();
+        }, 500);
+      }
     }
 
     function onFocusIn(event: FocusEvent) {
@@ -232,6 +261,7 @@ export default function AppDock({
       if (blurTimer.current != null) window.clearTimeout(blurTimer.current);
       setHtmlKeyboardOpen(false);
       document.documentElement.style.removeProperty("--dock-vv-lift");
+      dockKeyboardActive = false;
     };
   }, []);
 

@@ -992,7 +992,8 @@ function translateCountryRegion(
 
 function translateAdvice(
   result: InterpretationResult,
-  t: (typeof translations)[Language]
+  t: (typeof translations)[Language],
+  sampleType: "soil" | "foliar" = "soil"
 ) {
   const customAdvice = result.interpretation_note?.trim();
 
@@ -1002,6 +1003,25 @@ function translateAdvice(
 
   const name = result.parameter_name.toLowerCase();
   const level = result.level_code.toLowerCase();
+
+  if (sampleType === "foliar") {
+    if (level === "low" || level === "very_low") {
+      return (
+        t.adviceFoliarLow ||
+        "Tissue level is below the sufficiency range. Consider foliar nutrition or adjusting the fertility program for this crop stage."
+      );
+    }
+    if (level === "high" || level === "very_high") {
+      return (
+        t.adviceFoliarHigh ||
+        "Tissue level is above the sufficiency range. Review recent applications and possible antagonisms before adding more of this nutrient."
+      );
+    }
+    return (
+      t.adviceFoliarNormal ||
+      "Tissue level is within the current sufficiency range."
+    );
+  }
 
   if (name.includes("bulk density") || name.includes("densidad aparente")) {
     if (level === "very_high") return t.adviceBulkDensityVeryHigh;
@@ -2458,7 +2478,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             value: item.value,
             level_code: getLevelCode(logicInput),
             final_group_code: getFinalGroupCode(logicInput),
-            advice: getSimpleAdvice(logicInput),
+            advice: getSimpleAdvice(logicInput, sampleType),
             display_parameter_name: item.display_name,
           });
 
@@ -2507,7 +2527,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             final_group_code: getFinalGroupCode(logicInput),
             advice:
               userRange.interpretation_note?.trim() ||
-              getSimpleAdvice(logicInput),
+              getSimpleAdvice(logicInput, sampleType),
             display_parameter_name: item.display_name,
           });
 
@@ -2650,7 +2670,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         value: item.value,
         level_code: getLevelCode(logicInput),
         final_group_code: getFinalGroupCode(logicInput),
-        advice: getSimpleAdvice(logicInput),
+        advice: getSimpleAdvice(logicInput, sampleType),
         display_parameter_name: item.display_name,
       });
     }
@@ -3109,7 +3129,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         ...result,
         level_code: translateLevelCode(result.level_code, t),
         confidence: translateConfidence(result.confidence, t),
-        advice: translateAdvice(result, t),
+        advice: translateAdvice(result, t, sampleType),
         source_name: translateSourceName(result.source_name, t),
       }));
       const translatedGroupedResults = {
@@ -3138,14 +3158,25 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           : [],
         recommendations: sections.includeRecommendations
           ? buildExportRecommendations({
-              planRecommendations: reportExtras.planRecommendations,
+              planRecommendations:
+                sampleType === "soil" ? reportExtras.planRecommendations : [],
               results: translatedResults,
-              fertilizerProducts: sections.includeFertilizerPlan
-                ? reportExtras.fertilizerProducts
-                : [],
-              fertilizerApplyLines: reportExtras.fertilizerApplyLines,
-              includeInterpretationAdvice: false,
-              amendmentLabels: calculatorHubText[language] || calculatorHubText.en,
+              fertilizerProducts:
+                sampleType === "soil" && sections.includeFertilizerPlan
+                  ? reportExtras.fertilizerProducts
+                  : [],
+              fertilizerApplyLines:
+                sampleType === "soil" ? reportExtras.fertilizerApplyLines : [],
+              includeInterpretationAdvice:
+                !sections.includeInterpretation,
+              amendmentLabels: {
+                ...(calculatorHubText[language] || calculatorHubText.en),
+                exportFoliarRecLow: t.exportFoliarRecLow,
+                exportFoliarRecHigh: t.exportFoliarRecHigh,
+                exportFoliarRecOk: t.exportFoliarRecOk,
+                exportFoliarRecDopHint: t.exportFoliarRecDopHint,
+              },
+              isFoliar: sampleType === "foliar",
             })
           : [],
         calendarEvents: sections.includeCalendar
@@ -3806,6 +3837,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             sampleType={sampleType}
             selectedCropName={selectedCrop?.crop_name || selectedCrop?.display_name || null}
             selectedCountry={finalCountry || null}
+            reportDate={reportDate.trim() || samplingDate.trim() || null}
             showCalculatorFormulas={effectiveShowCalculatorFormulas(appSettings)}
             userId={session?.user && !guestMode ? session.user.id : null}
             farmName={farmName}

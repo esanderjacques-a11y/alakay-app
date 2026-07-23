@@ -62,6 +62,7 @@ export default function ExportReportModal({
   const hasNutrient = calculatorPacks.some(
     (p) => p.id === "fertilizer" && p.outputs.length > 0
   );
+  const hasDop = calculatorPacks.some((p) => p.id === "dop" && p.outputs.length > 0);
 
   const [includeLogo, setIncludeLogo] = useState(defaults.includeLogo);
   const [includeSoilStatus, setIncludeSoilStatus] = useState(
@@ -87,6 +88,13 @@ export default function ExportReportModal({
   const [includeRecommendations, setIncludeRecommendations] = useState(
     defaults.includeRecommendations
   );
+  const [includeDop, setIncludeDop] = useState(defaults.includeDop);
+  const [includeNutrientPie, setIncludeNutrientPie] = useState(
+    defaults.includeNutrientPie
+  );
+  const [includeInterpretation, setIncludeInterpretation] = useState(
+    defaults.includeInterpretation
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -101,30 +109,38 @@ export default function ExportReportModal({
     setIncludeFertilizerPlan(next.includeFertilizerPlan);
     setIncludeCalendar(next.includeCalendar);
     setIncludeRecommendations(next.includeRecommendations);
-  }, [open]);
+    setIncludeDop(isFoliar ? next.includeDop : true);
+    setIncludeNutrientPie(isFoliar ? true : false);
+    setIncludeInterpretation(isFoliar ? true : next.includeInterpretation);
+    if (isFoliar) {
+      setIncludeRecommendations(true);
+    }
+  }, [open, isFoliar]);
 
   function handleConfirm() {
     const selectedCalculatorIds = [
-      includeCicBases && hasCic ? "cic" : null,
-      includePhAmendments && hasAmendment ? "amendment" : null,
-      includeNutrientPlan && hasNutrient ? "fertilizer" : null,
+      !isFoliar && includeCicBases && hasCic ? "cic" : null,
+      !isFoliar && includePhAmendments && hasAmendment ? "amendment" : null,
+      !isFoliar && includeNutrientPlan && hasNutrient ? "fertilizer" : null,
+      isFoliar && includeDop && hasDop ? "dop" : null,
     ].filter(Boolean) as string[];
 
     onConfirm({
       includeLogo,
       includeCover: true,
       includeSoilStatus,
-      includeTexture,
-      includeInterpretation: false,
+      includeTexture: !isFoliar && includeTexture,
+      includeInterpretation: isFoliar ? includeInterpretation : false,
       includeMissingValues: false,
       includeLabValues,
       includeSummary: false,
       includeCalculations: selectedCalculatorIds.length > 0,
-      includeDop: true,
-      includeRatios: true,
-      includeCicBases: includeCicBases && hasCic,
-      includePhAmendments: includePhAmendments && hasAmendment,
-      includeNutrientPlan: includeNutrientPlan && hasNutrient,
+      includeDop: isFoliar ? includeDop : false,
+      includeNutrientPie: isFoliar ? includeNutrientPie : false,
+      includeRatios: !isFoliar,
+      includeCicBases: !isFoliar && includeCicBases && hasCic,
+      includePhAmendments: !isFoliar && includePhAmendments && hasAmendment,
+      includeNutrientPlan: !isFoliar && includeNutrientPlan && hasNutrient,
       includeFertilizerPlan: includeFertilizerPlan && hasFertilizerProducts,
       includeCalendar: includeCalendar && hasCalendar,
       includeRecommendations: includeRecommendations && hasRecommendations,
@@ -132,7 +148,7 @@ export default function ExportReportModal({
     });
   }
 
-  const mainItems: ToggleItem[] = [
+  const soilMainItems: ToggleItem[] = [
     {
       key: "cover",
       label: t.exportSectionCover || "Cover (analysis details)",
@@ -171,7 +187,7 @@ export default function ExportReportModal({
       label: t.exportSectionNutrientPlan || "Nutrient plan",
       checked: includeNutrientPlan && hasNutrient,
       onChange: () => setIncludeNutrientPlan((v) => !v),
-      disabled: !hasNutrient || isFoliar,
+      disabled: !hasNutrient,
       hint: hasNutrient
         ? undefined
         : t.exportNeedCalculatorsHint || "Run nutrient plan in Calculators first",
@@ -207,13 +223,92 @@ export default function ExportReportModal({
     },
   ];
 
-  const optionalItems: ToggleItem[] = [
+  const foliarMainItems: ToggleItem[] = [
     {
-      key: "texture",
-      label: t.exportSectionTexture || "Soil texture",
-      checked: includeTexture,
-      onChange: () => setIncludeTexture((v) => !v),
+      key: "cover",
+      label: t.exportSectionCover || "Cover (analysis details)",
+      checked: true,
+      onChange: () => undefined,
+      locked: true,
     },
+    {
+      key: "status",
+      label:
+        t.exportSectionFoliarStatus ||
+        t.analysisSummary ||
+        "Foliar status summary",
+      checked: includeSoilStatus,
+      onChange: () => setIncludeSoilStatus((v) => !v),
+    },
+    {
+      key: "dop",
+      label: t.exportSectionDop || "DOP graph",
+      checked: includeDop,
+      onChange: () => setIncludeDop((v) => !v),
+      hint: hasDop
+        ? undefined
+        : t.exportDopFromRangesHint ||
+          "Built from sufficiency-range midpoints when DOP calculator has not been run",
+    },
+    {
+      key: "pie",
+      label: t.exportSectionNutrientPie || "Nutrient distribution pie",
+      checked: includeNutrientPie,
+      onChange: () => setIncludeNutrientPie((v) => !v),
+      hint:
+        t.exportNutrientPieHint ||
+        "Shows how nutrients are distributed in the plant tissue",
+    },
+    {
+      key: "interpretation",
+      label: t.exportSectionInterpretation || "Full parameter detail",
+      checked: includeInterpretation,
+      onChange: () => setIncludeInterpretation((v) => !v),
+      hint:
+        t.exportInterpretationHint ||
+        "Value, range, level and advice for each parameter",
+    },
+    {
+      key: "recommendations",
+      label: t.exportSectionRecommendations || "Recommendations",
+      checked: includeRecommendations && hasRecommendations,
+      onChange: () => setIncludeRecommendations((v) => !v),
+      disabled: !hasRecommendations,
+    },
+    {
+      key: "fertilizer",
+      label:
+        t.exportSectionFertilizerProducts ||
+        "Fertilizer products & costs",
+      checked: includeFertilizerPlan && hasFertilizerProducts,
+      onChange: () => setIncludeFertilizerPlan((v) => !v),
+      disabled: !hasFertilizerProducts,
+      hint: hasFertilizerProducts
+        ? t.exportFertilizerPriceNote || "Product table with rates and costs"
+        : undefined,
+    },
+    {
+      key: "calendar",
+      label: t.exportSectionCalendar || "Fertilization calendar",
+      checked: includeCalendar && hasCalendar,
+      onChange: () => setIncludeCalendar((v) => !v),
+      disabled: !hasCalendar,
+    },
+  ];
+
+  const mainItems = isFoliar ? foliarMainItems : soilMainItems;
+
+  const optionalItems: ToggleItem[] = [
+    ...(!isFoliar
+      ? [
+          {
+            key: "texture",
+            label: t.exportSectionTexture || "Soil texture",
+            checked: includeTexture,
+            onChange: () => setIncludeTexture((v) => !v),
+          } satisfies ToggleItem,
+        ]
+      : []),
     {
       key: "lab",
       label: t.exportSectionLabValues || "Original lab values",
@@ -289,7 +384,7 @@ export default function ExportReportModal({
           ))}
         </ExportGroup>
 
-        {!hasCic && !hasAmendment && !hasNutrient && onOpenCalculators ? (
+        {!isFoliar && !hasCic && !hasAmendment && !hasNutrient && onOpenCalculators ? (
           <div className="export-report__empty">
             <p>
               {t.exportCalculatorsEmptyHint ||

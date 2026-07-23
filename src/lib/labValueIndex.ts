@@ -257,6 +257,11 @@ export function normalizeLabValue(
     return { value, unit: "", converted: false };
   }
 
+  // Foliar macros are often % — never relabel them as mg/kg or cmol(+)/kg.
+  if (unit && isPercentUnit(unit)) {
+    return { value, unit: "%", converted: false };
+  }
+
   if (key === "organic_matter" || key === "organic_carbon" || key === "base_saturation") {
     if (unit && !isPercentUnit(unit)) {
       const converted = convertLabUnit(value, unit, "%");
@@ -301,11 +306,16 @@ export function normalizeLabValue(
   }
 
   if (MASS_KEYS.has(key)) {
+    if (unit && isMassUnit(unit)) {
+      return { value, unit: "mg/kg", converted: false };
+    }
     if (unit && !isMassUnit(unit)) {
       const converted = convertLabUnit(value, unit, "mg/kg");
       if (converted) return { value: converted.value, unit: "mg/kg", converted: true };
+      // Keep the original unit when we cannot convert (e.g. unknown labels).
+      return { value, unit, converted: false };
     }
-    return { value, unit: "mg/kg", converted: false };
+    return { value, unit: unit || "mg/kg", converted: false };
   }
 
   return { value, unit: unit || "", converted: false };

@@ -88,3 +88,53 @@ export function convertLabUnit(
 export function canConvertLabUnit(fromUnit: string, toUnit: string) {
   return convertLabUnit(1, fromUnit, toUnit) !== null;
 }
+
+const MASS_PERCENT_UNITS = new Set([
+  "%",
+  "percent",
+  "g/100g",
+  "dag/kg",
+  "dagkg-1",
+]);
+
+const MASS_PPM_UNITS = new Set([
+  "ppm",
+  "mg/kg",
+  "mgkg-1",
+  "mg.kg-1",
+  "ug/g",
+]);
+
+/** Foliar/soil mass concentration as % dry matter (1% = 10 000 ppm).
+ *  Graphs only — do not use for DOP (value vs range optimum must stay in native units).
+ */
+export function toMassPercent(
+  value: number,
+  unit: string | undefined | null,
+  options?: { assumePpmWhenUnitMissing?: boolean }
+): number | null {
+  if (!Number.isFinite(value)) return null;
+
+  const from = cleanUnit(String(unit || ""));
+  if (!from) {
+    if (options?.assumePpmWhenUnitMissing) {
+      return value / 10000;
+    }
+    return null;
+  }
+
+  if (MASS_PERCENT_UNITS.has(from)) {
+    return value;
+  }
+
+  if (MASS_PPM_UNITS.has(from)) {
+    return value / 10000;
+  }
+
+  // g/kg → % (and other safe mass-fraction pairs already in convertLabUnit)
+  if (from === "g/kg" || from === "gkg-1" || from === "g.kg-1") {
+    return value / 10;
+  }
+
+  return null;
+}

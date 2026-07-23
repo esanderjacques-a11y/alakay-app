@@ -391,6 +391,29 @@
   adviceVeryHigh:
     "Este valor es muy alto y requiere una revisión más cuidadosa antes de tomar decisiones de manejo.",
   adviceNormal: "Este valor está dentro del rango de referencia actual.",
+  adviceFoliarLow:
+    "El nivel en tejido está por debajo del rango de suficiencia. Considere nutrición foliar o ajustar el programa de fertilidad para esta etapa del cultivo.",
+  adviceFoliarHigh:
+    "El nivel en tejido está por encima del rango de suficiencia. Revise aplicaciones recientes y posibles antagonismos antes de aportar más de este nutriente.",
+  adviceFoliarNormal: "El nivel en tejido está dentro del rango de suficiencia actual.",
+  exportFoliarRecLow:
+    "Nutrientes foliares prioritarios bajo suficiencia: {list}. Considere nutrición foliar o ajustar el programa de fertilidad para la etapa actual.",
+  exportFoliarRecHigh:
+    "Niveles en tejido por encima de suficiencia: {list}. Revise aplicaciones recientes y posibles antagonismos antes de aportar más.",
+  exportFoliarRecOk:
+    "La mayoría de nutrientes foliares están en rangos de suficiencia. Use DOP y la etapa del cultivo para afinar el momento.",
+  exportFoliarRecDopHint:
+    "Compare con el gráfico DOP para ver deficiencia vs exceso respecto al óptimo de cada nutriente.",
+  exportFoliarQuickLow:
+    "Tejido bajo suficiencia: {list}. Considere nutrición foliar en la etapa actual.",
+  exportFoliarQuickHigh: "Tejido sobre suficiencia: {list}.",
+  exportFoliarQuickOk:
+    "La mayoría de nutrientes foliares están en rangos de suficiencia.",
+  exportSectionNutrientPie: "Gráfico de distribución de nutrientes",
+  exportNutrientPieHint:
+    "Muestra cómo se distribuyen los nutrientes en el tejido de la planta",
+  exportNutrientPieNote:
+    "Participación relativa de nutrientes medidos en la planta (ppm convertidos a % de materia seca). Muestra balance de composición, no suficiencia.",
 
   customCropRange: "Rango personalizado del cultivo",
   generalCustomRange: "Rango personalizado general",
@@ -636,6 +659,7 @@
   exportReportDesc: "Elige qué incluir en este resumen para compartir.",
   exportSectionCover: "Portada (datos del análisis)",
   exportSectionSoilStatus: "Resumen del estado del suelo",
+  exportSectionFoliarStatus: "Resumen del estado foliar",
   exportSectionCicBases: "CIC, bases y relaciones",
   exportSectionPhAmendments: "pH y enmiendas",
   exportSectionNutrientPlan: "Plan nutricional",
@@ -643,11 +667,23 @@
   exportSectionLogo: "Logo",
   exportSectionSummary: "Tarjetas resumen",
   exportSectionInterpretation: "Detalle completo de parámetros",
+  exportInterpretationHint:
+    "Valor, rango, nivel y consejo para cada parámetro",
   exportSectionMissing: "Valores faltantes / sin rango",
   exportSectionTexture: "Textura del suelo",
   exportSectionCalculations: "Resultados de calculadoras",
   exportSectionLabValues: "Valores originales del laboratorio",
-  exportSectionDop: "DOP (foliar)",
+  exportSectionDop: "Gráfico DOP",
+  exportDopFromRangesHint:
+    "Se calcula con puntos medios de los rangos de suficiencia si no se ha ejecutado la calculadora DOP",
+  exportDopChartNote:
+    "Desviación del óptimo (%). Negativo = deficiencia; positivo = exceso.",
+  exportDopDeficiency: "Deficiencia",
+  exportDopOptimum: "Óptimo",
+  exportDopExcess: "Exceso",
+  exportLevel: "Nivel",
+  exportRange: "Rango",
+  exportNoRange: "Sin rango",
   exportSectionRatios: "Relaciones de nutrientes",
   exportChecklistTitle: "Antes de exportar",
   exportChecklistHint:

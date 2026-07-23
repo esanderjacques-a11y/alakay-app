@@ -430,6 +430,7 @@ const pt = {
   exportReportDesc: "Escolha o que incluir neste resumo para compartilhar.",
   exportSectionCover: "Capa (detalhes da análise)",
   exportSectionSoilStatus: "Resumo do estado do solo",
+  exportSectionFoliarStatus: "Resumo do estado foliar",
   exportSectionCicBases: "CTC, bases e relações",
   exportSectionPhAmendments: "pH e corretivos",
   exportSectionNutrientPlan: "Plano nutricional",
@@ -437,11 +438,23 @@ const pt = {
   exportSectionLogo: "Logo",
   exportSectionSummary: "Cartões resumo",
   exportSectionInterpretation: "Detalhe completo dos parâmetros",
+  exportInterpretationHint:
+    "Valor, faixa, nível e conselho para cada parâmetro",
   exportSectionMissing: "Valores ausentes / sem faixa",
   exportSectionTexture: "Textura do solo",
   exportSectionCalculations: "Resultados das calculadoras",
   exportSectionLabValues: "Valores originais do laboratório",
-  exportSectionDop: "DOP (foliar)",
+  exportSectionDop: "Gráfico DOP",
+  exportDopFromRangesHint:
+    "Calculado a partir dos pontos médios das faixas de suficiência se a calculadora DOP não foi executada",
+  exportDopChartNote:
+    "Desvio do ótimo (%). Negativo = deficiência; positivo = excesso.",
+  exportDopDeficiency: "Deficiência",
+  exportDopOptimum: "Ótimo",
+  exportDopExcess: "Excesso",
+  exportLevel: "Nível",
+  exportRange: "Faixa",
+  exportNoRange: "Sem faixa",
   exportSectionRatios: "Relações de nutrientes",
   exportChecklistTitle: "Antes de exportar",
   exportChecklistHint:

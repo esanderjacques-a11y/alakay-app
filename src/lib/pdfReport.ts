@@ -13,6 +13,7 @@ import { interpretCationRatio } from "@/lib/cicInterpretation";
 import { eventsToPlanRows } from "@/lib/fertilizationPlanPdf";
 import type { CalendarEvent } from "@/lib/planningTypes";
 import { pdfSafe } from "@/lib/pdfText";
+import { toMassPercent } from "@/lib/unitConversions";
 
 export type { PdfFertilizerProduct };
 export { pdfSafe };
@@ -110,6 +111,7 @@ export type PdfReportSectionOptions = {
   includeSummary: boolean;
   includeCalculations: boolean;
   includeDop: boolean;
+  includeNutrientPie: boolean;
   includeRatios: boolean;
   includeCicBases: boolean;
   includePhAmendments: boolean;
@@ -150,6 +152,7 @@ export function resolvePdfReportSections(
       reportOptions?.includeCalculationValues ??
       true,
     includeDop: sections?.includeDop ?? reportOptions?.includeDopInReport ?? true,
+    includeNutrientPie: sections?.includeNutrientPie ?? false,
     includeRatios:
       sections?.includeRatios ?? reportOptions?.includeNutrientRatiosInReport ?? true,
     includeCicBases,
@@ -212,6 +215,133 @@ function isDopCalculation(label: string) {
   return /\bdop\b/i.test(label);
 }
 
+function shortPdfParamLabel(name: string) {
+  const clean = String(name || "").trim();
+  if (!clean) return "—";
+  if (clean.length <= 14) return clean;
+  return `${clean.slice(0, 13)}…`;
+}
+
+/** Build DOP rows from calculator outputs or sufficiency-range midpoints. */
+export function buildPdfDopRows(
+  results: PdfResult[],
+  dopPack?: CalculatorOutputPack | null
+): Array<{ label: string; dop: number }> {
+  if (dopPack && dopPack.outputs.length > 0) {
+    return dopPack.outputs
+      .map((output) => ({
+        label: shortPdfParamLabel(
+          String(output.label || "").replace(/^DOP\s+/i, "").trim() || output.label
+        ),
+        dop: output.value,
+      }))
+      .filter((row) => Number.isFinite(row.dop));
+  }
+
+  return results
+    .filter(
+      (result) =>
+        result.min != null &&
+        result.max != null &&
+        Number.isFinite(result.min) &&
+        Number.isFinite(result.max) &&
+        Number(result.max) > Number(result.min) &&
+        Number.isFinite(result.value) &&
+        result.value > 0
+    )
+    .map((result) => {
+      const optimum = (Number(result.min) + Number(result.max)) / 2;
+      const dop = ((result.value - optimum) / optimum) * 100;
+      return {
+        label: shortPdfParamLabel(
+          result.display_parameter_name || result.parameter_name
+        ),
+        dop,
+      };
+    })
+    .filter((row) => Number.isFinite(row.dop));
+}
+
+const PDF_PIE_NUTRIENTS: Array<{
+  key: string;
+  pattern: RegExp;
+  micro?: boolean;
+}> = [
+  { key: "N", pattern: /\b(n|nitrogen|nitrogeno|azote)\b/i },
+  { key: "P", pattern: /\b(p|phosphorus|fosforo|phosphore)\b/i },
+  { key: "K", pattern: /\b(k|potassium|potasio)\b/i },
+  { key: "Ca", pattern: /\b(ca|calcium|calcio)\b/i },
+  { key: "Mg", pattern: /\b(mg|magnesium|magnesio)\b/i },
+  { key: "S", pattern: /\b(s|sulfur|azufre|soufre)\b/i },
+  { key: "Fe", pattern: /\b(fe|iron|hierro|fer)\b/i, micro: true },
+  { key: "Zn", pattern: /\b(zn|zinc)\b/i, micro: true },
+  { key: "Mn", pattern: /\b(mn|manganese|manganeso)\b/i, micro: true },
+  { key: "Cu", pattern: /\b(cu|copper|cobre|cuivre)\b/i, micro: true },
+  { key: "B", pattern: /\b(b|boron|boro|bore)\b/i, micro: true },
+];
+
+function pdfNutrientSymbol(result: PdfResult): string {
+  const raw = `${result.display_parameter_name || ""} ${result.parameter_name || ""}`;
+  const label = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  for (const def of PDF_PIE_NUTRIENTS) {
+    if (def.pattern.test(label)) return def.key;
+  }
+  const display = (result.display_parameter_name || result.parameter_name || "").trim();
+  const paren = display.match(/\(([A-Za-z]{1,3})\)\s*$/);
+  if (paren) return paren[1];
+  if (/^[A-Za-z]{1,3}$/.test(display)) return display;
+  return shortPdfParamLabel(display).slice(0, 4);
+}
+
+const PDF_PIE_COLORS: Array<[number, number, number]> = [
+  [15, 159, 122],
+  [37, 99, 235],
+  [245, 158, 11],
+  [219, 39, 119],
+  [124, 58, 237],
+  [8, 145, 178],
+  [101, 163, 13],
+  [234, 88, 12],
+  [71, 85, 105],
+  [20, 184, 166],
+  [132, 204, 22],
+];
+
+/** Tissue composition for PDF pie — ppm → %; values already in % unchanged. */
+export function buildPdfNutrientPieRows(
+  results: PdfResult[]
+): Array<{ label: string; massPercent: number; share: number }> {
+  const used = new Set<number>();
+  const rows: Array<{ label: string; massPercent: number }> = [];
+
+  for (const def of PDF_PIE_NUTRIENTS) {
+    const index = results.findIndex((result, i) => {
+      if (used.has(i)) return false;
+      const label = `${result.display_parameter_name || ""} ${result.parameter_name || ""}`;
+      return def.pattern.test(label);
+    });
+    if (index < 0) continue;
+    used.add(index);
+    const result = results[index];
+    const massPercent = toMassPercent(result.value, result.unit_symbol, {
+      assumePpmWhenUnitMissing: Boolean(def.micro),
+    });
+    if (massPercent == null || !(massPercent > 0)) continue;
+    rows.push({
+      label: def.key,
+      massPercent,
+    });
+  }
+
+  const total = rows.reduce((sum, row) => sum + row.massPercent, 0) || 1;
+  return rows
+    .map((row) => ({
+      ...row,
+      share: row.massPercent / total,
+    }))
+    .sort((a, b) => b.share - a.share);
+}
+
 function isRatioCalculation(label: string) {
   return /\/|\bratio\b|\bca\s*\/\s*mg\b|\bmg\s*\/\s*k\b|\bk\s*\/\s*na\b|\bca\s*\/\s*k\b|\bca\s*\/\s*na\b/i.test(
     label
@@ -253,9 +383,17 @@ export function buildExportRecommendations(args: {
   fertilizerApplyLines?: string[];
   /** Optional i18n map (calculatorHubText or Translation) for amendment lines. */
   amendmentLabels?: Record<string, string>;
+  /** Foliar reports skip soil amendments / soil fertilizer rates. */
+  isFoliar?: boolean;
 }): string[] {
   const lines: string[] = [];
   const seen = new Set<string>();
+  const labels = args.amendmentLabels || {};
+  const isFoliar = Boolean(args.isFoliar);
+
+  function L(key: string, fallback: string) {
+    return String(labels[key] || fallback);
+  }
 
   function push(raw: string | undefined | null) {
     const text = String(raw || "")
@@ -268,22 +406,24 @@ export function buildExportRecommendations(args: {
     lines.push(text);
   }
 
-  for (const line of args.planRecommendations || []) push(line);
+  if (!isFoliar) {
+    for (const line of args.planRecommendations || []) push(line);
 
-  const planAlreadyStatesAmendment = (args.planRecommendations || []).some((line) =>
-    /amendment:|enmienda:|amendement:|amandman:|emenda:|marekebisho:|no soil amendment is needed|no se necesita enmienda|aucune amendement n['']est n[eé]cessaire|pa bezwen amandman|nenhuma emenda [eé] necess|hakuna marekebisho/i.test(
-      line
-    )
-  );
-  if (!planAlreadyStatesAmendment) {
-    const amendmentRec = recommendSoilAmendment(
-      soilAmendmentInputFromPdfResults(args.results)
+    const planAlreadyStatesAmendment = (args.planRecommendations || []).some((line) =>
+      /amendment:|enmienda:|amendement:|amandman:|emenda:|marekebisho:|no soil amendment is needed|no se necesita enmienda|aucune amendement n['']est n[eé]cessaire|pa bezwen amandman|nenhuma emenda [eé] necess|hakuna marekebisho/i.test(
+        line
+      )
     );
-    for (const line of formatAmendmentRecommendationLines(
-      amendmentRec,
-      args.amendmentLabels || {}
-    )) {
-      push(line);
+    if (!planAlreadyStatesAmendment) {
+      const amendmentRec = recommendSoilAmendment(
+        soilAmendmentInputFromPdfResults(args.results)
+      );
+      for (const line of formatAmendmentRecommendationLines(
+        amendmentRec,
+        labels
+      )) {
+        push(line);
+      }
     }
   }
 
@@ -295,11 +435,46 @@ export function buildExportRecommendations(args: {
     if (bucket === "low") low.push(name);
     if (bucket === "high") high.push(name);
   }
-  if (low.length > 0) {
-    push(`Prioritize correction for: ${low.slice(0, 8).join(", ")}.`);
-  }
-  if (high.length > 0) {
-    push(`Monitor / avoid excess of: ${high.slice(0, 8).join(", ")}.`);
+
+  if (isFoliar) {
+    if (low.length > 0) {
+      push(
+        L(
+          "exportFoliarRecLow",
+          "Priority foliar nutrients below sufficiency: {list}. Consider foliar nutrition or adjusting the fertility program for the current crop stage."
+        ).replace("{list}", low.slice(0, 8).join(", "))
+      );
+    }
+    if (high.length > 0) {
+      push(
+        L(
+          "exportFoliarRecHigh",
+          "Tissue levels above sufficiency: {list}. Review recent applications and possible antagonisms before adding more of these nutrients."
+        ).replace("{list}", high.slice(0, 8).join(", "))
+      );
+    }
+    if (low.length === 0 && high.length === 0 && args.results.length > 0) {
+      push(
+        L(
+          "exportFoliarRecOk",
+          "Most foliar nutrients are within sufficiency ranges. Use DOP and crop stage to fine-tune timing."
+        )
+      );
+    } else if (low.length > 0 || high.length > 0) {
+      push(
+        L(
+          "exportFoliarRecDopHint",
+          "Compare with the DOP chart to see deficiency vs excess relative to each nutrient optimum."
+        )
+      );
+    }
+  } else {
+    if (low.length > 0) {
+      push(`Prioritize correction for: ${low.slice(0, 8).join(", ")}.`);
+    }
+    if (high.length > 0) {
+      push(`Monitor / avoid excess of: ${high.slice(0, 8).join(", ")}.`);
+    }
   }
 
   if (args.includeInterpretationAdvice) {
@@ -309,13 +484,15 @@ export function buildExportRecommendations(args: {
     }
   }
 
-  for (const line of args.fertilizerApplyLines || []) push(line);
-  for (const product of args.fertilizerProducts || []) {
-    push(
-      `Apply ${product.name} (${product.analysis})${
-        product.nutrient ? ` for ${product.nutrient}` : ""
-      }: ${product.rateKgHa.toFixed(1)} kg/ha.`
-    );
+  if (!isFoliar) {
+    for (const line of args.fertilizerApplyLines || []) push(line);
+    for (const product of args.fertilizerProducts || []) {
+      push(
+        `Apply ${product.name} (${product.analysis})${
+          product.nutrient ? ` for ${product.nutrient}` : ""
+        }: ${product.rateKgHa.toFixed(1)} kg/ha.`
+      );
+    }
   }
 
   return lines;
@@ -567,14 +744,29 @@ export async function exportAnalysisPdf(options: {
   const amendmentPack = findPack(allPacks, "amendment");
   const fertilizerPack = findPack(allPacks, "fertilizer");
 
+  const dopPack = findPack(allPacks, "dop");
+  const dopRows = exportSections.includeDop
+    ? buildPdfDopRows(results, dopPack)
+    : [];
+  const isFoliarReport =
+    String(reportMeta?.sampleType || "").toLowerCase() ===
+    String(t.foliar || "Foliar").toLowerCase();
+  const pieRows =
+    exportSections.includeNutrientPie && isFoliarReport
+      ? buildPdfNutrientPieRows(results)
+      : [];
+
   const recommendationLines = (
     recommendations.length > 0
       ? recommendations.filter((line) => !looksLikeFormula(line))
       : buildExportRecommendations({
           results,
           fertilizerProducts,
-          includeInterpretationAdvice: false,
+          includeInterpretationAdvice:
+            exportSections.includeRecommendations &&
+            !exportSections.includeInterpretation,
           amendmentLabels: labels,
+          isFoliar: isFoliarReport,
         })
   )
     .map((line) => pdfSafe(line))
@@ -725,9 +917,6 @@ export async function exportAnalysisPdf(options: {
       titleX = margin + 26;
     }
 
-    const preparedBy = pdfSafe(reportMeta?.generatedBy?.trim() || "");
-    const preparedLabel = L("exportGeneratedBy", "Generated by");
-
     pdf.setTextColor(255, 255, 255);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(18);
@@ -735,19 +924,6 @@ export async function exportAnalysisPdf(options: {
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(11);
     pdf.text(pdfSafe(t.reportSubtitle), titleX, 22);
-
-    if (preparedBy) {
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8);
-      pdf.setTextColor(220, 252, 231);
-      pdf.text(preparedLabel, pageWidth - margin, 12, { align: "right" });
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(11);
-      pdf.setTextColor(255, 255, 255);
-      const nameMaxW = Math.max(40, pageWidth - margin - titleX - 50);
-      const nameLines = pdf.splitTextToSize(preparedBy, nameMaxW);
-      pdf.text(nameLines[0], pageWidth - margin, 20, { align: "right" });
-    }
 
     y = 42;
 
@@ -862,7 +1038,18 @@ export async function exportAnalysisPdf(options: {
   function drawSoilStatusDashboard() {
     if (results.length === 0) return;
 
-    drawSectionTitle(L("exportSectionSoilStatus", t.analysisSummary || "Soil status"));
+    const foliarLabel = String(t.foliar || "Foliar");
+    const isFoliarStatus =
+      String(reportMeta?.sampleType || "").toLowerCase() ===
+      foliarLabel.toLowerCase();
+    drawSectionTitle(
+      isFoliarStatus
+        ? L(
+            "exportSectionFoliarStatus",
+            t.analysisSummary || "Foliar status summary"
+          )
+        : L("exportSectionSoilStatus", t.analysisSummary || "Soil status")
+    );
 
     const buckets: Record<"low" | "ok" | "high", PdfResult[]> = {
       low: [],
@@ -883,13 +1070,28 @@ export async function exportAnalysisPdf(options: {
     const gap = 3;
     const cardW = (contentWidth - gap * 2) / 3;
     const titleLineH = 3.4;
+    const symbolLineH = 4.2;
     const titles = cards.map((card) => {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(8);
       return pdf.splitTextToSize(pdfSafe(card.title), cardW - 8).slice(0, 2);
     });
+    const symbolBlocks = cards.map((card) => {
+      const symbols = buckets[card.key].map(pdfNutrientSymbol);
+      if (symbols.length === 0) return [] as string[];
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      return pdf.splitTextToSize(pdfSafe(symbols.join("  ")), cardW - 8);
+    });
     const maxTitleLines = Math.max(...titles.map((lines) => lines.length), 1);
-    const cardH = Math.max(30, 18 + maxTitleLines * titleLineH + 4);
+    const maxSymbolLines = Math.max(
+      ...symbolBlocks.map((lines) => lines.length),
+      0
+    );
+    const cardH = Math.max(
+      30,
+      18 + maxTitleLines * titleLineH + maxSymbolLines * symbolLineH + 6
+    );
     ensureSpace(cardH + 4);
     const top = y;
 
@@ -912,32 +1114,25 @@ export async function exportAnalysisPdf(options: {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(8);
       pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-      let titleY = top + 22;
+      let cursorY = top + 22;
       for (const line of titles[index]) {
-        pdf.text(line, x + 4, titleY);
-        titleY += titleLineH;
+        pdf.text(line, x + 4, cursorY);
+        cursorY += titleLineH;
+      }
+
+      if (symbolBlocks[index].length > 0) {
+        cursorY += 1.5;
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(9);
+        pdf.setTextColor(color[0], color[1], color[2]);
+        for (const line of symbolBlocks[index]) {
+          pdf.text(line, x + 4, cursorY);
+          cursorY += symbolLineH;
+        }
       }
     });
 
     y = top + cardH + 6;
-
-    for (const card of cards) {
-      const items = buckets[card.key];
-      if (items.length === 0) continue;
-      const color = STATUS_COLORS[card.key];
-      ensureSpace(10);
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(10);
-      pdf.setTextColor(color[0], color[1], color[2]);
-      pdf.text(pdfSafe(`${card.title} (${items.length})`), margin, y);
-      y += 5;
-      pdf.setTextColor(INK[0], INK[1], INK[2]);
-      for (const item of items) {
-        const name = item.display_parameter_name || item.parameter_name;
-        drawParagraph(`- ${name}`, 10);
-      }
-      y += 1;
-    }
 
     // One quick interpretation box (no full per-parameter advice cards).
     const lowNames = buckets.low
@@ -947,7 +1142,32 @@ export async function exportAnalysisPdf(options: {
       .map((r) => r.display_parameter_name || r.parameter_name)
       .slice(0, 6);
     let quick = "";
-    if (lowNames.length > 0) {
+    if (isFoliarStatus) {
+      if (lowNames.length > 0) {
+        quick = L(
+          "exportFoliarQuickLow",
+          "Tissue below sufficiency: {list}. Consider foliar nutrition for the current stage."
+        ).replace("{list}", lowNames.join(", "));
+        if (highNames.length > 0) {
+          quick +=
+            " " +
+            L(
+              "exportFoliarQuickHigh",
+              "Tissue above sufficiency: {list}."
+            ).replace("{list}", highNames.join(", "));
+        }
+      } else if (highNames.length > 0) {
+        quick = L(
+          "exportFoliarQuickHigh",
+          "Tissue above sufficiency: {list}."
+        ).replace("{list}", highNames.join(", "));
+      } else if (results.length > 0) {
+        quick = L(
+          "exportFoliarQuickOk",
+          "Most foliar nutrients are within sufficiency ranges."
+        );
+      }
+    } else if (lowNames.length > 0) {
       quick = L("exportSoilQuickLow", "Prioritize correcting: {list}.").replace(
         "{list}",
         lowNames.join(", ")
@@ -993,6 +1213,266 @@ export async function exportAnalysisPdf(options: {
       pdf.setTextColor(INK[0], INK[1], INK[2]);
       pdf.text(wrap, margin + 4, y + 11);
       y += boxH + 4;
+    }
+  }
+
+  function drawDopSection(
+    rows: Array<{ label: string; dop: number }>
+  ) {
+    if (rows.length === 0) return;
+
+    drawSectionTitle(L("exportSectionDop", "DOP graph"));
+    drawParagraph(
+      L(
+        "exportDopChartNote",
+        "Deviation from optimum (%). Negative = deficiency; positive = excess."
+      ),
+      9
+    );
+
+    const maxAbs = Math.max(
+      20,
+      ...rows.map((row) => Math.abs(Math.max(-180, Math.min(180, row.dop))))
+    );
+    const scaleMax = Math.min(180, Math.max(40, Math.ceil(maxAbs / 20) * 20));
+    const labelW = 22;
+    const valueW = 18;
+    const trackW = contentWidth - labelW - valueW - 4;
+    const zeroX = margin + labelW + 2 + trackW / 2;
+    const rowH = 7.2;
+
+    ensureSpace(12);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+    pdf.text(`−${scaleMax}%`, margin + labelW + 2, y);
+    pdf.text("0%", zeroX, y, { align: "center" });
+    pdf.text(
+      `+${scaleMax}%`,
+      margin + labelW + 2 + trackW,
+      y,
+      { align: "right" }
+    );
+    y += 3;
+
+    for (const row of rows) {
+      ensureSpace(rowH + 1.5);
+      const clamped = Math.max(-180, Math.min(180, row.dop));
+      const nearOptimum = Math.abs(clamped) < scaleMax * 0.08;
+      const status: "low" | "ok" | "high" = nearOptimum
+        ? "ok"
+        : clamped < 0
+          ? "low"
+          : "high";
+      const color = STATUS_COLORS[status];
+      const barHalf = (Math.abs(clamped) / scaleMax) * (trackW / 2);
+      const barW = Math.max(1.2, barHalf);
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8);
+      pdf.setTextColor(INK[0], INK[1], INK[2]);
+      pdf.text(pdfSafe(row.label), margin, y + 4.2);
+
+      const trackX = margin + labelW + 2;
+      pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
+      pdf.roundedRect(trackX, y + 1.2, trackW, 4.6, 0.8, 0.8, "F");
+
+      pdf.setDrawColor(LINE[0], LINE[1], LINE[2]);
+      pdf.setLineWidth(0.35);
+      pdf.line(zeroX, y + 0.8, zeroX, y + 6.2);
+
+      pdf.setFillColor(color[0], color[1], color[2]);
+      if (clamped < 0) {
+        pdf.roundedRect(zeroX - barW, y + 1.6, barW, 3.8, 0.6, 0.6, "F");
+      } else {
+        pdf.roundedRect(zeroX, y + 1.6, barW, 3.8, 0.6, 0.6, "F");
+      }
+
+      const valueText =
+        Math.abs(row.dop) >= 100
+          ? `${row.dop.toFixed(0)}%`
+          : `${row.dop.toFixed(1)}%`;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8);
+      pdf.setTextColor(color[0], color[1], color[2]);
+      pdf.text(valueText, margin + contentWidth, y + 4.2, {
+        align: "right",
+      });
+
+      y += rowH;
+    }
+
+    y += 2;
+    ensureSpace(8);
+    const legend: Array<{ key: "low" | "ok" | "high"; label: string }> = [
+      {
+        key: "low",
+        label: L("exportDopDeficiency", "Deficiency"),
+      },
+      { key: "ok", label: L("exportDopOptimum", "Optimum") },
+      { key: "high", label: L("exportDopExcess", "Excess") },
+    ];
+    let lx = margin;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    for (const item of legend) {
+      const c = STATUS_COLORS[item.key];
+      pdf.setFillColor(c[0], c[1], c[2]);
+      pdf.roundedRect(lx, y, 3.2, 3.2, 0.6, 0.6, "F");
+      pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+      pdf.text(item.label, lx + 4.5, y + 2.6);
+      lx += pdf.getTextWidth(item.label) + 12;
+    }
+    y += 8;
+  }
+
+  function drawNutrientPieSection(
+    rows: Array<{ label: string; massPercent: number; share: number }>
+  ) {
+    if (rows.length === 0) return;
+
+    drawSectionTitle(
+      L("exportSectionNutrientPie", "Nutrient distribution (tissue)")
+    );
+    drawParagraph(
+      L(
+        "exportNutrientPieNote",
+        "Relative share of measured nutrients in the plant (ppm converted to % dry matter). Shows composition balance, not sufficiency."
+      ),
+      9
+    );
+
+    const cx = margin + 28;
+    const cy = y + 28;
+    const radius = 26;
+    ensureSpace(radius * 2 + 8);
+
+    let angle = -Math.PI / 2;
+    rows.forEach((row, index) => {
+      const sweep = row.share * Math.PI * 2;
+      const end = angle + sweep;
+      const color = PDF_PIE_COLORS[index % PDF_PIE_COLORS.length];
+      const steps = Math.max(8, Math.ceil((sweep / (Math.PI * 2)) * 36));
+      const points: Array<[number, number]> = [[cx, cy]];
+      for (let i = 0; i <= steps; i += 1) {
+        const a = angle + (sweep * i) / steps;
+        points.push([cx + Math.cos(a) * radius, cy + Math.sin(a) * radius]);
+      }
+      pdf.setFillColor(color[0], color[1], color[2]);
+      pdf.setDrawColor(255, 255, 255);
+      pdf.setLineWidth(0.2);
+      // triangle fan
+      for (let i = 1; i < points.length - 1; i += 1) {
+        pdf.triangle(
+          points[0][0],
+          points[0][1],
+          points[i][0],
+          points[i][1],
+          points[i + 1][0],
+          points[i + 1][1],
+          "F"
+        );
+      }
+      angle = end;
+    });
+
+    let legendX = margin + 62;
+    let legendY = y + 4;
+    const colW = (contentWidth - 62) / 2;
+    rows.forEach((row, index) => {
+      const color = PDF_PIE_COLORS[index % PDF_PIE_COLORS.length];
+      if (index === Math.ceil(rows.length / 2)) {
+        legendX = margin + 62 + colW;
+        legendY = y + 4;
+      }
+      pdf.setFillColor(color[0], color[1], color[2]);
+      pdf.roundedRect(legendX, legendY, 3.2, 3.2, 0.5, 0.5, "F");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.setTextColor(INK[0], INK[1], INK[2]);
+      pdf.text(
+        `${row.label}  ${(row.share * 100).toFixed(0)}%`,
+        legendX + 5,
+        legendY + 2.6
+      );
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+      const massLabel =
+        row.massPercent >= 0.01
+          ? `${row.massPercent.toFixed(3)}%`
+          : `${row.massPercent.toFixed(4)}%`;
+      pdf.text(massLabel, legendX + 5, legendY + 6.2);
+      legendY += 9;
+    });
+
+    y += Math.max(radius * 2 + 6, legendY - y + 4);
+  }
+
+  function drawInterpretationDetail() {
+    if (results.length === 0) return;
+
+    drawSectionTitle(
+      L("exportSectionInterpretation", "Full parameter detail")
+    );
+    drawParagraph(
+      L(
+        "exportInterpretationHint",
+        "Value, range, level and advice for each parameter"
+      ),
+      9
+    );
+
+    const ordered = [...results].sort((a, b) => {
+      const rank = { low: 0, ok: 1, high: 2 } as const;
+      return rank[soilStatusBucket(a)] - rank[soilStatusBucket(b)];
+    });
+
+    for (const result of ordered) {
+      const bucket = soilStatusBucket(result);
+      const color = STATUS_COLORS[bucket];
+      const name = result.display_parameter_name || result.parameter_name;
+      const rangeText =
+        result.min != null && result.max != null
+          ? `${result.min} – ${result.max} ${result.unit_symbol}`.trim()
+          : L("exportNoRange", "No range");
+      const header = `${name}: ${result.value} ${result.unit_symbol}`.trim();
+      const levelLine = `${L("exportLevel", "Level")}: ${result.level_code || "—"}`;
+      const rangeLine = `${L("exportRange", "Range")}: ${rangeText}`;
+      const advice = String(result.advice || "").trim();
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9.5);
+      const adviceLines = advice
+        ? pdf.splitTextToSize(pdfSafe(advice), contentWidth - 8)
+        : [];
+      const boxH = Math.max(18, 14 + adviceLines.length * 4.2);
+      ensureSpace(boxH + 2.5);
+
+      pdf.setFillColor(255, 255, 255);
+      pdf.setDrawColor(LINE[0], LINE[1], LINE[2]);
+      pdf.setLineWidth(0.35);
+      pdf.roundedRect(margin, y, contentWidth, boxH, 1.5, 1.5, "FD");
+      pdf.setFillColor(color[0], color[1], color[2]);
+      pdf.rect(margin, y, 1.8, boxH, "F");
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      pdf.setTextColor(INK[0], INK[1], INK[2]);
+      pdf.text(pdfSafe(header), margin + 5, y + 5);
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8.5);
+      pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+      pdf.text(pdfSafe(`${levelLine} · ${rangeLine}`), margin + 5, y + 10);
+
+      if (adviceLines.length > 0) {
+        pdf.setFontSize(9);
+        pdf.setTextColor(INK[0], INK[1], INK[2]);
+        pdf.text(adviceLines, margin + 5, y + 15);
+      }
+
+      y += boxH + 2.5;
     }
   }
 
@@ -1360,6 +1840,18 @@ export async function exportAnalysisPdf(options: {
 
   if (exportSections.includeSoilStatus) {
     drawSoilStatusDashboard();
+  }
+
+  if (exportSections.includeDop && dopRows.length > 0) {
+    drawDopSection(dopRows);
+  }
+
+  if (exportSections.includeNutrientPie && pieRows.length > 0) {
+    drawNutrientPieSection(pieRows);
+  }
+
+  if (exportSections.includeInterpretation) {
+    drawInterpretationDetail();
   }
 
   if (exportSections.includeTexture && textureSummary) {

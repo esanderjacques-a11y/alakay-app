@@ -12681,6 +12681,16 @@ html[data-theme="dark"] .app-header {
     color: #3c3c43;
   }
 
+  .chart-expand-shell__btn:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
+
+  .chart-expand-shell__btn--error {
+    border-color: rgb(220 38 38 / 0.45);
+    color: #b91c1c;
+  }
+
   .chart-expand-shell--overlay .chart-expand-shell__body {
     position: relative;
   }
@@ -12700,35 +12710,10 @@ html[data-theme="dark"] .app-header {
     color: rgb(226 232 240 / 0.9);
   }
 
-  /* Phones: hide expand — use landscape instead of a cramped overlay */
-  @media (max-width: 700px) {
-    .uptake-chart-shell .chart-expand-shell__btn--overlay {
-      display: none;
-    }
-  }
-
+  /* Phones: keep expand available (fullscreen / landscape lock). */
   .uptake-chart-shell {
     display: grid;
     gap: 0.45rem;
-  }
-
-  .uptake-chart-rotate {
-    display: none;
-    margin: 0;
-    padding: 0.55rem 0.7rem;
-    border-radius: 0.75rem;
-    border: 1px solid rgb(15 23 42 / 0.08);
-    background: rgb(255 255 255 / 0.55);
-    font-size: var(--calc-text-micro, 0.75rem);
-    font-weight: 600;
-    line-height: 1.35;
-    color: #475569;
-  }
-
-  @media (max-width: 700px) and (orientation: portrait) {
-    .uptake-chart-rotate {
-      display: block;
-    }
   }
 
   @media (max-width: 900px) and (orientation: landscape) {
@@ -12760,6 +12745,208 @@ html[data-theme="dark"] .app-header {
     max-width: 100%;
   }
 
+  .nutrient-graph {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 0.75rem;
+  }
+
+  .nutrient-graph__hist {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.3rem;
+    width: 100%;
+    min-height: 7rem;
+  }
+
+  .nutrient-graph__col {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .nutrient-graph__value {
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #64748b;
+    text-align: center;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nutrient-graph__bar {
+    display: block;
+    width: 100%;
+    max-width: 1.5rem;
+    border-radius: 0.45rem 0.45rem 0.2rem 0.2rem;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+  }
+
+  .nutrient-graph__label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.625rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #14532d;
+    text-align: center;
+  }
+
+  .nutrient-graph--pie {
+    display: grid;
+    gap: 0.85rem;
+    justify-items: center;
+  }
+
+  .nutrient-graph__pie-disc {
+    width: min(10.5rem, 58vw);
+    height: min(10.5rem, 58vw);
+    border-radius: 9999px;
+    box-shadow: inset 0 0 0 1px rgb(15 23 42 / 0.06);
+  }
+
+  .nutrient-graph__legend {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .nutrient-graph__legend-head {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 0.35rem;
+  }
+
+  .nutrient-graph__sort {
+    display: inline-flex;
+    height: 2rem;
+    width: 2rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.55rem;
+    color: #64748b;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .nutrient-graph__sort:hover {
+    background: rgb(15 23 42 / 0.06);
+    color: #0f172a;
+  }
+
+  .nutrient-graph__legend-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .nutrient-graph__legend-item {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.45rem 0.5rem !important;
+    border-radius: 0.75rem !important;
+  }
+
+  .nutrient-graph__legend-row {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .nutrient-graph__swatch {
+    height: 0.55rem;
+    width: 0.55rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+  }
+
+  .nutrient-graph__legend-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #14532d;
+  }
+
+  .nutrient-graph__legend-values {
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #64748b;
+  }
+
+  .nutrient-graph__legend-values span {
+    margin-left: 0.25rem;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+
+  html[data-theme="dark"] .nutrient-graph__value,
+  html[data-theme="dark"] .nutrient-graph__legend-values {
+    color: #94a3b8;
+  }
+
+  html[data-theme="dark"] .nutrient-graph__label,
+  html[data-theme="dark"] .nutrient-graph__legend-name {
+    color: #bbf7d0;
+  }
+
+  html[data-theme="dark"] .nutrient-graph__legend-values span {
+    color: #64748b;
+  }
+
+  html[data-theme="dark"] .nutrient-graph__sort:hover {
+    background: rgb(255 255 255 / 0.08);
+    color: #e2e8f0;
+  }
+
+  @media (min-width: 640px) {
+    .nutrient-graph--pie {
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      justify-items: stretch;
+    }
+
+    .nutrient-graph__pie-disc {
+      width: 11.5rem;
+      height: 11.5rem;
+    }
+
+    .nutrient-graph__bar {
+      max-width: 1.75rem;
+    }
+
+    .nutrient-graph__value,
+    .nutrient-graph__label {
+      font-size: 0.6875rem;
+    }
+  }
+
+  .chart-fullscreen--nutrient .nutrient-graph {
+    padding: 1rem;
+  }
+
+  .chart-fullscreen--nutrient .nutrient-graph__hist {
+    min-height: 12rem;
+  }
+
+  .chart-fullscreen--nutrient .nutrient-graph__pie-disc {
+    width: min(16rem, 42vw);
+    height: min(16rem, 42vw);
+  }
+
   .uptake-chart-panel {
     width: 100%;
     max-width: 100%;
@@ -12781,34 +12968,81 @@ html[data-theme="dark"] .app-header {
     aspect-ratio: 560 / 400;
   }
 
+  .uptake-chart-svg .calc-chart-stage-label {
+    fill: #14532d;
+    font-size: 0.9375rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+
+  .uptake-chart-svg .calc-chart-axis-label {
+    fill: #64748b;
+    font-size: 0.8125rem;
+    font-weight: 700;
+  }
+
+  .uptake-chart-svg .calc-chart-timing-label {
+    font-size: 0.75rem;
+    font-weight: 650;
+  }
+
+  html[data-theme="dark"] .uptake-chart-svg .calc-chart-stage-label {
+    fill: #bbf7d0;
+  }
+
+  html[data-theme="dark"] .uptake-chart-svg .calc-chart-axis-label {
+    fill: rgb(226 232 240 / 0.72);
+  }
+
   @media (min-width: 768px) {
     .uptake-chart-svg {
       max-width: 40rem;
       margin-inline: auto;
     }
+
+    .uptake-chart-svg .calc-chart-stage-label {
+      font-size: 1rem;
+    }
+
+    .uptake-chart-svg .calc-chart-axis-label {
+      font-size: 0.875rem;
+    }
+
+    .uptake-chart-svg .calc-chart-timing-label {
+      font-size: 0.8125rem;
+    }
   }
 
   .uptake-guide {
     display: grid;
-    gap: 1.25rem;
+    gap: 0.85rem;
   }
 
   .uptake-guide__intro {
     display: grid;
-    gap: 0.3rem;
+    gap: 0.2rem;
+  }
+
+  .uptake-guide__heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.55rem;
+    min-width: 0;
   }
 
   .uptake-guide__eyebrow {
     margin: 0;
-    font-size: var(--calc-text-label, 0.8125rem);
+    font-size: var(--calc-text-micro, 0.75rem);
     font-weight: 600;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
     color: #64748b;
   }
 
   .uptake-guide__title {
     margin: 0;
-    font-size: 1.35rem;
+    min-width: 0;
+    font-size: 1.125rem;
     font-weight: 800;
     letter-spacing: -0.02em;
     line-height: 1.2;
@@ -12818,10 +13052,21 @@ html[data-theme="dark"] .app-header {
   .uptake-guide__desc {
     margin: 0;
     max-width: 40rem;
-    font-size: var(--calc-text-body, 0.875rem);
+    font-size: var(--calc-text-micro, 0.75rem);
     font-weight: 500;
-    line-height: 1.45;
+    line-height: 1.35;
     color: #64748b;
+  }
+
+  @media (min-width: 640px) {
+    .uptake-guide__title {
+      font-size: 1.25rem;
+    }
+
+    .uptake-guide__desc {
+      font-size: var(--calc-text-body, 0.875rem);
+      line-height: 1.4;
+    }
   }
 
   .uptake-guide__section {
@@ -13019,6 +13264,18 @@ html[data-theme="dark"] .app-header {
     height: auto;
     max-height: 72vh;
     aspect-ratio: 560 / 400;
+  }
+
+  .chart-fullscreen--uptake .uptake-chart-svg .calc-chart-stage-label {
+    font-size: 1.0625rem;
+  }
+
+  .chart-fullscreen--uptake .uptake-chart-svg .calc-chart-axis-label {
+    font-size: 0.9375rem;
+  }
+
+  .chart-fullscreen--uptake .uptake-chart-svg .calc-chart-timing-label {
+    font-size: 0.875rem;
   }
 
   /* DOP deviation — horizontal diverging bars (readable on narrow screens) */
@@ -13243,7 +13500,7 @@ html[data-theme="dark"] .app-header {
   .chart-fullscreen {
     position: fixed;
     inset: 0;
-    z-index: 20000;
+    z-index: 21000;
     display: flex;
     flex-direction: column;
     background: var(--background, #f2f2f2);
@@ -13260,32 +13517,60 @@ html[data-theme="dark"] .app-header {
   .chart-fullscreen--dop .chart-fullscreen__body {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+    justify-content: stretch;
     min-height: 0;
+    overflow: hidden;
   }
 
   .chart-fullscreen--dop .dop-chart {
-    flex: 1;
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    min-height: 0;
     width: 100%;
-    max-width: 42rem;
-    margin-inline: auto;
+    max-width: none;
+    min-height: 0;
+    height: 100%;
+    margin-inline: 0;
   }
 
   .chart-fullscreen--dop .dop-chart__board {
-    flex: 1;
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
+    width: 100%;
     min-height: 0;
+    height: 100%;
+  }
+
+  .chart-fullscreen__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
   }
 
   .chart-fullscreen--dop .dop-chart__rows {
-    gap: 0.55rem;
+    flex: 1 1 auto;
+    display: grid;
+    grid-auto-rows: 1fr;
+    align-content: stretch;
+    gap: clamp(0.45rem, 1.6vh, 0.9rem);
+    min-height: 0;
+  }
+
+  .chart-fullscreen--dop .dop-chart__row {
+    min-height: 0;
+    align-self: stretch;
   }
 
   .chart-fullscreen--dop .dop-chart__row-track {
-    height: 1.35rem;
+    height: clamp(1.35rem, 3.8vh, 2.35rem);
+    align-self: center;
+  }
+
+  .chart-fullscreen--dop .dop-chart__legend {
+    margin-top: auto;
+    padding-top: 0.65rem;
   }
 
   .chart-fullscreen__bar {

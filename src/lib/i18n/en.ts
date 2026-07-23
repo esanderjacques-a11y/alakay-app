@@ -373,6 +373,29 @@
   adviceVeryHigh:
     "This value is very high and may require closer review before making management decisions.",
   adviceNormal: "This value is within the current reference range.",
+  adviceFoliarLow:
+    "Tissue level is below the sufficiency range. Consider foliar nutrition or adjusting the fertility program for this crop stage.",
+  adviceFoliarHigh:
+    "Tissue level is above the sufficiency range. Review recent applications and possible antagonisms before adding more of this nutrient.",
+  adviceFoliarNormal: "Tissue level is within the current sufficiency range.",
+  exportFoliarRecLow:
+    "Priority foliar nutrients below sufficiency: {list}. Consider foliar nutrition or adjusting the fertility program for the current crop stage.",
+  exportFoliarRecHigh:
+    "Tissue levels above sufficiency: {list}. Review recent applications and possible antagonisms before adding more of these nutrients.",
+  exportFoliarRecOk:
+    "Most foliar nutrients are within sufficiency ranges. Use DOP and crop stage to fine-tune timing.",
+  exportFoliarRecDopHint:
+    "Compare with the DOP chart to see deficiency vs excess relative to each nutrient optimum.",
+  exportFoliarQuickLow:
+    "Tissue below sufficiency: {list}. Consider foliar nutrition for the current stage.",
+  exportFoliarQuickHigh: "Tissue above sufficiency: {list}.",
+  exportFoliarQuickOk:
+    "Most foliar nutrients are within sufficiency ranges.",
+  exportSectionNutrientPie: "Nutrient distribution pie",
+  exportNutrientPieHint:
+    "Shows how nutrients are distributed in the plant tissue",
+  exportNutrientPieNote:
+    "Relative share of measured nutrients in the plant (ppm converted to % dry matter). Shows composition balance, not sufficiency.",
 
   customCropRange: "Custom crop range",
   generalCustomRange: "General custom range",
@@ -617,6 +640,7 @@
   exportReportDesc: "Choose what to include in this shareable summary.",
   exportSectionCover: "Cover (analysis details)",
   exportSectionSoilStatus: "Soil status summary",
+  exportSectionFoliarStatus: "Foliar status summary",
   exportSectionCicBases: "CIC, bases and ratios",
   exportSectionPhAmendments: "pH and amendments",
   exportSectionNutrientPlan: "Nutrient plan",
@@ -624,11 +648,23 @@
   exportSectionLogo: "Logo",
   exportSectionSummary: "Summary cards",
   exportSectionInterpretation: "Full parameter detail",
+  exportInterpretationHint:
+    "Value, range, level and advice for each parameter",
   exportSectionMissing: "Missing / no range values",
   exportSectionTexture: "Soil texture",
   exportSectionCalculations: "Calculator outputs",
   exportSectionLabValues: "Original lab values",
-  exportSectionDop: "DOP (foliar)",
+  exportSectionDop: "DOP graph",
+  exportDopFromRangesHint:
+    "Built from sufficiency-range midpoints when DOP calculator has not been run",
+  exportDopChartNote:
+    "Deviation from optimum (%). Negative = deficiency; positive = excess.",
+  exportDopDeficiency: "Deficiency",
+  exportDopOptimum: "Optimum",
+  exportDopExcess: "Excess",
+  exportLevel: "Level",
+  exportRange: "Range",
+  exportNoRange: "No range",
   exportSectionRatios: "Nutrient ratios",
   exportChecklistTitle: "Before you export",
   exportChecklistHint:

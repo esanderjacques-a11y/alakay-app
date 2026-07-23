@@ -181,7 +181,7 @@ function visibleCalculatorTabs(sampleType: "soil" | "foliar") {
 type HubMode = "guided" | "explorer";
 
 const GUIDED_STEPS: Record<"soil" | "foliar", CalculatorKey[]> = {
-  soil: ["cic", "amendment", "fertilizer", "fertilizerCost", "fertilizerFormulation"],
+  soil: ["cic", "amendment", "fertilizer", "fertilizerCost"],
   foliar: ["dop", "uptake"],
 };
 
@@ -915,10 +915,12 @@ function CalculatorHubBody({
 function CalcActionCard({
   icon,
   title,
+  desc,
   onClick,
 }: {
   icon: ReactNode;
   title: string;
+  desc?: string;
   onClick: () => void;
 }) {
   return (
@@ -928,6 +930,9 @@ function CalcActionCard({
       </span>
       <span className="calculator-action-card__copy">
         <span className="calculator-action-card__title">{title}</span>
+        {desc ? (
+          <span className="calculator-action-card__desc">{desc}</span>
+        ) : null}
       </span>
     </button>
   );
@@ -977,6 +982,7 @@ function PriorityCalculators({
             key={`${item.key}-${item.title}`}
             icon={tabIconByKey[item.key]}
             title={translateCalculatorText(item.title, t)}
+            desc={translateCalculatorText(item.desc, t)}
             onClick={() => setActive(item.key)}
           />
         ))}
@@ -2160,7 +2166,7 @@ function OutputCard({
   if (compact) {
     return (
       <article className="calc-result-card calc-result-card--active rounded-xl px-3 py-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+        <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
           {translatedOutput.label}
         </p>
         <p className="mt-1 text-2xl font-extrabold leading-none text-green-950">
@@ -2196,7 +2202,7 @@ function OutputCard({
         <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">{title}</h3>
       ) : null}
       <article className={`calc-result-card calc-result-card--active rounded-xl px-4 py-4 ${title ? "mt-3" : ""}`}>
-        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+        <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
           {translatedOutput.label}
         </p>
         <p className="mt-1 text-3xl font-extrabold leading-none text-green-950">

@@ -19,6 +19,7 @@ import {
   buildFormulation,
   fromKg,
   listBestMixScenarios,
+  toKg,
   type FormulationFinishMode,
   type FormulationGrade,
   type FormulationMassUnit,
@@ -511,10 +512,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
     setBestMixIndex(index);
   }
 
-  const batchKg = useMemo(() => {
-    if (!(batch > 0)) return 0;
-    return unit === "lb" ? batch * 0.45359237 : batch;
-  }, [batch, unit]);
+  const batchKg = useMemo(() => toKg(batch, unit), [batch, unit]);
 
   /** Filler mode: optional production scale from the 100 kg basis recipe. */
   const productionScale =
@@ -522,8 +520,15 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
       ? batchKg / FORMULA_BASIS_KG
       : 0;
 
-  const unitLabel = unit === "lb" ? "lb" : "kg";
+  const unitLabel: FormulationMassUnit =
+    unit === "lb" ? "lb" : unit === "t" ? "t" : "kg";
   const recipeUnitLabel = finishMode === "no_filler" ? unitLabel : "kg";
+
+  const massUnitOptions: Array<[FormulationMassUnit, string]> = [
+    ["kg", "kg"],
+    ["lb", "lb"],
+    ["t", t.fertilizerFormulationUnitTonne || "t"],
+  ];
 
   function recipeMass(kg: number) {
     return finishMode === "no_filler" ? fromKg(kg, unit) : kg;
@@ -833,7 +838,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
         </div>
 
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
             {t.fertilizerFormulationTarget || "Target grade"}
           </p>
           <div className="mt-2 calc-form-fields grid grid-cols-3 gap-3">
@@ -880,7 +885,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
 
       <section className="calc-surface space-y-3 p-4">
         <div className="grid gap-1.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
             {t.fertilizerFormulationStrategy || "Product strategy"}
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -1090,7 +1095,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
         ) : (
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
                 {showBestMixCarousel
                   ? t.fertilizerFormulationBestMixScenarios ||
                     "Best mix scenarios"
@@ -1277,7 +1282,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
         )}
 
         <div className="grid gap-1.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
             {t.fertilizerFormulationFinish || "Finish mode"}
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -1299,7 +1304,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
         {finishMode === "filler" ? (
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
                 {t.fertilizerFormulationFiller || "Filler"}
               </p>
               <button
@@ -1363,7 +1368,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
       <section className="calc-surface space-y-3 p-4">
         {showChoiceBanner ? (
           <div className="space-y-2 rounded-xl border border-emerald-900/10 bg-white/50 p-3 dark:border-white/10 dark:bg-white/5">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
               {strategy === "auto"
                 ? t.fertilizerFormulationInexactTitleBestMix ||
                   "Cannot make the exact target grade with Best mix"
@@ -1437,7 +1442,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
           <>
             {finishMode === "no_filler" && result.feasible ? (
               <div className="space-y-2 rounded-xl border border-emerald-900/10 bg-white/50 p-3 dark:border-white/10 dark:bg-white/5">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
                   {t.fertilizerFormulationAdjustQuantity || "Finished quantity"}
                 </p>
                 <p className="text-xs leading-snug text-slate-600 dark:text-slate-300">
@@ -1457,10 +1462,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                   <MenuSelect
                     label={t.fertilizerFormulationUnit || "Unit"}
                     value={unit}
-                    options={[
-                      ["kg", "kg"],
-                      ["lb", "lb"],
-                    ]}
+                    options={massUnitOptions}
                     onChange={(value) => setUnit(value as FormulationMassUnit)}
                     compact
                     variant="field"
@@ -1472,7 +1474,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
             <div className="space-y-0.5">
               <div className="flex items-baseline justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                  <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
                     {t.fertilizerFormulationResult || "Recipe"}
                     {useRandomMix ? (
                       <span className="ml-1.5 font-semibold normal-case tracking-normal text-emerald-700/80">
@@ -1489,12 +1491,12 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                 </div>
                 {result.feasible && result.estimatedCost != null ? (
                   <div className="shrink-0 text-right">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                    <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
                       {t.fertilizerFormulationEstCost || "Estimated cost"}
                     </p>
                     <p className="text-base font-bold leading-tight text-green-950 dark-text-primary">
                       {formatMoney(result.estimatedCost, displayCurrency)}
-                      <span className="ml-1 text-[10px] font-normal text-slate-500">
+                      <span className="ml-1 text-xs font-normal text-slate-500">
                         {(
                           t.fertilizerFormulationPerBatchShort ||
                           "/ {amount} {unit}"
@@ -1789,10 +1791,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                 <MenuSelect
                   label={t.fertilizerFormulationUnit || "Unit"}
                   value={unit}
-                  options={[
-                    ["kg", "kg"],
-                    ["lb", "lb"],
-                  ]}
+                  options={massUnitOptions}
                   onChange={(value) => setUnit(value as FormulationMassUnit)}
                   compact
                   variant="field"

@@ -8,7 +8,7 @@ import {
   type InertFiller,
 } from "@/lib/fertilizerCatalog";
 
-export type FormulationMassUnit = "kg" | "lb";
+export type FormulationMassUnit = "kg" | "lb" | "t";
 
 export type FormulationFinishMode = "filler" | "no_filler";
 
@@ -102,6 +102,7 @@ const COMPOUND_PREFERRED = ["npk_15_15_15", "npk_10_30_10", "dap", "map"];
 const COST_NEAR_PCT = 0.05;
 const KG_PER_LB = 0.45359237;
 const LB_PER_KG = 2.2046226218;
+const KG_PER_T = 1000;
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
@@ -126,12 +127,16 @@ function resolveSelectedFillers(input: BuildFormulationInput): InertFiller[] {
 
 export function toKg(value: number, unit: FormulationMassUnit) {
   if (!(value > 0)) return 0;
-  return unit === "lb" ? value * KG_PER_LB : value;
+  if (unit === "lb") return value * KG_PER_LB;
+  if (unit === "t") return value * KG_PER_T;
+  return value;
 }
 
 export function fromKg(valueKg: number, unit: FormulationMassUnit) {
   if (!(valueKg > 0)) return 0;
-  return unit === "lb" ? valueKg * LB_PER_KG : valueKg;
+  if (unit === "lb") return valueKg * LB_PER_KG;
+  if (unit === "t") return valueKg / KG_PER_T;
+  return valueKg;
 }
 
 export function cleanGrade(grade: FormulationGrade): FormulationGrade {

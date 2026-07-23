@@ -5,6 +5,12 @@
 :root {
   /* Lock light mode so mobile browsers don't auto-darken/wash out the page. */
   color-scheme: light;
+  /* Calculator type scale — readable floor ~12px; chips may stay ~11px */
+  --calc-text-micro: 0.75rem;
+  --calc-text-label: 0.8125rem;
+  --calc-text-body: 0.875rem;
+  --calc-text-title: 0.9375rem;
+  --calc-text-chip: 0.6875rem;
   /* Samsung One UI — Material You color system */
   --background: #f2f2f2;
   --foreground: #1c1c1e;
@@ -5428,6 +5434,7 @@ html[data-theme="dark"] .app-header {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.65rem;
     margin-top: 1rem;
+    align-items: stretch;
   }
 
   @media (min-width: 768px) {
@@ -5444,16 +5451,18 @@ html[data-theme="dark"] .app-header {
 
   .calculator-action-card {
     display: flex;
-    min-height: 0;
+    align-self: stretch;
+    height: 100%;
     width: 100%;
     min-width: 0;
+    min-height: 4.75rem;
     flex-direction: row;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.7rem;
     border-radius: 1rem;
     border: 1px solid var(--glass-border);
     background: var(--glass-surface-muted);
-    padding: 0.7rem 0.85rem;
+    padding: 0.75rem 0.85rem;
     text-align: left;
     box-shadow: var(--card-shadow);
     backdrop-filter: blur(calc(22px * var(--app-blur, 1))) saturate(1.2);
@@ -5481,15 +5490,22 @@ html[data-theme="dark"] .app-header {
   }
 
   .calculator-action-card__copy {
+    display: flex;
     min-width: 0;
-    width: 100%;
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
   }
 
   .calculator-action-card__title {
-    display: block;
-    font-size: 0.8rem;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: var(--calc-text-title);
     font-weight: 700;
-    line-height: 1.3;
+    line-height: 1.25;
     color: #1c1c1e;
     overflow-wrap: anywhere;
   }
@@ -5499,8 +5515,7 @@ html[data-theme="dark"] .app-header {
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
-    margin-top: 0.2rem;
-    font-size: 0.65rem;
+    font-size: var(--calc-text-micro);
     font-weight: 500;
     line-height: 1.3;
     color: #6c6c70;
@@ -5772,7 +5787,7 @@ html[data-theme="dark"] .app-header {
     min-height: 2rem;
     border-radius: 0.5rem;
     padding: 0 0.75rem;
-    font-size: 0.6875rem;
+    font-size: var(--calc-text-micro);
     font-weight: 700;
     color: #6c6c70;
     transition:
@@ -5825,7 +5840,7 @@ html[data-theme="dark"] .app-header {
     border-radius: 999px;
     background: rgb(var(--accent-600-rgb, 22 163 74) / 0.1);
     padding: 0.28rem 0.6rem;
-    font-size: 0.6875rem;
+    font-size: var(--calc-text-micro);
     font-weight: 700;
     line-height: 1.2;
     color: var(--accent-800, #166534);
@@ -5967,7 +5982,7 @@ html[data-theme="dark"] .app-header {
     border: 1px solid var(--glass-border);
     background: var(--glass-surface-muted);
     padding: 0.375rem 0.75rem 0.375rem 0.5rem;
-    font-size: 0.75rem;
+    font-size: var(--calc-text-micro);
     font-weight: 600;
     color: #6c6c70;
     transition:
@@ -5985,7 +6000,7 @@ html[data-theme="dark"] .app-header {
     justify-content: center;
     border-radius: 50%;
     background: rgb(255 255 255 / 0.5);
-    font-size: 0.6875rem;
+    font-size: var(--calc-text-chip);
     font-weight: 800;
     color: #6c6c70;
   }
@@ -6018,7 +6033,7 @@ html[data-theme="dark"] .app-header {
     border: 1px solid var(--glass-border);
     background: var(--glass-surface-muted);
     padding: 0.375rem 0.875rem;
-    font-size: 0.75rem;
+    font-size: var(--calc-text-micro);
     font-weight: 700;
     color: var(--accent-800, #166534);
     transition: opacity 0.15s ease, background 0.15s ease;
@@ -6127,7 +6142,7 @@ html[data-theme="dark"] .app-header {
 
   .formulation-best-mix-card__title {
     margin: 0 0 0.4rem;
-    font-size: 0.7rem;
+    font-size: var(--calc-text-micro);
     font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: uppercase;
@@ -6230,14 +6245,14 @@ html[data-theme="dark"] .app-header {
   }
 
   .fertilizer-plan__section-title {
-    font-size: 0.8rem;
+    font-size: var(--calc-text-title);
     font-weight: 700;
     letter-spacing: 0.01em;
     text-transform: none;
   }
 
   .fertilizer-plan__section-summary {
-    font-size: 0.75rem;
+    font-size: var(--calc-text-micro);
     font-weight: 500;
     color: #475569;
     letter-spacing: normal;
@@ -6771,7 +6786,7 @@ html[data-theme="dark"] .app-header {
 
   .calc-cic-result__label {
     margin: 0;
-    font-size: 0.625rem;
+    font-size: var(--calc-text-micro);
     font-weight: 800;
     letter-spacing: 0.05em;
     text-transform: none;
@@ -6787,7 +6802,7 @@ html[data-theme="dark"] .app-header {
   }
 
   .calc-cic-result__unit {
-    font-size: 0.75rem;
+    font-size: var(--calc-text-micro);
     font-weight: 700;
     color: #64748b;
   }
@@ -6795,7 +6810,7 @@ html[data-theme="dark"] .app-header {
   .calc-cic-result__range,
   .calc-cic-result__interpretation {
     margin: 0.25rem 0 0;
-    font-size: 0.6875rem;
+    font-size: var(--calc-text-micro);
     font-weight: 600;
     line-height: 1.35;
     color: #64748b;
@@ -6810,7 +6825,7 @@ html[data-theme="dark"] .app-header {
     align-items: center;
     border-radius: 9999px;
     padding: 0.1rem 0.45rem;
-    font-size: 0.5625rem;
+    font-size: var(--calc-text-chip);
     font-weight: 800;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -6902,7 +6917,7 @@ html[data-theme="dark"] .app-header {
   .calc-cic-diagnosis__badge {
     border-radius: 9999px;
     padding: 0.15rem 0.45rem;
-    font-size: 0.62rem;
+    font-size: var(--calc-text-chip);
     font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -9502,7 +9517,7 @@ html[data-theme="dark"] .app-header {
 
   /* Calculator pages — shared compact form + result cards */
   .calc-field-label {
-    font-size: 0.8125rem;
+    font-size: var(--calc-text-label);
     font-weight: 700;
     color: var(--foreground);
   }
@@ -9510,11 +9525,11 @@ html[data-theme="dark"] .app-header {
   .calc-page .calc-field-input {
     min-height: 2.5rem;
     border-radius: 0.75rem;
-    font-size: 0.875rem;
+    font-size: var(--calc-text-body);
   }
 
   .calc-page label {
-    font-size: 0.75rem;
+    font-size: var(--calc-text-label);
     font-weight: 600;
     color: #6c6c70;
     text-transform: none;

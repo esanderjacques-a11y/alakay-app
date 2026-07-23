@@ -806,7 +806,7 @@ function PhAmendmentResultsCard({
       </dl>
 
       <div className="ph-amend-results__rec rounded-xl px-3 py-2.5 calc-surface-inner">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+        <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
           {t.phAmendRecommendation || t.phAmendResultExplanation || "Recommendation"}
         </p>
         <p className="mt-1 text-xs leading-snug text-slate-700 dark:text-slate-200">
@@ -819,7 +819,7 @@ function PhAmendmentResultsCard({
 
       {showCalculatorFormulas ? (
         <div className="space-y-1 border-t border-emerald-100/80 pt-2 dark:border-white/10">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
             {t.phAmendResultFormula || "Formula used"}
           </p>
           <p className="font-mono text-xs text-slate-800 dark:text-slate-100">{result.formula}</p>
@@ -861,7 +861,7 @@ function ResultRow({
           : undefined
       }
     >
-      <dt className="text-[9px] font-bold uppercase tracking-wide text-emerald-800">{label}</dt>
+      <dt className="text-xs font-bold uppercase tracking-wide text-emerald-800">{label}</dt>
       <dd
         className={`mt-0.5 font-extrabold leading-tight ${
           highlight ? "text-lg text-green-950" : "text-sm text-slate-800 dark:text-slate-100"
@@ -870,7 +870,7 @@ function ResultRow({
         {value}
       </dd>
       {hint ? (
-        <p className="mt-1 text-[9px] leading-snug text-slate-500 dark:text-slate-400">{hint}</p>
+        <p className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400">{hint}</p>
       ) : null}
     </div>
   );

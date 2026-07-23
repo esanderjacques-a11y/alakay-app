@@ -120,7 +120,7 @@ export default function FertilizerCostScenarios({
   return (
     <section className="grid gap-3">
       <div className="grid gap-1.5">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+        <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
           {t.fertilizerViewLabel || "Show"}
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -142,7 +142,7 @@ export default function FertilizerCostScenarios({
       </div>
 
       <div className="grid gap-1.5">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+        <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
           {t.fertilizerScenarioPickLabel || "Mix strategy"}
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -231,7 +231,7 @@ export default function FertilizerCostScenarios({
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
                 {showPrices
                   ? t.fertilizerCostPlot || "Plot cost"
                   : t.fertilizerQuantityPlot || "Plot quantity"}
@@ -262,7 +262,7 @@ export default function FertilizerCostScenarios({
           </div>
 
           <div className="grid gap-1.5">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
               {t.fertilizerScenarioProductsIn || "Products in this mix"}
             </p>
             <BlendLinesList

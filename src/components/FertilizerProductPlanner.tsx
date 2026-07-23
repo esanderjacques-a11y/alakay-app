@@ -740,7 +740,7 @@ export default function FertilizerProductPlanner({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="calc-metric p-2">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+      <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
         {label}
       </p>
       <p className="mt-1 font-semibold text-green-950 dark-text-primary">{value}</p>

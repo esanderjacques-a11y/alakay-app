@@ -1,5 +1,6 @@
 import { saveBlobWithPicker } from "@/lib/fileSave";
 import type { FormulationLine, FormulationResult } from "@/lib/fertilizerFormulation";
+import { pdfSafe } from "@/lib/pdfText";
 
 export type FormulationPdfLabels = {
   title: string;
@@ -85,16 +86,19 @@ export async function exportFormulationPdf(
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 14;
+  const margin = 16;
   const contentWidth = pageWidth - margin * 2;
   let y = margin;
   let pageNumber = 1;
 
   const BRAND: [number, number, number] = [5, 150, 105];
+  const BRAND_DARK: [number, number, number] = [4, 120, 87];
   const INK: [number, number, number] = [15, 23, 42];
   const MUTED: [number, number, number] = [100, 116, 139];
   const LINE: [number, number, number] = [226, 232, 240];
+  const CARD: [number, number, number] = [248, 250, 252];
   const HEAD_BG: [number, number, number] = [236, 253, 245];
+  const WHITE: [number, number, number] = [255, 255, 255];
 
   function drawFooter() {
     pdf.setDrawColor(LINE[0], LINE[1], LINE[2]);
@@ -103,7 +107,7 @@ export async function exportFormulationPdf(
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8);
     pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-    pdf.text(`${L.appName} · ${L.subtitle}`, margin, pageHeight - 7);
+    pdf.text(pdfSafe(`${L.appName} · ${L.subtitle}`), margin, pageHeight - 7);
     pdf.text(String(pageNumber), pageWidth - margin, pageHeight - 7, {
       align: "right",
     });
@@ -120,275 +124,406 @@ export async function exportFormulationPdf(
     if (y + height > pageHeight - 18) newPage();
   }
 
-  function drawSectionTitle(text: string) {
-    ensureSpace(12);
+  function spaceAfter(mm = 4) {
+    y += mm;
+  }
+
+  function drawSectionTitle(text: string, trailing?: string) {
+    ensureSpace(16);
+    spaceAfter(2);
+    pdf.setFillColor(BRAND[0], BRAND[1], BRAND[2]);
+    pdf.roundedRect(margin, y, 2.4, 7, 0.6, 0.6, "F");
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(12);
-    pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-    pdf.text(text, margin, y);
-    y += 6;
-    pdf.setDrawColor(BRAND[0], BRAND[1], BRAND[2]);
-    pdf.setLineWidth(0.4);
-    pdf.line(margin, y, margin + 28, y);
-    y += 5;
-  }
-
-  function metaRow(label: string, value: string) {
-    const labelColW = 42;
-    const valueX = margin + labelColW;
-    const valueW = contentWidth - labelColW;
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(9);
-    const labelLines = pdf.splitTextToSize(label, labelColW - 2);
-    pdf.setFont("helvetica", "normal");
-    const valueLines = pdf.splitTextToSize(value || "—", valueW);
-    const lineCount = Math.max(labelLines.length, valueLines.length, 1);
-    const rowH = Math.max(6, lineCount * 4.2);
-    ensureSpace(rowH + 1);
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(9);
-    pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-    pdf.text(labelLines, margin, y);
-    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+    const title = pdfSafe(text);
+    pdf.text(title, margin + 5.5, y + 5.2);
+    if (trailing) {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+      pdf.text(pdfSafe(trailing), pageWidth - margin, y + 5.2, {
+        align: "right",
+      });
+    }
+    y += 12;
     pdf.setTextColor(INK[0], INK[1], INK[2]);
-    pdf.text(valueLines, valueX, y);
-    y += rowH;
   }
 
-  // Header
-  pdf.setFillColor(HEAD_BG[0], HEAD_BG[1], HEAD_BG[2]);
-  pdf.rect(0, 0, pageWidth, 32, "F");
+  function drawMetaCard(label: string, value: string, x: number, top: number, w: number, h: number) {
+    pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
+    pdf.roundedRect(x, top, w, h, 1.5, 1.5, "F");
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+    const labelLines = pdf.splitTextToSize(pdfSafe(label).toUpperCase(), w - 6);
+    let textY = top + 4.5;
+    for (const line of labelLines.slice(0, 2)) {
+      pdf.text(line, x + 3, textY);
+      textY += 3.4;
+    }
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.setTextColor(INK[0], INK[1], INK[2]);
+    const valueLines = pdf.splitTextToSize(pdfSafe(value || "-"), w - 6);
+    textY = top + 11.5;
+    for (const line of valueLines.slice(0, 2)) {
+      pdf.text(line, x + 3, textY);
+      textY += 4.6;
+    }
+  }
+
+  // —— Header band (brand, title centered vertically) ——
+  const headerH = 34;
+  pdf.setFillColor(BRAND[0], BRAND[1], BRAND[2]);
+  pdf.rect(0, 0, pageWidth, headerH, "F");
+  pdf.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(16);
-  pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-  pdf.text(L.title, margin, 14);
+  pdf.setFontSize(17);
+  pdf.text(pdfSafe(L.title), margin, 15);
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
+  pdf.setFontSize(10);
+  pdf.setTextColor(220, 252, 231);
+  pdf.text(pdfSafe(L.subtitle), margin, 24);
+  y = headerH + 10;
+
+  // —— Grade hero (most important fact) ——
+  const rawGrade = (input.result.gradeLabel || "").trim();
+  const npk = gradeNpk(input.result);
+  // Avoid "GRADE / Grade 10-30-10" double wording when label already includes it.
+  const gradeDisplay =
+    rawGrade.replace(/^(grade|grado|formule|formula)\s+/i, "").trim() || npk;
+  ensureSpace(28);
+  pdf.setFillColor(HEAD_BG[0], HEAD_BG[1], HEAD_BG[2]);
+  pdf.setDrawColor(BRAND[0], BRAND[1], BRAND[2]);
+  pdf.setLineWidth(0.5);
+  pdf.roundedRect(margin, y, contentWidth, 24, 2, 2, "FD");
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8);
+  pdf.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+  pdf.text(L.grade.toUpperCase(), margin + 5, y + 7);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(18);
+  pdf.setTextColor(INK[0], INK[1], INK[2]);
+  pdf.text(gradeDisplay, margin + 5, y + 17);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
   pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-  pdf.text(L.subtitle, margin, 21);
-  y = 40;
+  if (gradeDisplay !== npk) {
+    pdf.text(`${L.target}: ${npk}`, pageWidth - margin - 5, y + 17, {
+      align: "right",
+    });
+  }
+  y += 28;
+  spaceAfter(2);
 
-  drawSectionTitle(L.grade);
-  metaRow(L.grade, input.result.gradeLabel || "—");
-  metaRow(L.target, gradeNpk(input.result));
-  metaRow(L.finishMode, input.finishModeLabel);
-  metaRow(L.strategy, input.strategyLabel);
+  // —— Plan meta cards (2×2) ——
+  const metaItems: Array<[string, string]> = [
+    [L.finishMode, input.finishModeLabel],
+    [L.strategy, input.strategyLabel],
+  ];
+  const metaGap = 3;
+  const metaColW = (contentWidth - metaGap) / 2;
+  const metaH = 20;
+  ensureSpace(metaH + 4);
+  const metaTop = y;
+  metaItems.forEach(([label, value], i) => {
+    const x = margin + i * (metaColW + metaGap);
+    drawMetaCard(label, value, x, metaTop, metaColW, metaH);
+  });
+  y = metaTop + metaH + 6;
 
+  // —— Composition highlight (once) ——
   const batchMass = input.result.batchMassKg;
   const fillerMass = input.result.fillerMassKg || 0;
   const activeMass = input.result.productMassKg || 0;
   const hasFiller = fillerMass > 0.05 || input.lines.some((line) => line.isFiller);
+
   if (hasFiller && batchMass > 0) {
     const activePct = (activeMass / batchMass) * 100;
     const fillerPct = (fillerMass / batchMass) * 100;
     drawSectionTitle(L.composition);
-    metaRow(
-      L.activeShare,
-      `${activePct.toFixed(1)}% · ${activeMass.toFixed(2)} ${input.massUnit}`
+    const gap = 3;
+    const cardW = (contentWidth - gap) / 2;
+    const cardH = 22;
+    ensureSpace(cardH + 4);
+    const top = y;
+
+    // Active
+    pdf.setFillColor(HEAD_BG[0], HEAD_BG[1], HEAD_BG[2]);
+    pdf.roundedRect(margin, top, cardW, cardH, 2, 2, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+    pdf.text(L.activeShare.toUpperCase(), margin + 4, top + 7);
+    pdf.setFontSize(14);
+    pdf.setTextColor(INK[0], INK[1], INK[2]);
+    pdf.text(`${activePct.toFixed(1)}%`, margin + 4, top + 16);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+    pdf.text(
+      `${activeMass.toFixed(2)} ${input.massUnit}`,
+      margin + cardW - 4,
+      top + 16,
+      { align: "right" }
     );
-    metaRow(
-      L.fillerShare,
-      `${fillerPct.toFixed(1)}% · ${fillerMass.toFixed(2)} ${input.massUnit}`
+
+    // Filler
+    pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
+    pdf.roundedRect(margin + cardW + gap, top, cardW, cardH, 2, 2, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+    pdf.text(L.fillerShare.toUpperCase(), margin + cardW + gap + 4, top + 7);
+    pdf.setFontSize(14);
+    pdf.setTextColor(INK[0], INK[1], INK[2]);
+    pdf.text(`${fillerPct.toFixed(1)}%`, margin + cardW + gap + 4, top + 16);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+    pdf.text(
+      `${fillerMass.toFixed(2)} ${input.massUnit}`,
+      margin + cardW + gap + cardW - 4,
+      top + 16,
+      { align: "right" }
     );
+
+    y = top + cardH + 6;
   }
 
+  // —— Recipe table ——
   drawSectionTitle(L.recipe);
 
   const withPrices = input.includePrices;
-  const col = withPrices
-    ? {
-        product: margin,
-        analysis: margin + 52,
-        pct: margin + 88,
-        mass: margin + 108,
-        price: margin + 132,
-        cost: margin + 158,
-      }
-    : {
-        product: margin,
-        analysis: margin + 70,
-        pct: margin + 118,
-        mass: margin + 148,
-        price: 0,
-        cost: 0,
-      };
-
-  ensureSpace(10);
-  pdf.setFillColor(HEAD_BG[0], HEAD_BG[1], HEAD_BG[2]);
-  pdf.rect(margin, y - 4, contentWidth, 8, "F");
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(8);
-  pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-  pdf.text(L.product, col.product, y);
-  pdf.text(L.analysis, col.analysis, y);
-  pdf.text(L.percent, col.pct, y);
-  pdf.text(L.mass, col.mass, y);
-  if (withPrices) {
-    pdf.text(L.bagPrice, col.price, y);
-    pdf.text(L.lineCost, col.cost, y);
-  }
-  y += 6;
-
+  const cols = withPrices
+    ? [
+        { key: "product", label: L.product, w: 48 },
+        { key: "analysis", label: L.analysis, w: 34 },
+        { key: "pct", label: L.percent, w: 18 },
+        { key: "mass", label: L.mass, w: 28 },
+        { key: "price", label: L.bagPrice, w: 28 },
+        { key: "cost", label: L.lineCost, w: 26 },
+      ]
+    : [
+        { key: "product", label: L.product, w: 62 },
+        { key: "analysis", label: L.analysis, w: 48 },
+        { key: "pct", label: L.percent, w: 22 },
+        { key: "mass", label: L.mass, w: 36 },
+      ];
+  const tableW = cols.reduce((sum, col) => sum + col.w, 0);
+  const scale = contentWidth / tableW;
   const currency = input.currency || "USD";
+  const lineH = 4.2;
 
-  for (const line of input.lines) {
+  function colX(index: number) {
+    let x = margin;
+    for (let i = 0; i < index; i++) x += cols[i].w * scale;
+    return x;
+  }
+
+  function drawTableHeader() {
+    const headerH = 10;
+    ensureSpace(headerH + 2);
+    pdf.setFillColor(BRAND[0], BRAND[1], BRAND[2]);
+    pdf.roundedRect(margin, y, contentWidth, headerH, 1.2, 1.2, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
+    cols.forEach((col, i) => {
+      const x = colX(i);
+      const w = col.w * scale;
+      const alignRight = col.key === "pct" || col.key === "mass" || col.key === "price" || col.key === "cost";
+      const label = pdf.splitTextToSize(col.label, w - 4)[0];
+      if (alignRight) {
+        pdf.text(label, x + w - 2, y + 6.5, { align: "right" });
+      } else {
+        pdf.text(label, x + 2.5, y + 6.5);
+      }
+    });
+    y += headerH + 1;
+  }
+
+  drawTableHeader();
+
+  for (let index = 0; index < input.lines.length; index++) {
+    const line = input.lines[index];
     const name = line.isFiller
       ? `${line.label} (${L.fillerTag})`
       : line.label;
-    const nameLines = pdf.splitTextToSize(name, withPrices ? 50 : 66);
-    const analysisLines = pdf.splitTextToSize(line.analysis || "—", withPrices ? 34 : 44);
-    const rowHeight = Math.max(
-      5.5,
-      nameLines.length * 4,
-      analysisLines.length * 4
-    );
-    ensureSpace(rowHeight + 2);
+
+    const cellTexts = cols.map((col) => {
+      switch (col.key) {
+        case "product":
+          return name;
+        case "analysis":
+          return line.analysis || "—";
+        case "pct":
+          return `${line.percent.toFixed(1)}%`;
+        case "mass":
+          return `${line.displayMass.toFixed(2)} ${input.massUnit}`;
+        case "price":
+          return line.bagPrice != null && line.bagPrice > 0
+            ? formatMoney(line.bagPrice, currency)
+            : "—";
+        case "cost":
+          return line.lineCost != null && line.lineCost > 0
+            ? formatMoney(line.lineCost, currency)
+            : "—";
+        default:
+          return "";
+      }
+    });
 
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(8);
-    pdf.setTextColor(INK[0], INK[1], INK[2]);
-    pdf.text(nameLines, col.product, y);
-    pdf.text(analysisLines, col.analysis, y);
-    pdf.text(`${line.percent.toFixed(1)}%`, col.pct, y);
-    pdf.text(`${line.displayMass.toFixed(2)} ${input.massUnit}`, col.mass, y);
-    if (withPrices) {
-      pdf.text(
-        line.bagPrice != null && line.bagPrice > 0
-          ? formatMoney(line.bagPrice, currency)
-          : "—",
-        col.price,
-        y
-      );
-      pdf.text(
-        line.lineCost != null && line.lineCost > 0
-          ? formatMoney(line.lineCost, currency)
-          : "—",
-        col.cost,
-        y
-      );
+    pdf.setFontSize(9);
+    const wrapped = cellTexts.map((text, i) =>
+      pdf.splitTextToSize(pdfSafe(text), cols[i].w * scale - 4)
+    );
+    const rowLines = Math.max(...wrapped.map((lines) => lines.length), 1);
+    const rowH = Math.max(9, rowLines * lineH + 4);
+    ensureSpace(rowH + 1);
+    if (y === margin) drawTableHeader();
+
+    if (index % 2 === 0) {
+      pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
+      pdf.rect(margin, y, contentWidth, rowH, "F");
     }
-    y += rowHeight;
-    pdf.setDrawColor(LINE[0], LINE[1], LINE[2]);
-    pdf.setLineWidth(0.2);
-    pdf.line(margin, y, pageWidth - margin, y);
-    y += 2;
+
+    cols.forEach((col, i) => {
+      const x = colX(i);
+      const w = col.w * scale;
+      const alignRight =
+        col.key === "pct" || col.key === "mass" || col.key === "price" || col.key === "cost";
+      const isProduct = col.key === "product";
+      pdf.setFont("helvetica", isProduct ? "bold" : "normal");
+      pdf.setFontSize(isProduct ? 9 : 8.5);
+      pdf.setTextColor(INK[0], INK[1], INK[2]);
+      if (alignRight) {
+        pdf.text(wrapped[i], x + w - 2, y + 5.5, { align: "right" });
+      } else {
+        pdf.text(wrapped[i], x + 2.5, y + 5.5);
+      }
+    });
+    y += rowH;
   }
 
-  ensureSpace(8);
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(9);
-  pdf.setTextColor(INK[0], INK[1], INK[2]);
+  // Total row
   const totalMass = input.lines.reduce((sum, line) => sum + line.displayMass, 0);
-  pdf.text(L.total, margin, y);
-  pdf.text(`${totalMass.toFixed(2)} ${input.massUnit}`, margin + 40, y);
-  y += 6;
-
-  if (hasFiller && batchMass > 0) {
-    const activePct = (activeMass / batchMass) * 100;
-    const fillerPct = (fillerMass / batchMass) * 100;
-    ensureSpace(16);
-    pdf.setFillColor(HEAD_BG[0], HEAD_BG[1], HEAD_BG[2]);
-    pdf.roundedRect(margin, y - 3.5, contentWidth, 14, 1.5, 1.5, "F");
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(8.5);
-    pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-    pdf.text(L.composition, margin + 3, y + 1.5);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(INK[0], INK[1], INK[2]);
-    pdf.text(
-      `${L.activeShare}: ${activePct.toFixed(1)}%  ·  ${L.fillerShare}: ${fillerPct.toFixed(1)}%`,
-      margin + 3,
-      y + 7.5
-    );
-    y += 14;
-  }
+  ensureSpace(12);
+  spaceAfter(1);
+  pdf.setFillColor(HEAD_BG[0], HEAD_BG[1], HEAD_BG[2]);
+  pdf.roundedRect(margin, y, contentWidth, 10, 1.2, 1.2, "F");
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+  pdf.text(L.total, margin + 3, y + 6.5);
+  pdf.text(`${totalMass.toFixed(2)} ${input.massUnit}`, pageWidth - margin - 3, y + 6.5, {
+    align: "right",
+  });
+  y += 14;
 
   if (withPrices && input.result.estimatedCost != null) {
-    ensureSpace(7);
+    ensureSpace(12);
+    pdf.setFillColor(BRAND[0], BRAND[1], BRAND[2]);
+    pdf.roundedRect(margin, y, contentWidth, 11, 1.5, 1.5, "F");
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(9);
-    pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-    pdf.text(
-      `${L.estimatedCost}: ${formatMoney(input.result.estimatedCost, currency)}`,
-      margin,
-      y
-    );
-    y += 8;
+    pdf.setFontSize(10);
+    pdf.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
+    pdf.text(L.estimatedCost, margin + 4, y + 7);
+    pdf.text(formatMoney(input.result.estimatedCost, currency), pageWidth - margin - 4, y + 7, {
+      align: "right",
+    });
+    y += 15;
   }
 
+  // —— Production batch ——
   if (input.production && input.production.lines.length > 0) {
-    drawSectionTitle(L.productionBatch);
-    for (const line of input.production.lines) {
-      ensureSpace(6);
+    const targetBatch = `${input.production.totalMass.toFixed(2)} ${input.production.unit}`;
+    drawSectionTitle(L.productionBatch, targetBatch);
+    spaceAfter(1);
+
+    for (let index = 0; index < input.production.lines.length; index++) {
+      const line = input.production.lines[index];
       const label = line.isFiller
         ? `${line.label} (${L.fillerTag})`
         : line.label;
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
-      pdf.setTextColor(INK[0], INK[1], INK[2]);
       const share =
         input.production.totalMass > 0
-          ? ` · ${((line.mass / input.production.totalMass) * 100).toFixed(1)}%`
+          ? `${((line.mass / input.production.totalMass) * 100).toFixed(1)}%`
           : "";
       const mass = `${line.mass.toFixed(2)} ${input.production.unit}`;
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9.5);
       const massW = pdf.getTextWidth(mass) + 4;
-      const labelLines = pdf.splitTextToSize(
-        `${label}${share}`,
-        contentWidth - massW
-      );
-      pdf.text(labelLines[0], margin, y);
-      pdf.text(mass, pageWidth - margin, y, { align: "right" });
-      y += 5.5;
+      const nameLines = pdf.splitTextToSize(label, contentWidth - massW - 28);
+      const rowH = Math.max(10, nameLines.length * 4.2 + 4);
+      ensureSpace(rowH + 1);
+
+      if (index % 2 === 0) {
+        pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
+        pdf.rect(margin, y, contentWidth, rowH, "F");
+      }
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9.5);
+      pdf.setTextColor(INK[0], INK[1], INK[2]);
+      pdf.text(nameLines, margin + 3, y + 5.5);
+
+      if (share) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8.5);
+        pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+        pdf.text(share, pageWidth - margin - massW - 4, y + 5.5, {
+          align: "right",
+        });
+      }
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9.5);
+      pdf.setTextColor(INK[0], INK[1], INK[2]);
+      pdf.text(mass, pageWidth - margin - 3, y + 5.5, { align: "right" });
+      y += rowH;
     }
-    ensureSpace(7);
+
+    ensureSpace(12);
+    spaceAfter(2);
+    pdf.setFillColor(HEAD_BG[0], HEAD_BG[1], HEAD_BG[2]);
+    pdf.roundedRect(margin, y, contentWidth, 10, 1.2, 1.2, "F");
     pdf.setFont("helvetica", "bold");
-    pdf.text(L.total, margin, y);
+    pdf.setFontSize(10);
+    pdf.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+    pdf.text(L.total, margin + 3, y + 6.5);
     pdf.text(
       `${input.production.totalMass.toFixed(2)} ${input.production.unit}`,
-      pageWidth - margin,
-      y,
+      pageWidth - margin - 3,
+      y + 6.5,
       { align: "right" }
     );
-    y += 6;
-
-    if (hasFiller && input.production.totalMass > 0) {
-      const prodActive = input.production.lines
-        .filter((line) => !line.isFiller)
-        .reduce((sum, line) => sum + line.mass, 0);
-      const prodFiller = input.production.lines
-        .filter((line) => line.isFiller)
-        .reduce((sum, line) => sum + line.mass, 0);
-      const prodActivePct = (prodActive / input.production.totalMass) * 100;
-      const prodFillerPct = (prodFiller / input.production.totalMass) * 100;
-      ensureSpace(8);
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(8.5);
-      pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-      pdf.text(
-        `${L.activeShare}: ${prodActivePct.toFixed(1)}%  ·  ${L.fillerShare}: ${prodFillerPct.toFixed(1)}%`,
-        margin,
-        y
-      );
-      y += 6;
-    }
+    y += 14;
 
     if (
       withPrices &&
       input.production.estimatedCost != null &&
       input.production.estimatedCost > 0
     ) {
-      ensureSpace(7);
-      pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
+      ensureSpace(12);
+      pdf.setFillColor(BRAND[0], BRAND[1], BRAND[2]);
+      pdf.roundedRect(margin, y, contentWidth, 11, 1.5, 1.5, "F");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      pdf.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
+      pdf.text(L.estimatedCost, margin + 4, y + 7);
       pdf.text(
-        `${L.estimatedCost}: ${formatMoney(
-          input.production.estimatedCost,
-          currency
-        )}`,
-        margin,
-        y
+        formatMoney(input.production.estimatedCost, currency),
+        pageWidth - margin - 4,
+        y + 7,
+        { align: "right" }
       );
+      y += 12;
     }
   }
 

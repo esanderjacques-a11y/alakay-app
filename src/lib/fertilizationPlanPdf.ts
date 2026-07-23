@@ -4,6 +4,7 @@ import { parseLotNames } from "@/lib/farmLots";
 import type { CalendarEvent } from "@/lib/planningTypes";
 import { resolveScheduleCycleMode } from "@/lib/fertilizationSchedule";
 import type { Language } from "@/lib/i18n";
+import { pdfSafe } from "@/lib/pdfText";
 
 export type FertilizationPlanPdfRow = {
   date: string;
@@ -149,7 +150,7 @@ export async function exportFertilizationPlanPdf(
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8);
     pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-    pdf.text(`${input.t.appName} · ${p.pdfSubtitle}`, margin, pageHeight - 7);
+    pdf.text(pdfSafe(`${input.t.appName} · ${p.pdfSubtitle}`), margin, pageHeight - 7);
     pdf.text(String(pageNumber), pageWidth - margin, pageHeight - 7, {
       align: "right",
     });
@@ -171,7 +172,7 @@ export async function exportFertilizationPlanPdf(
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(12);
     pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-    pdf.text(text, margin, y);
+    pdf.text(pdfSafe(text), margin, y);
     y += 6;
     pdf.setDrawColor(BRAND[0], BRAND[1], BRAND[2]);
     pdf.setLineWidth(0.4);
@@ -186,9 +187,9 @@ export async function exportFertilizationPlanPdf(
 
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(9);
-    const labelLines = pdf.splitTextToSize(label, labelColW - 2);
+    const labelLines = pdf.splitTextToSize(pdfSafe(label), labelColW - 2);
     pdf.setFont("helvetica", "normal");
-    const valueLines = pdf.splitTextToSize(value || "—", valueW);
+    const valueLines = pdf.splitTextToSize(pdfSafe(value || "-"), valueW);
     const lineCount = Math.max(labelLines.length, valueLines.length, 1);
     const rowH = Math.max(6, lineCount * 4.2);
     ensureSpace(rowH + 1);
@@ -209,11 +210,11 @@ export async function exportFertilizationPlanPdf(
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(16);
   pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-  pdf.text(p.pdfTitle, margin, 14);
+  pdf.text(pdfSafe(p.pdfTitle), margin, 14);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
   pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-  pdf.text(p.pdfSubtitle, margin, 21);
+  pdf.text(pdfSafe(p.pdfSubtitle), margin, 21);
   y = 40;
 
   drawSectionTitle(p.pdfPlanInfo);
@@ -257,10 +258,10 @@ export async function exportFertilizationPlanPdf(
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(8);
     pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-    pdf.text(p.pdfColDate, col.date, y);
-    pdf.text(p.pdfColQuantity, col.qty, y);
-    pdf.text(p.pdfColFertilizer, col.fert, y);
-    pdf.text(p.pdfColMethod, col.method, y);
+    pdf.text(pdfSafe(p.pdfColDate), col.date, y);
+    pdf.text(pdfSafe(p.pdfColQuantity), col.qty, y);
+    pdf.text(pdfSafe(p.pdfColFertilizer), col.fert, y);
+    pdf.text(pdfSafe(p.pdfColMethod), col.method, y);
     y += 6;
     pdf.setDrawColor(LINE[0], LINE[1], LINE[2]);
     pdf.line(margin, y, pageWidth - margin, y);
@@ -271,9 +272,9 @@ export async function exportFertilizationPlanPdf(
 
   let lastDate = "";
   for (const row of rows) {
-    const fertLines = pdf.splitTextToSize(row.fertilizer, widths.fert - 2);
-    const methodLines = pdf.splitTextToSize(row.method, widths.method - 2);
-    const qtyLines = pdf.splitTextToSize(row.quantity, widths.qty - 2);
+    const fertLines = pdf.splitTextToSize(pdfSafe(row.fertilizer), widths.fert - 2);
+    const methodLines = pdf.splitTextToSize(pdfSafe(row.method), widths.method - 2);
+    const qtyLines = pdf.splitTextToSize(pdfSafe(row.quantity), widths.qty - 2);
     const rowHeight = Math.max(
       6,
       fertLines.length * 4,
@@ -286,7 +287,7 @@ export async function exportFertilizationPlanPdf(
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8);
     pdf.setTextColor(INK[0], INK[1], INK[2]);
-    const showDate = row.date !== lastDate ? row.date : "";
+    const showDate = row.date !== lastDate ? pdfSafe(row.date) : "";
     lastDate = row.date;
     pdf.text(showDate, col.date, y);
     pdf.text(qtyLines, col.qty, y);
@@ -305,7 +306,7 @@ export async function exportFertilizationPlanPdf(
   pdf.setFontSize(9);
   pdf.setTextColor(INK[0], INK[1], INK[2]);
   for (const tip of buildRecommendations(p, input.events, cycleMode)) {
-    const lines = pdf.splitTextToSize(`• ${tip}`, contentWidth);
+    const lines = pdf.splitTextToSize(pdfSafe(`• ${tip}`), contentWidth);
     for (const line of lines) {
       ensureSpace(5.5);
       pdf.text(line, margin, y);

@@ -148,6 +148,7 @@ export function applyBrightness(brightness: number) {
     String(nextBrightness / 100)
   );
   document.documentElement.dataset.brightness = String(nextBrightness);
+  syncVisualToneFilterFlag();
 }
 
 export function applySaturation(saturation: number) {
@@ -158,6 +159,7 @@ export function applySaturation(saturation: number) {
     String(nextSaturation / 100)
   );
   document.documentElement.dataset.saturation = String(nextSaturation);
+  syncVisualToneFilterFlag();
 }
 
 export function applyContrast(contrast: number) {
@@ -168,6 +170,21 @@ export function applyContrast(contrast: number) {
     String(nextContrast / 100)
   );
   document.documentElement.dataset.contrast = String(nextContrast);
+  syncVisualToneFilterFlag();
+}
+
+/** Only enable the page-wide CSS filter when tone sliders leave the defaults.
+ *  A no-op filter still rasterizes the whole UI and softens text on phones. */
+function syncVisualToneFilterFlag() {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  const brightness = Number(root.dataset.brightness || 100);
+  const saturation = Number(root.dataset.saturation || 100);
+  const contrast = Number(root.dataset.contrast || 100);
+  const custom =
+    brightness !== 100 || saturation !== 100 || contrast !== 100;
+  if (custom) root.dataset.visualTone = "custom";
+  else delete root.dataset.visualTone;
 }
 
 export function applyGlassUi(enabled: boolean) {

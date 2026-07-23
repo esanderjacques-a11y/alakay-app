@@ -282,6 +282,16 @@ textarea {
   font-family: var(--font-app-sans);
 }
 
+/* iOS/PWA: focusing inputs under 16px zooms the page and often keeps that zoom
+   after the keyboard closes — layout looks permanently "different". */
+@media (pointer: coarse), (max-width: 900px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  select,
+  textarea {
+    font-size: max(1rem, 100%) !important;
+  }
+}
+
 @layer utilities {
   /* Translucent glass surfaces (default app chrome + cards) */
   .glass-panel {
@@ -1007,12 +1017,13 @@ textarea {
     background-attachment: fixed;
   }
 
-  /* Tone sliders affect chrome + content, not the decorative background. */
-  .app-header,
-  .app-visual-tone,
-  .about-route-shell,
-  .home-screen-wrap,
-  .app-dock-portal-host .app-dock {
+  /* Tone sliders affect chrome + content, not the decorative background.
+     Only apply when non-default — a no-op filter still softens mobile text. */
+  html[data-visual-tone="custom"] .app-header,
+  html[data-visual-tone="custom"] .app-visual-tone,
+  html[data-visual-tone="custom"] .about-route-shell,
+  html[data-visual-tone="custom"] .home-screen-wrap,
+  html[data-visual-tone="custom"] .app-dock-portal-host .app-dock {
     filter: brightness(var(--app-brightness, 1))
       saturate(var(--app-saturation, 1))
       contrast(var(--app-contrast, 1));
@@ -7557,7 +7568,8 @@ html[data-theme="dark"] .app-header {
     border: 1px solid var(--glass-border);
     background: var(--glass-surface-muted);
     padding: 0.55rem 0.75rem 0.55rem 2.25rem;
-    font-size: 0.875rem;
+    /* 16px minimum — iOS zooms focused inputs under 16px and often keeps the zoom. */
+    font-size: 1rem;
     text-align: left;
     color: var(--foreground);
     outline: none;

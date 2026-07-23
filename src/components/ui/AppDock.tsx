@@ -169,17 +169,32 @@ export default function AppDock({
 
     function settleDockAfterKeyboard() {
       syncDockViewportLift();
-      window.setTimeout(() => {
+
+      const restoreLayout = () => {
+        if (dockKeyboardActive) return;
         syncDockViewportLift();
-        if (!isTextEditable(document.activeElement) && window.scrollY < 80) {
-          setScrollHidden(false);
+        // Always bring the dock back — iOS scroll-into-view often leaves
+        // scrollY >= 80 so the old gate kept the dock hidden.
+        setScrollHidden(false);
+
+        const vv = window.visualViewport;
+        // Undo residual visual-viewport offset after the soft keyboard.
+        if (vv && vv.offsetTop > 0) {
+          window.scrollTo(0, Math.max(0, window.scrollY));
         }
-      }, 280);
+        // Home / short screens: snap back if iOS only nudged the page for the input.
+        if (window.scrollY > 0 && window.scrollY < 160) {
+          window.scrollTo(0, 0);
+        }
+      };
+
+      window.setTimeout(restoreLayout, 280);
       // PWA keyboards animate longer; clear any leftover lift after settle.
       if (isStandalonePwa()) {
+        window.setTimeout(restoreLayout, 500);
         window.setTimeout(() => {
           if (!dockKeyboardActive) syncDockViewportLift();
-        }, 500);
+        }, 700);
       }
     }
 
@@ -204,7 +219,7 @@ export default function AppDock({
         blurTimer.current = null;
         if (isTextEditable(document.activeElement)) return;
         setKeyboard(false);
-        if (window.scrollY < 80) setScrollHidden(false);
+        setScrollHidden(false);
         settleDockAfterKeyboard();
       }, 160);
     }
@@ -235,7 +250,7 @@ export default function AppDock({
         } else {
           syncDockViewportLift();
         }
-        if (window.scrollY < 80) setScrollHidden(false);
+        setScrollHidden(false);
       }
     }
 

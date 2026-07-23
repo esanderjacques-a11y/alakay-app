@@ -73,6 +73,8 @@
   homeHeroCycle2: "Kisa w ap fè jodi a?",
   homeHeroCycle3:
     "Ban m enfòmasyon epi m ap di w sa rekòt ou oswa tè ou a ap mande.",
+  homeSearchPlaceholder: "Chèche aksyon oswa fèm…",
+  homeSearchEmpty: "Pa gen rezilta. Eseye yon lòt rechèch.",
   inputData: "Antre done",
   inputDataShort: "Antre manyèl",
   insertNew: "Nouvo analiz",

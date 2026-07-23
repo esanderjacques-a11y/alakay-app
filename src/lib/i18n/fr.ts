@@ -74,6 +74,8 @@
   homeHeroCycle2: "Que prévoyez-vous faire aujourd'hui ?",
   homeHeroCycle3:
     "Donnez-moi des informations et je vous dirai ce que votre culture ou votre sol demande.",
+  homeSearchPlaceholder: "Rechercher actions ou fermes…",
+  homeSearchEmpty: "Aucun résultat. Essayez une autre recherche.",
   inputData: "Saisir des données",
   inputDataShort: "Saisie manuelle",
   insertNew: "Nouvelle analyse",

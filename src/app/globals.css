@@ -7346,6 +7346,63 @@ html[data-theme="dark"] .app-header {
     padding: 0.25rem 0.5rem 0.5rem;
   }
 
+  .home-search {
+    position: relative;
+    width: 100%;
+  }
+
+  .home-search__icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #aeaeb2;
+    pointer-events: none;
+  }
+
+  html[data-theme="dark"] .home-search__icon {
+    color: rgb(255 255 255 / 0.34);
+  }
+
+  .home-search__input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface-muted);
+    padding: 0.55rem 0.75rem 0.55rem 2.25rem;
+    font-size: 0.875rem;
+    text-align: left;
+    color: var(--foreground);
+    outline: none;
+    backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
+    -webkit-backdrop-filter: blur(calc(12px * var(--app-blur, 1))) saturate(1.05);
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .home-search__input::placeholder {
+    color: var(--text-subtle);
+  }
+
+  .home-search__input:focus {
+    border-color: rgb(var(--accent-600-rgb, 22 163 74) / 0.45);
+    background: var(--glass-surface-strong);
+    box-shadow: 0 0 0 3px rgb(var(--accent-700-rgb, 21 128 61) / 0.1);
+  }
+
+  html[data-theme="dark"] .home-search__input::placeholder {
+    color: rgb(255 255 255 / 0.38);
+  }
+
+  .home-search__empty {
+    margin: 0;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: var(--text-subtle);
+  }
+
   @media (min-width: 640px) {
     .home-screen {
       max-width: min(100%, 30rem);
@@ -14263,6 +14320,7 @@ html[data-theme="dark"] .app-header {
   }
 
   html[data-glass-ui="false"] .values-search-input,
+  html[data-glass-ui="false"] .home-search__input,
   html[data-glass-ui="false"] .values-toolbar-btn,
   html[data-glass-ui="false"] .values-view-toggle,
   html[data-glass-ui="false"] .values-table-shell,
@@ -14274,6 +14332,7 @@ html[data-theme="dark"] .app-header {
   }
 
   html[data-glass-ui="false"] .values-search-input,
+  html[data-glass-ui="false"] .home-search__input,
   html[data-glass-ui="false"] .values-toolbar-btn,
   html[data-glass-ui="false"] .values-view-toggle,
   html[data-glass-ui="false"] .values-value-input,
@@ -14282,6 +14341,7 @@ html[data-theme="dark"] .app-header {
   }
 
   html[data-theme="dark"][data-glass-ui="false"] .values-search-input,
+  html[data-theme="dark"][data-glass-ui="false"] .home-search__input,
   html[data-theme="dark"][data-glass-ui="false"] .values-toolbar-btn,
   html[data-theme="dark"][data-glass-ui="false"] .values-view-toggle,
   html[data-theme="dark"][data-glass-ui="false"] .values-value-input,

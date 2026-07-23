@@ -330,7 +330,7 @@ export default function PhAmendmentCalculator({
   const unitLabel = phAmendmentUnitLabel(outputUnit);
 
   return (
-    <div className="calc-page px-3 sm:px-4 space-y-4">
+    <div className="calc-page px-0 space-y-4">
       <div className="calc-surface p-4 space-y-4">
         <section className="space-y-3">
           <h2 className="text-xs font-bold uppercase tracking-wide text-emerald-800">

@@ -6,14 +6,15 @@ import FertilizerCostScenarios, {
 } from "@/components/FertilizerCostScenarios";
 import MenuSelect from "@/components/ui/MenuSelect";
 import {
-  COMMERCIAL_FERTILIZERS,
   DEFAULT_FERTILIZER_BAG_KG,
   FERTILIZER_CURRENCIES,
   fertilizersForNutrient,
+  listAllFertilizers,
   matchCatalogProductKey,
   pricePerBagFromTonne,
   type FertilizerNutrient,
 } from "@/lib/fertilizerCatalog";
+import AddCustomFertilizerForm from "@/components/AddCustomFertilizerForm";
 import {
   buildCostScenarios,
   missingPreferredPrices,
@@ -127,6 +128,8 @@ export default function FertilizerProductPlanner({
   const [viewMode, setViewMode] = useState<FertilizerCostViewMode>("prices");
   const [applyNote, setApplyNote] = useState("");
   const [stockProductKeys, setStockProductKeys] = useState<string[]>([]);
+  const [catalogVersion, setCatalogVersion] = useState(0);
+  const [showAddFertilizer, setShowAddFertilizer] = useState(false);
 
   useEffect(() => {
     try {
@@ -345,7 +348,7 @@ export default function FertilizerProductPlanner({
       defaultProductByDose[dose.key] ||
       availableProducts[0]?.key;
     const product =
-      COMMERCIAL_FERTILIZERS.find((item) => item.key === selectedKey) ||
+      listAllFertilizers().find((item) => item.key === selectedKey) ||
       availableProducts[0];
     const blendLine = activePlan?.lines.find(
       (line) => line.productKey === product?.key
@@ -376,7 +379,7 @@ export default function FertilizerProductPlanner({
   });
 
   const productsBody = (
-    <div className={`grid gap-4 ${showAsPage ? "" : "px-4 pb-4 pt-2"}`.trim()}>
+    <div className={`grid gap-4 ${showAsPage ? "" : "px-0 pb-4 pt-2"}`.trim()}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-green-950 dark-text-primary">
@@ -422,15 +425,50 @@ export default function FertilizerProductPlanner({
         </p>
       ) : null}
 
-      <div className="grid gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          {t.fertilizerSearchHint ||
+            "Search in each product list, or add a missing fertilizer."}
+        </p>
+        <button
+          type="button"
+          className="rounded-xl bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-900"
+          onClick={() => setShowAddFertilizer((open) => !open)}
+        >
+          {showAddFertilizer
+            ? t.fertilizerAddProductCancel || "Cancel"
+            : t.fertilizerAddProduct || "Add fertilizer"}
+        </button>
+      </div>
+      {showAddFertilizer ? (
+        <AddCustomFertilizerForm
+          t={t}
+          onSaved={(product) => {
+            setCatalogVersion((version) => version + 1);
+            setShowAddFertilizer(false);
+            setApplyNote(
+              t.fertilizerAddProductSaved ||
+                "Fertilizer added to your lists."
+            );
+            void product;
+          }}
+          onCancel={() => setShowAddFertilizer(false)}
+        />
+      ) : null}
+
+      <div className="grid gap-3" key={catalogVersion}>
         {plannedRows.map((row) => {
           if (!row.product) return null;
           const productOptions = row.availableProducts.map(
             (product) =>
-              [`${product.key}`, `${product.label} · ${product.analysis}`] as [
-                string,
-                string,
-              ]
+              [
+                `${product.key}`,
+                `${product.label} · ${product.analysis}${
+                  product.custom
+                    ? ` · ${t.fertilizerCustomTag || "custom"}`
+                    : ""
+                }`,
+              ] as [string, string]
           );
           return (
             <article
@@ -452,6 +490,10 @@ export default function FertilizerProductPlanner({
                   }}
                   fullWidth
                   variant="field"
+                  searchable
+                  searchPlaceholder={
+                    t.fertilizerSearchPlaceholder || "Search fertilizers…"
+                  }
                 />
                 <label className="calc-field-label grid gap-1">
                   {`${t.fertilizerPricePerBag || "Price / bag (saco)"} (${displayCurrency})`}
@@ -621,7 +663,7 @@ export default function FertilizerProductPlanner({
   );
 
   const scenariosBody = (
-    <div className={showAsPage ? undefined : "px-4 pb-4 pt-2"}>
+    <div className={showAsPage ? undefined : "px-0 pb-4 pt-2"}>
       {applyNote ? (
         <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
           {applyNote}

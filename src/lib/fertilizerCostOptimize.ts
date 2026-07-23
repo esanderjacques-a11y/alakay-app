@@ -1,6 +1,6 @@
 import {
-  COMMERCIAL_FERTILIZERS,
   DEFAULT_FERTILIZER_BAG_KG,
+  listAllFertilizers,
   type CommercialFertilizer,
   type FertilizerNutrient,
 } from "@/lib/fertilizerCatalog";
@@ -136,7 +136,7 @@ function nutrientsCovered(product: CommercialFertilizer): OptimizeNutrient[] {
 }
 
 function pricedCatalog(prices: ProductPriceMap): CommercialFertilizer[] {
-  return COMMERCIAL_FERTILIZERS.filter((p) => (prices[p.key] || 0) > 0);
+  return listAllFertilizers().filter((p) => (prices[p.key] || 0) > 0);
 }
 
 /**
@@ -423,7 +423,7 @@ function searchBestBlend(
       }
     }
     // Prefer true singles: urea, tsp, mop, kieserite when priced
-    const singlesOnly = COMMERCIAL_FERTILIZERS.filter(
+    const singlesOnly = listAllFertilizers().filter(
       (p) =>
         allowed.has(p.key) &&
         nutrientsCovered(p).filter((n) => (targets[n] || 0) > 0).length <= 1
@@ -552,8 +552,8 @@ export function blendFromSelection(
   if (uniqueKeys.length === 0) return null;
 
   const multiNutrientFirst = [...uniqueKeys].sort((a, b) => {
-    const productA = COMMERCIAL_FERTILIZERS.find((p) => p.key === a);
-    const productB = COMMERCIAL_FERTILIZERS.find((p) => p.key === b);
+    const productA = listAllFertilizers().find((p) => p.key === a);
+    const productB = listAllFertilizers().find((p) => p.key === b);
     const coverA = productA
       ? nutrientsCovered(productA).filter((n) => (targets[n] || 0) > 0).length
       : 0;
@@ -846,7 +846,7 @@ export function missingPreferredPrices(
     }
   }
   const missing: Array<{ key: string; label: string }> = [];
-  for (const product of COMMERCIAL_FERTILIZERS) {
+  for (const product of listAllFertilizers()) {
     if (!preferred.has(product.key)) continue;
     if ((prices[product.key] || 0) > 0) continue;
     missing.push({ key: product.key, label: product.label });
@@ -861,7 +861,7 @@ export function resolveProductPrices(args: {
   onlineByKey: Record<string, number | null | undefined>;
 }): ProductPriceMap {
   const map: ProductPriceMap = {};
-  for (const product of COMMERCIAL_FERTILIZERS) {
+  for (const product of listAllFertilizers()) {
     const manualKey = `saco:${args.bagKg}:${args.currency}:${product.key}`;
     const manual = Number(String(args.manualPrices[manualKey] || "").replace(",", "."));
     if (manual > 0) {

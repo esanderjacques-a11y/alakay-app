@@ -1,6 +1,6 @@
 import {
-  COMMERCIAL_FERTILIZERS,
   DEFAULT_FERTILIZER_BAG_KG,
+  listAllFertilizers,
 } from "@/lib/fertilizerCatalog";
 import {
   buildCostScenarios,
@@ -256,7 +256,7 @@ export async function buildRecommendedFertilizerReport(args: {
   });
   const prices: ProductPriceMap = { ...realPrices };
   const usedSynthetic = new Set<string>();
-  for (const product of COMMERCIAL_FERTILIZERS) {
+  for (const product of listAllFertilizers()) {
     if (!(prices[product.key] > 0)) {
       prices[product.key] = 1;
       usedSynthetic.add(product.key);

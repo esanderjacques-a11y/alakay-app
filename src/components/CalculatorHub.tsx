@@ -11,6 +11,7 @@ import {
   Droplets,
   FileText,
   FlaskConical,
+  Beaker,
   RefreshCcw,
   Leaf,
   Percent,
@@ -33,6 +34,7 @@ import { buildRecommendedFertilizerReport } from "@/lib/fertilizerReportPayload"
 import PhAmendmentCalculator from "@/components/PhAmendmentCalculator";
 import FertilizerPlanCalculator from "@/components/FertilizerPlanCalculator";
 import FertilizerProductPlanner from "@/components/FertilizerProductPlanner";
+import FertilizerFormulationBuilder from "@/components/FertilizerFormulationBuilder";
 import MenuSelect from "@/components/ui/MenuSelect";
 import type { Language } from "@/lib/translations";
 import { calculatorHubText } from "@/lib/i18n/componentText";
@@ -134,6 +136,7 @@ type CalculatorKey =
   | "amendment"
   | "fertilizer"
   | "fertilizerCost"
+  | "fertilizerFormulation"
   | "dop"
   | "uptake"
   | "salinity"
@@ -155,6 +158,7 @@ const tabs: Array<{ key: CalculatorKey; icon: ReactNode }> = [
   { key: "amendment", icon: <FlaskConical size={17} /> },
   { key: "fertilizer", icon: <Leaf size={17} /> },
   { key: "fertilizerCost", icon: <CircleDollarSign size={17} /> },
+  { key: "fertilizerFormulation", icon: <Beaker size={17} /> },
   { key: "dop", icon: <Calculator size={17} /> },
   { key: "uptake", icon: <Sprout size={17} /> },
   { key: "salinity", icon: <Droplets size={17} /> },
@@ -165,7 +169,8 @@ function visibleCalculatorTabs(sampleType: "soil" | "foliar") {
   return tabs.filter(({ key }) => {
     if (key === "cic") return sampleType === "soil";
     if (key === "dop") return sampleType === "foliar";
-    if (key === "fertilizer" || key === "fertilizerCost") return sampleType === "soil";
+    if (key === "fertilizer" || key === "fertilizerCost" || key === "fertilizerFormulation")
+      return sampleType === "soil";
     return true;
   });
 }
@@ -174,7 +179,7 @@ function visibleCalculatorTabs(sampleType: "soil" | "foliar") {
 type HubMode = "guided" | "explorer";
 
 const GUIDED_STEPS: Record<"soil" | "foliar", CalculatorKey[]> = {
-  soil: ["cic", "amendment", "fertilizer", "fertilizerCost"],
+  soil: ["cic", "amendment", "fertilizer", "fertilizerCost", "fertilizerFormulation"],
   foliar: ["dop", "uptake"],
 };
 
@@ -217,6 +222,14 @@ export default function CalculatorHub({
   );
   const hasLabData = labHasUsefulSoilData(lab);
   const suggestions = getSuggestions(lab, results, t);
+  const hasEnteredValues = useMemo(
+    () =>
+      Object.values(values).some((value) => String(value || "").trim() !== ""),
+    [values]
+  );
+  // Guided is the starting mode only when the Values page has data or an analysis is open.
+  const preferGuidedDefault =
+    hasEnteredValues || results.length > 0 || hasLabData;
 
   return (
     <CalculatorMemoryProvider sampleType={sampleType} lab={lab}>
@@ -229,6 +242,7 @@ export default function CalculatorHub({
         selectedCropName={selectedCropName}
         selectedCountry={selectedCountry}
         hasLabData={hasLabData}
+        preferGuidedDefault={preferGuidedDefault}
         suggestions={suggestions}
         goToValues={goToValues}
         onOpenCalendar={onOpenCalendar}
@@ -257,6 +271,7 @@ function CalculatorHubBody({
   selectedCropName,
   selectedCountry,
   hasLabData,
+  preferGuidedDefault,
   suggestions,
   goToValues,
   onOpenCalendar,
@@ -280,6 +295,7 @@ function CalculatorHubBody({
   selectedCropName?: string | null;
   selectedCountry?: string | null;
   hasLabData: boolean;
+  preferGuidedDefault: boolean;
   suggestions: Array<{ key: CalculatorKey; title: string; desc: string }>;
   goToValues?: () => void;
   onOpenCalendar?: () => void;
@@ -306,7 +322,9 @@ function CalculatorHubBody({
     [lab, sharedCations]
   );
   const [importMessage, setImportMessage] = useState("");
-  const [hubMode, setHubMode] = useState<HubMode>("guided");
+  const [hubMode, setHubMode] = useState<HubMode>(() =>
+    preferGuidedDefault ? "guided" : "explorer"
+  );
   const calculatorTabs = useMemo(
     () => visibleCalculatorTabs(sampleType),
     [sampleType]
@@ -315,9 +333,12 @@ function CalculatorHubBody({
     const visibleKeys = new Set(calculatorTabs.map((tab) => tab.key));
     return GUIDED_STEPS[sampleType].filter((key) => visibleKeys.has(key));
   }, [sampleType, calculatorTabs]);
-  const [active, setActive] = useState<CalculatorKey>(
-    () => GUIDED_STEPS[sampleType][0] || defaultCalculatorFilter
-  );
+  const [active, setActive] = useState<CalculatorKey>(() => {
+    if (preferGuidedDefault) {
+      return GUIDED_STEPS[sampleType][0] || defaultCalculatorFilter;
+    }
+    return defaultCalculatorFilter;
+  });
   const [browseLayout, setBrowseLayout] = useViewLayoutPreference("calculator-hub");
   const fieldsLayout = browseLayout;
 
@@ -537,7 +558,7 @@ function CalculatorHubBody({
     <section className="animate-slide-up">
       <div className="calculator-hub-panel values-screen-panel--open px-0 pb-6 pt-0">
         {/* Page header */}
-        <div className="flex flex-col gap-2 px-4 pb-3 pt-2">
+        <div className="flex flex-col gap-2 px-1 pb-3 pt-2">
           <div className="flex items-center gap-2 min-w-0">
             <BackButton
               variant="icon"
@@ -631,7 +652,7 @@ function CalculatorHubBody({
         </div>
 
         {!hasLabData ? (
-          <div className="mx-4 mb-3 rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-3 dark:border-amber-900/40 dark:bg-amber-950/30" role="status">
+          <div className="mx-1 mb-3 rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-3 dark:border-amber-900/40 dark:bg-amber-950/30" role="status">
             <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
               {t.labDataRequiredTitle}
             </p>
@@ -652,7 +673,7 @@ function CalculatorHubBody({
 
         <CalculatorFieldsLayoutContext.Provider value={fieldsLayout}>
         {hubMode === "guided" && guidedSteps.length > 0 ? (
-          <div className="calc-guided-stepper px-4 pb-3">
+          <div className="calc-guided-stepper px-1 pb-3">
             <div className="calc-guided-stepper__track">
               {guidedSteps.map((key, index) => (
                 <button
@@ -726,7 +747,7 @@ function CalculatorHubBody({
           </div>
         ) : null}
         {hubMode === "explorer" && browseLayout === "list" ? (
-          <div className="px-4 pb-3">
+          <div className="px-1 pb-3">
             <MenuSelect
               label={t.calculatorPickerLabel}
               heading={t.calculatorPickerLabel}
@@ -742,7 +763,7 @@ function CalculatorHubBody({
           </div>
         ) : null}
         {hubMode === "explorer" && browseLayout !== "list" ? (
-          <div className="calculator-hub-tabs overflow-x-auto scrollbar-none px-4 pb-3">
+          <div className="calculator-hub-tabs overflow-x-auto scrollbar-none px-1 pb-3">
             <div className="flex w-max min-w-full gap-1.5">
               {calculatorTabs.map((tab) => (
                 <button
@@ -862,6 +883,20 @@ function CalculatorHubBody({
             </CalculatorPage>
           )
         ) : null}
+        {active === "fertilizerFormulation" ? (
+          sampleType === "soil" ? (
+            <CalculatorPage>
+              <FertilizerFormulationBuilder t={t} country={selectedCountry} />
+            </CalculatorPage>
+          ) : (
+            <CalculatorPage>
+              <p className="calc-surface p-4 text-sm font-semibold text-yellow-900">
+                {t.fertilizerSoilOnly ||
+                  "The nutritional plan is available for soil analyses."}
+              </p>
+            </CalculatorPage>
+          )
+        ) : null}
         {active === "dop" ? (
           sampleType === "foliar" ? (
             <DopCalculator
@@ -931,7 +966,7 @@ function CalculatorPage({
   className?: string;
 }) {
   return (
-    <div className={`calc-page px-3 sm:px-4 space-y-4 ${className}`.trim()}>{children}</div>
+    <div className={`calc-page px-0 space-y-4 ${className}`.trim()}>{children}</div>
   );
 }
 
@@ -1079,12 +1114,16 @@ function CicCalculator({
 
   return (
     <CalculatorPage>
-      <div className="calc-page__params calc-surface p-4">
+      <div className="calc-page__params calc-surface space-y-3 p-4">
+        <h2 className="text-xs font-bold uppercase tracking-wide text-emerald-800">
+          {t.cicRequirementTitle || "CIC, bases & ratios"}
+        </h2>
         <CalculatorFormFields>
           <NumberField
             label={t.cicLabel || "CIC / CICe"}
             value={cec}
             onChange={setCec}
+            preserveCase
             placeholder={
               estimatedCec > 0
                 ? `${estimatedCec}${cecIsEstimated ? ` (${t.cicEstimated || "est."})` : ""}`
@@ -1127,7 +1166,7 @@ function CicCalculator({
             }
           />
         </CalculatorFormFields>
-        <p className="mt-3 text-xs leading-relaxed text-[#6c6c70]">
+        <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
           {cecIsEstimated
             ? t.cicAutoHelp ||
               "CIC not reported — CICe is estimated as Ca + Mg + K + Na + (H+Al or extractable Al when reported)."
@@ -2341,6 +2380,9 @@ function NumberField({
       <input
         type="text"
         inputMode="decimal"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
         value={text}
         readOnly={readOnly}
         placeholder={placeholder}
@@ -2358,7 +2400,7 @@ function NumberField({
         }}
         onBlur={() => {
           focusedRef.current = false;
-        if (text === "" || text === "-" || text === "." || text === ",") {
+          if (text === "" || text === "-" || text === "." || text === ",") {
             setText("");
             onChange?.(0);
           }
@@ -2452,6 +2494,13 @@ function getSuggestions(
       key: "fertilizerCost",
       title: t.fertilizerCost || "Fertilizer cost",
       desc: t.fertilizerCostCta || "See prices & cost scenarios",
+    });
+    suggestions.push({
+      key: "fertilizerFormulation",
+      title: t.fertilizerFormulation || "Fertilizer formulation",
+      desc:
+        t.fertilizerFormulationDesc ||
+        "Build a custom grade from raw materials with filler or adjusted formula.",
     });
   }
 

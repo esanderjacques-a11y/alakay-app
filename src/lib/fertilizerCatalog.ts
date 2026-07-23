@@ -4,7 +4,13 @@ export type FertilizerNutrient =
   | "k2o"
   | "cao"
   | "mgo"
-  | "s";
+  | "s"
+  | "zn"
+  | "b"
+  | "fe"
+  | "mn"
+  | "cu"
+  | "mo";
 
 export type FertilizerBenchmarkKey =
   | "urea"
@@ -19,6 +25,14 @@ export type CommercialFertilizer = {
   grade: Partial<Record<FertilizerNutrient, number>>;
   benchmarkKey?: FertilizerBenchmarkKey;
   benchmarkProxy?: boolean;
+  /** User-created product or saved formulation. */
+  custom?: boolean;
+};
+
+export type InertFiller = {
+  key: string;
+  label: string;
+  description: string;
 };
 
 /** Common commercial fertilizers. Grades are percentages by product mass. */
@@ -125,7 +139,121 @@ export const COMMERCIAL_FERTILIZERS: CommercialFertilizer[] = [
     analysis: "16% MgO + 13% S",
     grade: { mgo: 16, s: 13 },
   },
+  {
+    key: "zinc_sulfate",
+    label: "Zinc sulfate",
+    analysis: "35% Zn + 17% S",
+    grade: { zn: 35, s: 17 },
+  },
+  {
+    key: "borax",
+    label: "Borax",
+    analysis: "11% B",
+    grade: { b: 11 },
+  },
+  {
+    key: "solubor",
+    label: "Solubor",
+    analysis: "20% B",
+    grade: { b: 20 },
+  },
+  {
+    key: "ferrous_sulfate",
+    label: "Ferrous sulfate",
+    analysis: "20% Fe + 11% S",
+    grade: { fe: 20, s: 11 },
+  },
+  {
+    key: "manganese_sulfate",
+    label: "Manganese sulfate",
+    analysis: "32% Mn + 18% S",
+    grade: { mn: 32, s: 18 },
+  },
+  {
+    key: "copper_sulfate",
+    label: "Copper sulfate",
+    analysis: "25% Cu + 12% S",
+    grade: { cu: 25, s: 12 },
+  },
+  {
+    key: "sodium_molybdate",
+    label: "Sodium molybdate",
+    analysis: "39% Mo",
+    grade: { mo: 39 },
+  },
 ];
+
+/** Inert carriers that do not change nutrient composition. */
+export const INERT_FILLERS: InertFiller[] = [
+  {
+    key: "silica_sand",
+    label: "Silica sand",
+    description: "Neutral mineral filler; no nutrients.",
+  },
+  {
+    key: "bentonite",
+    label: "Bentonite clay",
+    description: "Common granulation binder/filler; inert for NPK grades.",
+  },
+  {
+    key: "vermiculite",
+    label: "Vermiculite",
+    description: "Lightweight inert carrier for blends.",
+  },
+  {
+    key: "diatomaceous_earth",
+    label: "Diatomaceous earth",
+    description: "Inert mineral filler for dry mixes.",
+  },
+  {
+    key: "rice_husk",
+    label: "Rice husk",
+    description: "Low-cost organic inert filler.",
+  },
+];
+
+export const DEFAULT_FILLER_KEY = "bentonite";
+
+const MICRO_NUTRIENTS: FertilizerNutrient[] = [
+  "zn",
+  "b",
+  "fe",
+  "mn",
+  "cu",
+  "mo",
+];
+
+/**
+ * Pick an inert filler for the target grade.
+ * - Micros → vermiculite (lightweight carrier)
+ * - High NPK (≥45) → bentonite (granulation binder)
+ * - Low NPK (≤20) → silica sand (bulk mineral filler)
+ * - Otherwise → bentonite default
+ */
+export function recommendFiller(
+  preferredKey?: string | null,
+  targetGrade?: Partial<Record<FertilizerNutrient, number>> | null
+): InertFiller {
+  if (preferredKey) {
+    const match = INERT_FILLERS.find((item) => item.key === preferredKey);
+    if (match) return match;
+  }
+
+  const grade = targetGrade || {};
+  const hasMicros = MICRO_NUTRIENTS.some((key) => (grade[key] || 0) > 0);
+  const npkSum = (grade.n || 0) + (grade.p2o5 || 0) + (grade.k2o || 0);
+
+  let key = DEFAULT_FILLER_KEY;
+  if (hasMicros) key = "vermiculite";
+  else if (npkSum >= 45) key = "bentonite";
+  else if (npkSum > 0 && npkSum <= 20) key = "silica_sand";
+
+  return (
+    INERT_FILLERS.find((item) => item.key === key) ||
+    INERT_FILLERS.find((item) => item.key === DEFAULT_FILLER_KEY) ||
+    INERT_FILLERS[0]
+  );
+}
 
 export const FERTILIZER_CURRENCIES = [
   "USD",
@@ -147,19 +275,7 @@ export const FERTILIZER_CURRENCIES = [
 /** Most common commercial bag size in retailer markets. */
 export const DEFAULT_FERTILIZER_BAG_KG = 50;
 
-export function pricePerBagFromTonne(
-  pricePerMetricTonne: number,
-  bagKg: number = DEFAULT_FERTILIZER_BAG_KG
-) {
-  if (!(pricePerMetricTonne > 0) || !(bagKg > 0)) return null;
-  return Math.round(pricePerMetricTonne * (bagKg / 1000) * 100) / 100;
-}
-
-export function fertilizersForNutrient(nutrient: FertilizerNutrient) {
-  return COMMERCIAL_FERTILIZERS.filter(
-    (product) => (product.grade[nutrient] || 0) > 0
-  );
-}
+const CUSTOM_FERTILIZER_STORAGE_KEY = "cultosol_custom_fertilizers_v1";
 
 function normalizeProductToken(value: string) {
   return value
@@ -170,13 +286,133 @@ function normalizeProductToken(value: string) {
     .trim();
 }
 
+export function slugifyFertilizerKey(label: string) {
+  const slug = normalizeProductToken(label).replace(/\s+/g, "_");
+  return slug || "custom";
+}
+
+export function analysisFromGrade(
+  grade: Partial<Record<FertilizerNutrient, number>>
+) {
+  const n = grade.n || 0;
+  const p = grade.p2o5 || 0;
+  const k = grade.k2o || 0;
+  const extras: string[] = [];
+  if ((grade.mgo || 0) > 0) extras.push(`${grade.mgo}% MgO`);
+  if ((grade.cao || 0) > 0) extras.push(`${grade.cao}% CaO`);
+  if ((grade.s || 0) > 0) extras.push(`${grade.s}% S`);
+  if ((grade.zn || 0) > 0) extras.push(`${grade.zn}% Zn`);
+  if ((grade.b || 0) > 0) extras.push(`${grade.b}% B`);
+  if ((grade.fe || 0) > 0) extras.push(`${grade.fe}% Fe`);
+  if ((grade.mn || 0) > 0) extras.push(`${grade.mn}% Mn`);
+  if ((grade.cu || 0) > 0) extras.push(`${grade.cu}% Cu`);
+  if ((grade.mo || 0) > 0) extras.push(`${grade.mo}% Mo`);
+  const base = `${n}-${p}-${k}`;
+  return extras.length ? `${base} + ${extras.join(", ")}` : base;
+}
+
+export function loadCustomFertilizers(): CommercialFertilizer[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_FERTILIZER_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as CommercialFertilizer[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (item) =>
+          item &&
+          typeof item.key === "string" &&
+          typeof item.label === "string" &&
+          item.grade &&
+          typeof item.grade === "object"
+      )
+      .map((item) => ({
+        ...item,
+        custom: true,
+        analysis: item.analysis || analysisFromGrade(item.grade),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function persistCustomFertilizers(products: CommercialFertilizer[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      CUSTOM_FERTILIZER_STORAGE_KEY,
+      JSON.stringify(products.map((item) => ({ ...item, custom: true })))
+    );
+  } catch {
+    // Ignore quota/privacy errors.
+  }
+}
+
+/** Built-in catalog plus user-saved custom fertilizers / formulas. */
+export function listAllFertilizers(): CommercialFertilizer[] {
+  const custom = loadCustomFertilizers();
+  const customKeys = new Set(custom.map((item) => item.key));
+  return [
+    ...custom,
+    ...COMMERCIAL_FERTILIZERS.filter((item) => !customKeys.has(item.key)),
+  ];
+}
+
+export function upsertCustomFertilizer(input: {
+  label: string;
+  grade: Partial<Record<FertilizerNutrient, number>>;
+  analysis?: string;
+  key?: string;
+}): CommercialFertilizer {
+  const grade: Partial<Record<FertilizerNutrient, number>> = {};
+  for (const [key, value] of Object.entries(input.grade)) {
+    if (typeof value === "number" && value > 0) {
+      grade[key as FertilizerNutrient] = value;
+    }
+  }
+  const key =
+    input.key ||
+    `custom_${slugifyFertilizerKey(input.label)}_${Date.now().toString(36)}`;
+  const product: CommercialFertilizer = {
+    key,
+    label: input.label.trim() || "Custom fertilizer",
+    analysis: input.analysis || analysisFromGrade(grade),
+    grade,
+    custom: true,
+  };
+  const existing = loadCustomFertilizers().filter((item) => item.key !== key);
+  persistCustomFertilizers([product, ...existing]);
+  return product;
+}
+
+export function removeCustomFertilizer(key: string) {
+  persistCustomFertilizers(
+    loadCustomFertilizers().filter((item) => item.key !== key)
+  );
+}
+
+export function pricePerBagFromTonne(
+  pricePerMetricTonne: number,
+  bagKg: number = DEFAULT_FERTILIZER_BAG_KG
+) {
+  if (!(pricePerMetricTonne > 0) || !(bagKg > 0)) return null;
+  return Math.round(pricePerMetricTonne * (bagKg / 1000) * 100) / 100;
+}
+
+export function fertilizersForNutrient(nutrient: FertilizerNutrient) {
+  return listAllFertilizers().filter(
+    (product) => (product.grade[nutrient] || 0) > 0
+  );
+}
+
 /** Map free-text bodega names to catalog keys when possible. */
 export function matchCatalogProductKey(
   name: string | null | undefined
 ): string | null {
   const token = normalizeProductToken(name || "");
   if (!token) return null;
-  for (const product of COMMERCIAL_FERTILIZERS) {
+  for (const product of listAllFertilizers()) {
     const keyToken = normalizeProductToken(product.key.replace(/_/g, " "));
     const labelToken = normalizeProductToken(product.label);
     if (
@@ -207,8 +443,16 @@ export function matchCatalogProductKey(
   if (/calcium nitrate|calcium_nitrate/.test(token)) {
     return "calcium_nitrate";
   }
+  if (/zinc sulfate|sulfato de zinc/.test(token)) return "zinc_sulfate";
+  if (/\bborax\b/.test(token)) return "borax";
+  if (/solubor/.test(token)) return "solubor";
+  if (/ferrous sulfate|sulfato ferroso/.test(token)) return "ferrous_sulfate";
+  if (/manganese sulfate|sulfato de manganeso/.test(token)) {
+    return "manganese_sulfate";
+  }
+  if (/copper sulfate|sulfato de cobre/.test(token)) return "copper_sulfate";
+  if (/molybdate|molibdato/.test(token)) return "sodium_molybdate";
   if (/npk\s*15/.test(token)) return "npk_15_15_15";
   if (/npk\s*10/.test(token)) return "npk_10_30_10";
   return null;
 }
-

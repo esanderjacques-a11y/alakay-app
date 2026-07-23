@@ -282,7 +282,7 @@ export default function CalendarScreen({
   }
 
   return (
-    <section className="animate-slide-up space-y-4 px-3 pb-8 pt-2 sm:px-4">
+    <section className="animate-slide-up space-y-4 px-0 pb-8 pt-2">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="max-w-xl">
           <h1 className="text-xl font-bold text-[#1c1c1e] dark-text-primary">

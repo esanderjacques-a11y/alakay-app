@@ -51,6 +51,8 @@ type Props = {
   session: Session | null;
   language: Language;
   sampleType: "soil" | "foliar";
+  /** Render inline (no modal) for the custom-data portal. */
+  embedded?: boolean;
 };
 
 
@@ -66,6 +68,7 @@ export default function CustomParameterManager({
   session,
   language,
   sampleType,
+  embedded = false,
 }: Props) {
   const l = customParameterManagerText[language as keyof typeof customParameterManagerText] || customParameterManagerText.en;
 
@@ -301,15 +304,8 @@ export default function CustomParameterManager({
 
   if (!open) return null;
 
-  return (
-    <AppModal
-      open={open}
-      onClose={closeModal}
-      title={l.title}
-      description={l.desc}
-      size="lg"
-      closeLabel={l.cancel}
-    >
+  const body = (
+    <>
       {loading ? (
         <div className="app-modal-message app-modal-message--info">
           {l.loading}
@@ -323,14 +319,16 @@ export default function CustomParameterManager({
       ) : null}
 
       {editingId ? (
-        <section className="app-modal-section mt-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
+        <section className="app-modal-section custom-data-manager__composer">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
               <h3 className="app-modal-section__title">{l.edit}</h3>
-              <p className="app-modal-section__desc">
-                Changes will affect how this custom parameter appears in new
-                analyses and in history.
-              </p>
+              {!embedded ? (
+                <p className="app-modal-section__desc">
+                  Changes will affect how this custom parameter appears in new
+                  analyses and in history.
+                </p>
+              ) : null}
             </div>
             <button
               type="button"
@@ -407,11 +405,17 @@ export default function CustomParameterManager({
         </section>
       ) : null}
 
-      <section className="app-modal-section mt-3">
-        <div className="app-modal-toolbar">
-          <p className="app-modal-toolbar__meta">
-            {visibleParameters.length} parameter(s)
-          </p>
+      <section className="app-modal-section">
+        <div
+          className={`app-modal-toolbar${
+            embedded ? " app-modal-toolbar--actions-only" : ""
+          }`}
+        >
+          {!embedded ? (
+            <p className="app-modal-toolbar__meta">
+              {visibleParameters.length} parameter(s)
+            </p>
+          ) : null}
           <div className="app-modal-toolbar__actions">
             <label className="app-modal-chip-toggle">
               <input
@@ -421,14 +425,16 @@ export default function CustomParameterManager({
               />
               {l.showDeleted}
             </label>
-            <button
-              type="button"
-              onClick={loadData}
-              className="app-modal-btn app-modal-btn--ghost app-modal-btn--sm"
-            >
-              <RefreshCw size={16} />
-              {l.refresh}
-            </button>
+            {!embedded ? (
+              <button
+                type="button"
+                onClick={loadData}
+                className="app-modal-btn app-modal-btn--ghost app-modal-btn--sm"
+              >
+                <RefreshCw size={16} />
+                {l.refresh}
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -438,94 +444,96 @@ export default function CustomParameterManager({
           </div>
         ) : (
           <div className="app-modal-list">
-            {visibleParameters.map((parameter) => (
-              <article
-                key={parameter.custom_parameter_id}
-                className={`app-modal-list-item${
-                  parameter.is_deleted ? " app-modal-list-item--deleted" : ""
-                }`}
-              >
-                <div className="app-modal-list-item__head">
-                  <h4 className="app-modal-list-item__title">
-                    {parameter.parameter_name}
-                    {parameter.symbol ? ` (${parameter.symbol})` : ""}
-                  </h4>
-                  <span className="app-modal-badge app-modal-badge--muted">
-                    {parameter.category || "Custom"}
-                  </span>
-                  <span
-                    className={`app-modal-badge ${
-                      parameter.is_deleted
-                        ? "app-modal-badge--deleted"
-                        : "app-modal-badge--active"
-                    }`}
+            {visibleParameters.map((parameter) => {
+              const unit = getUnitSymbol(parameter);
+              const title = `${parameter.parameter_name}${
+                parameter.symbol ? ` (${parameter.symbol})` : ""
+              }`;
+              const meta = [
+                parameter.sample_type,
+                unit || null,
+                !embedded ? formatDate(parameter.updated_at) : null,
+                parameter.is_deleted ? l.deleted : null,
+              ]
+                .filter(Boolean)
+                .join(" · ");
+
+              return (
+                <article
+                  key={parameter.custom_parameter_id}
+                  className={`app-modal-list-item custom-data-row${
+                    parameter.is_deleted ? " app-modal-list-item--deleted" : ""
+                  }`}
+                >
+                  <div
+                    className="custom-data-row__main"
+                    title={`${title}${meta ? ` · ${meta}` : ""}`}
                   >
-                    {parameter.is_deleted ? l.deleted : l.active}
-                  </span>
-                </div>
+                    <p className="custom-data-row__title truncate">{title}</p>
+                    {meta ? (
+                      <p className="custom-data-row__meta truncate">{meta}</p>
+                    ) : null}
+                  </div>
+                  <div className="custom-data-row__actions">
+                    {!parameter.is_deleted ? (
+                      <button
+                        type="button"
+                        onClick={() => startEdit(parameter)}
+                        className="app-modal-btn app-modal-btn--secondary app-modal-btn--sm app-modal-btn--icon"
+                        aria-label={l.edit}
+                        title={l.edit}
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                    ) : null}
 
-                <div className="app-modal-list-item__meta">
-                  <p>
-                    <strong>{l.sampleType}:</strong> {parameter.sample_type}
-                  </p>
-                  <p>
-                    <strong>{l.unit}:</strong> {getUnitSymbol(parameter)}
-                  </p>
-                  <p>
-                    <strong>{l.created}:</strong>{" "}
-                    {formatDate(parameter.created_at)}
-                  </p>
-                  <p>
-                    <strong>{l.updated}:</strong>{" "}
-                    {formatDate(parameter.updated_at)}
-                  </p>
-                </div>
-
-                {parameter.is_deleted && parameter.deleted_at ? (
-                  <p className="mt-2 text-xs text-red-700">
-                    Deleted: {formatDate(parameter.deleted_at)}
-                  </p>
-                ) : null}
-
-                <div className="app-modal-list-item__actions">
-                  {!parameter.is_deleted ? (
-                    <button
-                      type="button"
-                      onClick={() => startEdit(parameter)}
-                      className="app-modal-btn app-modal-btn--secondary app-modal-btn--sm"
-                    >
-                      <Edit3 size={15} />
-                      {l.edit}
-                    </button>
-                  ) : null}
-
-                  {parameter.is_deleted ? (
-                    <button
-                      type="button"
-                      onClick={() => restoreParameter(parameter)}
-                      disabled={saving}
-                      className="app-modal-btn app-modal-btn--primary app-modal-btn--sm"
-                    >
-                      <RotateCcw size={15} />
-                      {l.restore}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => softDeleteParameter(parameter)}
-                      disabled={saving}
-                      className="app-modal-btn app-modal-btn--danger app-modal-btn--sm"
-                    >
-                      <Trash2 size={15} />
-                      {l.delete}
-                    </button>
-                  )}
-                </div>
-              </article>
-            ))}
+                    {parameter.is_deleted ? (
+                      <button
+                        type="button"
+                        onClick={() => restoreParameter(parameter)}
+                        disabled={saving}
+                        className="app-modal-btn app-modal-btn--primary app-modal-btn--sm app-modal-btn--icon"
+                        aria-label={l.restore}
+                        title={l.restore}
+                      >
+                        <RotateCcw size={15} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => softDeleteParameter(parameter)}
+                        disabled={saving}
+                        className="app-modal-btn app-modal-btn--danger app-modal-btn--sm app-modal-btn--icon"
+                        aria-label={l.delete}
+                        title={l.delete}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="custom-data-manager">{body}</div>;
+  }
+
+  return (
+    <AppModal
+      open={open}
+      onClose={closeModal}
+      title={l.title}
+      description={l.desc}
+      size="lg"
+      closeLabel={l.cancel}
+    >
+      {body}
     </AppModal>
   );
 }

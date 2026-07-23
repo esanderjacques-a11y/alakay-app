@@ -567,7 +567,7 @@ export default function FertilizerPlanCalculator({
   const isDoseOnly = calcMode === "dose";
 
   return (
-    <div className="fertilizer-plan calc-page px-3 sm:px-4 space-y-4">
+    <div className="fertilizer-plan calc-page px-0 space-y-4">
       <div className="fertilizer-plan__params calc-surface p-4 space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-3 pb-2">
           <div>

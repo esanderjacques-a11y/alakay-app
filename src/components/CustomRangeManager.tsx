@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Edit3, PlusCircle, RefreshCw, Trash2 } from "lucide-react";
+import { Edit3, PlusCircle, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
 
 import AppModal from "@/components/AppModal";
 import MenuSelect from "@/components/ui/MenuSelect";
@@ -115,6 +115,8 @@ type Props = {
   language: Language;
   sampleType: "soil" | "foliar";
   currentCropId: number | "";
+  /** Render inline (no modal) for the custom-data portal. */
+  embedded?: boolean;
 };
 
 
@@ -131,6 +133,7 @@ export default function CustomRangeManager({
   language,
   sampleType,
   currentCropId,
+  embedded = false,
 }: Props) {
   const l = customRangeManagerText[language as keyof typeof customRangeManagerText] || customRangeManagerText.en;
 
@@ -164,6 +167,7 @@ export default function CustomRangeManager({
   const [editingRangeId, setEditingRangeId] = useState<number | null>(null);
 
   const [showDeleted, setShowDeleted] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -365,6 +369,7 @@ export default function CustomRangeManager({
     setNote("");
     setSourceName("User custom range");
     setEditingRangeId(null);
+    if (embedded) setComposerOpen(false);
     setMessage("");
   }
 
@@ -423,6 +428,7 @@ export default function CustomRangeManager({
     setNote(range.interpretation_note || "");
     setSourceName(range.source_name || "User custom range");
     setMessage("");
+    if (embedded) setComposerOpen(true);
   }
 
   async function saveRange() {
@@ -570,6 +576,323 @@ export default function CustomRangeManager({
 
   if (!open) return null;
 
+  const showComposer = !embedded || composerOpen || Boolean(editingRangeId);
+
+  const composer = (
+    <section className="app-modal-section custom-data-manager__composer">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="app-modal-section__title">
+            {editingRangeId ? l.editRange : l.addNew}
+          </h3>
+          {!embedded ? (
+            <p className="app-modal-section__desc">{l.checkedFirst}</p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={resetForm}
+          className="app-modal-btn app-modal-btn--ghost app-modal-btn--sm"
+          aria-label={l.cancel}
+        >
+          {embedded ? <X size={16} /> : l.cancel}
+        </button>
+      </div>
+
+      <div className="app-modal-fields">
+        <MenuSelect
+          label={l.parameterType}
+          value={parameterType}
+          heading={l.parameterType}
+          variant="field"
+          onChange={(next) => {
+            setParameterType(next as "official" | "custom");
+            setSelectedParameterId("");
+            setUnitId("");
+          }}
+          options={[
+            ["official", l.official],
+            ["custom", l.custom],
+          ]}
+        />
+
+        <MenuSelect
+          label={l.parameter}
+          value={selectedParameterId === "" ? "" : String(selectedParameterId)}
+          heading={l.parameter}
+          variant="field"
+          placeholder={l.selectParameter}
+          onChange={(next) => selectParameter(next ? Number(next) : "")}
+          options={[
+            { value: "", label: l.selectParameter },
+            ...parameterOptions.map((parameter) => ({
+              value: String(parameter.id),
+              label: parameter.name,
+            })),
+          ]}
+        />
+
+        <MenuSelect
+          label={l.cropScope}
+          value={cropScope}
+          heading={l.cropScope}
+          variant="field"
+          onChange={(next) =>
+            selectCropScope(next as "general" | "current" | "specific")
+          }
+          options={[
+            { value: "general", label: l.generalRange },
+            {
+              value: "current",
+              label: l.currentCrop,
+              disabled: !currentCropId,
+            },
+            { value: "specific", label: l.specificCrop },
+          ]}
+        />
+
+        {cropScope === "specific" ? (
+          <MenuSelect
+            label={l.crop}
+            value={selectedCropId === "" ? "" : String(selectedCropId)}
+            heading={l.crop}
+            variant="field"
+            placeholder={l.selectCrop}
+            onChange={(next) => setSelectedCropId(next ? Number(next) : "")}
+            options={[
+              { value: "", label: l.selectCrop },
+              ...crops.map((crop) => ({
+                value: String(crop.crop_id),
+                label: crop.crop_name,
+              })),
+            ]}
+          />
+        ) : null}
+
+        <MenuSelect
+          label={l.unit}
+          value={unitId === "" ? "" : String(unitId)}
+          heading={l.unit}
+          variant="field"
+          placeholder={l.selectUnit || "Select unit"}
+          onChange={(next) => setUnitId(next ? Number(next) : "")}
+          options={[
+            { value: "", label: l.selectUnit || "Select unit" },
+            ...units.map((unit) => ({
+              value: String(unit.unit_id),
+              label: unit.unit_symbol,
+            })),
+          ]}
+        />
+
+        <label className="app-modal-field">
+          <span className="app-modal-label">{l.min}</span>
+          <input
+            type="number"
+            step="any"
+            className="calc-field-input"
+            value={minValue}
+            onChange={(event) => setMinValue(event.target.value)}
+          />
+        </label>
+
+        <label className="app-modal-field">
+          <span className="app-modal-label">{l.max}</span>
+          <input
+            type="number"
+            step="any"
+            className="calc-field-input"
+            value={maxValue}
+            onChange={(event) => setMaxValue(event.target.value)}
+          />
+        </label>
+
+        <label className="app-modal-field app-modal-field--wide">
+          <span className="app-modal-label">{l.note}</span>
+          <textarea
+            className={`calc-field-input ${embedded ? "min-h-16" : "min-h-24"}`}
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Example: This range is based on my local reference."
+          />
+        </label>
+
+        <label className="app-modal-field app-modal-field--wide">
+          <span className="app-modal-label">{l.source}</span>
+          <input
+            className="calc-field-input"
+            value={sourceName}
+            onChange={(event) => setSourceName(event.target.value)}
+          />
+        </label>
+      </div>
+
+      <button
+        type="button"
+        onClick={saveRange}
+        disabled={saving}
+        className="app-modal-btn app-modal-btn--primary mt-3 w-full sm:w-auto"
+      >
+        <PlusCircle size={18} />
+        {saving ? l.saving : editingRangeId ? l.update : l.save}
+      </button>
+    </section>
+  );
+
+  const listSection = (
+    <section className="app-modal-section">
+      <div
+        className={`app-modal-toolbar${
+          embedded ? " app-modal-toolbar--actions-only" : ""
+        }`}
+      >
+        {!embedded ? (
+          <p className="app-modal-toolbar__meta">
+            {visibleRanges.length} range(s)
+          </p>
+        ) : null}
+        <div className="app-modal-toolbar__actions">
+          <label className="app-modal-chip-toggle">
+            <input
+              type="checkbox"
+              checked={showDeleted}
+              onChange={(event) => setShowDeleted(event.target.checked)}
+            />
+            {l.showDeleted}
+          </label>
+          {!embedded ? (
+            <button
+              type="button"
+              onClick={loadInitialData}
+              className="app-modal-btn app-modal-btn--ghost app-modal-btn--sm"
+            >
+              <RefreshCw size={16} />
+              {l.refresh}
+            </button>
+          ) : null}
+          {embedded && !showComposer ? (
+            <button
+              type="button"
+              onClick={() => {
+                resetForm();
+                setComposerOpen(true);
+              }}
+              className="app-modal-btn app-modal-btn--primary app-modal-btn--sm"
+            >
+              <PlusCircle size={16} />
+              {l.addNew}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {visibleRanges.length === 0 ? (
+        <div className="app-modal-message app-modal-message--warn">
+          {l.noRanges}
+        </div>
+      ) : (
+        <div className="app-modal-list">
+          {visibleRanges.map((range) => {
+            const symbol = getRangeSymbol(range);
+            const unit = getRangeUnit(range);
+            const title = `${getRangeName(range)}${symbol ? ` (${symbol})` : ""}`;
+            const band =
+              `${range.min_value ?? "—"}–${range.max_value ?? "—"}${unit ? ` ${unit}` : ""}`.trim();
+            const meta = [
+              getRangeCropName(range),
+              range.sample_type,
+              band,
+              range.is_deleted ? l.deletedStatus : null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+
+            return (
+              <article
+                key={range.custom_range_id}
+                className={`app-modal-list-item custom-data-row${
+                  range.is_deleted ? " app-modal-list-item--deleted" : ""
+                }`}
+              >
+                <div className="custom-data-row__main" title={`${title} · ${meta}`}>
+                  <p className="custom-data-row__title truncate">{title}</p>
+                  <p className="custom-data-row__meta truncate">{meta}</p>
+                </div>
+                <div className="custom-data-row__actions">
+                  {!range.is_deleted ? (
+                    <button
+                      type="button"
+                      onClick={() => editRange(range)}
+                      className="app-modal-btn app-modal-btn--secondary app-modal-btn--sm app-modal-btn--icon"
+                      aria-label={l.editRange}
+                      title={l.editRange}
+                    >
+                      <Edit3 size={15} />
+                    </button>
+                  ) : null}
+
+                  {range.is_deleted ? (
+                    <button
+                      type="button"
+                      onClick={() => restoreRange(range)}
+                      className="app-modal-btn app-modal-btn--primary app-modal-btn--sm app-modal-btn--icon"
+                      aria-label={l.restore}
+                      title={l.restore}
+                    >
+                      <RotateCcw size={15} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => softDeleteRange(range)}
+                      className="app-modal-btn app-modal-btn--danger app-modal-btn--sm app-modal-btn--icon"
+                      aria-label={l.delete}
+                      title={l.delete}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+
+  const body = (
+    <>
+      {loading ? (
+        <div className="app-modal-message app-modal-message--info">
+          {l.loading}
+        </div>
+      ) : null}
+
+      {message ? (
+        <div className="app-modal-message app-modal-message--warn">
+          {message}
+        </div>
+      ) : null}
+
+      {embedded ? (
+        <>
+          {showComposer ? composer : null}
+          {listSection}
+        </>
+      ) : (
+        <>
+          {composer}
+          {listSection}
+        </>
+      )}
+    </>
+  );
+
+  if (embedded) {
+    return <div className="custom-data-manager">{body}</div>;
+  }
+
   return (
     <AppModal
       open={open}
@@ -579,297 +902,7 @@ export default function CustomRangeManager({
       size="xl"
       closeLabel={l.cancel}
     >
-      {loading ? (
-        <div className="app-modal-message app-modal-message--info">
-          {l.loading}
-        </div>
-      ) : null}
-
-      <section className="app-modal-section mt-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="app-modal-section__title">
-              {editingRangeId ? l.editRange : l.addNew}
-            </h3>
-            <p className="app-modal-section__desc">{l.checkedFirst}</p>
-          </div>
-          <button
-            type="button"
-            onClick={resetForm}
-            className="app-modal-btn app-modal-btn--ghost app-modal-btn--sm"
-          >
-            {l.cancel}
-          </button>
-        </div>
-
-        <div className="app-modal-fields">
-          <MenuSelect
-            label={l.parameterType}
-            value={parameterType}
-            heading={l.parameterType}
-            variant="field"
-            onChange={(next) => {
-              setParameterType(next as "official" | "custom");
-              setSelectedParameterId("");
-              setUnitId("");
-            }}
-            options={[
-              ["official", l.official],
-              ["custom", l.custom],
-            ]}
-          />
-
-          <MenuSelect
-            label={l.parameter}
-            value={selectedParameterId === "" ? "" : String(selectedParameterId)}
-            heading={l.parameter}
-            variant="field"
-            placeholder={l.selectParameter}
-            onChange={(next) =>
-              selectParameter(next ? Number(next) : "")
-            }
-            options={[
-              { value: "", label: l.selectParameter },
-              ...parameterOptions.map((parameter) => ({
-                value: String(parameter.id),
-                label: parameter.name,
-              })),
-            ]}
-          />
-
-          <MenuSelect
-            label={l.cropScope}
-            value={cropScope}
-            heading={l.cropScope}
-            variant="field"
-            onChange={(next) =>
-              selectCropScope(next as "general" | "current" | "specific")
-            }
-            options={[
-              { value: "general", label: l.generalRange },
-              {
-                value: "current",
-                label: l.currentCrop,
-                disabled: !currentCropId,
-              },
-              { value: "specific", label: l.specificCrop },
-            ]}
-          />
-
-          {cropScope === "specific" ? (
-            <MenuSelect
-              label={l.crop}
-              value={selectedCropId === "" ? "" : String(selectedCropId)}
-              heading={l.crop}
-              variant="field"
-              placeholder={l.selectCrop}
-              onChange={(next) =>
-                setSelectedCropId(next ? Number(next) : "")
-              }
-              options={[
-                { value: "", label: l.selectCrop },
-                ...crops.map((crop) => ({
-                  value: String(crop.crop_id),
-                  label: crop.crop_name,
-                })),
-              ]}
-            />
-          ) : null}
-
-          <MenuSelect
-            label={l.unit}
-            value={unitId === "" ? "" : String(unitId)}
-            heading={l.unit}
-            variant="field"
-            placeholder={l.selectUnit || "Select unit"}
-            onChange={(next) =>
-              setUnitId(next ? Number(next) : "")
-            }
-            options={[
-              { value: "", label: l.selectUnit || "Select unit" },
-              ...units.map((unit) => ({
-                value: String(unit.unit_id),
-                label: unit.unit_symbol,
-              })),
-            ]}
-          />
-
-          <label className="app-modal-field">
-            <span className="app-modal-label">{l.min}</span>
-            <input
-              type="number"
-              step="any"
-              className="calc-field-input"
-              value={minValue}
-              onChange={(event) => setMinValue(event.target.value)}
-            />
-          </label>
-
-          <label className="app-modal-field">
-            <span className="app-modal-label">{l.max}</span>
-            <input
-              type="number"
-              step="any"
-              className="calc-field-input"
-              value={maxValue}
-              onChange={(event) => setMaxValue(event.target.value)}
-            />
-          </label>
-
-          <label className="app-modal-field app-modal-field--wide">
-            <span className="app-modal-label">{l.note}</span>
-            <textarea
-              className="calc-field-input min-h-24"
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              placeholder="Example: This range is based on my local reference."
-            />
-          </label>
-
-          <label className="app-modal-field app-modal-field--wide">
-            <span className="app-modal-label">{l.source}</span>
-            <input
-              className="calc-field-input"
-              value={sourceName}
-              onChange={(event) => setSourceName(event.target.value)}
-            />
-          </label>
-        </div>
-
-        <button
-          type="button"
-          onClick={saveRange}
-          disabled={saving}
-          className="app-modal-btn app-modal-btn--primary mt-4 w-full sm:w-auto"
-        >
-          <PlusCircle size={18} />
-          {saving ? l.saving : editingRangeId ? l.update : l.save}
-        </button>
-      </section>
-
-      {message ? (
-        <div className="app-modal-message app-modal-message--warn mt-3">
-          {message}
-        </div>
-      ) : null}
-
-      <section className="app-modal-section mt-3">
-        <div className="app-modal-toolbar">
-          <p className="app-modal-toolbar__meta">
-            {visibleRanges.length} range(s)
-          </p>
-          <div className="app-modal-toolbar__actions">
-            <label className="app-modal-chip-toggle">
-              <input
-                type="checkbox"
-                checked={showDeleted}
-                onChange={(event) => setShowDeleted(event.target.checked)}
-              />
-              {l.showDeleted}
-            </label>
-            <button
-              type="button"
-              onClick={loadInitialData}
-              className="app-modal-btn app-modal-btn--ghost app-modal-btn--sm"
-            >
-              <RefreshCw size={16} />
-              {l.refresh}
-            </button>
-          </div>
-        </div>
-
-        {visibleRanges.length === 0 ? (
-          <div className="app-modal-message app-modal-message--warn">
-            {l.noRanges}
-          </div>
-        ) : (
-          <div className="app-modal-list">
-            {visibleRanges.map((range) => {
-              const symbol = getRangeSymbol(range);
-              const unit = getRangeUnit(range);
-
-              return (
-                <article
-                  key={range.custom_range_id}
-                  className={`app-modal-list-item${
-                    range.is_deleted ? " app-modal-list-item--deleted" : ""
-                  }`}
-                >
-                  <div className="app-modal-list-item__head">
-                    <h4 className="app-modal-list-item__title">
-                      {getRangeName(range)}
-                      {symbol ? ` (${symbol})` : ""}
-                    </h4>
-                    <span className="app-modal-badge app-modal-badge--muted">
-                      {range.custom_parameter_id ? l.custom : l.official}
-                    </span>
-                    <span
-                      className={`app-modal-badge ${
-                        range.is_deleted
-                          ? "app-modal-badge--deleted"
-                          : "app-modal-badge--active"
-                      }`}
-                    >
-                      {range.is_deleted ? l.deletedStatus : l.active}
-                    </span>
-                  </div>
-
-                  <div className="app-modal-list-item__meta">
-                    <p>
-                      {getRangeCropName(range)} · {range.sample_type}
-                    </p>
-                    <p>
-                      {range.min_value ?? "—"} - {range.max_value ?? "—"} {unit}
-                    </p>
-                  </div>
-
-                  {range.interpretation_note ? (
-                    <p className="mt-2 rounded-xl bg-[var(--glass-surface-muted)] p-3 text-sm text-[var(--foreground)]">
-                      {range.interpretation_note}
-                    </p>
-                  ) : null}
-
-                  <p className="mt-2 text-xs text-[#6c6c70]">
-                    {range.source_name || "User custom range"}
-                  </p>
-
-                  <div className="app-modal-list-item__actions">
-                    {!range.is_deleted ? (
-                      <button
-                        type="button"
-                        onClick={() => editRange(range)}
-                        className="app-modal-btn app-modal-btn--secondary app-modal-btn--sm"
-                      >
-                        <Edit3 size={15} />
-                        {l.editRange}
-                      </button>
-                    ) : null}
-
-                    {range.is_deleted ? (
-                      <button
-                        type="button"
-                        onClick={() => restoreRange(range)}
-                        className="app-modal-btn app-modal-btn--primary app-modal-btn--sm"
-                      >
-                        {l.restore}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => softDeleteRange(range)}
-                        className="app-modal-btn app-modal-btn--danger app-modal-btn--sm"
-                      >
-                        <Trash2 size={15} />
-                        {l.delete}
-                      </button>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
+      {body}
     </AppModal>
   );
 }

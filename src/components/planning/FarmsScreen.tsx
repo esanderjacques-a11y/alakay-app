@@ -41,7 +41,7 @@ import {
 import { loadPlanningState } from "@/lib/planningStore";
 import { detectLocation } from "@/lib/geolocation";
 import {
-  COMMERCIAL_FERTILIZERS,
+  listAllFertilizers,
   matchCatalogProductKey,
 } from "@/lib/fertilizerCatalog";
 import MenuSelect from "@/components/ui/MenuSelect";
@@ -351,7 +351,7 @@ export default function FarmsScreen({
 
   if (!userId) {
     return (
-      <section className="animate-slide-up space-y-4 px-3 pb-8 pt-2 sm:px-4">
+      <section className="animate-slide-up space-y-4 px-0 pb-8 pt-2">
         <Header title={p.farmsTitle} desc={p.farmsDesc} onBack={onBack} back={p.back} />
         <div className="calc-surface p-4 text-sm text-slate-600 dark:text-slate-300">
           {p.farmsSignInRequired}
@@ -362,7 +362,7 @@ export default function FarmsScreen({
 
   if (view === "bodega" && selected) {
     return (
-      <section className="animate-slide-up space-y-4 px-3 pb-8 pt-2 sm:px-4">
+      <section className="animate-slide-up space-y-4 px-0 pb-8 pt-2">
         <div className="flex items-start justify-between gap-2">
           <div>
             <button
@@ -399,15 +399,16 @@ export default function FarmsScreen({
                     return;
                   }
                   setProductKey(value);
-                  const match = COMMERCIAL_FERTILIZERS.find((f) => f.key === value);
+                  const match = listAllFertilizers().find((f) => f.key === value);
                   if (match) setProductName(match.label);
                 }}
                 options={[
                   ["__custom__", p.bodegaCustomProduct],
-                  ...COMMERCIAL_FERTILIZERS.map(
+                  ...listAllFertilizers().map(
                     (item) => [item.key, item.label] as [string, string]
                   ),
                 ]}
+                searchable
               />
             </label>
             <label className="calc-field-label grid gap-1 sm:col-span-2">
@@ -485,7 +486,7 @@ export default function FarmsScreen({
 
   if (view === "detail" && selected) {
     return (
-      <section className="animate-slide-up space-y-3 px-3 pb-8 pt-2 sm:px-4">
+      <section className="animate-slide-up space-y-3 px-0 pb-8 pt-2">
         <div className="flex items-start justify-between gap-2">
           <div>
             <button
@@ -784,7 +785,7 @@ export default function FarmsScreen({
   }
 
   return (
-    <section className="animate-slide-up space-y-4 px-3 pb-8 pt-2 sm:px-4">
+    <section className="animate-slide-up space-y-4 px-0 pb-8 pt-2">
       <Header title={p.farmsTitle} desc={p.farmsDesc} onBack={onBack} back={p.back} />
 
       {error ? <div className="plan-callout">{error}</div> : null}

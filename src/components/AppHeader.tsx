@@ -21,6 +21,7 @@ import {
   NotebookPen,
   RotateCcw,
   Settings,
+  Database,
   Sun,
   User,
   UserPlus,
@@ -55,6 +56,7 @@ type Props = {
   settingsActive?: boolean;
   onOpenBilling: () => void;
   onOpenRecycleBin: () => void;
+  onOpenCustomData: () => void;
   onOpenAbout: () => void;
   onOpenFarms: () => void;
   onOpenCalendar: () => void;
@@ -97,6 +99,7 @@ export default function AppHeader({
   settingsActive = false,
   onOpenBilling,
   onOpenRecycleBin,
+  onOpenCustomData,
   onOpenAbout,
   onOpenFarms,
   onOpenCalendar,
@@ -571,6 +574,15 @@ export default function AppHeader({
                   <p className="mobile-menu-panel__section-label">
                     {t.dataTools}
                   </p>
+                  <MenuRow
+                    icon={<Database size={17} />}
+                    title={t.customData}
+                    rightIcon={<ChevronRight size={15} />}
+                    onClick={() => {
+                      closeMobileMenu();
+                      onOpenCustomData();
+                    }}
+                  />
                   <MenuRow
                     icon={<RotateCcw size={17} />}
                     title={t.recycleBin}

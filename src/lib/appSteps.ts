@@ -8,6 +8,7 @@ export type AppStep =
   | "history"
   | "about"
   | "recycle"
+  | "custom-data"
   | "settings"
   | "billing"
   | "billing-admin"

@@ -37,6 +37,7 @@ import ValuesDisplayMenu from "@/components/ValuesDisplayMenu";
 import ParameterUnitPicker from "@/components/ParameterUnitPicker";
 import ResultsDashboard from "@/components/ResultsDashboard";
 import RecycleBinScreen from "@/components/RecycleBinScreen";
+import CustomDataPortalScreen from "@/components/CustomDataPortalScreen";
 import CalculatorHub from "@/components/CalculatorHub";
 import type { FertilizerPlanSnapshot } from "@/components/CalculatorHub";
 import AppSettingsScreen, {
@@ -3360,6 +3361,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       setCurrentStep("billing");
     },
     onOpenRecycleBin: () => setCurrentStep("recycle"),
+    onOpenCustomData: () => setCurrentStep("custom-data"),
     onOpenAbout: () => setCurrentStep("about"),
     onOpenFarms: () => setCurrentStep("farms"),
     onOpenCalendar: () => setCurrentStep("calendar"),
@@ -3909,6 +3911,18 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               loadParameters();
             }}
           />
+        ) : currentStep === "custom-data" ? (
+          <CustomDataPortalScreen
+            t={t}
+            language={language}
+            session={session}
+            sampleType={sampleType}
+            currentCropId={cropId}
+            onBack={() => setCurrentStep("home")}
+            onChanged={() => {
+              loadParameters();
+            }}
+          />
         ) : null}
       </section>
 
@@ -3919,6 +3933,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       currentStep !== "lab-scan" &&
       currentStep !== "lab-import" &&
       currentStep !== "recycle" &&
+      currentStep !== "custom-data" &&
       currentStep !== "about" &&
       currentStep !== "import" &&
       currentStep !== "calendar" &&
@@ -4162,7 +4177,7 @@ function SetupScreen({
         </button>
       </div>
 
-      <div className="calc-surface calc-page px-4 py-1">
+      <div className="calc-surface calc-page">
         <FarmLotSelector
           userId={userId}
           farmName={farmName}
@@ -4260,7 +4275,7 @@ function SetupScreen({
         )}
       </div>
 
-      <div className="calc-surface calc-page px-4 py-1">
+      <div className="calc-surface calc-page">
         <button
           type="button"
           onClick={() => setAdditionalInfoOpen((previous) => !previous)}
@@ -4295,7 +4310,7 @@ function SetupScreen({
       </div>
 
       <div className="app-fixed-action-bar fixed inset-x-0 z-[11000]">
-        <div className="app-content-shell px-4 py-3">
+        <div className="app-content-shell app-page-pad-x py-3">
           <button
             type="button"
             onClick={goToValues}
@@ -4580,7 +4595,7 @@ function ValuesScreen({
       </div>
 
       {analysisMetaBits.length > 0 ? (
-        <p className="values-analysis-meta mx-3 mb-2 sm:mx-4">
+        <p className="values-analysis-meta mb-2">
           {analysisMetaBits.join(" · ")}
         </p>
       ) : null}
@@ -6097,7 +6112,7 @@ function ResultsSection({
 
       {/* Fixed bottom save bar */}
       <div className="app-fixed-action-bar fixed inset-x-0 z-[12000]">
-        <div className="app-content-shell px-4 py-3">
+        <div className="app-content-shell app-page-pad-x py-3">
           <button
             type="button"
             onClick={() => void saveAnalysis()}

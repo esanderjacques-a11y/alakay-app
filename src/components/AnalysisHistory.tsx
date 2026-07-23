@@ -293,9 +293,6 @@ export default function AnalysisHistory({
   const [selectedValues, setSelectedValues] = useState<AnalysisValue[]>([]);
   const [versionRootId, setVersionRootId] = useState<number | null>(null);
 
-  const [historyFilter, setHistoryFilter] = useState<"active" | "deleted">(
-    "active"
-  );
   const [sortKey, setSortKey] = useState<HistorySortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [loading, setLoading] = useState(false);
@@ -332,11 +329,6 @@ export default function AnalysisHistory({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusAnalysisId, analyses]);
-
-  useEffect(() => {
-    setSelectedIds(new Set());
-    setSelectMode(false);
-  }, [historyFilter]);
 
   async function loadAnalyses() {
     if (!session?.user) return;
@@ -578,7 +570,6 @@ export default function AnalysisHistory({
       setSelectedValues([]);
     }
     setMessage(l.deletedMessage);
-    setHistoryFilter("deleted");
     await loadAnalyses();
   }
 
@@ -630,70 +621,24 @@ export default function AnalysisHistory({
   async function handleBulkDelete() {
     if (!session?.user || selectedIds.size === 0) return;
     const ids = [...selectedIds];
-    const permanent = historyFilter === "deleted";
     const confirmed = window.confirm(
-      (permanent ? l.confirmBulkPermanentDelete : l.confirmBulkDelete).replace(
-        "{count}",
-        String(ids.length)
-      )
+      l.confirmBulkDelete.replace("{count}", String(ids.length))
     );
     if (!confirmed) return;
 
     setBulkBusy(true);
     setMessage("");
     try {
-      if (permanent) {
-        for (const analysisId of ids) {
-          await deleteAnalysisPermanently(analysisId, session.user.id);
-        }
-        if (
-          selectedAnalysis &&
-          ids.includes(selectedAnalysis.analysis_id)
-        ) {
-          setSelectedAnalysis(null);
-          setSelectedValues([]);
-        }
-        setMessage(
-          l.bulkPermanentlyDeleted.replace("{count}", String(ids.length))
-        );
-      } else {
-        const { error } = await supabase
-          .from("analyses")
-          .update({
-            is_deleted: true,
-            deleted_at: new Date().toISOString(),
-          })
-          .in("analysis_id", ids)
-          .eq("user_id", session.user.id);
-        if (error) throw new Error(error.message);
-        setMessage(l.bulkDeletedMessage.replace("{count}", String(ids.length)));
-        setHistoryFilter("deleted");
-      }
-      clearSelection();
-      await loadAnalyses();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : l.couldNotLoad);
-    } finally {
-      setBulkBusy(false);
-    }
-  }
-
-  async function handleBulkRestore() {
-    if (!session?.user || selectedIds.size === 0) return;
-    const ids = [...selectedIds];
-    setBulkBusy(true);
-    setMessage("");
-    try {
       const { error } = await supabase
         .from("analyses")
         .update({
-          is_deleted: false,
-          deleted_at: null,
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
         })
         .in("analysis_id", ids)
         .eq("user_id", session.user.id);
       if (error) throw new Error(error.message);
-      setMessage(l.bulkRestored.replace("{count}", String(ids.length)));
+      setMessage(l.bulkDeletedMessage.replace("{count}", String(ids.length)));
       clearSelection();
       await loadAnalyses();
     } catch (error) {
@@ -845,10 +790,7 @@ export default function AnalysisHistory({
   }, [analyses]);
 
   const visibleGroups = useMemo(() => {
-    const groups =
-      historyFilter === "deleted"
-        ? rootGroups.filter((group) => group.latest.is_deleted)
-        : rootGroups.filter((group) => !group.latest.is_deleted);
+    const groups = rootGroups.filter((group) => !group.latest.is_deleted);
 
     return [...groups].sort((left, right) => {
       const leftValue = getHistorySortValue(left.latest, sortKey);
@@ -860,14 +802,7 @@ export default function AnalysisHistory({
 
       return sortDirection === "asc" ? compare : -compare;
     });
-  }, [rootGroups, historyFilter, sortDirection, sortKey]);
-
-  const activeCount = rootGroups.filter(
-    (group) => !group.latest.is_deleted
-  ).length;
-  const deletedCount = rootGroups.filter(
-    (group) => group.latest.is_deleted
-  ).length;
+  }, [rootGroups, sortDirection, sortKey]);
 
   const openGroup = selectedAnalysis
     ? rootGroups.find(
@@ -961,28 +896,7 @@ export default function AnalysisHistory({
 
   return (
     <section className="history-screen flex flex-col gap-2">
-      <div className="history-toolbar">
-        <div className="history-seg">
-          <button
-            type="button"
-            className={`history-seg__btn${
-              historyFilter === "active" ? " history-seg__btn--active" : ""
-            }`}
-            onClick={() => setHistoryFilter("active")}
-          >
-            {l.active} {activeCount}
-          </button>
-          <button
-            type="button"
-            className={`history-seg__btn${
-              historyFilter === "deleted" ? " history-seg__btn--active" : ""
-            }`}
-            onClick={() => setHistoryFilter("deleted")}
-          >
-            {l.deleted} {deletedCount}
-          </button>
-        </div>
-
+      <div className="history-toolbar history-toolbar--actions-only">
         <div className="flex shrink-0 items-center gap-1">
           <MenuSelect
             value={sortKey}
@@ -1063,17 +977,6 @@ export default function AnalysisHistory({
             </span>
           </div>
           <div className="history-bulk-actions">
-            {historyFilter === "deleted" ? (
-              <button
-                type="button"
-                className="history-bulk-btn history-bulk-btn-restore"
-                onClick={() => void handleBulkRestore()}
-                disabled={bulkBusy || selectedIds.size === 0}
-              >
-                <RotateCcw size={15} />
-                {l.restoreSelected}
-              </button>
-            ) : null}
             <button
               type="button"
               className="history-bulk-btn history-bulk-btn-delete"
@@ -1553,7 +1456,7 @@ function ReportPreviewModal({
   return (
     <section className="animate-slide-up">
       <div className="history-preview values-screen-panel flex max-h-[calc(100dvh-7.5rem)] w-full flex-col rounded-2xl">
-        <header className="values-screen-panel__header history-preview__header shrink-0 px-3 py-2.5 sm:px-4">
+        <header className="values-screen-panel__header history-preview__header shrink-0 py-2.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <BackButton onClick={onClose} label={l.back} className="mb-1.5" />
@@ -1661,7 +1564,7 @@ function ReportPreviewModal({
           </div>
         </header>
 
-        <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4">
+        <div ref={contentRef} className="history-preview__body min-h-0 flex-1 overflow-y-auto py-3">
           {loading ? (
             <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
               {l.loading}

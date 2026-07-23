@@ -286,8 +286,8 @@ export function getDefaultExtractionMethod(input: {
   isGeneralCrop: boolean;
   sampleType: "soil" | "foliar";
 }): ExtractionMethod {
-  // Prefer method-specific ranges by default for foliar and for General soil.
-  if (input.sampleType === "foliar") return "mehlich";
+  // Foliar has no soil extractant; interpretation uses crop sufficiency ranges.
+  if (input.sampleType === "foliar") return "general";
   if (input.isGeneralCrop) return "olsen";
   return "general";
 }

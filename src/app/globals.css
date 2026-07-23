@@ -12659,6 +12659,10 @@ html[data-theme="dark"] .app-header {
     margin-bottom: 0.5rem;
   }
 
+  .chart-expand-shell__toolbar--actions-only {
+    justify-content: flex-end;
+  }
+
   .chart-expand-shell__title {
     font-size: 0.875rem;
     font-weight: 700;
@@ -12677,9 +12681,563 @@ html[data-theme="dark"] .app-header {
     color: #3c3c43;
   }
 
+  .chart-expand-shell--overlay .chart-expand-shell__body {
+    position: relative;
+  }
+
+  .chart-expand-shell__btn--overlay {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    z-index: 4;
+    background: rgb(255 255 255 / 0.88);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+  }
+
+  html[data-theme="dark"] .chart-expand-shell__btn--overlay {
+    background: rgb(20 20 20 / 0.72);
+    border-color: rgb(255 255 255 / 0.12);
+    color: rgb(226 232 240 / 0.9);
+  }
+
+  /* Phones: hide expand — use landscape instead of a cramped overlay */
+  @media (max-width: 700px) {
+    .uptake-chart-shell .chart-expand-shell__btn--overlay {
+      display: none;
+    }
+  }
+
+  .uptake-chart-shell {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .uptake-chart-rotate {
+    display: none;
+    margin: 0;
+    padding: 0.55rem 0.7rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(15 23 42 / 0.08);
+    background: rgb(255 255 255 / 0.55);
+    font-size: var(--calc-text-micro, 0.75rem);
+    font-weight: 600;
+    line-height: 1.35;
+    color: #475569;
+  }
+
+  @media (max-width: 700px) and (orientation: portrait) {
+    .uptake-chart-rotate {
+      display: block;
+    }
+  }
+
+  @media (max-width: 900px) and (orientation: landscape) {
+    .uptake-chart-svg {
+      max-height: min(58vh, 22rem);
+      width: auto;
+      max-width: 100%;
+      margin-inline: auto;
+    }
+  }
+
+  .chart-fullscreen__rotate-hint {
+    display: none;
+    margin: 0;
+    padding: 0.45rem 1rem 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  @media (max-width: 900px) and (orientation: portrait) {
+    .chart-fullscreen__rotate-hint {
+      display: block;
+    }
+  }
+
   .chart-panel--compact {
     width: 100%;
     max-width: 100%;
+  }
+
+  .uptake-chart-panel {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 1rem;
+    background: rgb(255 255 255 / 0.42);
+    padding: 0.65rem 0.55rem 0.4rem;
+  }
+
+  html[data-theme="dark"] .uptake-chart-panel {
+    background: rgb(255 255 255 / 0.04);
+  }
+
+  .uptake-chart-svg {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    color: #334155;
+    aspect-ratio: 560 / 400;
+  }
+
+  @media (min-width: 768px) {
+    .uptake-chart-svg {
+      max-width: 40rem;
+      margin-inline: auto;
+    }
+  }
+
+  .uptake-guide {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .uptake-guide__intro {
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .uptake-guide__eyebrow {
+    margin: 0;
+    font-size: var(--calc-text-label, 0.8125rem);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #64748b;
+  }
+
+  .uptake-guide__title {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: #14532d;
+  }
+
+  .uptake-guide__desc {
+    margin: 0;
+    max-width: 40rem;
+    font-size: var(--calc-text-body, 0.875rem);
+    font-weight: 500;
+    line-height: 1.45;
+    color: #64748b;
+  }
+
+  .uptake-guide__section {
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .uptake-guide__section-title {
+    margin: 0;
+    font-size: var(--calc-text-title, 0.9375rem);
+    font-weight: 700;
+    color: #1c1c1e;
+  }
+
+  .uptake-guide__stages {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0;
+    border-top: 1px solid rgb(15 23 42 / 0.08);
+  }
+
+  .uptake-guide__stage {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.55rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgb(15 23 42 / 0.08);
+  }
+
+  .uptake-guide__stage-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    margin-top: 0.35rem;
+    border-radius: 999px;
+    box-shadow: 0 0 0 3px rgb(255 255 255 / 0.65);
+  }
+
+  .uptake-guide__stage-body {
+    min-width: 0;
+    display: grid;
+    gap: 0.1rem;
+  }
+
+  .uptake-guide__stage-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.1rem 0.65rem;
+  }
+
+  .uptake-guide__stage-name {
+    min-width: 0;
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #14532d;
+  }
+
+  .uptake-guide__stage-meta {
+    flex-shrink: 0;
+    font-size: var(--calc-text-chip, 0.6875rem);
+    font-weight: 600;
+    line-height: 1.3;
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .uptake-guide__stage-note {
+    margin: 0;
+    font-size: var(--calc-text-micro, 0.75rem);
+    font-weight: 500;
+    line-height: 1.3;
+    color: #475569;
+  }
+
+  .uptake-guide__stage-focus {
+    font-size: var(--calc-text-micro, 0.75rem);
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .uptake-guide__nutrients {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0;
+    border-top: 1px solid rgb(15 23 42 / 0.08);
+  }
+
+  .uptake-guide__nutrient {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid rgb(15 23 42 / 0.08);
+  }
+
+  .uptake-guide__nutrient-symbol {
+    font-size: 0.95rem;
+    font-weight: 800;
+    line-height: 1.3;
+    color: #166534;
+  }
+
+  .uptake-guide__nutrient-body {
+    min-width: 0;
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  .uptake-guide__nutrient-timing {
+    margin: 0;
+    font-size: var(--calc-text-micro, 0.75rem);
+    font-weight: 700;
+    color: #475569;
+  }
+
+  .uptake-guide__nutrient-note {
+    margin: 0;
+    font-size: var(--calc-text-body, 0.875rem);
+    font-weight: 500;
+    line-height: 1.4;
+    color: #64748b;
+  }
+
+  .uptake-guide__footnote {
+    margin: 0;
+    padding: 0.15rem 0 0.25rem;
+    font-size: var(--calc-text-micro, 0.75rem);
+    font-weight: 500;
+    line-height: 1.45;
+    color: #64748b;
+  }
+
+  html[data-theme="dark"] .uptake-guide__eyebrow,
+  html[data-theme="dark"] .uptake-guide__desc,
+  html[data-theme="dark"] .uptake-guide__stage-meta,
+  html[data-theme="dark"] .uptake-guide__stage-focus,
+  html[data-theme="dark"] .uptake-guide__nutrient-note,
+  html[data-theme="dark"] .uptake-guide__footnote {
+    color: rgb(226 232 240 / 0.68);
+  }
+
+  html[data-theme="dark"] .uptake-guide__title,
+  html[data-theme="dark"] .uptake-guide__stage-name,
+  html[data-theme="dark"] .uptake-guide__nutrient-symbol {
+    color: var(--accent-200, #bbf7d0);
+  }
+
+  html[data-theme="dark"] .uptake-guide__section-title {
+    color: rgb(248 250 252 / 0.92);
+  }
+
+  html[data-theme="dark"] .uptake-guide__stage-note,
+  html[data-theme="dark"] .uptake-guide__nutrient-timing {
+    color: rgb(226 232 240 / 0.78);
+  }
+
+  html[data-theme="dark"] .uptake-guide__stages,
+  html[data-theme="dark"] .uptake-guide__stage,
+  html[data-theme="dark"] .uptake-guide__nutrients,
+  html[data-theme="dark"] .uptake-guide__nutrient {
+    border-color: rgb(255 255 255 / 0.1);
+  }
+
+  html[data-theme="dark"] .uptake-chart-svg {
+    color: rgb(226 232 240 / 0.82);
+  }
+
+  .chart-fullscreen--uptake .chart-fullscreen__body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .chart-fullscreen--uptake .uptake-chart-panel {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    width: 100%;
+    max-width: 56rem;
+    margin-inline: auto;
+  }
+
+  .chart-fullscreen--uptake .uptake-chart-svg {
+    width: min(100%, 48rem);
+    max-width: none;
+    height: auto;
+    max-height: 72vh;
+    aspect-ratio: 560 / 400;
+  }
+
+  /* DOP deviation — horizontal diverging bars (readable on narrow screens) */
+  .dop-chart {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .dop-chart__board {
+    min-width: 0;
+    padding: 0.65rem 0.7rem 0.75rem;
+  }
+
+  .dop-chart__h-scale {
+    display: grid;
+    grid-template-columns: 2.1rem minmax(0, 1fr) auto minmax(0, 1fr) 3.25rem;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.35rem;
+    font-size: var(--calc-text-chip, 0.6875rem);
+    font-weight: 700;
+    line-height: 1;
+    color: #64748b;
+    user-select: none;
+  }
+
+  .dop-chart__h-scale > span:nth-child(2) {
+    text-align: left;
+  }
+
+  .dop-chart__h-scale > span:nth-child(3) {
+    text-align: center;
+  }
+
+  .dop-chart__h-scale > span:nth-child(4) {
+    text-align: right;
+  }
+
+  .dop-chart__rows {
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .dop-chart__row {
+    display: grid;
+    grid-template-columns: 2.1rem minmax(0, 1fr) 3.25rem;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .dop-chart__row-label {
+    overflow: hidden;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #14532d;
+  }
+
+  .dop-chart__row-track {
+    position: relative;
+    height: 1.15rem;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 0.4rem;
+    background: rgb(255 255 255 / 0.55);
+  }
+
+  .dop-chart__row-grid {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(25% - 0.5px),
+      rgb(148 163 184 / 0.16) calc(25% - 0.5px),
+      rgb(148 163 184 / 0.16) calc(25% + 0.5px),
+      transparent calc(25% + 0.5px),
+      transparent calc(75% - 0.5px),
+      rgb(148 163 184 / 0.16) calc(75% - 0.5px),
+      rgb(148 163 184 / 0.16) calc(75% + 0.5px),
+      transparent calc(75% + 0.5px)
+    );
+  }
+
+  .dop-chart__row-zero {
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    z-index: 1;
+    width: 2px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: rgb(100 116 139 / 0.75);
+  }
+
+  .dop-chart__row-bar {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    z-index: 2;
+  }
+
+  .dop-chart__row-bar--pos {
+    left: 50%;
+    border-radius: 0 0.3rem 0.3rem 0;
+  }
+
+  .dop-chart__row-bar--neg {
+    right: 50%;
+    border-radius: 0.3rem 0 0 0.3rem;
+  }
+
+  .dop-chart__row-bar--low {
+    background: linear-gradient(90deg, #0284c7, #38bdf8);
+  }
+
+  .dop-chart__row-bar--high {
+    background: linear-gradient(90deg, #fbbf24, #d97706);
+  }
+
+  .dop-chart__row-bar--ok {
+    background: linear-gradient(90deg, #34d399, #059669);
+  }
+
+  .dop-chart__row-bar--ok.dop-chart__row-bar--neg {
+    background: linear-gradient(270deg, #34d399, #059669);
+  }
+
+  .dop-chart__row-value {
+    overflow: hidden;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.7rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .dop-chart__row-value--low {
+    color: #0369a1;
+  }
+
+  .dop-chart__row-value--high {
+    color: #b45309;
+  }
+
+  .dop-chart__row-value--ok {
+    color: #047857;
+  }
+
+  .dop-chart__legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem 1rem;
+    margin-top: 0.7rem;
+  }
+
+  .dop-chart__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: var(--calc-text-chip, 0.6875rem);
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .dop-chart__swatch {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 999px;
+  }
+
+  .dop-chart__swatch--low {
+    background: #0ea5e9;
+  }
+
+  .dop-chart__swatch--ok {
+    background: #10b981;
+  }
+
+  .dop-chart__swatch--high {
+    background: #f59e0b;
+  }
+
+  html[data-theme="dark"] .dop-chart__h-scale,
+  html[data-theme="dark"] .dop-chart__legend-item {
+    color: rgb(226 232 240 / 0.72);
+  }
+
+  html[data-theme="dark"] .dop-chart__row-label {
+    color: var(--accent-200, #bbf7d0);
+  }
+
+  html[data-theme="dark"] .dop-chart__row-track {
+    background: rgb(255 255 255 / 0.06);
+  }
+
+  html[data-theme="dark"] .dop-chart__row-zero {
+    background: rgb(226 232 240 / 0.45);
+  }
+
+  html[data-theme="dark"] .dop-chart__row-value--low {
+    color: #7dd3fc;
+  }
+
+  html[data-theme="dark"] .dop-chart__row-value--high {
+    color: #fcd34d;
+  }
+
+  html[data-theme="dark"] .dop-chart__row-value--ok {
+    color: #6ee7b7;
   }
 
   .chart-fullscreen {
@@ -12695,8 +13253,39 @@ html[data-theme="dark"] .app-header {
 
   .chart-fullscreen--landscape .chart-fullscreen__body {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .chart-fullscreen--dop .chart-fullscreen__body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .chart-fullscreen--dop .dop-chart {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    width: 100%;
+    max-width: 42rem;
+    margin-inline: auto;
+  }
+
+  .chart-fullscreen--dop .dop-chart__board {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .chart-fullscreen--dop .dop-chart__rows {
+    gap: 0.55rem;
+  }
+
+  .chart-fullscreen--dop .dop-chart__row-track {
+    height: 1.35rem;
   }
 
   .chart-fullscreen__bar {
@@ -12717,6 +13306,7 @@ html[data-theme="dark"] .app-header {
     flex: 1;
     overflow: auto;
     padding: 0.75rem;
+    min-height: 0;
   }
 
   .settings-save-toolbar {

@@ -77,13 +77,14 @@ function syncDockViewportLift() {
   }
   // How far the visual viewport has shrunk/shifted — browsers that pin
   // `position: fixed` to the visual viewport lift the dock by this amount.
+  // Always cancel the offset (even small focus/URL-bar shifts); a stale
+  // residual is what left the dock stuck slightly high after search focus.
   const raw = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-  // Ignore small URL-bar chrome changes; only cancel real keyboard lift.
-  const lift =
-    document.documentElement.dataset.keyboardOpen === "true" || raw > 120
-      ? raw
-      : 0;
-  document.documentElement.style.setProperty("--dock-vv-lift", `${lift}px`);
+  document.documentElement.style.setProperty("--dock-vv-lift", `${raw}px`);
+}
+
+function likelySoftKeyboardDevice() {
+  return window.matchMedia("(pointer: coarse), (max-width: 768px)").matches;
 }
 
 export default function AppDock({
@@ -120,6 +121,15 @@ export default function AppDock({
     keyboardOpenRef.current = keyboardOpen;
   }, [keyboardOpen]);
 
+  // Leaving a screen should never keep a focus/keyboard dock offset around.
+  useEffect(() => {
+    setHtmlKeyboardOpen(false);
+    keyboardOpenRef.current = false;
+    setKeyboardOpen(false);
+    setScrollHidden(false);
+    syncDockViewportLift();
+  }, [currentStep]);
+
   useEffect(() => {
     // Chromium: keep layout stable; keyboard overlays instead of resizing.
     const vk = (navigator as NavigatorWithVirtualKeyboard).virtualKeyboard;
@@ -134,11 +144,26 @@ export default function AppDock({
       syncDockViewportLift();
     }
 
+    function settleDockAfterKeyboard() {
+      syncDockViewportLift();
+      window.setTimeout(() => {
+        syncDockViewportLift();
+        if (!isTextEditable(document.activeElement) && window.scrollY < 80) {
+          setScrollHidden(false);
+        }
+      }, 280);
+    }
+
     function onFocusIn(event: FocusEvent) {
       if (!isTextEditable(event.target)) return;
       if (blurTimer.current != null) {
         window.clearTimeout(blurTimer.current);
         blurTimer.current = null;
+      }
+      // Desktop mouse/keyboard focus must not hide or shift the dock.
+      if (!likelySoftKeyboardDevice()) {
+        syncDockViewportLift();
+        return;
       }
       setKeyboard(true);
     }
@@ -150,7 +175,8 @@ export default function AppDock({
         blurTimer.current = null;
         if (isTextEditable(document.activeElement)) return;
         setKeyboard(false);
-        if (window.scrollY < 60) setScrollHidden(false);
+        if (window.scrollY < 80) setScrollHidden(false);
+        settleDockAfterKeyboard();
       }, 160);
     }
 
@@ -167,12 +193,21 @@ export default function AppDock({
       }
       const shrinkage = baselineViewportHeight.current - vv.height;
       const likelyKeyboard = shrinkage > 120;
-      if (likelyKeyboard || isTextEditable(document.activeElement)) {
+      if (likelyKeyboard) {
         setKeyboard(true);
         return;
       }
-      setKeyboard(false);
-      if (window.scrollY < 60) setScrollHidden(false);
+      // Do not keep the dock hidden just because an input is focused on desktop,
+      // or after the soft keyboard has fully closed with residual focus.
+      if (!isTextEditable(document.activeElement) || !likelySoftKeyboardDevice()) {
+        if (keyboardOpenRef.current) {
+          setKeyboard(false);
+          settleDockAfterKeyboard();
+        } else {
+          syncDockViewportLift();
+        }
+        if (window.scrollY < 80) setScrollHidden(false);
+      }
     }
 
     baselineViewportHeight.current = Math.max(

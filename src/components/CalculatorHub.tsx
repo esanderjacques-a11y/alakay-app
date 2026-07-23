@@ -1501,31 +1501,40 @@ function DopCalculator({
     () => dopRows.map((row) => row.output),
     [dopRows]
   );
+  const needsFallbackOptimum = dopRows.some((row) => row.usedFallback);
 
   useEmitCalculatorOutputs(onOutputsChange, outputs);
 
   return (
     <CalculatorPage>
-      <div className="calc-page__params calc-surface p-4">
-        <CalculatorFormFields>
-          <NumberField
-            label={`${t.optimum} (${t.current})`}
-            value={fallbackOptimum}
-            onChange={setFallbackOptimum}
-          />
-        </CalculatorFormFields>
-        <p className="mt-3 text-xs leading-relaxed text-[#6c6c70]">{t.dopOptimumHelp}</p>
-      </div>
+      {needsFallbackOptimum ? (
+        <div className="calc-page__params calc-surface p-4">
+          <CalculatorFormFields>
+            <NumberField
+              label={`${t.optimum} (${t.current})`}
+              value={fallbackOptimum}
+              onChange={setFallbackOptimum}
+            />
+          </CalculatorFormFields>
+          <p className="mt-3 text-xs leading-relaxed text-[#6c6c70]">{t.dopOptimumHelp}</p>
+        </div>
+      ) : null}
       <ChartExpandShell
         title={t.graphDop}
         closeLabel="Close"
         expandLabel="Expand chart"
-        fullscreenClassName="chart-fullscreen--landscape"
+        fullscreenClassName="chart-fullscreen--dop"
       >
         <DopVerticalChart t={t} rows={dopRows} compact />
       </ChartExpandShell>
     </CalculatorPage>
   );
+}
+
+function formatDopPercent(dop: number) {
+  const abs = Math.abs(dop);
+  if (abs >= 100) return `${dop.toFixed(0)}%`;
+  return `${dop.toFixed(1)}%`;
 }
 
 function DopVerticalChart({
@@ -1540,100 +1549,92 @@ function DopVerticalChart({
     dop: number;
     optimum: number;
     value: number;
-    nutrientGroup: "macro" | "micro" | "other";
   }>;
   compact?: boolean;
 }) {
-  const clampedRows = rows.map((row) => ({
-    ...row,
-    clampedDop: Math.max(-180, Math.min(180, row.dop)),
-  }));
-  const maxAbs = Math.max(20, ...clampedRows.map((row) => Math.abs(row.clampedDop)));
+  const maxAbs = Math.max(
+    20,
+    ...rows.map((row) => Math.abs(Math.max(-180, Math.min(180, row.dop))))
+  );
   const scaleMax = Math.min(180, Math.max(40, Math.ceil(maxAbs / 20) * 20));
   const chartRows = rows.map((row) => {
     const clamped = Math.max(-180, Math.min(180, row.dop));
-    const height = `${Math.max(8, (Math.abs(clamped) / scaleMax) * 50)}%`;
+    const widthPct = Math.max(2, (Math.abs(clamped) / scaleMax) * 50);
+    const nearOptimum = Math.abs(clamped) < scaleMax * 0.08;
     return {
       ...row,
       isNegative: clamped < 0,
-      height,
-    };
+      nearOptimum,
+      widthPct,
+      status: nearOptimum ? "ok" : clamped < 0 ? "low" : "high",
+    } as const;
   });
 
   return (
-      <div className={`calc-surface p-3 sm:p-4 ${compact ? "chart-panel--compact" : ""}`}>
+    <div
+      className={`dop-chart ${
+        compact ? "dop-chart--compact chart-panel--compact" : "calc-surface p-3 sm:p-4"
+      }`}
+    >
       {!compact ? (
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-sm font-bold text-[#1c1c1e] dark-text-primary">{t.graphDop}</p>
-        <p className="text-sm font-semibold text-[#6c6c70]">%</p>
-      </div>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-sm font-bold text-[#1c1c1e] dark-text-primary">{t.graphDop}</p>
+          <p className="text-sm font-semibold text-[#6c6c70]">%</p>
+        </div>
       ) : null}
-      <div className="calc-surface-muted p-2 sm:p-3 overflow-x-auto">
+      <div className="dop-chart__board calc-surface-muted">
         {chartRows.length === 0 ? (
           <p className="text-sm text-slate-600">{t.noData}</p>
         ) : (
-          <div className={compact ? "min-w-0 w-full" : "min-w-[42rem]"}>
-            <div className="mb-1 flex justify-between px-1 text-[10px] font-bold text-slate-500">
-              <span>+{scaleMax}%</span>
+          <>
+            <div className="dop-chart__h-scale" aria-hidden="true">
+              <span />
+              <span>−{scaleMax}%</span>
               <span>0%</span>
-              <span>-{scaleMax}%</span>
+              <span>+{scaleMax}%</span>
+              <span />
             </div>
-            <div
-              className="calc-chart-plot relative grid h-72 items-stretch gap-3 px-2 py-3"
-              style={{
-                gridTemplateColumns: `repeat(${Math.max(chartRows.length, 1)}, minmax(2.8rem, 1fr))`,
-              }}
-            >
-              <div className="pointer-events-none absolute left-2 right-2 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-slate-400/70" />
-              <div className="pointer-events-none absolute bottom-3 left-2 right-2 top-3 bg-[linear-gradient(to_bottom,rgba(148,163,184,0.12)_1px,transparent_1px)] bg-[length:100%_25%]" />
-              {chartRows.map((row, index) => (
-                <div key={row.key} className="relative flex min-w-0 flex-col items-center justify-between">
-                  <span className="calc-value-pill z-10">
-                    {`${row.dop.toFixed(1)}%`}
-                  </span>
-                  <div className="relative my-2 h-full w-full">
+            <div className="dop-chart__rows">
+              {chartRows.map((row) => (
+                <div
+                  key={row.key}
+                  className="dop-chart__row"
+                  title={`${row.label}: ${row.value} | ${t.optimum}: ${row.optimum}`}
+                >
+                  <span className="dop-chart__row-label">{row.label}</span>
+                  <div className="dop-chart__row-track">
+                    <div className="dop-chart__row-grid" aria-hidden="true" />
+                    <div className="dop-chart__row-zero" aria-hidden="true" />
                     <div
-                      className={`absolute left-1/2 w-10 max-w-[78%] -translate-x-1/2 rounded-md shadow-md ring-1 ring-white/45 ${
-                        row.isNegative
-                          ? "top-1/2 rounded-t-none"
-                          : "bottom-1/2 rounded-b-none"
+                      className={`dop-chart__row-bar dop-chart__row-bar--${row.status} ${
+                        row.isNegative ? "dop-chart__row-bar--neg" : "dop-chart__row-bar--pos"
                       }`}
-                      style={{
-                        height: row.height,
-                        opacity: 0.95 - (index % 4) * 0.08,
-                        background: getDopBarColor(row.nutrientGroup, row.isNegative),
-                      }}
-                      title={`${row.label}: ${row.value} | ${t.optimum}: ${row.optimum}`}
+                      style={{ width: `${row.widthPct}%` }}
                     />
                   </div>
-                  <span className="z-10 max-w-16 truncate text-[11px] font-extrabold text-green-950">
-                    {row.label}
+                  <span
+                    className={`dop-chart__row-value dop-chart__row-value--${row.status}`}
+                  >
+                    {formatDopPercent(row.dop)}
                   </span>
                 </div>
               ))}
             </div>
-            <div className="mt-2 flex items-center justify-between text-[11px] font-semibold">
-              <span className="text-sky-700">{t.deficiency}</span>
-              <span className="text-emerald-700">{t.optimum}</span>
-              <span className="text-orange-700">{t.excess}</span>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600">
-              <span className="inline-flex items-center gap-1">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ background: getDopBarColor("macro", false) }}
-                />
-                {t.macro}
+            <div className="dop-chart__legend" role="list">
+              <span className="dop-chart__legend-item" role="listitem">
+                <span className="dop-chart__swatch dop-chart__swatch--low" />
+                {t.deficiency}
               </span>
-              <span className="inline-flex items-center gap-1">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ background: getDopBarColor("micro", false) }}
-                />
-                {t.micro}
+              <span className="dop-chart__legend-item" role="listitem">
+                <span className="dop-chart__swatch dop-chart__swatch--ok" />
+                {t.optimum}
+              </span>
+              <span className="dop-chart__legend-item" role="listitem">
+                <span className="dop-chart__swatch dop-chart__swatch--high" />
+                {t.excess}
               </span>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>
@@ -1650,11 +1651,11 @@ function CropUptakeGuide({
   selectedCropName?: string | null;
 }) {
   const profile = getUptakeProfileForCrop(selectedCropName, language);
-  const width = 620;
-  const height = 230;
-  const paddingX = 42;
-  const paddingTop = 24;
-  const paddingBottom = 46;
+  const width = 560;
+  const height = 400;
+  const paddingX = 48;
+  const paddingTop = 26;
+  const paddingBottom = 70;
   const usableWidth = width - paddingX * 2;
   const usableHeight = height - paddingTop - paddingBottom;
   const points = profile.stages.map((stage, index) => {
@@ -1669,111 +1670,167 @@ function CropUptakeGuide({
 
   return (
     <CalculatorPage>
-      <div className="calc-surface grid gap-4 p-4">
-      <div>
-        <p className="text-sm font-extrabold text-green-950">{t.uptakeCurve}</p>
-        <h2 className="mt-1 text-xl font-extrabold text-green-950">{profile.title}</h2>
-        <p className="mt-1 text-sm font-semibold text-slate-600">
-          {t.uptakeCurveDesc}
-        </p>
-      </div>
+      <div className="uptake-guide">
+        <header className="uptake-guide__intro">
+          <p className="uptake-guide__eyebrow">{t.uptakeCurve}</p>
+          <h2 className="uptake-guide__title">{profile.title}</h2>
+          <p className="uptake-guide__desc">{t.uptakeCurveDesc}</p>
+        </header>
 
-      <ChartExpandShell
-        title={profile.title}
-        closeLabel="Close"
-        expandLabel="Expand chart"
-        fullscreenClassName="chart-fullscreen--landscape"
-      >
-        <div className="calc-surface-muted overflow-x-auto p-2 sm:p-3 chart-panel--compact">
-          <svg
-            viewBox={`0 0 ${width} ${height}`}
-            className="h-52 w-full max-w-full sm:h-64 sm:min-w-[32rem] text-green-950"
-            role="img"
-            aria-label={t.uptakeCurve}
-            preserveAspectRatio="xMidYMid meet"
-          >
-          <line x1={paddingX} y1={paddingTop} x2={paddingX} y2={height - paddingBottom} stroke="currentColor" strokeOpacity="0.25" />
-          <line x1={paddingX} y1={height - paddingBottom} x2={width - paddingX} y2={height - paddingBottom} stroke="currentColor" strokeOpacity="0.25" />
-          {[25, 50, 75, 100].map((tick) => {
-            const y = paddingTop + (1 - tick / 100) * usableHeight;
-            return (
-              <g key={tick}>
-                <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="currentColor" strokeOpacity="0.08" />
-                <text x={12} y={y + 4} className="calc-chart-axis-label text-[11px] font-bold">
-                  {tick}%
-                </text>
-              </g>
-            );
-          })}
-          <polyline
-            fill="none"
-            stroke="var(--accent-600, #16a34a)"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="7"
-            points={path}
-          />
-          {points.map(({ stage, x, y }, index) => (
-            <g key={stage.label}>
-              <circle
-                cx={x}
-                cy={y}
-                r="8"
-                fill={GRAPH_COLORS[index % GRAPH_COLORS.length]}
-                className="calc-chart-dot"
-                strokeWidth="3"
-              />
-              <text x={x} y={height - 25} textAnchor="middle" className="calc-chart-stage-label text-[11px] font-extrabold">
-                {stage.label}
-              </text>
-              <text x={x} y={height - 9} textAnchor="middle" className="calc-chart-axis-label text-[10px] font-bold">
-                {stage.timing}
-              </text>
-            </g>
-          ))}
-        </svg>
-        </div>
-      </ChartExpandShell>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="calc-surface-inner">
-          <p className="text-sm font-extrabold text-green-950">{t.stageFocus}</p>
-          <div className="mt-2 grid gap-2">
-            {profile.stages.map((stage) => (
-              <div key={stage.label} className="calc-stage-card">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-extrabold text-green-950">{stage.label}</span>
-                  <span className="calc-uptake-pill">
-                    {stage.uptake}%
-                  </span>
-                  {stage.focus.map((item) => (
-                    <span key={item} className="calc-chip">
-                      {item}
-                    </span>
-                  ))}
-                </div>
-                <p className="mt-1 text-xs font-semibold text-slate-600">{stage.note}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="calc-surface-inner">
-          <p className="text-sm font-extrabold text-green-950">{t.nutrientTiming}</p>
-          <div className="mt-2 grid gap-2">
-            {profile.nutrients.map((item) => (
-              <div key={item.symbol} className="calc-stage-card">
-                <p className="font-extrabold text-green-950">{item.symbol}</p>
-                <p className="text-xs font-bold text-green-800">{item.timing}</p>
-                <p className="mt-1 text-xs font-semibold text-slate-600">{item.note}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 rounded-xl bg-yellow-50/90 p-3 text-xs font-bold text-yellow-900">
-            {t.uptakeCurveNote}
+        <div className="uptake-chart-shell">
+          <p className="uptake-chart-rotate" role="note">
+            Rotate your phone to landscape for a clearer curve.
           </p>
+          <ChartExpandShell
+            title={profile.title}
+            closeLabel="Close"
+            expandLabel="Expand chart"
+            fullscreenClassName="chart-fullscreen--uptake"
+            showInlineTitle={false}
+            expandPlacement="overlay"
+            lockLandscapeOnExpand
+          >
+            <div className="uptake-chart-panel chart-panel--compact">
+              <svg
+                viewBox={`0 0 ${width} ${height}`}
+                className="uptake-chart-svg"
+                role="img"
+                aria-label={t.uptakeCurve}
+                preserveAspectRatio="xMidYMid meet"
+              >
+                <line
+                  x1={paddingX}
+                  y1={paddingTop}
+                  x2={paddingX}
+                  y2={height - paddingBottom}
+                  stroke="currentColor"
+                  strokeOpacity="0.2"
+                />
+                <line
+                  x1={paddingX}
+                  y1={height - paddingBottom}
+                  x2={width - paddingX}
+                  y2={height - paddingBottom}
+                  stroke="currentColor"
+                  strokeOpacity="0.2"
+                />
+                {[25, 50, 75, 100].map((tick) => {
+                  const y = paddingTop + (1 - tick / 100) * usableHeight;
+                  return (
+                    <g key={tick}>
+                      <line
+                        x1={paddingX}
+                        y1={y}
+                        x2={width - paddingX}
+                        y2={y}
+                        stroke="currentColor"
+                        strokeOpacity="0.07"
+                      />
+                      <text
+                        x={14}
+                        y={y + 4}
+                        className="calc-chart-axis-label text-[11px] font-bold"
+                      >
+                        {tick}%
+                      </text>
+                    </g>
+                  );
+                })}
+                <polyline
+                  fill="none"
+                  stroke="var(--accent-600, #16a34a)"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="5"
+                  points={path}
+                />
+                {points.map(({ stage, x, y }, index) => (
+                  <g key={stage.label}>
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r="7"
+                      fill={GRAPH_COLORS[index % GRAPH_COLORS.length]}
+                      className="calc-chart-dot"
+                      strokeWidth="2.5"
+                    />
+                    <text
+                      x={x}
+                      y={height - 36}
+                      textAnchor="middle"
+                      className="calc-chart-stage-label text-[11px] font-extrabold"
+                    >
+                      {stage.label}
+                    </text>
+                    <text
+                      x={x}
+                      y={height - 16}
+                      textAnchor="middle"
+                      className="calc-chart-axis-label text-[10px] font-bold"
+                    >
+                      {stage.timing}
+                    </text>
+                  </g>
+                ))}
+              </svg>
+            </div>
+          </ChartExpandShell>
         </div>
-      </div>
+
+        <section className="uptake-guide__section" aria-labelledby="uptake-stages-heading">
+          <h3 id="uptake-stages-heading" className="uptake-guide__section-title">
+            {t.stageFocus}
+          </h3>
+          <ol className="uptake-guide__stages">
+            {profile.stages.map((stage, index) => (
+              <li key={stage.label} className="uptake-guide__stage">
+                <span
+                  className="uptake-guide__stage-dot"
+                  style={{ background: GRAPH_COLORS[index % GRAPH_COLORS.length] }}
+                  aria-hidden="true"
+                />
+                <div className="uptake-guide__stage-body">
+                  <div className="uptake-guide__stage-head">
+                    <span className="uptake-guide__stage-name">
+                      {stage.label}
+                      {stage.focus.length > 0 ? (
+                        <span className="uptake-guide__stage-focus">
+                          {" "}
+                          · {stage.focus.join(" · ")}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="uptake-guide__stage-meta">
+                      {stage.timing}
+                      <span aria-hidden="true"> · </span>
+                      {stage.uptake}%
+                    </span>
+                  </div>
+                  <p className="uptake-guide__stage-note">{stage.note}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className="uptake-guide__section" aria-labelledby="uptake-nutrients-heading">
+          <h3 id="uptake-nutrients-heading" className="uptake-guide__section-title">
+            {t.nutrientTiming}
+          </h3>
+          <ul className="uptake-guide__nutrients">
+            {profile.nutrients.map((item) => (
+              <li key={item.symbol} className="uptake-guide__nutrient">
+                <span className="uptake-guide__nutrient-symbol">{item.symbol}</span>
+                <div className="uptake-guide__nutrient-body">
+                  <p className="uptake-guide__nutrient-timing">{item.timing}</p>
+                  <p className="uptake-guide__nutrient-note">{item.note}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <p className="uptake-guide__footnote">{t.uptakeCurveNote}</p>
       </div>
     </CalculatorPage>
   );
@@ -2599,10 +2656,10 @@ function buildDopRows(
         Number.isFinite(min) && Number.isFinite(max) && max > min
           ? (min + max) / 2
           : Number.NaN;
-      const optimum =
-        Number.isFinite(rangeOptimum) && rangeOptimum > 0
-          ? rangeOptimum
-          : Math.max(0.01, fallbackOptimum || 1);
+      const usedFallback = !(Number.isFinite(rangeOptimum) && rangeOptimum > 0);
+      const optimum = usedFallback
+        ? Math.max(0.01, fallbackOptimum || 1)
+        : rangeOptimum;
       const output = calculateDop(item.value, optimum);
       if (!output) return null;
 
@@ -2612,7 +2669,7 @@ function buildDopRows(
         value: item.value,
         optimum,
         dop: output.value,
-        nutrientGroup: getNutrientGroup(key),
+        usedFallback,
         output: {
           ...output,
           label: `DOP ${item.label || key.toUpperCase()}`,
@@ -2625,7 +2682,7 @@ function buildDopRows(
     value: number;
     optimum: number;
     dop: number;
-    nutrientGroup: "macro" | "micro" | "other";
+    usedFallback: boolean;
     output: CalculationOutput;
   }>;
 }
@@ -2648,38 +2705,4 @@ function matchResultToNutrient(key: string, label: string) {
   };
 
   return patterns[key]?.test(normalized) ?? false;
-}
-
-function getNutrientGroup(key: string): "macro" | "micro" | "other" {
-  if (
-    ["nitrogen", "phosphorus", "potassium", "calcium", "magnesium", "sulfur", "sodium"].includes(
-      key
-    )
-  ) {
-    return "macro";
-  }
-
-  if (["iron", "zinc", "manganese", "copper", "boron"].includes(key)) {
-    return "micro";
-  }
-
-  return "other";
-}
-
-function getDopBarColor(group: "macro" | "micro" | "other", isNegative: boolean) {
-  if (group === "macro") {
-    return isNegative
-      ? "linear-gradient(180deg, #0ea5e9, #0369a1)"
-      : "linear-gradient(180deg, #f59e0b, #d97706)";
-  }
-
-  if (group === "micro") {
-    return isNegative
-      ? "linear-gradient(180deg, #8b5cf6, #6d28d9)"
-      : "linear-gradient(180deg, #10b981, #047857)";
-  }
-
-  return isNegative
-    ? "linear-gradient(180deg, #94a3b8, #475569)"
-    : "linear-gradient(180deg, #9ca3af, #6b7280)";
 }

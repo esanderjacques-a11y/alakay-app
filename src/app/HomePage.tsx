@@ -132,7 +132,6 @@ import {
   purgeExpiredImportCache,
 } from "@/lib/importCache";
 import {
-  FOLIAR_EXTRACTION_OPTIONS,
   GENERAL_CROP_EXTRACTION_OPTIONS,
   SOIL_EXTRACTION_OPTIONS,
   getDefaultExtractionMethod,
@@ -2984,12 +2983,13 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
   const selectedCrop = crops.find((crop) => crop.crop_id === cropId);
   const isGeneralCrop = cropId === 999;
-  const showFoliarExtractionPicker = sampleType === "foliar";
   const interpretationCropId = cropId || 999;
 
   // Keep a valid extraction method when switching soil ↔ foliar.
+  // Extraction chips are soil-only; foliar always uses crop-specific ("general") ranges.
   useEffect(() => {
     setExtractionMethod((previous) => {
+      if (sampleType === "foliar") return "general";
       if (previous === "bray") {
         return getDefaultExtractionMethod({
           isGeneralCrop,
@@ -3683,7 +3683,6 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             selectedCrop={selectedCrop}
             sampleType={sampleType}
             isGeneralCrop={isGeneralCrop}
-            showFoliarExtractionPicker={showFoliarExtractionPicker}
             extractionMethod={extractionMethod}
             setExtractionMethod={handleExtractionMethodChange}
             parameters={parameters}
@@ -3744,6 +3743,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             {results.length === 0 ? (
               <div className="glass-panel rounded-3xl p-6">
                 <BackButton
+                  variant="icon"
                   onClick={() => setCurrentStep("values")}
                   label={t.goToValues}
                 />
@@ -3770,7 +3770,6 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                 pendingOfflineSaves={pendingOfflineSaves}
                 isGeneralCrop={isGeneralCrop}
                 sampleType={sampleType}
-                showFoliarExtractionPicker={showFoliarExtractionPicker}
                 extractionMethod={extractionMethod}
                 interpreting={loading}
                 onExtractionMethodChange={changeExtractionMethodFromResults}
@@ -4300,20 +4299,18 @@ function SetupScreen({
           />
         </SetupInlineField>
 
-        <SetupInlineField label={t.extractionMethodLabel}>
-          <div className="setup-extraction-inline">
-            <ExtractionMethodChips
-              t={t}
-              value={extractionMethod}
-              onChange={setExtractionMethod}
-              options={
-                sampleType === "foliar"
-                  ? FOLIAR_EXTRACTION_OPTIONS
-                  : SOIL_EXTRACTION_OPTIONS
-              }
-            />
-          </div>
-        </SetupInlineField>
+        {sampleType === "soil" ? (
+          <SetupInlineField label={t.extractionMethodLabel}>
+            <div className="setup-extraction-inline">
+              <ExtractionMethodChips
+                t={t}
+                value={extractionMethod}
+                onChange={setExtractionMethod}
+                options={SOIL_EXTRACTION_OPTIONS}
+              />
+            </div>
+          </SetupInlineField>
+        ) : null}
 
         <div className="setup-skip-row">
           <button type="button" onClick={handleSkipCrop} className="setup-skip-btn">
@@ -4388,7 +4385,6 @@ function ValuesScreen({
   selectedCrop,
   sampleType,
   isGeneralCrop,
-  showFoliarExtractionPicker,
   extractionMethod,
   setExtractionMethod,
   parameters,
@@ -4441,7 +4437,6 @@ function ValuesScreen({
   selectedCrop: Crop | undefined;
   sampleType: "soil" | "foliar";
   isGeneralCrop: boolean;
-  showFoliarExtractionPicker: boolean;
   extractionMethod: ExtractionMethod;
   setExtractionMethod: (value: ExtractionMethod) => void;
   parameters: Parameter[];
@@ -4754,18 +4749,14 @@ function ValuesScreen({
         </div>
       ) : null}
 
-      {showFoliarExtractionPicker || sampleType === "soil" ? (
+      {sampleType === "soil" ? (
         <div className="values-skip-crop-block">
           <p className="values-block-label">{t.extractionMethodLabel}</p>
           <ExtractionMethodChips
             t={t}
             value={extractionMethod}
             onChange={setExtractionMethod}
-            options={
-              sampleType === "foliar"
-                ? FOLIAR_EXTRACTION_OPTIONS
-                : SOIL_EXTRACTION_OPTIONS
-            }
+            options={SOIL_EXTRACTION_OPTIONS}
           />
         </div>
       ) : null}
@@ -5928,7 +5919,6 @@ function ResultsSection({
   pendingOfflineSaves,
   isGeneralCrop,
   sampleType,
-  showFoliarExtractionPicker,
   extractionMethod,
   interpreting,
   onExtractionMethodChange,
@@ -5959,7 +5949,6 @@ function ResultsSection({
   pendingOfflineSaves: number;
   isGeneralCrop: boolean;
   sampleType: "soil" | "foliar";
-  showFoliarExtractionPicker: boolean;
   extractionMethod: ExtractionMethod;
   interpreting: boolean;
   onExtractionMethodChange: (method: ExtractionMethod) => void;
@@ -6012,7 +6001,7 @@ function ResultsSection({
       <section data-pdf-report="analysis" className="results-flat-panel pb-28">
         {/* Page header: back + title + PDF export */}
         <div className="mb-4 flex items-center gap-3">
-          <BackButton onClick={backToValues} label={t.goToValues} />
+          <BackButton variant="icon" onClick={backToValues} label={t.goToValues} />
           <div className="min-w-0 flex-1">
             <h2 className="results-flat-title">{t.analysisSummary}</h2>
             <p className="results-flat-count">
@@ -6033,7 +6022,7 @@ function ResultsSection({
           ) : null}
         </div>
 
-        {sampleType === "soil" || showFoliarExtractionPicker ? (
+        {sampleType === "soil" ? (
           <div className="mb-4">
             <p className="values-block-label mb-2">{t.extractionMethodLabel}</p>
             <ExtractionMethodChips
@@ -6041,11 +6030,7 @@ function ResultsSection({
               value={extractionMethod}
               onChange={onExtractionMethodChange}
               disabled={interpreting}
-              options={
-                sampleType === "foliar"
-                  ? FOLIAR_EXTRACTION_OPTIONS
-                  : SOIL_EXTRACTION_OPTIONS
-              }
+              options={SOIL_EXTRACTION_OPTIONS}
             />
           </div>
         ) : null}

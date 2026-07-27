@@ -90,20 +90,48 @@ function syncDockViewportLift() {
     return;
   }
 
-  // How far the visual viewport has shrunk/shifted — browsers that pin
-  // `position: fixed` to the visual viewport lift the dock by this amount.
-  const raw = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-
-  // Installed PWA has no URL chrome. Any residual lift with the keyboard
-  // closed leaves the dock floating mid-screen (common on iOS/Android PWAs).
-  if (isStandalonePwa() && !dockKeyboardActive) {
+  // Installed PWA: never shift the dock with the visual viewport.
+  // Keyboard overlays content; the dock hides instead of riding up.
+  // Applying lift here is what made the dock visibly jump on focus.
+  if (isStandalonePwa()) {
     document.documentElement.style.setProperty("--dock-vv-lift", "0px");
     return;
   }
 
+  // How far the visual viewport has shrunk/shifted — browsers that pin
+  // `position: fixed` to the visual viewport lift the dock by this amount.
+  const raw = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+
   // Browser tabs: ignore tiny URL-bar noise; keep real keyboard compensation.
   const lift = dockKeyboardActive || raw >= 80 ? raw : 0;
   document.documentElement.style.setProperty("--dock-vv-lift", `${lift}px`);
+}
+
+/**
+ * True when the focused field is already high enough that iOS scroll-into-view
+ * would only nudge the layout (home search) — not when a lower field needs it.
+ */
+function shouldBlockFocusScrollNudge(el: HTMLElement) {
+  const rect = el.getBoundingClientRect();
+  const vvHeight = window.visualViewport?.height || window.innerHeight;
+  return window.scrollY < 160 || rect.top < vvHeight * 0.42;
+}
+
+/** Cancel iOS/PWA scroll-into-view nudge while the soft keyboard opens. */
+function pinScrollAgainstKeyboardNudge(anchorY: number) {
+  if (anchorY >= 160) return;
+
+  const pin = () => {
+    if (!dockKeyboardActive) return;
+    if (!likelySoftKeyboardDevice()) return;
+    if (window.scrollY !== 0) window.scrollTo(0, 0);
+  };
+
+  pin();
+  requestAnimationFrame(pin);
+  window.setTimeout(pin, 50);
+  window.setTimeout(pin, 150);
+  window.setTimeout(pin, 320);
 }
 
 function likelySoftKeyboardDevice() {
@@ -209,7 +237,9 @@ export default function AppDock({
         syncDockViewportLift();
         return;
       }
+      const anchorY = window.scrollY;
       setKeyboard(true);
+      pinScrollAgainstKeyboardNudge(anchorY);
     }
 
     function onFocusOut() {
@@ -222,6 +252,33 @@ export default function AppDock({
         setScrollHidden(false);
         settleDockAfterKeyboard();
       }, 160);
+    }
+
+    // Hide dock before the keyboard + visualViewport can lift chrome.
+    function onPointerDownCapture(event: PointerEvent) {
+      if (!likelySoftKeyboardDevice()) return;
+      if (event.pointerType === "mouse") return;
+      if (!isTextEditable(event.target)) return;
+
+      const el = event.target;
+      if (!(el instanceof HTMLElement)) return;
+
+      const anchorY = window.scrollY;
+      // Instant hide — do this on press, not after focus/keyboard animation.
+      setKeyboard(true);
+      syncDockViewportLift();
+
+      // PWA only: intercept default focus-scroll when the field is already high
+      // on screen (home search). Lower fields still need native scroll-into-view.
+      if (
+        isStandalonePwa() &&
+        document.activeElement !== el &&
+        shouldBlockFocusScrollNudge(el)
+      ) {
+        event.preventDefault();
+        el.focus({ preventScroll: true });
+        pinScrollAgainstKeyboardNudge(anchorY);
+      }
     }
 
     function syncViewportKeyboard() {
@@ -239,6 +296,9 @@ export default function AppDock({
       const likelyKeyboard = shrinkage > 120;
       if (likelyKeyboard) {
         setKeyboard(true);
+        if (isStandalonePwa()) {
+          pinScrollAgainstKeyboardNudge(window.scrollY < 160 ? 0 : window.scrollY);
+        }
         return;
       }
       // Do not keep the dock hidden just because an input is focused on desktop,
@@ -263,6 +323,10 @@ export default function AppDock({
 
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
+    document.addEventListener("pointerdown", onPointerDownCapture, {
+      capture: true,
+      passive: false,
+    });
     window.visualViewport?.addEventListener("resize", syncViewportKeyboard);
     window.visualViewport?.addEventListener("scroll", syncViewportKeyboard);
     window.addEventListener("resize", syncDockViewportLift);
@@ -270,6 +334,7 @@ export default function AppDock({
     return () => {
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
+      document.removeEventListener("pointerdown", onPointerDownCapture, true);
       window.visualViewport?.removeEventListener("resize", syncViewportKeyboard);
       window.visualViewport?.removeEventListener("scroll", syncViewportKeyboard);
       window.removeEventListener("resize", syncDockViewportLift);

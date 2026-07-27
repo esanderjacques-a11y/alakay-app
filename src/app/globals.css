@@ -864,6 +864,19 @@ textarea {
     bottom: calc(-1 * var(--dock-vv-lift, 0px)) !important;
   }
 
+  /* Installed PWA: dock stays on the layout bottom — never follow visualViewport. */
+  html[data-standalone="true"] .app-dock,
+  html[data-display-mode="standalone"] .app-dock,
+  html[data-display-mode="fullscreen"] .app-dock,
+  html[data-standalone="true"] .app-dock.app-dock--keyboard,
+  html[data-display-mode="standalone"] .app-dock.app-dock--keyboard,
+  html[data-display-mode="fullscreen"] .app-dock.app-dock--keyboard,
+  html[data-standalone="true"][data-keyboard-open="true"] .app-dock,
+  html[data-display-mode="standalone"][data-keyboard-open="true"] .app-dock,
+  html[data-display-mode="fullscreen"][data-keyboard-open="true"] .app-dock {
+    bottom: 0 !important;
+  }
+
   .app-chrome-layer .app-dock {
     pointer-events: auto;
   }
@@ -13044,7 +13057,8 @@ html[data-theme="dark"] .app-header {
     max-width: 100%;
     height: auto;
     color: #334155;
-    aspect-ratio: 560 / 400;
+    aspect-ratio: 640 / 420;
+    overflow: visible;
   }
 
   .uptake-chart-svg .calc-chart-stage-label {
@@ -13320,29 +13334,55 @@ html[data-theme="dark"] .app-header {
     color: rgb(226 232 240 / 0.82);
   }
 
+  /* Match DOP fullscreen: fixed viewport shell, chart fills remaining space. */
+  .chart-fullscreen--uptake {
+    overflow: hidden;
+  }
+
   .chart-fullscreen--uptake .chart-fullscreen__body {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+    justify-content: stretch;
     min-height: 0;
+    overflow: hidden;
   }
 
   .chart-fullscreen--uptake .uptake-chart-panel {
-    flex: 1;
+    flex: 1 1 auto;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    min-width: 0;
     min-height: 0;
     width: 100%;
-    max-width: 56rem;
-    margin-inline: auto;
+    height: 100%;
+    max-width: none;
+    margin-inline: 0;
+    padding: 0.5rem;
+    box-sizing: border-box;
+    overflow: hidden;
+    container-type: size;
   }
 
   .chart-fullscreen--uptake .uptake-chart-svg {
-    width: min(100%, 48rem);
-    max-width: none;
+    display: block;
+    align-self: center;
+    /* Fit inside the panel without overflowing; keep chart proportions. */
+    aspect-ratio: 640 / 420;
+    width: 100%;
     height: auto;
-    max-height: 72vh;
-    aspect-ratio: 560 / 400;
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0 auto;
+    overflow: visible;
+  }
+
+  @supports (width: 1cqh) {
+    .chart-fullscreen--uptake .uptake-chart-svg {
+      width: min(100%, calc(100cqh * 640 / 420));
+    }
   }
 
   .chart-fullscreen--uptake .uptake-chart-svg .calc-chart-stage-label {
@@ -13579,9 +13619,14 @@ html[data-theme="dark"] .app-header {
   .chart-fullscreen {
     position: fixed;
     inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
     z-index: 21000;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
     background: var(--background, #f2f2f2);
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
       env(safe-area-inset-left);

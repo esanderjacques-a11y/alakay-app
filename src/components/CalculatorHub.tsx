@@ -913,7 +913,12 @@ function CalculatorHubBody({
           )
         ) : null}
         {active === "uptake" ? (
-          <CropUptakeGuide t={t} language={language} selectedCropName={selectedCropName} />
+          <CropUptakeGuide
+            t={t}
+            language={language}
+            selectedCropName={selectedCropName}
+            reportDate={reportDate}
+          />
         ) : null}
         {active === "salinity" ? (
           <SalinityCalculator
@@ -1679,28 +1684,44 @@ function CropUptakeGuide({
   t,
   language,
   selectedCropName,
+  reportDate,
 }: {
   t: Record<string, string>;
   language: Language;
   selectedCropName?: string | null;
+  reportDate?: string | null;
 }) {
   const profile = getUptakeProfileForCrop(selectedCropName, language);
-  const width = 560;
-  const height = 400;
-  const paddingX = 48;
-  const paddingTop = 26;
-  const paddingBottom = 82;
+  const width = 640;
+  const height = 420;
+  // Extra side room so edge stage labels (e.g. "Establishment") are not clipped.
+  const paddingX = 96;
+  const paddingTop = 28;
+  const paddingBottom = 88;
   const usableWidth = width - paddingX * 2;
   const usableHeight = height - paddingTop - paddingBottom;
+  const lastStageIndex = Math.max(0, profile.stages.length - 1);
   const points = profile.stages.map((stage, index) => {
     const x =
       profile.stages.length === 1
         ? width / 2
-        : paddingX + (index / (profile.stages.length - 1)) * usableWidth;
+        : paddingX + (index / lastStageIndex) * usableWidth;
     const y = paddingTop + (1 - stage.uptake / 100) * usableHeight;
     return { stage, x, y };
   });
   const path = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const downloadWatermark = buildCultosolChartWatermark({
+    date: reportDate,
+    crop: selectedCropName,
+  });
+  const uptakeExportPayload = JSON.stringify({
+    title: profile.title,
+    stages: profile.stages.map((stage) => ({
+      label: stage.label,
+      timing: stage.timing,
+      uptake: stage.uptake,
+    })),
+  });
 
   return (
     <CalculatorPage>
@@ -1722,14 +1743,22 @@ function CropUptakeGuide({
             showInlineTitle={false}
             expandPlacement="overlay"
             lockLandscapeOnExpand
+            downloadLabel="Download PNG"
+            downloadWatermark={downloadWatermark}
+            downloadFileName={downloadWatermark}
+            downloadCaptureSelector=".uptake-chart-panel"
           >
-            <div className="uptake-chart-panel chart-panel--compact">
+            <div
+              className="uptake-chart-panel chart-panel--compact"
+              data-uptake-export={uptakeExportPayload}
+            >
               <svg
                 viewBox={`0 0 ${width} ${height}`}
                 className="uptake-chart-svg"
                 role="img"
                 aria-label={t.uptakeCurve}
                 preserveAspectRatio="xMidYMid meet"
+                overflow="visible"
               >
                 <line
                   x1={paddingX}
@@ -1760,7 +1789,7 @@ function CropUptakeGuide({
                         strokeOpacity="0.07"
                       />
                       <text
-                        x={14}
+                        x={28}
                         y={y + 4}
                         className="calc-chart-axis-label"
                       >
@@ -1777,34 +1806,42 @@ function CropUptakeGuide({
                   strokeWidth="5"
                   points={path}
                 />
-                {points.map(({ stage, x, y }, index) => (
-                  <g key={stage.label || `stage-${index}`}>
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r="7"
-                      fill={GRAPH_COLORS[index % GRAPH_COLORS.length]}
-                      className="calc-chart-dot"
-                      strokeWidth="2.5"
-                    />
-                    <text
-                      x={x}
-                      y={height - 34}
-                      textAnchor="middle"
-                      className="calc-chart-stage-label"
-                    >
-                      {stage.label}
-                    </text>
-                    <text
-                      x={x}
-                      y={height - 14}
-                      textAnchor="middle"
-                      className="calc-chart-axis-label calc-chart-timing-label"
-                    >
-                      {stage.timing}
-                    </text>
-                  </g>
-                ))}
+                {points.map(({ stage, x, y }, index) => {
+                  const textAnchor =
+                    index === 0
+                      ? "start"
+                      : index === lastStageIndex
+                        ? "end"
+                        : "middle";
+                  return (
+                    <g key={stage.label || `stage-${index}`}>
+                      <circle
+                        cx={x}
+                        cy={y}
+                        r="7"
+                        fill={GRAPH_COLORS[index % GRAPH_COLORS.length]}
+                        className="calc-chart-dot"
+                        strokeWidth="2.5"
+                      />
+                      <text
+                        x={x}
+                        y={height - 36}
+                        textAnchor={textAnchor}
+                        className="calc-chart-stage-label"
+                      >
+                        {stage.label}
+                      </text>
+                      <text
+                        x={x}
+                        y={height - 16}
+                        textAnchor={textAnchor}
+                        className="calc-chart-axis-label calc-chart-timing-label"
+                      >
+                        {stage.timing}
+                      </text>
+                    </g>
+                  );
+                })}
               </svg>
             </div>
           </ChartExpandShell>

@@ -174,6 +174,167 @@ function readScaleMax(element: HTMLElement) {
   return match ? Number(match[1]) : 180;
 }
 
+const UPTAKE_EXPORT_COLORS = [
+  "#0f9f7a",
+  "#2563eb",
+  "#f59e0b",
+  "#db2777",
+  "#7c3aed",
+  "#0891b2",
+  "#65a30d",
+  "#ea580c",
+];
+
+type UptakeExportStage = {
+  label: string;
+  timing: string;
+  uptake: number;
+};
+
+type UptakeExportPayload = {
+  title?: string;
+  stages: UptakeExportStage[];
+};
+
+function readUptakeExportPayload(element: HTMLElement): UptakeExportPayload | null {
+  const host =
+    (element.closest("[data-uptake-export]") as HTMLElement | null) ||
+    (element.matches("[data-uptake-export]") ? element : null) ||
+    (element.querySelector("[data-uptake-export]") as HTMLElement | null);
+  const raw = host?.getAttribute("data-uptake-export");
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as UptakeExportPayload;
+    if (!Array.isArray(parsed?.stages) || parsed.stages.length === 0) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/** Crisp native 16:9 uptake curve — preferred over screenshot upscales. */
+function drawUptakeChart16x9(element: HTMLElement, watermark: string) {
+  const payload = readUptakeExportPayload(element);
+  if (!payload) return null;
+
+  const stages = payload.stages;
+  const width = EXPORT_WIDTH;
+  const height = EXPORT_HEIGHT;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not create canvas context");
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillRect(0, 0, width, height);
+
+  const marginX = 96;
+  const marginTop = 72;
+  const watermarkH = 56;
+  const labelBand = 110;
+  const chartLeft = marginX + 72;
+  const chartRight = width - marginX;
+  const chartTop = marginTop + 28;
+  const chartBottom = height - watermarkH - labelBand - 16;
+  const chartW = chartRight - chartLeft;
+  const chartH = Math.max(220, chartBottom - chartTop);
+
+  // Title
+  ctx.fillStyle = "#14532d";
+  ctx.font = "700 36px Helvetica, Arial, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(payload.title || "Crop absorption curve", marginX, 48);
+
+  ctx.fillStyle = "#64748b";
+  ctx.font = "600 22px Helvetica, Arial, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText("Cumulative uptake (%)", width - marginX, 48);
+
+  // Grid + Y axis
+  ctx.strokeStyle = "rgba(100, 116, 139, 0.28)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(chartLeft, chartTop);
+  ctx.lineTo(chartLeft, chartBottom);
+  ctx.lineTo(chartRight, chartBottom);
+  ctx.stroke();
+
+  [25, 50, 75, 100].forEach((tick) => {
+    const y = chartTop + (1 - tick / 100) * chartH;
+    ctx.strokeStyle = "rgba(148, 163, 184, 0.22)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(chartLeft, y);
+    ctx.lineTo(chartRight, y);
+    ctx.stroke();
+
+    ctx.fillStyle = "#64748b";
+    ctx.font = "700 20px Helvetica, Arial, sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`${tick}%`, chartLeft - 16, y);
+  });
+
+  const last = Math.max(1, stages.length - 1);
+  const points = stages.map((stage, index) => {
+    const x =
+      stages.length === 1
+        ? chartLeft + chartW / 2
+        : chartLeft + (index / last) * chartW;
+    const y = chartTop + (1 - Math.min(100, Math.max(0, stage.uptake)) / 100) * chartH;
+    return { stage, x, y, index };
+  });
+
+  // Curve
+  ctx.strokeStyle = "#16a34a";
+  ctx.lineWidth = 6;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  points.forEach((point, index) => {
+    if (index === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
+  });
+  ctx.stroke();
+
+  // Dots + labels
+  points.forEach(({ stage, x, y, index }) => {
+    const color = UPTAKE_EXPORT_COLORS[index % UPTAKE_EXPORT_COLORS.length];
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(x, y, 11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    const anchor =
+      index === 0 ? "left" : index === points.length - 1 ? "right" : "center";
+    ctx.textAlign = anchor;
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#14532d";
+    ctx.font = "800 24px Helvetica, Arial, sans-serif";
+    ctx.fillText(stage.label, x, chartBottom + 40);
+    ctx.fillStyle = "#64748b";
+    ctx.font = "600 18px Helvetica, Arial, sans-serif";
+    ctx.fillText(stage.timing, x, chartBottom + 68);
+  });
+
+  // Watermark footer
+  ctx.fillStyle = "#e2e8f0";
+  ctx.fillRect(0, height - watermarkH, width, watermarkH);
+  ctx.fillStyle = "#64748b";
+  ctx.font = "600 20px Helvetica, Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(watermark, width / 2, height - watermarkH / 2);
+
+  return canvas;
+}
+
 /** Crisp native 16:9 DOP chart — preferred over screenshot upscales. */
 function drawDopChart16x9(element: HTMLElement, watermark: string) {
   const rows = readDopExportRows(element);
@@ -412,12 +573,16 @@ export async function downloadElementAsPng(opts: {
     throw new Error("PNG export is only available in the browser.");
   }
 
-  // Prefer a native high-res 16:9 redraw for DOP charts (crisp text/bars).
+  // Prefer native high-res 16:9 redraws (crisp text) over screenshot upscales.
   let out =
     opts.element.querySelector(".dop-chart__row") ||
     opts.element.classList.contains("dop-chart__board")
       ? drawDopChart16x9(opts.element, opts.watermark)
       : null;
+
+  if (!out) {
+    out = drawUptakeChart16x9(opts.element, opts.watermark);
+  }
 
   if (!out) {
     const captured = await captureElementCanvas(opts.element);

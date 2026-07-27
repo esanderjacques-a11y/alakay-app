@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Download, Maximize2, X } from "lucide-react";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
 import { downloadElementAsPng } from "@/lib/chartPngExport";
@@ -93,11 +94,35 @@ export default function ChartExpandShell({
   const [open, setOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState(false);
+  const [canPortal, setCanPortal] = useState(false);
   const presence = useAnimatedPresence(open);
   const overlayExpand = expandPlacement === "overlay";
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const landscapeArmedRef = useRef(false);
+
+  useEffect(() => {
+    queueMicrotask(() => setCanPortal(true));
+  }, []);
+
+  // Portal to body so ancestor transforms (e.g. slide-up) cannot trap position:fixed.
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !lockLandscapeOnExpand || !isNarrowViewport()) return;
@@ -166,6 +191,69 @@ export default function ChartExpandShell({
     </button>
   );
 
+  const fullscreen =
+    presence.mounted && canPortal
+      ? createPortal(
+          <div
+            ref={dialogRef}
+            className={`chart-fullscreen ${presence.leaving ? "chart-fullscreen--leaving" : ""} ${fullscreenClassName}`}
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+          >
+            <div className="chart-fullscreen__bar">
+              <p className="chart-fullscreen__title">{title}</p>
+              <div className="chart-fullscreen__actions">
+                {downloadLabel ? (
+                  <button
+                    type="button"
+                    className={`chart-expand-shell__btn${
+                      downloadError ? " chart-expand-shell__btn--error" : ""
+                    }`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      void handleDownload();
+                    }}
+                    aria-label={
+                      downloadError
+                        ? `${downloadLabel} failed — tap to retry`
+                        : downloading
+                          ? "Preparing PNG…"
+                          : downloadLabel
+                    }
+                    title={
+                      downloadError
+                        ? "Download failed — tap to retry"
+                        : downloadLabel
+                    }
+                    disabled={downloading}
+                    aria-busy={downloading}
+                  >
+                    <Download size={18} />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="chart-expand-shell__btn"
+                  onClick={close}
+                  aria-label={closeLabel}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <p className="chart-fullscreen__rotate-hint" role="note">
+              Rotate to landscape for the best view
+            </p>
+            <div ref={bodyRef} className="chart-fullscreen__body">
+              {children}
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
     <>
       <div
@@ -190,65 +278,7 @@ export default function ChartExpandShell({
           {children}
         </div>
       </div>
-
-      {presence.mounted ? (
-        <div
-          ref={dialogRef}
-          className={`chart-fullscreen ${presence.leaving ? "chart-fullscreen--leaving" : ""} ${fullscreenClassName}`}
-          role="dialog"
-          aria-modal="true"
-          aria-label={title}
-        >
-          <div className="chart-fullscreen__bar">
-            <p className="chart-fullscreen__title">{title}</p>
-            <div className="chart-fullscreen__actions">
-              {downloadLabel ? (
-                <button
-                  type="button"
-                  className={`chart-expand-shell__btn${
-                    downloadError ? " chart-expand-shell__btn--error" : ""
-                  }`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    void handleDownload();
-                  }}
-                  aria-label={
-                    downloadError
-                      ? `${downloadLabel} failed — tap to retry`
-                      : downloading
-                        ? "Preparing PNG…"
-                        : downloadLabel
-                  }
-                  title={
-                    downloadError
-                      ? "Download failed — tap to retry"
-                      : downloadLabel
-                  }
-                  disabled={downloading}
-                  aria-busy={downloading}
-                >
-                  <Download size={18} />
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="chart-expand-shell__btn"
-                onClick={close}
-                aria-label={closeLabel}
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </div>
-          <p className="chart-fullscreen__rotate-hint" role="note">
-            Rotate to landscape for the best view
-          </p>
-          <div ref={bodyRef} className="chart-fullscreen__body">
-            {children}
-          </div>
-        </div>
-      ) : null}
+      {fullscreen}
     </>
   );
 }

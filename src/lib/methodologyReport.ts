@@ -14,6 +14,18 @@
 
 import { saveBlobWithPicker } from "@/lib/fileSave";
 import { pdfSafe } from "@/lib/pdfText";
+import {
+  PDF_BRAND,
+  PDF_CARD,
+  PDF_INK,
+  PDF_LINE,
+  PDF_MUTED,
+  buildPdfContactMetaLines,
+  drawPdfReportHeader,
+  fetchPdfAppLogo,
+  paintPdfPageWhite,
+  pdfBrandName,
+} from "@/lib/pdfReportHeader";
 
 type Bilingual = { es: string; en: string };
 
@@ -516,6 +528,7 @@ export async function exportMethodologyPdf(
   fileName = "cultosol-metodologia-calculadora.pdf"
 ) {
   const { jsPDF } = await import("jspdf");
+  const logoData = await fetchPdfAppLogo();
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
@@ -524,14 +537,16 @@ export async function exportMethodologyPdf(
   let y = margin;
   let pageNumber = 1;
 
-  const BRAND: [number, number, number] = [5, 150, 105];
+  const BRAND = PDF_BRAND;
   const BRAND_DARK: [number, number, number] = [4, 120, 87];
-  const INK: [number, number, number] = [15, 23, 42];
-  const MUTED: [number, number, number] = [100, 116, 139];
-  const LINE: [number, number, number] = [226, 232, 240];
-  const CARD: [number, number, number] = [248, 250, 252];
-  const HEAD_BG: [number, number, number] = [236, 253, 245];
+  const INK = PDF_INK;
+  const MUTED = PDF_MUTED;
+  const LINE = PDF_LINE;
+  const CARD = PDF_CARD;
+  const HEAD_BG: [number, number, number] = [248, 250, 252];
   const WHITE: [number, number, number] = [255, 255, 255];
+
+  paintPdfPageWhite(pdf, pageWidth, pageHeight);
 
   function drawFooter() {
     pdf.setDrawColor(LINE[0], LINE[1], LINE[2]);
@@ -541,7 +556,7 @@ export async function exportMethodologyPdf(
     pdf.setFontSize(8);
     pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
     pdf.text(
-      pdfSafe("Cultosol · Metodología / Methodology"),
+      pdfSafe(`${pdfBrandName("Cultosol")} · Metodología / Methodology`),
       margin,
       pageHeight - 7
     );
@@ -553,6 +568,7 @@ export async function exportMethodologyPdf(
   function newPage() {
     drawFooter();
     pdf.addPage();
+    paintPdfPageWhite(pdf, pageWidth, pageHeight);
     pageNumber += 1;
     y = margin;
   }
@@ -753,29 +769,24 @@ export async function exportMethodologyPdf(
   }
 
   // —— Cover header ——
-  const headerH = 36;
-  pdf.setFillColor(BRAND[0], BRAND[1], BRAND[2]);
-  pdf.rect(0, 0, pageWidth, headerH, "F");
-  pdf.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(18);
-  pdf.text(pdfSafe("Cultosol"), margin, 15);
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(11);
-  pdf.setTextColor(220, 252, 231);
-  pdf.text(
-    pdfSafe("Metodología de la Calculadora / Calculator Methodology"),
+  y = drawPdfReportHeader({
+    pdf,
+    pageWidth,
     margin,
-    24
-  );
-  pdf.setFontSize(8.5);
-  pdf.text(
-    pdfSafe(`Generado / Generated: ${new Date().toLocaleDateString()}`),
-    pageWidth - margin,
-    24,
-    { align: "right" }
-  );
-  y = headerH + 10;
+    contentWidth,
+    appName: "Cultosol",
+    subtitle: "Metodología de la Calculadora / Calculator Methodology",
+    meta: [
+      {
+        label: "Generado / Generated",
+        value: new Date().toLocaleDateString(),
+      },
+    ],
+    contactMeta: buildPdfContactMetaLines({ email: "Email" }),
+    includeLogo: true,
+    logoData,
+    startY: 14,
+  });
 
   // —— Intro card ——
   const introEs =
@@ -912,9 +923,7 @@ export async function exportMethodologyPdf(
 
   drawFooter();
 
-  const pdfBlob = new Blob([pdf.output("arraybuffer")], {
-    type: "application/pdf",
-  });
+  const pdfBlob = pdf.output("blob");
   await saveBlobWithPicker(
     pdfBlob,
     fileName,

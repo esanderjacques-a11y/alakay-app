@@ -1,14 +1,24 @@
 import { saveBlobWithPicker } from "@/lib/fileSave";
 import type { FormulationLine, FormulationResult } from "@/lib/fertilizerFormulation";
 import { pdfSafe } from "@/lib/pdfText";
+import {
+  PDF_BRAND,
+  PDF_CARD,
+  PDF_INK,
+  PDF_LINE,
+  PDF_MUTED,
+  buildPdfContactMetaLines,
+  drawPdfReportHeader,
+  fetchPdfAppLogo,
+  paintPdfPageWhite,
+  pdfBrandName,
+} from "@/lib/pdfReportHeader";
 
 export type FormulationPdfLabels = {
   title: string;
   subtitle: string;
   grade: string;
   target: string;
-  finishMode: string;
-  strategy: string;
   recipe: string;
   product: string;
   analysis: string;
@@ -43,8 +53,6 @@ export type FormulationPdfInput = {
   lines: FormulationPdfLine[];
   /** Mass unit shown in the recipe (kg or lb). */
   massUnit: string;
-  finishModeLabel: string;
-  strategyLabel: string;
   includePrices: boolean;
   currency?: string;
   /** Optional scaled production batch. */
@@ -82,6 +90,7 @@ export async function exportFormulationPdf(
   input: FormulationPdfInput
 ): Promise<void> {
   const { jsPDF } = await import("jspdf");
+  const logoData = await fetchPdfAppLogo();
   const L = input.labels;
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -91,14 +100,16 @@ export async function exportFormulationPdf(
   let y = margin;
   let pageNumber = 1;
 
-  const BRAND: [number, number, number] = [5, 150, 105];
+  const BRAND = PDF_BRAND;
   const BRAND_DARK: [number, number, number] = [4, 120, 87];
-  const INK: [number, number, number] = [15, 23, 42];
-  const MUTED: [number, number, number] = [100, 116, 139];
-  const LINE: [number, number, number] = [226, 232, 240];
-  const CARD: [number, number, number] = [248, 250, 252];
-  const HEAD_BG: [number, number, number] = [236, 253, 245];
+  const INK = PDF_INK;
+  const MUTED = PDF_MUTED;
+  const LINE = PDF_LINE;
+  const CARD = PDF_CARD;
+  const HEAD_BG: [number, number, number] = [248, 250, 252];
   const WHITE: [number, number, number] = [255, 255, 255];
+
+  paintPdfPageWhite(pdf, pageWidth, pageHeight);
 
   function drawFooter() {
     pdf.setDrawColor(LINE[0], LINE[1], LINE[2]);
@@ -107,7 +118,11 @@ export async function exportFormulationPdf(
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8);
     pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-    pdf.text(pdfSafe(`${L.appName} · ${L.subtitle}`), margin, pageHeight - 7);
+    pdf.text(
+      pdfSafe(`${pdfBrandName(L.appName)} · ${L.subtitle}`),
+      margin,
+      pageHeight - 7
+    );
     pdf.text(String(pageNumber), pageWidth - margin, pageHeight - 7, {
       align: "right",
     });
@@ -116,6 +131,7 @@ export async function exportFormulationPdf(
   function newPage() {
     drawFooter();
     pdf.addPage();
+    paintPdfPageWhite(pdf, pageWidth, pageHeight);
     pageNumber += 1;
     y = margin;
   }
@@ -150,51 +166,36 @@ export async function exportFormulationPdf(
     pdf.setTextColor(INK[0], INK[1], INK[2]);
   }
 
-  function drawMetaCard(label: string, value: string, x: number, top: number, w: number, h: number) {
-    pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
-    pdf.roundedRect(x, top, w, h, 1.5, 1.5, "F");
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(7.5);
-    pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-    const labelLines = pdf.splitTextToSize(pdfSafe(label).toUpperCase(), w - 6);
-    let textY = top + 4.5;
-    for (const line of labelLines.slice(0, 2)) {
-      pdf.text(line, x + 3, textY);
-      textY += 3.4;
-    }
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(11);
-    pdf.setTextColor(INK[0], INK[1], INK[2]);
-    const valueLines = pdf.splitTextToSize(pdfSafe(value || "-"), w - 6);
-    textY = top + 11.5;
-    for (const line of valueLines.slice(0, 2)) {
-      pdf.text(line, x + 3, textY);
-      textY += 4.6;
-    }
-  }
-
-  // —— Header band (brand, title centered vertically) ——
-  const headerH = 34;
-  pdf.setFillColor(BRAND[0], BRAND[1], BRAND[2]);
-  pdf.rect(0, 0, pageWidth, headerH, "F");
-  pdf.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(17);
-  pdf.text(pdfSafe(L.title), margin, 15);
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(10);
-  pdf.setTextColor(220, 252, 231);
-  pdf.text(pdfSafe(L.subtitle), margin, 24);
-  y = headerH + 10;
-
-  // —— Grade hero (most important fact) ——
   const rawGrade = (input.result.gradeLabel || "").trim();
   const npk = gradeNpk(input.result);
-  // Avoid "GRADE / Grade 10-30-10" double wording when label already includes it.
   const gradeDisplay =
     rawGrade.replace(/^(grade|grado|formule|formula)\s+/i, "").trim() || npk;
+
+  // Header: brand + subtitle + contacts only (no tech meta / no repeated grade).
+  y = drawPdfReportHeader({
+    pdf,
+    pageWidth,
+    margin,
+    contentWidth,
+    appName: L.appName,
+    subtitle: L.subtitle,
+    meta: [],
+    contactMeta: buildPdfContactMetaLines({}),
+    includeLogo: true,
+    logoData,
+    startY: 14,
+  });
+
+  // —— Document title (body) ——
+  ensureSpace(12);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(14);
+  pdf.setTextColor(INK[0], INK[1], INK[2]);
+  pdf.text(pdfSafe(L.title), margin, y + 4);
+  y += 10;
+  spaceAfter(2);
+
+  // —— Grade hero (most important fact) ——
   ensureSpace(28);
   pdf.setFillColor(HEAD_BG[0], HEAD_BG[1], HEAD_BG[2]);
   pdf.setDrawColor(BRAND[0], BRAND[1], BRAND[2]);
@@ -203,37 +204,21 @@ export async function exportFormulationPdf(
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(8);
   pdf.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-  pdf.text(L.grade.toUpperCase(), margin + 5, y + 7);
+  pdf.text(pdfSafe(L.grade.toUpperCase()), margin + 5, y + 7);
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(18);
+  pdf.setFontSize(16);
   pdf.setTextColor(INK[0], INK[1], INK[2]);
-  pdf.text(gradeDisplay, margin + 5, y + 17);
+  pdf.text(pdfSafe(gradeDisplay), margin + 5, y + 17);
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(10);
+  pdf.setFontSize(9.5);
   pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
   if (gradeDisplay !== npk) {
-    pdf.text(`${L.target}: ${npk}`, pageWidth - margin - 5, y + 17, {
+    pdf.text(pdfSafe(`${L.target}: ${npk}`), pageWidth - margin - 5, y + 17, {
       align: "right",
     });
   }
   y += 28;
   spaceAfter(2);
-
-  // —— Plan meta cards (2×2) ——
-  const metaItems: Array<[string, string]> = [
-    [L.finishMode, input.finishModeLabel],
-    [L.strategy, input.strategyLabel],
-  ];
-  const metaGap = 3;
-  const metaColW = (contentWidth - metaGap) / 2;
-  const metaH = 20;
-  ensureSpace(metaH + 4);
-  const metaTop = y;
-  metaItems.forEach(([label, value], i) => {
-    const x = margin + i * (metaColW + metaGap);
-    drawMetaCard(label, value, x, metaTop, metaColW, metaH);
-  });
-  y = metaTop + metaH + 6;
 
   // —— Composition highlight (once) ——
   const batchMass = input.result.batchMassKg;
@@ -336,7 +321,7 @@ export async function exportFormulationPdf(
       const x = colX(i);
       const w = col.w * scale;
       const alignRight = col.key === "pct" || col.key === "mass" || col.key === "price" || col.key === "cost";
-      const label = pdf.splitTextToSize(col.label, w - 4)[0];
+      const label = pdf.splitTextToSize(pdfSafe(col.label), w - 4)[0];
       if (alignRight) {
         pdf.text(label, x + w - 2, y + 6.5, { align: "right" });
       } else {
@@ -459,7 +444,10 @@ export async function exportFormulationPdf(
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(9.5);
       const massW = pdf.getTextWidth(mass) + 4;
-      const nameLines = pdf.splitTextToSize(label, contentWidth - massW - 28);
+      const nameLines = pdf.splitTextToSize(
+        pdfSafe(label),
+        contentWidth - massW - 28
+      );
       const rowH = Math.max(10, nameLines.length * 4.2 + 4);
       ensureSpace(rowH + 1);
 
@@ -536,9 +524,7 @@ export async function exportFormulationPdf(
     .slice(0, 40);
   const fileName =
     input.fileName || `cultosol-formulation-${gradeSlug || "recipe"}.pdf`;
-  const pdfBlob = new Blob([pdf.output("arraybuffer")], {
-    type: "application/pdf",
-  });
+  const pdfBlob = pdf.output("blob");
   await saveBlobWithPicker(
     pdfBlob,
     fileName,

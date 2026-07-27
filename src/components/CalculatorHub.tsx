@@ -18,7 +18,14 @@ import {
   Leaf,
   Percent,
   Sprout,
+  Star,
 } from "lucide-react";
+import {
+  isFavoriteCalculatorKey,
+  readCalculatorFavorites,
+  toggleCalculatorFavorite,
+  type FavoriteCalculatorKey,
+} from "@/lib/calculatorFavorites";
 import {
   calculateCNRatio,
   calculateDop,
@@ -140,6 +147,7 @@ type Props = {
 
 type CalculatorKey =
   | "priority"
+  | "favorites"
   | "cic"
   | "amendment"
   | "fertilizer"
@@ -162,6 +170,7 @@ const CalculatorFieldsLayoutContext = createContext<ViewLayoutMode>("grid");
 
 const tabs: Array<{ key: CalculatorKey; icon: ReactNode }> = [
   { key: "priority", icon: <Activity size={17} /> },
+  { key: "favorites", icon: <Star size={17} /> },
   { key: "cic", icon: <Percent size={17} /> },
   { key: "amendment", icon: <FlaskConical size={17} /> },
   { key: "fertilizer", icon: <Leaf size={17} /> },
@@ -188,9 +197,16 @@ function visibleCalculatorTabs(sampleType: "soil" | "foliar") {
     ) {
       return sampleType === "soil";
     }
-    // Shared: Recommended, absorption curve, nutrient graphs
+    // Shared: Recommended, Favorites, absorption curve, nutrient graphs
     return true;
   });
+}
+
+function favoriteableTabs(sampleType: "soil" | "foliar") {
+  return visibleCalculatorTabs(sampleType).filter(
+    (tab): tab is { key: FavoriteCalculatorKey; icon: ReactNode } =>
+      isFavoriteCalculatorKey(tab.key)
+  );
 }
 
 /** "Guided" mode: recommended calculation order, one calculator screen at a time. */
@@ -360,8 +376,17 @@ function CalculatorHubBody({
     }
   }, [sampleType, hubMode]);
   const [active, setActive] = useState<CalculatorKey>(defaultCalculatorFilter);
+  const [favorites, setFavorites] = useState<FavoriteCalculatorKey[]>([]);
   const [browseLayout, setBrowseLayout] = useViewLayoutPreference("calculator-hub");
   const fieldsLayout = browseLayout;
+
+  useEffect(() => {
+    setFavorites(readCalculatorFavorites());
+  }, []);
+
+  function handleToggleFavorite(key: FavoriteCalculatorKey) {
+    setFavorites((current) => toggleCalculatorFavorite(key, current));
+  }
 
   // Drop removed tabs if a stale selection lingered.
   useEffect(() => {
@@ -608,12 +633,15 @@ function CalculatorHubBody({
             <h1 className="min-w-0 flex-1 truncate text-lg font-bold dark-text-primary">
               {t.title}
             </h1>
-            {onExportPdf && canExportReport ? (
-              <ExportPdfIconButton
-                onClick={onExportPdf}
-                busy={exportingPdf}
-                label={t.hubModeGenerateReport || exportPdfLabel || "Report"}
-              />
+            {onExportPdf ? (
+              <span data-tour="generate-report" className="inline-flex shrink-0">
+                <ExportPdfIconButton
+                  onClick={onExportPdf}
+                  busy={exportingPdf}
+                  disabled={!canExportReport}
+                  label={t.hubModeGenerateReport || exportPdfLabel || "Report"}
+                />
+              </span>
             ) : null}
             <ViewLayoutToggle
               value={browseLayout}
@@ -769,25 +797,54 @@ function CalculatorHubBody({
         {effectiveHubMode === "explorer" ? (
           <div className="calculator-hub-tabs calculator-hub-nav overflow-x-auto scrollbar-none pb-4">
             <div className="flex w-max min-w-full gap-2">
-              {calculatorTabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setActive(tab.key)}
-                  className={`calculator-hub-tab ${
-                    active === tab.key ? "calculator-hub-tab--active" : ""
-                  }`}
-                >
-                  {tab.icon}
-                  {t[tab.key]}
-                </button>
-              ))}
+              {calculatorTabs.map((tab) => {
+                const isFavTab =
+                  isFavoriteCalculatorKey(tab.key) &&
+                  favorites.includes(tab.key);
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActive(tab.key)}
+                    className={`calculator-hub-tab ${
+                      active === tab.key ? "calculator-hub-tab--active" : ""
+                    }`}
+                  >
+                    {tab.icon}
+                    {t[tab.key]}
+                    {isFavTab ? (
+                      <Star
+                        size={11}
+                        className="calculator-hub-tab__fav"
+                        fill="currentColor"
+                        aria-hidden
+                      />
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ) : null}
 
         {active === "priority" ? (
           <PriorityCalculators t={t} suggestions={suggestions} setActive={setActive} />
+        ) : null}
+        {active === "favorites" ? (
+          <FavoritesCalculators
+            t={t}
+            sampleType={sampleType}
+            favorites={favorites}
+            setActive={setActive}
+          />
+        ) : null}
+        {isFavoriteCalculatorKey(active) ? (
+          <CalculatorFavoriteToggle
+            favorited={favorites.includes(active)}
+            addLabel={t.favoritesAdd || "Add to favorites"}
+            removeLabel={t.favoritesRemove || "Remove from favorites"}
+            onToggle={() => handleToggleFavorite(active)}
+          />
         ) : null}
         {active === "cic" ? (
           <CicCalculator
@@ -1010,6 +1067,88 @@ function PriorityCalculators({
           />
         ))}
       </div>
+    </CalculatorPage>
+  );
+}
+
+function CalculatorFavoriteToggle({
+  favorited,
+  addLabel,
+  removeLabel,
+  onToggle,
+}: {
+  favorited: boolean;
+  addLabel: string;
+  removeLabel: string;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="calculator-page-favorite">
+      <button
+        type="button"
+        className={`calculator-page-favorite__btn${
+          favorited ? " calculator-page-favorite__btn--on" : ""
+        }`}
+        onClick={onToggle}
+        aria-pressed={favorited}
+        aria-label={favorited ? removeLabel : addLabel}
+        title={favorited ? removeLabel : addLabel}
+      >
+        <Star size={18} fill={favorited ? "currentColor" : "none"} aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+function FavoritesCalculators({
+  t,
+  sampleType,
+  favorites,
+  setActive,
+}: {
+  t: Record<string, string>;
+  sampleType: "soil" | "foliar";
+  favorites: FavoriteCalculatorKey[];
+  setActive: (key: CalculatorKey) => void;
+}) {
+  const available = favoriteableTabs(sampleType);
+  const favoriteSet = new Set(favorites);
+  const picked = available.filter((tab) => favoriteSet.has(tab.key));
+
+  return (
+    <CalculatorPage>
+      <section className="calc-surface space-y-3 p-4">
+        <div>
+          <h2 className="text-sm font-bold dark-text-primary">
+            {t.favoritesYourPicks || "Your favorites"}
+          </h2>
+          {picked.length === 0 ? (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {t.favoritesEmpty ||
+                "Open a calculator and tap the star to pin it here for quick access."}
+            </p>
+          ) : (
+            <ul className="calculator-favorites-list mt-2">
+              {picked.map((tab) => (
+                <li key={`fav-${tab.key}`} className="calculator-favorites-row">
+                  <button
+                    type="button"
+                    className="calculator-favorites-row__open"
+                    onClick={() => setActive(tab.key)}
+                  >
+                    <span className="calculator-favorites-row__icon" aria-hidden>
+                      {tab.icon}
+                    </span>
+                    <span className="calculator-favorites-row__label">
+                      {t[tab.key]}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
     </CalculatorPage>
   );
 }

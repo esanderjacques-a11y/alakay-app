@@ -10,6 +10,7 @@ import {
 } from "@/lib/agronomicCalculators";
 import { useMemoryNumber, useMemoryString, useEmitCalculatorOutputs } from "@/hooks/useCalculatorMemory";
 import { useViewLayoutPreference } from "@/hooks/useViewLayoutPreference";
+import type { ViewLayoutMode } from "@/lib/viewLayoutPreference";
 import MenuSelect from "@/components/ui/MenuSelect";
 import { useSoilFertilityReference } from "@/lib/soilFertilityData";
 import {
@@ -47,7 +48,7 @@ type Props = {
   t: Record<string, string>;
   lab: Map<string, CalculatorValue>;
   selectedCropName?: string | null;
-  layout?: "grid" | "list";
+  layout?: ViewLayoutMode;
   showCalculatorFormulas?: boolean;
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
   onOpenCostPage?: () => void;
@@ -1056,7 +1057,7 @@ function DoseResultCard({
   dose: FertilityDoseResult;
   t: Record<string, string>;
   areaUnit: AreaUnit;
-  layout: "grid" | "list";
+  layout: ViewLayoutMode;
   selected: boolean;
   onSelect?: () => void;
 }) {

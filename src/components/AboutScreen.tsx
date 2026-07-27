@@ -4,17 +4,26 @@ import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import BackButton from "@/components/ui/BackButton";
 import {
+  BookOpen,
   Heart,
   Linkedin,
+  Loader2,
   Mail,
   Phone,
   Send,
   Sparkles,
 } from "lucide-react";
+import AboutPillars from "@/components/AboutPillars";
+import AboutStoryCarousel from "@/components/AboutStoryCarousel";
 import FeedbackSection from "@/components/FeedbackSection";
 import ImpactSection from "@/components/ImpactSection";
 import type { Translation } from "@/lib/translations";
 import { prefetchImpactPayload } from "@/lib/impactClient";
+import {
+  exportUserGuidePdf,
+  resolveUserGuideLanguage,
+  type UserGuideLanguage,
+} from "@/lib/userGuidePdf";
 
 const CONTACT_EMAIL = "jesander@earth.ac.cr";
 const PHONE_CR = "+506 8828 7831";
@@ -30,6 +39,8 @@ const PAYPAL_DONATE_URL =
 
 const CREATOR_PHOTO =
   process.env.NEXT_PUBLIC_CREATOR_PHOTO_URL?.trim() || "/creator/esander.jpg";
+
+const USER_GUIDE_LANGS: UserGuideLanguage[] = ["en", "es", "fr", "pt"];
 
 type AboutTab = "about" | "feedback" | "impact";
 
@@ -83,16 +94,46 @@ export default function AboutScreen({
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [photoError, setPhotoError] = useState(false);
+  const [guideLang, setGuideLang] = useState<UserGuideLanguage>(() =>
+    resolveUserGuideLanguage(language)
+  );
+  const [guideBusy, setGuideBusy] = useState(false);
+  const [guideError, setGuideError] = useState("");
 
   useEffect(() => {
     prefetchImpactPayload();
   }, []);
+
+  useEffect(() => {
+    setGuideLang(resolveUserGuideLanguage(language));
+  }, [language]);
 
   const tabs: { id: AboutTab; label: string }[] = [
     { id: "about", label: t.about },
     { id: "feedback", label: t.feedbackTab },
     { id: "impact", label: t.impactTab },
   ];
+
+  const guideLangLabels: Record<UserGuideLanguage, string> = {
+    en: t.aboutUserGuideLangEn,
+    es: t.aboutUserGuideLangEs,
+    fr: t.aboutUserGuideLangFr,
+    pt: t.aboutUserGuideLangPt,
+  };
+
+  async function handleDownloadUserGuide() {
+    if (guideBusy) return;
+    setGuideBusy(true);
+    setGuideError("");
+    try {
+      await exportUserGuidePdf(guideLang);
+    } catch (error) {
+      console.warn("Failed to generate user guide PDF:", error);
+      setGuideError(t.aboutUserGuideError);
+    } finally {
+      setGuideBusy(false);
+    }
+  }
 
   async function handleFeatureRequest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -134,7 +175,10 @@ export default function AboutScreen({
     setShowRequestForm(true);
     setTab("about");
     window.setTimeout(() => {
-      requestSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      requestSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     }, 50);
   }
 
@@ -150,7 +194,8 @@ export default function AboutScreen({
             <span className="page-title-row__spacer" aria-hidden="true" />
           </div>
 
-          <header className="about-hero">
+          <header className="about-hero about-hero--stage">
+            <div className="about-hero__aura" aria-hidden />
             {!photoError ? (
               <img
                 src={CREATOR_PHOTO}
@@ -188,13 +233,59 @@ export default function AboutScreen({
         <div className="about-scroll">
           <div className="about-content">
             {tab === "about" ? (
-              <div className="about-flow">
-                <section className="about-section">
-                  <h2 className="about-kicker">{t.aboutMissionLabel}</h2>
-                  <p className="about-copy">{t.aboutMission}</p>
-                  <div className="about-section-divider" aria-hidden />
-                  <h2 className="about-kicker">{t.aboutVisionLabel}</h2>
-                  <p className="about-copy">{t.aboutVision}</p>
+              <div className="about-flow about-flow--story">
+                <p className="about-lede about-lede--intro">{t.aboutIntro}</p>
+
+                <AboutStoryCarousel t={t} language={language} />
+
+                <AboutPillars t={t} />
+
+                <section className="about-section about-section--guide">
+                  <h2 className="about-kicker">{t.aboutUserGuide}</h2>
+                  <p className="about-copy">{t.aboutUserGuideDesc}</p>
+                  <div
+                    className="about-guide-langs"
+                    role="group"
+                    aria-label={t.aboutUserGuide}
+                  >
+                    {USER_GUIDE_LANGS.map((code) => (
+                      <button
+                        key={code}
+                        type="button"
+                        className={`about-guide-lang${
+                          guideLang === code ? " is-active" : ""
+                        }`}
+                        aria-pressed={guideLang === code}
+                        onClick={() => setGuideLang(code)}
+                      >
+                        {guideLangLabels[code]}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="about-actions about-actions--guide">
+                    <button
+                      type="button"
+                      onClick={() => void handleDownloadUserGuide()}
+                      disabled={guideBusy}
+                      className="about-action"
+                    >
+                      {guideBusy ? (
+                        <Loader2
+                          size={15}
+                          className="animate-spin"
+                          aria-hidden
+                        />
+                      ) : (
+                        <BookOpen size={15} aria-hidden />
+                      )}
+                      {guideBusy
+                        ? t.aboutUserGuideGenerating
+                        : t.aboutUserGuideDownload}
+                    </button>
+                  </div>
+                  {guideError ? (
+                    <p className="about-status about-status--err">{guideError}</p>
+                  ) : null}
                 </section>
 
                 <section className="about-section about-section--contact">
@@ -211,7 +302,9 @@ export default function AboutScreen({
                         <Phone size={15} />
                       </span>
                       <div>
-                        <a href={`tel:${PHONE_CR.replace(/\s/g, "")}`}>{PHONE_CR}</a>
+                        <a href={`tel:${PHONE_CR.replace(/\s/g, "")}`}>
+                          {PHONE_CR}
+                        </a>
                         <span>{t.aboutPhoneCr}</span>
                       </div>
                     </li>
@@ -220,7 +313,9 @@ export default function AboutScreen({
                         <Phone size={15} />
                       </span>
                       <div>
-                        <a href={`tel:${PHONE_HT.replace(/\s/g, "")}`}>{PHONE_HT}</a>
+                        <a href={`tel:${PHONE_HT.replace(/\s/g, "")}`}>
+                          {PHONE_HT}
+                        </a>
                         <span>{t.aboutPhoneHt}</span>
                       </div>
                     </li>
@@ -228,7 +323,11 @@ export default function AboutScreen({
                       <span className="about-contact__icon" aria-hidden>
                         <Linkedin size={15} />
                       </span>
-                      <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer">
+                      <a
+                        href={LINKEDIN_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         LinkedIn
                       </a>
                     </li>
@@ -238,7 +337,11 @@ export default function AboutScreen({
                 <p className="about-note">{t.aboutDisclaimerShort}</p>
 
                 <div className="about-actions">
-                  <button type="button" onClick={openRequestForm} className="about-action">
+                  <button
+                    type="button"
+                    onClick={openRequestForm}
+                    className="about-action"
+                  >
                     <Sparkles size={15} aria-hidden />
                     {t.aboutAddRequest}
                   </button>
@@ -248,10 +351,16 @@ export default function AboutScreen({
                   <section ref={requestSectionRef} className="about-section">
                     <h2 className="about-kicker">{t.featureRequest}</h2>
                     <p className="about-copy">{t.featureRequestDesc}</p>
-                    <form className="about-form" onSubmit={handleFeatureRequest}>
+                    <form
+                      className="about-form"
+                      onSubmit={handleFeatureRequest}
+                    >
                       <label className="about-field">
                         <span>{t.featureRequestName}</span>
-                        <input value={name} onChange={(e) => setName(e.target.value)} />
+                        <input
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                        />
                       </label>
                       <label className="about-field">
                         <span>{t.featureRequestEmail}</span>
@@ -284,7 +393,9 @@ export default function AboutScreen({
                         </p>
                       ) : null}
                       {status === "error" ? (
-                        <p className="about-status about-status--err">{errorMessage}</p>
+                        <p className="about-status about-status--err">
+                          {errorMessage}
+                        </p>
                       ) : null}
                       <button
                         type="submit"
@@ -313,14 +424,22 @@ export default function AboutScreen({
             ) : null}
 
             {tab === "feedback" ? (
-              <FeedbackSection t={t} language={language} session={session} country={country} />
+              <FeedbackSection
+                t={t}
+                language={language}
+                session={session}
+                country={country}
+              />
             ) : null}
 
             {tab === "impact" ? <ImpactSection t={t} /> : null}
           </div>
         </div>
 
-        <div className="about-flat-bottom-bar" aria-label={t.aboutDeveloperLabel}>
+        <div
+          className="about-flat-bottom-bar"
+          aria-label={t.aboutDeveloperLabel}
+        >
           <AboutDonateBar t={t} />
           <footer className="about-flat-developer-footer">
             <p className="about-flat-developer-label">{t.aboutDeveloperLabel}</p>

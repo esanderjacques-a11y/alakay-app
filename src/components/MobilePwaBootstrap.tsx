@@ -57,9 +57,29 @@ function syncDisplayMode() {
   root.dataset.displayMode = "browser";
 }
 
+function accentHexFromCss(fallback = "#059669") {
+  const root = document.documentElement;
+  const rgbParts = getComputedStyle(root)
+    .getPropertyValue("--accent-600-rgb")
+    .trim()
+    .split(/\s+/)
+    .map(Number);
+  if (
+    rgbParts.length >= 3 &&
+    rgbParts.slice(0, 3).every((n) => Number.isFinite(n))
+  ) {
+    return `#${rgbParts
+      .slice(0, 3)
+      .map((n) => Math.round(n).toString(16).padStart(2, "0"))
+      .join("")}`;
+  }
+  const named = getComputedStyle(root).getPropertyValue("--cultosol-green").trim();
+  return named || fallback;
+}
+
 function syncThemeColorMeta() {
   const isDark = document.documentElement.dataset.theme === "dark";
-  const color = isDark ? "#0f172a" : "#059669";
+  const color = isDark ? "#0f172a" : accentHexFromCss();
 
   let meta = document.querySelector('meta[name="theme-color"]');
   if (!meta) {
@@ -202,7 +222,7 @@ export default function MobilePwaBootstrap() {
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-theme", "data-dark-variant"],
+      attributeFilter: ["data-theme", "data-dark-variant", "data-accent"],
     });
 
     return () => {

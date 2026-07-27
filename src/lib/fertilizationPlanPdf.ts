@@ -5,6 +5,19 @@ import type { CalendarEvent } from "@/lib/planningTypes";
 import { resolveScheduleCycleMode } from "@/lib/fertilizationSchedule";
 import type { Language } from "@/lib/i18n";
 import { pdfSafe } from "@/lib/pdfText";
+import {
+  PDF_BRAND,
+  PDF_CARD,
+  PDF_INK,
+  PDF_LINE,
+  PDF_MUTED,
+  buildPdfContactMetaLines,
+  drawPdfReportHeader,
+  fetchPdfAppLogo,
+  paintPdfPageWhite,
+  pdfBrandName,
+  type PdfHeaderMetaLine,
+} from "@/lib/pdfReportHeader";
 
 export type FertilizationPlanPdfRow = {
   date: string;
@@ -14,6 +27,17 @@ export type FertilizationPlanPdfRow = {
   stageLabel?: string;
 };
 
+type PlanApplicationBlock = {
+  date: string;
+  stageLabel: string;
+  timingHint?: string;
+  lines: Array<{
+    fertilizer: string;
+    quantity: string;
+    method: string;
+  }>;
+};
+
 export type FertilizationPlanPdfInput = {
   t: Translation;
   farmName: string;
@@ -21,6 +45,8 @@ export type FertilizationPlanPdfInput = {
   cropName?: string | null;
   responsible?: string;
   seasonStart?: string;
+  seasonEnd?: string;
+  purposeLabel?: string;
   events: CalendarEvent[];
   locale?: string;
   fileName?: string;
@@ -41,38 +67,63 @@ export function formatLotsLabel(
   )})`;
 }
 
+function normalizeUnit(unitHa?: string) {
+  const unit = String(unitHa || "kg/ha").trim();
+  // Avoid duplicated nutrient symbols inside units (e.g. "kg N/ha").
+  return unit.replace(/\s+[NPKCaMgnpkcamg]+[2oO5]*\s*\/\s*ha$/i, "/ha") || "kg/ha";
+}
+
+/** Flat rows kept for analysis-report calendar section compatibility. */
 export function eventsToPlanRows(events: CalendarEvent[]): FertilizationPlanPdfRow[] {
+  return eventsToPlanBlocks(events).flatMap((block) =>
+    block.lines.map((line) => ({
+      date: block.date,
+      quantity: line.quantity,
+      fertilizer: line.fertilizer,
+      method: line.method,
+      stageLabel: block.stageLabel,
+    }))
+  );
+}
+
+function eventsToPlanBlocks(events: CalendarEvent[]): PlanApplicationBlock[] {
   const sorted = [...events].sort((a, b) => {
     const byDate = a.date.localeCompare(b.date);
     if (byDate !== 0) return byDate;
     return (a.sequence || 0) - (b.sequence || 0);
   });
 
-  const rows: FertilizationPlanPdfRow[] = [];
-  for (const event of sorted) {
+  return sorted.map((event) => {
+    const stageLabel = event.stageLabel || event.title;
+    const timingHint = event.method?.trim() || undefined;
     if (event.lines && event.lines.length > 0) {
-      for (const line of event.lines) {
-        rows.push({
-          date: event.date,
-          quantity: `${line.kgHa} ${line.unitHa}${
+      return {
+        date: event.date,
+        stageLabel,
+        timingHint,
+        lines: event.lines.map((line) => ({
+          fertilizer: line.nutrient,
+          quantity: `${line.kgHa} ${normalizeUnit(line.unitHa)}${
             line.percentOfTotal != null ? ` (${line.percentOfTotal}%)` : ""
           }`,
-          fertilizer: line.nutrient,
-          method: line.method || event.method || event.stageLabel || "—",
-          stageLabel: event.stageLabel || event.title,
-        });
-      }
-    } else {
-      rows.push({
-        date: event.date,
-        quantity: event.rate || "—",
-        fertilizer: event.nutrient || event.title,
-        method: event.method || "—",
-        stageLabel: event.stageLabel || event.title,
-      });
+          // Prefer short application method; keep timing hint on the stage band.
+          method: line.method || "—",
+        })),
+      };
     }
-  }
-  return rows;
+    return {
+      date: event.date,
+      stageLabel,
+      timingHint,
+      lines: [
+        {
+          fertilizer: event.nutrient || event.title,
+          quantity: event.rate || "—",
+          method: "—",
+        },
+      ],
+    };
+  });
 }
 
 function buildRecommendations(
@@ -98,9 +149,7 @@ function buildRecommendations(
     );
   }
   if (stages.has("basal")) {
-    lines.push(
-      cycleMode === "perennial" ? t.pdfRecFlush : t.pdfRecBasal
-    );
+    lines.push(cycleMode === "perennial" ? t.pdfRecFlush : t.pdfRecBasal);
   }
   if (stages.has("vegetative") || stages.has("reproductive")) {
     lines.push(
@@ -109,7 +158,11 @@ function buildRecommendations(
         : t.pdfRecTopdress
     );
   }
-  if (events.some((e) => e.lines?.some((l) => /n\b|nitrogen|nitr/i.test(l.nutrient)))) {
+  if (
+    events.some((e) =>
+      e.lines?.some((l) => /n\b|nitrogen|nitr/i.test(l.nutrient))
+    )
+  ) {
     lines.push(t.pdfRecNitrogen);
   }
   return lines;
@@ -119,9 +172,11 @@ export async function exportFertilizationPlanPdf(
   input: FertilizationPlanPdfInput
 ): Promise<void> {
   const { jsPDF } = await import("jspdf");
+  const logoData = await fetchPdfAppLogo();
   const p = input.t.planning;
-  const rows = eventsToPlanRows(input.events);
-  if (rows.length === 0) {
+  const t = input.t;
+  const blocks = eventsToPlanBlocks(input.events);
+  if (blocks.length === 0) {
     throw new Error(p.pdfNoEvents);
   }
   const cycleMode = resolveScheduleCycleMode(
@@ -137,11 +192,13 @@ export async function exportFertilizationPlanPdf(
   let y = margin;
   let pageNumber = 1;
 
-  const BRAND: [number, number, number] = [5, 150, 105];
-  const INK: [number, number, number] = [15, 23, 42];
-  const MUTED: [number, number, number] = [100, 116, 139];
-  const LINE: [number, number, number] = [226, 232, 240];
-  const HEAD_BG: [number, number, number] = [236, 253, 245];
+  const BRAND = PDF_BRAND;
+  const INK = PDF_INK;
+  const MUTED = PDF_MUTED;
+  const LINE = PDF_LINE;
+  const CARD = PDF_CARD;
+
+  paintPdfPageWhite(pdf, pageWidth, pageHeight);
 
   function drawFooter() {
     pdf.setDrawColor(LINE[0], LINE[1], LINE[2]);
@@ -150,7 +207,11 @@ export async function exportFertilizationPlanPdf(
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8);
     pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-    pdf.text(pdfSafe(`${input.t.appName} · ${p.pdfSubtitle}`), margin, pageHeight - 7);
+    pdf.text(
+      pdfSafe(`${pdfBrandName(t.appName)} · ${p.pdfSubtitle}`),
+      margin,
+      pageHeight - 7
+    );
     pdf.text(String(pageNumber), pageWidth - margin, pageHeight - 7, {
       align: "right",
     });
@@ -159,6 +220,7 @@ export async function exportFertilizationPlanPdf(
   function newPage() {
     drawFooter();
     pdf.addPage();
+    paintPdfPageWhite(pdf, pageWidth, pageHeight);
     pageNumber += 1;
     y = margin;
   }
@@ -168,152 +230,178 @@ export async function exportFertilizationPlanPdf(
   }
 
   function drawSectionTitle(text: string) {
-    ensureSpace(12);
+    ensureSpace(14);
+    y += 2;
+    pdf.setFillColor(BRAND[0], BRAND[1], BRAND[2]);
+    pdf.roundedRect(margin, y, 2.2, 6, 0.5, 0.5, "F");
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(12);
+    pdf.setFontSize(11);
     pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-    pdf.text(pdfSafe(text), margin, y);
-    y += 6;
-    pdf.setDrawColor(BRAND[0], BRAND[1], BRAND[2]);
-    pdf.setLineWidth(0.4);
-    pdf.line(margin, y, margin + 28, y);
-    y += 5;
-  }
-
-  function metaRow(label: string, value: string) {
-    const labelColW = 42;
-    const valueX = margin + labelColW;
-    const valueW = contentWidth - labelColW;
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(9);
-    const labelLines = pdf.splitTextToSize(pdfSafe(label), labelColW - 2);
-    pdf.setFont("helvetica", "normal");
-    const valueLines = pdf.splitTextToSize(pdfSafe(value || "-"), valueW);
-    const lineCount = Math.max(labelLines.length, valueLines.length, 1);
-    const rowH = Math.max(6, lineCount * 4.2);
-    ensureSpace(rowH + 1);
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(9);
-    pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-    pdf.text(labelLines, margin, y);
-    pdf.setFont("helvetica", "normal");
+    pdf.text(pdfSafe(text), margin + 5, y + 4.5);
+    y += 10;
     pdf.setTextColor(INK[0], INK[1], INK[2]);
-    pdf.text(valueLines, valueX, y);
-    y += rowH;
   }
 
-  // Header band
-  pdf.setFillColor(HEAD_BG[0], HEAD_BG[1], HEAD_BG[2]);
-  pdf.rect(0, 0, pageWidth, 32, "F");
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(16);
-  pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-  pdf.text(pdfSafe(p.pdfTitle), margin, 14);
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
-  pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-  pdf.text(pdfSafe(p.pdfSubtitle), margin, 21);
-  y = 40;
-
-  drawSectionTitle(p.pdfPlanInfo);
-  metaRow(p.pdfFarm, input.farmName || "—");
-  metaRow(
-    p.pdfLots,
-    formatLotsLabel(input.lotName, { lotsCount: p.pdfLotsCount })
-  );
-  metaRow(p.pdfCrop, input.cropName || "—");
-  metaRow(p.pdfResponsible, input.responsible?.trim() || "—");
+  const meta: PdfHeaderMetaLine[] = [
+    { label: p.pdfFarm, value: input.farmName || "—" },
+    {
+      label: p.pdfLots,
+      value: formatLotsLabel(input.lotName, { lotsCount: p.pdfLotsCount }),
+    },
+    { label: p.pdfCrop, value: input.cropName || "—" },
+    { label: p.pdfResponsible, value: input.responsible?.trim() || "—" },
+  ];
   if (input.seasonStart) {
-    metaRow(
-      cycleMode === "perennial" ? p.pdfCycleStart : p.pdfSeasonStart,
-      input.seasonStart
-    );
+    meta.push({
+      label: cycleMode === "perennial" ? p.pdfCycleStart : p.pdfSeasonStart,
+      value: input.seasonStart,
+    });
   }
-  metaRow(
-    p.pdfGenerated,
-    new Date().toLocaleDateString(input.locale || undefined)
-  );
-  y += 3;
+  if (input.seasonEnd) {
+    meta.push({
+      label: p.pdfSeasonEnd,
+      value: input.seasonEnd,
+    });
+  }
+  if (input.purposeLabel) {
+    meta.push({
+      label: p.pdfPurpose,
+      value: input.purposeLabel,
+    });
+  }
+  meta.push({
+    label: p.pdfGenerated,
+    value: new Date().toLocaleDateString(input.locale || undefined),
+  });
+
+  y = drawPdfReportHeader({
+    pdf,
+    pageWidth,
+    margin,
+    contentWidth,
+    appName: t.appName,
+    subtitle: p.pdfSubtitle || t.reportSubtitle,
+    title: p.pdfTitle,
+    meta,
+    contactMeta: buildPdfContactMetaLines({
+      email: "Email",
+    }),
+    includeLogo: true,
+    logoData,
+    startY: 14,
+  });
 
   drawSectionTitle(p.pdfScheduleTable);
+
+  // Columns for nutrient lines under each application band.
   const col = {
-    date: margin,
-    qty: margin + 28,
-    fert: margin + 58,
-    method: margin + 118,
+    fert: margin + 2,
+    qty: margin + 52,
+    method: margin + 92,
   };
   const widths = {
-    date: 26,
-    qty: 28,
-    fert: 58,
-    method: contentWidth - 112,
+    fert: 48,
+    qty: 38,
+    method: contentWidth - 96,
   };
 
-  function drawTableHeader() {
-    ensureSpace(10);
-    pdf.setFillColor(240, 253, 244);
-    pdf.rect(margin, y - 4, contentWidth, 8, "F");
+  function drawNutrientHeader() {
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(8);
-    pdf.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
-    pdf.text(pdfSafe(p.pdfColDate), col.date, y);
-    pdf.text(pdfSafe(p.pdfColQuantity), col.qty, y);
+    pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
     pdf.text(pdfSafe(p.pdfColFertilizer), col.fert, y);
+    pdf.text(pdfSafe(p.pdfColQuantity), col.qty, y);
     pdf.text(pdfSafe(p.pdfColMethod), col.method, y);
-    y += 6;
+    y += 3.5;
     pdf.setDrawColor(LINE[0], LINE[1], LINE[2]);
+    pdf.setLineWidth(0.25);
     pdf.line(margin, y, pageWidth - margin, y);
-    y += 3;
+    y += 3.2;
   }
 
-  drawTableHeader();
+  for (const block of blocks) {
+    const hintLines = block.timingHint
+      ? pdf.splitTextToSize(pdfSafe(block.timingHint), contentWidth - 8)
+      : [];
+    const bandHeight = 8 + Math.min(hintLines.length, 2) * 3.4;
+    ensureSpace(bandHeight + 8 + block.lines.length * 5.5);
 
-  let lastDate = "";
-  for (const row of rows) {
-    const fertLines = pdf.splitTextToSize(pdfSafe(row.fertilizer), widths.fert - 2);
-    const methodLines = pdf.splitTextToSize(pdfSafe(row.method), widths.method - 2);
-    const qtyLines = pdf.splitTextToSize(pdfSafe(row.quantity), widths.qty - 2);
-    const rowHeight = Math.max(
-      6,
-      fertLines.length * 4,
-      methodLines.length * 4,
-      qtyLines.length * 4
-    );
-    ensureSpace(rowHeight + 4);
-    if (y === margin) drawTableHeader();
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(8);
+    // Application band: date + stage (group header).
+    pdf.setFillColor(CARD[0], CARD[1], CARD[2]);
+    pdf.roundedRect(margin, y, contentWidth, bandHeight, 1.2, 1.2, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9.5);
     pdf.setTextColor(INK[0], INK[1], INK[2]);
-    const showDate = row.date !== lastDate ? pdfSafe(row.date) : "";
-    lastDate = row.date;
-    pdf.text(showDate, col.date, y);
-    pdf.text(qtyLines, col.qty, y);
-    pdf.text(fertLines, col.fert, y);
-    pdf.text(methodLines, col.method, y);
-    y += rowHeight + 2;
-    pdf.setDrawColor(LINE[0], LINE[1], LINE[2]);
-    pdf.setLineWidth(0.2);
-    pdf.line(margin, y, pageWidth - margin, y);
-    y += 2;
+    pdf.text(pdfSafe(block.date), margin + 3, y + 5);
+    pdf.text(pdfSafe(block.stageLabel), margin + 28, y + 5);
+    if (hintLines.length > 0) {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+      pdf.text(hintLines.slice(0, 2), margin + 3, y + 9.2);
+    }
+    y += bandHeight + 2.5;
+
+    drawNutrientHeader();
+
+    block.lines.forEach((line, index) => {
+      const fertLines = pdf.splitTextToSize(
+        pdfSafe(line.fertilizer),
+        widths.fert - 1
+      );
+      const qtyLines = pdf.splitTextToSize(
+        pdfSafe(line.quantity),
+        widths.qty - 1
+      );
+      const methodLines = pdf.splitTextToSize(
+        pdfSafe(line.method),
+        widths.method - 1
+      );
+      const rowHeight = Math.max(
+        4.8,
+        fertLines.length * 3.8,
+        qtyLines.length * 3.8,
+        methodLines.length * 3.8
+      );
+      ensureSpace(rowHeight + 2);
+
+      if (index % 2 === 0) {
+        pdf.setFillColor(252, 252, 253);
+        pdf.rect(margin, y - 3.2, contentWidth, rowHeight + 1.2, "F");
+      }
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      pdf.setTextColor(INK[0], INK[1], INK[2]);
+      pdf.text(fertLines, col.fert, y);
+      pdf.text(qtyLines, col.qty, y);
+      pdf.text(methodLines, col.method, y);
+      y += rowHeight + 1.2;
+    });
+
+    y += 2.5;
   }
 
-  y += 4;
+  y += 1;
   drawSectionTitle(p.pdfRecommendations);
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
-  pdf.setTextColor(INK[0], INK[1], INK[2]);
-  for (const tip of buildRecommendations(p, input.events, cycleMode)) {
-    const lines = pdf.splitTextToSize(pdfSafe(`• ${tip}`), contentWidth);
-    for (const line of lines) {
-      ensureSpace(5.5);
-      pdf.text(line, margin, y);
-      y += 4.8;
-    }
-    y += 1;
-  }
+  const tips = buildRecommendations(p, input.events, cycleMode);
+  tips.forEach((tip, index) => {
+    ensureSpace(11);
+    const fill =
+      index % 2 === 0 ? CARD : ([255, 255, 255] as [number, number, number]);
+    pdf.setFillColor(fill[0], fill[1], fill[2]);
+    const wrap = pdf.splitTextToSize(
+      pdfSafe(`${index + 1}. ${tip}`),
+      contentWidth - 6
+    );
+    const h = Math.max(8, wrap.length * 4.2 + 2.5);
+    pdf.roundedRect(margin, y, contentWidth, h, 1.1, 1.1, "F");
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.setTextColor(INK[0], INK[1], INK[2]);
+    pdf.text(wrap, margin + 3, y + 5);
+    y += h + 1.6;
+  });
 
   drawFooter();
 
@@ -324,9 +412,7 @@ export async function exportFertilizationPlanPdf(
     .slice(0, 40);
   const fileName =
     input.fileName || `cultosol-fertilization-plan-${farmSlug || "farm"}.pdf`;
-  const pdfBlob = new Blob([pdf.output("arraybuffer")], {
-    type: "application/pdf",
-  });
+  const pdfBlob = pdf.output("blob");
   await saveBlobWithPicker(
     pdfBlob,
     fileName,

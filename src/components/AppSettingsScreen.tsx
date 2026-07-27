@@ -1,12 +1,21 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useRef, useState, useId, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useId,
+  type CSSProperties,
+} from "react";
+import { createPortal } from "react-dom";
 import {
   BarChart3,
   CreditCard,
   Download,
   Globe,
   Loader2,
+  Map,
   Redo2,
   RotateCcw,
   Save,
@@ -47,6 +56,7 @@ import {
 import AccountSettingsSection from "@/components/AccountSettingsSection";
 import BackButton from "@/components/ui/BackButton";
 import type { Language } from "@/lib/translations";
+import { translations } from "@/lib/translations";
 
 export type SettingsSectionId = "general" | "account" | "analysisData";
 type SettingsNavId = SettingsSectionId | "billing";
@@ -97,6 +107,7 @@ type Props = {
   onSettingsChange?: (settings: AppSettings) => void;
   onOpenBilling?: () => void;
   onOpenVerification?: () => void;
+  onRestartTour?: () => void;
 };
 
 function cloneSettings(settings: AppSettings): AppSettings {
@@ -1143,8 +1154,10 @@ export default function AppSettingsScreen({
   onSettingsChange,
   onOpenBilling,
   onOpenVerification,
+  onRestartTour,
 }: Props) {
   const text = settingsText[language] || settingsText.en;
+  const tourCopy = translations[language] || translations.en;
   const initialSettings = useMemo(() => cloneSettings(getSettings()), []);
   const [committedSettings, setCommittedSettings] = useState(initialSettings);
   const [draftSettings, setDraftSettings] = useState(initialSettings);
@@ -1194,6 +1207,12 @@ export default function AppSettingsScreen({
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
   const [saveDock, setSaveDock] = useState<"top" | "bottom">("top");
+  const [portalReady, setPortalReady] = useState(false);
+  const topDockSentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    queueMicrotask(() => setPortalReady(true));
+  }, []);
 
   useEffect(() => {
     if (!isDirty) {
@@ -1201,17 +1220,40 @@ export default function AppSettingsScreen({
       return;
     }
 
+    function resolveSaveDock(): "top" | "bottom" {
+      const scrollY =
+        window.scrollY || document.documentElement.scrollTop || 0;
+      // Near the page top, keep the bar in-flow under the header.
+      if (scrollY <= 48) return "top";
+      // Once the user has scrolled (typical when editing Appearance), pin
+      // Save to the viewport bottom so it stays visible.
+      const sentinel = topDockSentinelRef.current;
+      if (sentinel) {
+        const rect = sentinel.getBoundingClientRect();
+        const headerBottom =
+          Number.parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue(
+              "--sticky-viewport-top"
+            )
+          ) || 72;
+        if (rect.bottom > headerBottom + 8 && rect.top < window.innerHeight) {
+          return "top";
+        }
+      }
+      return "bottom";
+    }
+
     function syncSaveDock() {
-      // Stay under the header near the top; pin to the bottom once content
-      // scrolls up so the bar never covers mid-page controls (sliders, etc.).
-      setSaveDock(window.scrollY > 72 ? "bottom" : "top");
+      setSaveDock(resolveSaveDock());
     }
 
     syncSaveDock();
     window.addEventListener("scroll", syncSaveDock, { passive: true });
+    window.addEventListener("resize", syncSaveDock);
     window.visualViewport?.addEventListener("resize", syncSaveDock);
     return () => {
       window.removeEventListener("scroll", syncSaveDock);
+      window.removeEventListener("resize", syncSaveDock);
       window.visualViewport?.removeEventListener("resize", syncSaveDock);
     };
   }, [isDirty]);
@@ -1357,6 +1399,41 @@ export default function AppSettingsScreen({
     showSavedFlash();
   }
 
+  const saveActionsBar = isDirty ? (
+    <div
+      className={`settings-page__actions-bar settings-page__actions-bar--${saveDock}`}
+      role="toolbar"
+      aria-label={text.save}
+    >
+      <button
+        type="button"
+        onClick={handleUndo}
+        disabled={!canUndo}
+        title={text.undo}
+        className="settings-page__history-btn"
+      >
+        <Undo2 size={15} />
+      </button>
+      <button
+        type="button"
+        onClick={handleRedo}
+        disabled={!canRedo}
+        title={text.redo}
+        className="settings-page__history-btn"
+      >
+        <Redo2 size={15} />
+      </button>
+      <button
+        type="button"
+        onClick={handleSave}
+        className="settings-page__save-btn"
+      >
+        <Save size={15} />
+        <span>{text.save}</span>
+      </button>
+    </div>
+  ) : null;
+
   return (
     <section className="animate-slide-up">
       <div
@@ -1391,40 +1468,17 @@ export default function AppSettingsScreen({
           </div>
         </div>
 
-        {isDirty ? (
-          <div
-            className={`settings-page__actions-bar settings-page__actions-bar--${saveDock}`}
-            role="toolbar"
-            aria-label={text.save}
-          >
-            <button
-              type="button"
-              onClick={handleUndo}
-              disabled={!canUndo}
-              title={text.undo}
-              className="settings-page__history-btn"
-            >
-              <Undo2 size={15} />
-            </button>
-            <button
-              type="button"
-              onClick={handleRedo}
-              disabled={!canRedo}
-              title={text.redo}
-              className="settings-page__history-btn"
-            >
-              <Redo2 size={15} />
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="settings-page__save-btn"
-            >
-              <Save size={15} />
-              <span>{text.save}</span>
-            </button>
-          </div>
-        ) : null}
+        {/* Anchor for deciding whether the in-flow Save bar is still on screen. */}
+        <div
+          ref={topDockSentinelRef}
+          className="settings-page__save-sentinel"
+          aria-hidden
+        />
+
+        {/* Bottom dock is portaled so slide-up transforms cannot trap fixed positioning. */}
+        {saveDock === "bottom" && portalReady && saveActionsBar
+          ? createPortal(saveActionsBar, document.body)
+          : saveActionsBar}
 
         <div className="settings-layout">
           <nav
@@ -1765,6 +1819,21 @@ export default function AppSettingsScreen({
             <p className="settings-resources-desc text-xs leading-relaxed">
               {text.resourcesDesc}
             </p>
+            {onRestartTour ? (
+              <div className="settings-resource-card">
+                <p className="settings-resource-card__desc">
+                  {tourCopy.tourTakeAgainDesc}
+                </p>
+                <button
+                  type="button"
+                  onClick={onRestartTour}
+                  className="settings-resource-card__btn"
+                >
+                  <Map size={15} />
+                  <span>{tourCopy.tourTakeAgain}</span>
+                </button>
+              </div>
+            ) : null}
             <div className="settings-resource-card">
               <p className="settings-resource-card__desc">{text.methodologyDesc}</p>
               <button

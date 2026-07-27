@@ -70,10 +70,18 @@
   homeSubtitle: "Choisissez comment démarrer ou continuer une analyse.",
   homeWelcomeNew: "Bienvenue",
   homeWelcomeBack: "Bon retour, {name}",
-  homeHeroCycle1: "Bienvenue, {name}, comment vous sentez-vous aujourd'hui ?",
-  homeHeroCycle2: "Que prévoyez-vous faire aujourd'hui ?",
+  homeGoodMorning: "Bonjour, {name}",
+  homeGoodAfternoon: "Bon après-midi, {name}",
+  homeGoodNight: "Bonne nuit, {name}",
+  homeHeroCycle1: "Bienvenue, {name} — content de vous voir.",
+  homeHeroCycle2: "Votre sol a une histoire. Lisons-la ensemble.",
   homeHeroCycle3:
-    "Donnez-moi des informations et je vous dirai ce que votre culture ou votre sol demande.",
+    "Donnez-moi quelques valeurs de labo et je vous dirai ce que votre culture ou votre sol demande.",
+  homeHeroCycle4: "Quand vous voulez — votre prochaine analyse est à un tap.",
+  homeHeroCycle5: "Un peu de données, des conseils plus clairs. Vous y êtes.",
+  homeHeroCycle6: "Sol en santé, récoltes plus heureuses. Commencez avec l’échantillon d’aujourd’hui.",
+  homeHeroCycle7: "Je suis là pour vous aider à prendre soin de votre terre, mesure après mesure.",
+  homeHeroCycle8: "Que vérifions-nous aujourd’hui — sol, feuilles ou un calcul rapide ?",
   homeSearchPlaceholder: "Rechercher actions, outils, réglages ou fermes…",
   homeSearchEmpty: "Aucun résultat. Essayez une autre recherche.",
   inputData: "Saisir des données",
@@ -264,7 +272,7 @@
   generalReferenceMode:
     "Mode référence générale : ces plages sont approximatives.",
   generalReferenceModeTitle: "Mode référence générale",
-  extractionMethodLabel: "Suffisance / extraction",
+  extractionMethodLabel: "Méthode",
   extractionMethodGeneral: "Spécifique à la culture",
   extractionMethodCropSpecific: "Spécifique à la culture",
   extractionMethodOlsen: "Olsen",
@@ -541,6 +549,33 @@
   step3Title: "3. Résultats",
   step3Text: "Révisez l'interprétation et enregistrez si vous êtes connecté.",
 
+  tourSkip: "Passer le guide",
+  tourPrevious: "Précédent",
+  tourNext: "Suivant",
+  tourFinish: "Terminer",
+  tourStepOf: "Étape {current} sur {total}",
+  tourTakeAgain: "Refaire le guide",
+  tourTakeAgainDesc:
+    "Parcourez la saisie des données, l'enregistrement et la génération d'un rapport.",
+  tourStepInputTitle: "Commencez par vos données",
+  tourStepInputBody:
+    "Touchez Saisir des données pour démarrer une analyse sol ou foliaire manuelle.",
+  tourStepFarmCropTitle: "Ajoutez ferme et culture",
+  tourStepFarmCropBody:
+    "Associez l'échantillon à une ferme et une parcelle, puis choisissez la culture.",
+  tourStepValuesTitle: "Entrez les valeurs labo",
+  tourStepValuesBody:
+    "Remplissez au moins un paramètre de votre rapport. Le reste peut rester vide.",
+  tourStepSaveTitle: "Enregistrez l'analyse",
+  tourStepSaveBody:
+    "Après la saisie, touchez Enregistrer pour les calculateurs et les rapports.",
+  tourStepCalculatorsTitle: "Ouvrez Calculateurs",
+  tourStepCalculatorsBody:
+    "Depuis Accueil, ouvrez Calculateurs pour CIC, pH, DOP, plans de fertilisation et plus.",
+  tourStepReportTitle: "Générez un rapport complet",
+  tourStepReportBody:
+    "Dans Calculateurs, utilisez le bouton rapport pour exporter un PDF avec interprétation, graphiques et recommandations.",
+
   viewSavedReports: "Voir les rapports enregistrés.",
   loginToViewReports: "Connectez-vous pour enregistrer et voir les rapports.",
   loginOrGuest: "Connectez-vous ou continuez comme invité.",
@@ -578,18 +613,67 @@
   aboutTagline: "L'intelligence du sol pour chaque producteur",
   aboutIntro:
     "Cultosol transforme les rapports de laboratoire sol et foliaire en conseils clairs pour le terrain—afin que les petits producteurs agissent avec confiance et sachent quand consulter un expert.",
+  aboutStoryLabel: "Histoire de Cultosol",
+  aboutStoryEyebrow: "Notre parcours",
+  aboutStoryPrev: "Histoire précédente",
+  aboutStoryNext: "Histoire suivante",
+  aboutStoryFoundedKicker: "Création",
+  aboutStoryFoundedTitle: "Né en {year}",
+  aboutStoryFoundedBody:
+    "Cultosol est né d’une idée de terrain : transformer des chiffres de laboratoire denses en conseils que chaque producteur peut faire confiance—sans attendre un rapport lointain.",
+  aboutStoryFoundedHint: "Fondé",
+  aboutStoryImpactKicker: "Impact à ce jour",
+  aboutStoryAnalysesTitle: "Des lectures de labo devenues action",
+  aboutStoryAnalysesBody:
+    "Analyses sol et foliaire terminées guidées avec Cultosol — comptées jusqu’au {date}.",
+  aboutStoryReachKicker: "Portée mondiale",
+  aboutStoryContinentsTitle: "À travers les continents",
+  aboutStoryContinentsBody:
+    "Actif sur {continents} continents et dans {countries} pays — au {date}.",
+  aboutStoryContinentsHint: "Continents",
+  aboutStoryFieldKicker: "Sur le terrain",
+  aboutStoryRegionsTitle: "Provinces et régions atteintes",
+  aboutStoryRegionsBody:
+    "Provinces et États locaux où les producteurs enregistrent des rapports — mis à jour jusqu’au {date}.",
+  aboutPillarsLabel: "Mission, vision et valeurs",
+  aboutPillarsEyebrow: "Qui nous sommes",
+  aboutPillarsTitle: "Mission · Vision · Valeurs",
+  aboutPillarsLede:
+    "Touchez chaque pilier pour explorer ce qui anime Cultosol—un produit à l’esprit ONG, conçu pour les producteurs, pas pour les barrières.",
   aboutMissionLabel: "Mission",
   aboutMission:
     "Mettre des conseils de terrain clairs et fiables entre les mains de chaque producteur. Cultosol transforme les résultats de laboratoire sol et foliaire en recommandations concrètes—pour que les petits producteurs agissent avec confiance, protègent leurs cultures et sachent quand consulter un expert.",
   aboutVisionLabel: "Vision",
   aboutVision:
     "Un monde où aucun agriculteur ne reste dans le doute face à son sol. Chaque producteur peut lire les données de sa culture avec clarté, mieux décider au champ et rejoindre un conseil agronomique professionnel sans délai—où qu’il cultive.",
+  aboutValuesLabel: "Valeurs",
+  aboutValues:
+    "Nous construisons pour la clarté, l’accès et le partenariat avec l’agronomie locale—pour que la technologie serve le terrain, et non l’inverse.",
+  aboutValue1Title: "La clarté d’abord",
+  aboutValue1Body:
+    "Chaque chiffre doit devenir une décision qu’un producteur comprend au champ.",
+  aboutValue2Title: "Accès ouvert",
+  aboutValue2Body:
+    "Le savoir doit aller plus loin que les laboratoires et les bureaux—surtout vers les petits producteurs.",
+  aboutValue3Title: "Partenariat de terrain",
+  aboutValue3Body:
+    "Nous amplifions l’expertise agronomique locale ; nous ne prétendons jamais la remplacer.",
   aboutContactLabel: "Contact",
   aboutPhoneCr: "Costa Rica",
   aboutPhoneHt: "Haïti",
   aboutDisclaimerShort:
     "Cultosol soutient vos décisions—il ne remplace pas les conseils agronomiques professionnels.",
   aboutAddRequest: "Suggérer une amélioration",
+  aboutUserGuide: "Guide utilisateur",
+  aboutUserGuideDesc:
+    "Téléchargez un PDF du parcours Accueil, Valeurs, Enregistrer, Calculateurs et rapports.",
+  aboutUserGuideDownload: "Télécharger le PDF",
+  aboutUserGuideGenerating: "Génération…",
+  aboutUserGuideError: "Impossible de créer le PDF. Réessayez.",
+  aboutUserGuideLangEn: "Anglais",
+  aboutUserGuideLangEs: "Espagnol",
+  aboutUserGuideLangFr: "Français",
+  aboutUserGuideLangPt: "Portugais",
   aboutDonate: "Soutenir Cultosol",
   aboutDonateSoon: "Lien PayPal bientôt disponible.",
   aboutDonateSupport: "Don sécurisé via PayPal",
@@ -790,11 +874,10 @@
     calendarDesc:
       "Transformez vos doses nutritionnelles en plan echelonne : les engrais sont repartis dans la saison, pas tous d'un coup.",
     howItWorksTitle: "Comment fonctionne ce plan",
-    howItWorks1: "Indiquez la ferme (et la parcelle) ou vous fertiliserez.",
+    howItWorks1: "Definissez ferme, parcelle, objectif et dates debut/fin.",
     howItWorks2:
-      "Creez la sequence depuis le plan nutritionnel : amendement → basal → vegetatif → reproductif.",
-    howItWorks3:
-      "Chaque etape montre quoi appliquer, quelle part de la dose et quand — modifiez les dates si besoin.",
+      "Creez le calendrier depuis votre plan nutritionnel pour cette periode.",
+    howItWorks3: "Verifiez chaque apport puis enregistrez-le a la ferme.",
     contextTitle: "Ou et quand",
     farmLabel: "Ferme",
     farmPlaceholder: "Nom de la ferme",
@@ -806,19 +889,40 @@
     lotLabel: "Parcelle",
     lotPlaceholder: "Parcelle optionnelle",
     seasonStart: "Semis / debut de saison",
+    seasonEnd: "Date de fin du plan",
+    seasonEndHint:
+      "Les apports sont espaces pour que le dernier tombe a cette date.",
+    seasonEndBeforeStart: "La date de fin doit etre apres la date de debut.",
+    purposeTitle: "Objectif du plan",
+    purposeHint: "Pour quelle partie du cycle cultural fertilisez-vous ?",
+    purposeFullCycle: "Saison complete",
+    purposeFullCycleHint: "De l'amendement au remplissage / reproductif",
+    purposeEstablishment: "Etablissement",
+    purposeEstablishmentHint: "Amendement et dose de fond / semis seulement",
+    purposeVegetative: "Croissance vegetative",
+    purposeVegetativeHint: "Pousse foliaire (couverture)",
+    purposeReproductive: "Remplissage fruit / grain",
+    purposeReproductiveHint: "Floraison, remplissage du fruit ou du grain",
+    purposeMaintenance: "Entretien (veg. + remplissage)",
+    purposeMaintenanceHint: "Suivi continu — sans semis / etablissement",
+    purposeReproductivePerennial: "Remplissage / qualite",
+    purposeEstablishmentPerennial: "Correction du sol + reprise",
     cropLabel: "Culture",
     cropUnknown: "Aucune culture selectionnee",
     goToSetup: "Definir la ferme dans Configuration",
     goToPlan: "Ouvrir le plan nutritionnel",
     scheduleBuilderTitle: "Creer la sequence d'applications",
     scheduleBuilderHint:
-      "{count} doses pretes — nous les repartirons dans le temps.",
+      "{count} doses pretes — nous les repartirons selon le but choisi.",
     buildSchedule: "Creer le calendrier",
+    scheduleNeedsRebuild:
+      "Le but ou les dates ont change. Appuyez sur Creer le calendrier pour actualiser la frise — elle montre encore l'ancienne sequence.",
     previewTitle: "Apercu de la sequence",
     recommendedTitle: "Recommande depuis le plan",
     suggestFromPlan: "Suggerer depuis le plan nutritionnel",
     needPlanHint: "Ouvrez Calculateurs → Plan nutritionnel d'abord.",
-    recommendHint: "Revoyez les applications en sequence puis enregistrez-les pour cette ferme.",
+    recommendHint:
+      "Creer le calendrier remplace la frise d'applications de cette ferme selon le but choisi.",
     acceptRecommended: "Enregistrer le calendrier",
     discardRecommended: "Ignorer l'apercu",
     manualEventTitle: "Ajouter une application personnalisee",
@@ -860,6 +964,8 @@
     pdfCrop: "Culture",
     pdfResponsible: "Responsable",
     pdfSeasonStart: "Debut de saison",
+    pdfSeasonEnd: "Fin du plan",
+    pdfPurpose: "Objectif du plan",
     pdfGenerated: "Genere",
     pdfScheduleTable: "Calendrier d'application",
     pdfColDate: "Date",
@@ -889,14 +995,17 @@
     pdfRecNitrogen:
       "Azote: fractionnez comme prevu; evitez grosses doses avant orage ou canicule.",
     howItWorks2Perennial:
-      "Pour bananier et fruits perennes, le plan suit le cycle: correction sol → pousse vegetative → pre-floraison → remplissage (pas une nouvelle plantation).",
+      "Creez un calendrier de cycle (pas une nouvelle plantation) depuis votre plan.",
     howItWorks2Fruiting:
-      "Pour cultures fruitieres: installation → floraison / nouaison → remplissage.",
+      "Creez un calendrier fruitier depuis votre plan nutritionnel.",
     seasonStartPerennial: "Debut de cycle (recolte, floraison ou reprise)",
     seasonStartFruiting: "Repiquage / debut de saison",
     cycleModeAnnual: "Mode: semis / culture annuelle",
     cycleModePerennial: "Mode: cycle perenne / fructification (pas de semis)",
     cycleModeFruiting: "Mode: floraison / remplissage",
+    cycleModeAnnualShort: "Annuelle / semis",
+    cycleModePerennialShort: "Cycle perenne",
+    cycleModeFruitingShort: "Culture fruitiere",
     stageAmendmentPerennial: "Correction du sol · Amendement",
     stageAmendmentPerennialHint:
       "Corrige la chimie du sol a tout moment du cycle — sans nouvelle plantation.",

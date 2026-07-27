@@ -371,7 +371,8 @@ function allocateRecipe(
 
 function pickBestRecipe(
   candidates: Array<{ lines: RawLine[]; unmet: FormulationGrade; cost: number } | null>,
-  optimizeFor: FormulationOptimizeFor = "mix"
+  optimizeFor: FormulationOptimizeFor = "mix",
+  batchMassKg?: number
 ): { lines: RawLine[]; unmet: FormulationGrade; cost: number } | null {
   const feasible = candidates.filter(
     (c): c is { lines: RawLine[]; unmet: FormulationGrade; cost: number } =>
@@ -384,6 +385,19 @@ function pickBestRecipe(
     const bUnmet = targetSum(b.unmet);
     // Prefer recipes that leave less unmet nutrient mass.
     if (Math.abs(aUnmet - bUnmet) > 0.25) return aUnmet - bUnmet;
+
+    // When nutrient targets are met, prefer bag-fitting mixes; otherwise the
+    // lowest product mass (scales down less → closest grade from below).
+    if (batchMassKg != null && aUnmet <= 0.5 && bUnmet <= 0.5) {
+      const aMass = recipeProductMass(a.lines);
+      const bMass = recipeProductMass(b.lines);
+      const aFit = recipeFitsBatch(a.lines, batchMassKg);
+      const bFit = recipeFitsBatch(b.lines, batchMassKg);
+      if (aFit !== bFit) return aFit ? -1 : 1;
+      if (!aFit && !bFit && Math.abs(aMass - bMass) > 0.25) {
+        return aMass - bMass;
+      }
+    }
 
     if (optimizeFor === "value") {
       // Best value: lowest cost first, then fewer products.
@@ -480,6 +494,53 @@ function recipeSignature(lines: RawLine[]) {
     .join("|");
 }
 
+/**
+ * Build a recipe from single-nutrient products only (one source per oxide).
+ * Always meets target nutrient kg when each required nutrient has a mono source;
+ * the blend may still exceed the bag mass for high grades.
+ */
+function buildSingleNutrientCoveringRecipe(
+  targetsKg: FormulationGrade,
+  catalog: CommercialFertilizer[]
+): { lines: RawLine[]; unmet: FormulationGrade } | null {
+  const lines: RawLine[] = [];
+  const remaining = cloneTargets(targetsKg);
+
+  for (const nutrient of FORMULATION_NUTRIENTS) {
+    const need = remaining[nutrient] || 0;
+    if (need <= 0.05) continue;
+
+    const monos = catalog
+      .filter((product) => {
+        const covered = nutrientsCovered(product);
+        return covered.length === 1 && covered[0] === nutrient;
+      })
+      .sort(
+        (a, b) => (b.grade[nutrient] || 0) - (a.grade[nutrient] || 0)
+      );
+
+    if (monos.length === 0) return null;
+
+    const product = monos[0];
+    const pct = product.grade[nutrient] || 0;
+    if (!(pct > 0)) return null;
+    const mass = round2(need / (pct / 100));
+    if (!(mass > 0.05)) return null;
+
+    const existing = lines.find((line) => line.product.key === product.key);
+    if (existing) existing.kg = round2(existing.kg + mass);
+    else lines.push({ product, kg: mass });
+    delete remaining[nutrient];
+  }
+
+  if (lines.length === 0) return null;
+  if (targetSum(remaining) > 0.5) return null;
+  if (!nutrientsMatchTargets(nutrientsFromLines(lines), targetsKg)) {
+    return null;
+  }
+  return { lines, unmet: {} };
+}
+
 /** Collect distinct exact recipes by varying bias and forced first product. */
 function collectExactRecipes(
   targetsKg: FormulationGrade,
@@ -514,6 +575,9 @@ function collectExactRecipes(
     });
   };
 
+  // Guaranteed mono-nutrient cover when single-oxide sources exist.
+  tryAdd(buildSingleNutrientCoveringRecipe(targetsKg, catalog));
+
   for (const bias of biases) {
     tryAdd(
       allocateRecipe(targetsKg, catalog, effectivePrices, bagKg, {
@@ -547,7 +611,8 @@ function pickRandomExactRecipe(
   effectivePrices: Record<string, number>,
   bagKg: number,
   prices: Record<string, number>,
-  randomUnit: number
+  randomUnit: number,
+  batchMassKg?: number
 ): CostedRecipe | null {
   const recipes = collectExactRecipes(
     targetsKg,
@@ -556,12 +621,16 @@ function pickRandomExactRecipe(
     bagKg,
     prices
   );
-  if (recipes.length === 0) return null;
+  const pool =
+    batchMassKg != null
+      ? recipes.filter((recipe) => recipeFitsBatch(recipe.lines, batchMassKg))
+      : recipes;
+  if (pool.length === 0) return null;
   const unit =
     Number.isFinite(randomUnit) && randomUnit >= 0 && randomUnit < 1
       ? randomUnit
       : Math.random();
-  return recipes[Math.floor(unit * recipes.length)] || recipes[0];
+  return pool[Math.floor(unit * pool.length)] || pool[0];
 }
 
 function filterCatalog(
@@ -586,7 +655,12 @@ function recipeProductMass(lines: RawLine[]) {
   return round2(lines.reduce((sum, line) => sum + line.kg, 0));
 }
 
-/** Among exact recipes, prefer bag-fitting mixes, then fewest products. */
+/** Allow ~1.2% overflow so 1-decimal grades still count as bag-fitting. */
+function recipeFitsBatch(lines: RawLine[], batchMassKg: number) {
+  return recipeProductMass(lines) <= batchMassKg * 1.012 + 0.05;
+}
+
+/** Among bag-fitting exact recipes, prefer fewest products, then cost. */
 function compareExactMixRecipes(a: CostedRecipe, b: CostedRecipe) {
   if (a.lines.length !== b.lines.length) return a.lines.length - b.lines.length;
   const near =
@@ -598,19 +672,48 @@ function compareExactMixRecipes(a: CostedRecipe, b: CostedRecipe) {
   return 0;
 }
 
+/**
+ * Rank exact nutrient recipes for the bag.
+ * Fitting recipes first (fewest products). If none fit, lowest product mass
+ * first — that mix scales down the least and is the closest achievable grade
+ * that still supplies the target nutrient quantities before bag trim.
+ */
 function rankExactMixRecipes(
   recipes: CostedRecipe[],
   batchMassKg: number
 ): CostedRecipe[] {
   if (recipes.length === 0) return [];
-  const fitting = recipes.filter(
-    (recipe) => recipeProductMass(recipe.lines) <= batchMassKg + 0.05
+  const fitting = recipes.filter((recipe) =>
+    recipeFitsBatch(recipe.lines, batchMassKg)
   );
-  const pool = fitting.length > 0 ? fitting : recipes;
-  return [...pool].sort(compareExactMixRecipes);
+  if (fitting.length > 0) {
+    return [...fitting].sort(compareExactMixRecipes);
+  }
+  return [...recipes].sort((a, b) => {
+    const massDelta =
+      recipeProductMass(a.lines) - recipeProductMass(b.lines);
+    if (Math.abs(massDelta) > 0.25) return massDelta;
+    return compareExactMixRecipes(a, b);
+  });
 }
 
+/** Exact target grade in the finished bag (product mass ≤ batch). */
 function pickBestExactMix(
+  recipes: CostedRecipe[],
+  batchMassKg: number
+): CostedRecipe | null {
+  const fitting = recipes.filter((recipe) =>
+    recipeFitsBatch(recipe.lines, batchMassKg)
+  );
+  if (fitting.length === 0) return null;
+  return [...fitting].sort(compareExactMixRecipes)[0] || null;
+}
+
+/**
+ * When the exact grade cannot fit in the bag, pick the nutrient-exact recipe
+ * with the lowest product mass so bag scale-down minimizes shortfall.
+ */
+function pickClosestCoveringMix(
   recipes: CostedRecipe[],
   batchMassKg: number
 ): CostedRecipe | null {
@@ -702,15 +805,24 @@ function finalizeFormulationResult(args: {
   const fillers =
     finishMode === "filler" ? resolveSelectedFillers(input) : [];
 
-  // Over-mass: scale down proportionally so the bag still fits 100 kg.
+  // Over-mass: scale down proportionally so the bag still fits.
+  // Tiny overflow (rounding) keeps exactMatch when the trimmed grade still
+  // matches the target; larger overflow is the "closest covering" path.
   if (productMassKg > batchMassKg + 0.05) {
+    const overflowPct =
+      (productMassKg - batchMassKg) / Math.max(batchMassKg, 1);
     const factor = batchMassKg / productMassKg;
     workingLines = scaleRawLines(workingLines, factor);
     nutrientsDelivered = nutrientsFromLines(workingLines);
     productMassKg = round2(
       workingLines.reduce((sum, line) => sum + line.kg, 0)
     );
-    exactMatch = false;
+    const scaledGrade = gradeFromNutrients(nutrientsDelivered, batchMassKg);
+    if (exactMatch && overflowPct <= 0.012 && gradesClose(scaledGrade, targetGrade)) {
+      exactMatch = true;
+    } else {
+      exactMatch = false;
+    }
   }
 
   if (finishMode === "filler") {
@@ -827,8 +939,10 @@ function finalizeFormulationResult(args: {
 /**
  * Build a bag formulation for a target grade and batch size.
  * Best mix searches exact recipes and prefers the fewest products that truly
- * hit the grade. When exact is impossible, returns the closest blend
- * (exactMatch: false) so the UI can ask before accepting an adjusted formula.
+ * hit the grade inside the bag. When the exact grade cannot fit, returns the
+ * closest covering blend (lowest product mass that still supplies the target
+ * nutrient quantities, then scaled into the bag) with exactMatch: false so the
+ * UI can ask before accepting an adjusted formula.
  */
 export function buildFormulation(
   input: BuildFormulationInput
@@ -890,23 +1004,21 @@ export function buildFormulation(
         ? "random"
         : "mix";
 
-  // Can Best mix (full catalog) hit the exact target?
+  // Can Best mix (full catalog) hit the exact target inside the bag?
   const fullCatalog = filterCatalog(sourceCatalog, null, targetsKg, targetGrade);
   const fullPrices: Record<string, number> = { ...effectivePrices };
   for (const product of fullCatalog) {
     if (!(fullPrices[product.key] > 0)) fullPrices[product.key] = 1;
   }
+  const fullExactRecipes = collectExactRecipes(
+    targetsKg,
+    fullCatalog,
+    fullPrices,
+    bagKg,
+    prices
+  );
   const autoCanSolve = Boolean(
-    pickBestExactMix(
-      collectExactRecipes(
-        targetsKg,
-        fullCatalog,
-        fullPrices,
-        bagKg,
-        prices
-      ),
-      batchMassKg
-    )
+    pickBestExactMix(fullExactRecipes, batchMassKg)
   );
 
   let best: CostedRecipe | null = null;
@@ -919,77 +1031,94 @@ export function buildFormulation(
       fullPrices,
       bagKg,
       prices,
-      input.randomUnit ?? Math.random()
-    );
-    exactMatch = Boolean(best);
-    if (!best) {
-      best = pickBestRecipe(
-        runAttempts(
-          targetsKg,
-          fullCatalog,
-          fullPrices,
-          bagKg,
-          prices,
-          false,
-          "mix"
-        ),
-        "mix"
-      );
-    }
-  } else if (optimizeFor === "mix") {
-    best = pickBestExactMix(
-      collectExactRecipes(
-        targetsKg,
-        catalog,
-        effectivePrices,
-        bagKg,
-        prices
-      ),
+      input.randomUnit ?? Math.random(),
       batchMassKg
     );
     exactMatch = Boolean(best);
     if (!best) {
-      best = pickBestRecipe(
-        runAttempts(
-          targetsKg,
-          catalog,
-          effectivePrices,
-          bagKg,
-          prices,
-          false,
-          "mix"
-        ),
-        "mix"
-      );
+      // Prefer a nutrient-covering mix (scaled into the bag) over a partial one.
+      best = pickClosestCoveringMix(fullExactRecipes, batchMassKg);
+      if (!best) {
+        best = pickBestRecipe(
+          runAttempts(
+            targetsKg,
+            fullCatalog,
+            fullPrices,
+            bagKg,
+            prices,
+            false,
+            "mix"
+          ),
+          "mix",
+          batchMassKg
+        );
+      }
+    }
+  } else if (optimizeFor === "mix") {
+    const exactRecipes = collectExactRecipes(
+      targetsKg,
+      catalog,
+      effectivePrices,
+      bagKg,
+      prices
+    );
+    best = pickBestExactMix(exactRecipes, batchMassKg);
+    exactMatch = Boolean(best);
+    if (!best) {
+      // Closest = nutrient-exact recipe with lowest mass, then scale to bag.
+      // Never prefer a dilute single compound (e.g. 133 kg of 15-15-15 for
+      // a 20-20-20 target) over a denser multi-product cover.
+      best = pickClosestCoveringMix(exactRecipes, batchMassKg);
+      if (!best) {
+        best = pickBestRecipe(
+          runAttempts(
+            targetsKg,
+            catalog,
+            effectivePrices,
+            bagKg,
+            prices,
+            false,
+            "mix"
+          ),
+          "mix",
+          batchMassKg
+        );
+      }
     }
   } else {
+    const exactValueRecipes = collectExactRecipes(
+      targetsKg,
+      catalog,
+      effectivePrices,
+      bagKg,
+      prices
+    );
     best = pickBestRecipe(
-      runAttempts(
-        targetsKg,
-        catalog,
-        effectivePrices,
-        bagKg,
-        prices,
-        true,
-        optimizeFor
+      exactValueRecipes.map((recipe) =>
+        recipeFitsBatch(recipe.lines, batchMassKg) ? recipe : null
       ),
-      optimizeFor
+      optimizeFor,
+      batchMassKg
     );
     exactMatch = Boolean(best);
 
     if (!best) {
-      best = pickBestRecipe(
-        runAttempts(
-          targetsKg,
-          catalog,
-          effectivePrices,
-          bagKg,
-          prices,
-          false,
-          optimizeFor
-        ),
-        optimizeFor
-      );
+      best = pickClosestCoveringMix(exactValueRecipes, batchMassKg);
+      if (!best) {
+        best = pickBestRecipe(
+          runAttempts(
+            targetsKg,
+            catalog,
+            effectivePrices,
+            bagKg,
+            prices,
+            false,
+            optimizeFor
+          ),
+          optimizeFor,
+          batchMassKg
+        );
+      }
     }
   }
 
@@ -1010,9 +1139,70 @@ export function buildFormulation(
   });
 }
 
+function recipeProductKeySet(recipe: CostedRecipe) {
+  return recipe.lines
+    .map((line) => line.product.key)
+    .sort()
+    .join("+");
+}
+
+/** True when every line is a single-oxide fertilizer. */
+function isMonoNutrientRecipe(recipe: CostedRecipe) {
+  return (
+    recipe.lines.length > 0 &&
+    recipe.lines.every(
+      (line) => nutrientsCovered(line.product).length === 1
+    )
+  );
+}
+
 /**
- * Top exact Best mix scenarios (fewest products first), for carousel UI.
- * Returns at most `limit` exact recipes that hit the target grade.
+ * Distinct covering recipes for the closest-mix carousel: lowest product mass
+ * first (closest grade after bag scale), one entry per product set.
+ */
+function rankClosestCoveringRecipes(recipes: CostedRecipe[]): CostedRecipe[] {
+  const sorted = [...recipes].sort((a, b) => {
+    const massDelta =
+      recipeProductMass(a.lines) - recipeProductMass(b.lines);
+    if (Math.abs(massDelta) > 0.25) return massDelta;
+    return compareExactMixRecipes(a, b);
+  });
+  const seen = new Set<string>();
+  const unique: CostedRecipe[] = [];
+  for (const recipe of sorted) {
+    const key = recipeProductKeySet(recipe);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(recipe);
+  }
+  return unique;
+}
+
+/**
+ * Keep the strongest closest mixes, and always reserve a slot for the
+ * single-nutrient blend when it exists (even if it ranks outside the top N).
+ */
+function selectClosestScenarioRecipes(
+  recipes: CostedRecipe[],
+  limit: number
+): CostedRecipe[] {
+  const ranked = rankClosestCoveringRecipes(recipes);
+  if (ranked.length <= limit) return ranked;
+
+  const mono = ranked.find(isMonoNutrientRecipe);
+  const top = ranked.slice(0, limit);
+  if (!mono) return top;
+  if (top.some((recipe) => recipeProductKeySet(recipe) === recipeProductKeySet(mono))) {
+    return top;
+  }
+  return [...top.slice(0, limit - 1), mono];
+}
+
+/**
+ * Top Best mix scenarios for the carousel UI.
+ * Prefers exact bag-fitting recipes (fewest products). When the target cannot
+ * fit the bag, returns the closest covering alternatives (including mono-nutrient
+ * mixes), ranked by how little they must be scaled down.
  */
 export function listBestMixScenarios(
   input: BuildFormulationInput,
@@ -1063,32 +1253,49 @@ export function listBestMixScenarios(
     if (!(effectivePrices[product.key] > 0)) effectivePrices[product.key] = 1;
   }
 
-  const ranked = rankExactMixRecipes(
-    collectExactRecipes(
-      targetsKg,
-      catalog,
-      effectivePrices,
-      bagKg,
-      prices
-    ),
-    batchMassKg
-  ).slice(0, limit);
+  const exactRecipes = collectExactRecipes(
+    targetsKg,
+    catalog,
+    effectivePrices,
+    bagKg,
+    prices
+  );
+  const fitting = exactRecipes.filter((recipe) =>
+    recipeFitsBatch(recipe.lines, batchMassKg)
+  );
+  const usingClosest = fitting.length === 0;
+  const ranked = usingClosest
+    ? selectClosestScenarioRecipes(exactRecipes, Math.max(limit, 4))
+    : [...fitting].sort(compareExactMixRecipes);
 
-  return ranked
-    .map((best) =>
-      finalizeFormulationResult({
-        best,
-        exactMatch: true,
-        autoCanSolve: true,
-        input: { ...input, optimizeFor: "mix" },
-        targetGrade,
-        batchMassKg,
-        bagKg,
-        prices,
-        empty,
-      })
-    )
-    .filter((result) => result.feasible && result.exactMatch);
+  const autoCanSolve = fitting.length > 0;
+  const seenGrades = new Set<string>();
+  const results: FormulationResult[] = [];
+
+  for (const best of ranked) {
+    if (results.length >= limit) break;
+    const result = finalizeFormulationResult({
+      best,
+      exactMatch: !usingClosest,
+      autoCanSolve,
+      input: { ...input, optimizeFor: "mix" },
+      targetGrade,
+      batchMassKg,
+      bagKg,
+      prices,
+      empty,
+    });
+    if (!result.feasible) continue;
+    if (!usingClosest && !result.exactMatch) continue;
+    // Drop scaled duplicates that print as the same closest grade.
+    if (usingClosest) {
+      if (seenGrades.has(result.gradeLabel)) continue;
+      seenGrades.add(result.gradeLabel);
+    }
+    results.push(result);
+  }
+
+  return results;
 }
 
 export function listFormulationProducts() {

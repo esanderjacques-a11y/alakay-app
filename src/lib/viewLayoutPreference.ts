@@ -10,7 +10,7 @@
  * Storage key: `cultosol-view-layout-<scope>`
  */
 
-export type ViewLayoutMode = "list" | "grid";
+export type ViewLayoutMode = "list" | "grid" | "pad";
 
 const STORAGE_PREFIX = "cultosol-view-layout-";
 
@@ -25,7 +25,7 @@ export function readViewLayoutPreference(
   if (typeof window === "undefined") return fallback;
 
   const stored = window.localStorage.getItem(viewLayoutStorageKey(scope));
-  if (stored === "list" || stored === "grid") return stored;
+  if (stored === "list" || stored === "grid" || stored === "pad") return stored;
   return fallback;
 }
 

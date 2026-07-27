@@ -6,7 +6,6 @@ import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
 import { useDismissible } from "@/hooks/useDismissible";
 import type { Session } from "@supabase/supabase-js";
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
   ChevronDown,
@@ -14,6 +13,7 @@ import {
   FlaskConical,
   BarChart3,
   Info,
+  Maximize2,
   Plus,
   Save,
   Search,
@@ -43,6 +43,7 @@ import type { FertilizerPlanSnapshot } from "@/components/CalculatorHub";
 import AppSettingsScreen, {
   type SettingsSectionId,
 } from "@/components/AppSettingsScreen";
+import OnboardingTour from "@/components/OnboardingTour";
 import AboutScreen from "@/components/AboutScreen";
 import CalendarScreen from "@/components/planning/CalendarScreen";
 import FarmsScreen from "@/components/planning/FarmsScreen";
@@ -68,6 +69,11 @@ import type { JackoAppContext } from "@/lib/jackoContext";
 import BackButton from "@/components/ui/BackButton";
 import { ViewLayoutToggle } from "@/components/ui/ViewLayoutToggle";
 import { AppStep } from "@/lib/appSteps";
+import {
+  hasCompletedOnboardingTour,
+  markOnboardingTourComplete,
+  resetOnboardingTour,
+} from "@/lib/onboardingTour";
 import { isAdminEmail } from "@/lib/admin";
 import {
   buildExportRecommendations,
@@ -256,7 +262,7 @@ type UserCustomRange = {
 };
 
 type ParameterFilterGroup = "All" | "Chemical" | "Physical";
-type ValueEntryView = "cards" | "table";
+type ValueEntryView = "table" | "list" | "pad";
 type ImportedLabMetadata = {
   labName?: string;
   clientName?: string;
@@ -1158,7 +1164,7 @@ export default function HomePage() {
   const [showCustomParameterManager, setShowCustomParameterManager] =
     useState(false);
   const [showCustomRangeManager, setShowCustomRangeManager] = useState(false);
-  const [showWelcomeGuide, setShowWelcomeGuide] = useState(false);
+  const [showOnboardingTour, setShowOnboardingTour] = useState(false);
   const [labValueImporterMode, setLabValueImporterMode] = useState<
     "scan" | "import"
   >("import");
@@ -1303,14 +1309,6 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    if (!session?.user || guestMode) return;
-    const key = `cultosol-welcome-seen-${session.user.id}`;
-    if (window.localStorage.getItem(key)) return;
-    const frame = window.requestAnimationFrame(() => setShowWelcomeGuide(true));
-    return () => window.cancelAnimationFrame(frame);
-  }, [session?.user, guestMode]);
-
-  useEffect(() => {
     if (!session?.user || guestMode) {
       setPlanningUserId(null);
       return;
@@ -1320,11 +1318,22 @@ export default function HomePage() {
     });
   }, [session?.user?.id, guestMode]);
 
-  function closeWelcomeGuide() {
-    if (session?.user) {
-      window.localStorage.setItem(`cultosol-welcome-seen-${session.user.id}`, "1");
+  function completeOnboardingTour() {
+    markOnboardingTourComplete(session?.user?.id);
+    setShowOnboardingTour(false);
+  }
+
+  function restartOnboardingTour() {
+    resetOnboardingTour(session?.user?.id);
+    setCurrentStep("home");
+    setShowOnboardingTour(true);
+  }
+
+  function navigateForTour(step: AppStep) {
+    if (step === "setup" || step === "values") {
+      if (!cropId) setCropId(999);
     }
-    setShowWelcomeGuide(false);
+    setCurrentStep(step);
   }
 
   function buildAnalysisSignature(sourceResults = results) {
@@ -3022,6 +3031,13 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
   const hasAccess = Boolean((session?.user && !showAuthScreen) || guestMode);
   const isAdmin = isAdminEmail(session?.user?.email);
 
+  useEffect(() => {
+    if (!hasAccess) return;
+    if (hasCompletedOnboardingTour(session?.user?.id)) return;
+    const frame = window.requestAnimationFrame(() => setShowOnboardingTour(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [hasAccess, session?.user?.id]);
+
   const displayName = useMemo(() => {
     if (guestMode) return t.guestMode;
     if (!session?.user) return "";
@@ -3481,7 +3497,35 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       currentStep !== "lab-import" ? (
         <AppHeader {...headerProps} />
       ) : null}
-      <WelcomeGuide open={showWelcomeGuide && Boolean(session?.user) && !guestMode} t={t} onClose={closeWelcomeGuide} />
+      <OnboardingTour
+        open={showOnboardingTour}
+        onNavigate={navigateForTour}
+        onComplete={completeOnboardingTour}
+        labels={{
+          skip: t.tourSkip,
+          previous: t.tourPrevious,
+          next: t.tourNext,
+          finish: t.tourFinish,
+          stepOf: (current, total) =>
+            formatMessage(t.tourStepOf, { current, total }),
+          titles: {
+            tourStepInputTitle: t.tourStepInputTitle,
+            tourStepFarmCropTitle: t.tourStepFarmCropTitle,
+            tourStepValuesTitle: t.tourStepValuesTitle,
+            tourStepSaveTitle: t.tourStepSaveTitle,
+            tourStepCalculatorsTitle: t.tourStepCalculatorsTitle,
+            tourStepReportTitle: t.tourStepReportTitle,
+          },
+          bodies: {
+            tourStepInputBody: t.tourStepInputBody,
+            tourStepFarmCropBody: t.tourStepFarmCropBody,
+            tourStepValuesBody: t.tourStepValuesBody,
+            tourStepSaveBody: t.tourStepSaveBody,
+            tourStepCalculatorsBody: t.tourStepCalculatorsBody,
+            tourStepReportBody: t.tourStepReportBody,
+          },
+        }}
+      />
       <main
         className={`app-main-gradient app-main-shell text-slate-900 ${
           currentStep === "home"
@@ -3768,6 +3812,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             needsUpdate={needsAnalysisUpdate}
             onExportPdf={() => setExportModalOpen(true)}
             exportingPdf={exportingPdf}
+            tourActive={showOnboardingTour}
           />
         ) : currentStep === "results" ? (
           <section>
@@ -3961,6 +4006,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               setCurrentStep("billing");
             }}
             onOpenVerification={() => setCurrentStep("verification")}
+            onRestartTour={restartOnboardingTour}
           />
         ) : currentStep === "billing" ? (
           <BillingScreen
@@ -4279,57 +4325,59 @@ function SetupScreen({
       </div>
 
       <div className="calc-surface calc-page">
-        <FarmLotSelector
-          userId={userId}
-          farmName={farmName}
-          onFarmNameChange={setFarmName}
-          lotNames={lotName}
-          onLotNamesChange={setLotName}
-          layout="inline"
-          labels={{
-            farm: t.farmName,
-            lots: t.lotName,
-            selectFarm: t.selectFarm,
-            newFarm: t.newFarm,
-            addLot: t.addLot,
-            noLots: t.noLots,
-          }}
-        />
-
-        <SetupInlineField label={t.sampleType}>
-          <div className="setup-segmented-inline app-segmented-control">
-            <button
-              type="button"
-              onClick={() => setSampleType("soil")}
-              className={`app-segmented-control__btn ${
-                sampleType === "soil" ? "app-segmented-control__btn--active" : ""
-              }`}
-            >
-              {t.soil}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSampleType("foliar")}
-              className={`app-segmented-control__btn ${
-                sampleType === "foliar" ? "app-segmented-control__btn--active" : ""
-              }`}
-            >
-              {t.foliar}
-            </button>
-          </div>
-        </SetupInlineField>
-
-        <SetupInlineField label={t.crop}>
-          <AppSelect
-            value={cropId}
-            placeholder={t.generalCropOther}
-            compact
-            floatingMenu
-            icon={<Sprout size={18} />}
-            options={cropOptions}
-            onChange={setCropId}
+        <div data-tour="setup-farm-crop">
+          <FarmLotSelector
+            userId={userId}
+            farmName={farmName}
+            onFarmNameChange={setFarmName}
+            lotNames={lotName}
+            onLotNamesChange={setLotName}
+            layout="inline"
+            labels={{
+              farm: t.farmName,
+              lots: t.lotName,
+              selectFarm: t.selectFarm,
+              newFarm: t.newFarm,
+              addLot: t.addLot,
+              noLots: t.noLots,
+            }}
           />
-        </SetupInlineField>
+
+          <SetupInlineField label={t.sampleType}>
+            <div className="setup-segmented-inline app-segmented-control">
+              <button
+                type="button"
+                onClick={() => setSampleType("soil")}
+                className={`app-segmented-control__btn ${
+                  sampleType === "soil" ? "app-segmented-control__btn--active" : ""
+                }`}
+              >
+                {t.soil}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSampleType("foliar")}
+                className={`app-segmented-control__btn ${
+                  sampleType === "foliar" ? "app-segmented-control__btn--active" : ""
+                }`}
+              >
+                {t.foliar}
+              </button>
+            </div>
+          </SetupInlineField>
+
+          <SetupInlineField label={t.crop}>
+            <AppSelect
+              value={cropId}
+              placeholder={t.generalCropOther}
+              compact
+              floatingMenu
+              icon={<Sprout size={18} />}
+              options={cropOptions}
+              onChange={setCropId}
+            />
+          </SetupInlineField>
+        </div>
 
         {sampleType === "soil" ? (
           <SetupInlineField label={t.extractionMethodLabel}>
@@ -4463,6 +4511,7 @@ function ValuesScreen({
   needsUpdate,
   onExportPdf,
   exportingPdf,
+  tourActive = false,
 }: {
   t: (typeof translations)[Language];
   language: Language;
@@ -4515,6 +4564,7 @@ function ValuesScreen({
   needsUpdate: boolean;
   onExportPdf?: () => void;
   exportingPdf?: boolean;
+  tourActive?: boolean;
 }) {
   const [addDataMenuSource, setAddDataMenuSource] = useState<
     null | "toolbar" | "sticky"
@@ -4522,7 +4572,9 @@ function ValuesScreen({
   const [showParameterActions, setShowParameterActions] = useState(false);
   const [canRenderFloatingActions, setCanRenderFloatingActions] = useState(false);
   const parameterGridRef = useRef<HTMLDivElement | null>(null);
-  const [valueEntryView, setValueEntryView] = useState<ValueEntryView>("cards");
+  const [valueEntryView, setValueEntryView] = useState<ValueEntryView>("table");
+  const [padExpanded, setPadExpanded] = useState(false);
+  const valueEntryViewBeforeExpandRef = useRef<ValueEntryView | null>(null);
   const [detailParameterKey, setDetailParameterKey] = useState<string | null>(
     null
   );
@@ -4579,9 +4631,10 @@ function ValuesScreen({
 
   const showStickyAddAction = hasVisibleParameters && showParameterActions;
   const showSaveAction =
-    hasVisibleParameters &&
-    (showParameterActions || hasEnteredValues) &&
-    addDataMenuSource === null;
+    tourActive ||
+    (hasVisibleParameters &&
+      (showParameterActions || hasEnteredValues) &&
+      addDataMenuSource === null);
 
   const addDataMenuLabels = {
     menuHeading: t.addNewParameter,
@@ -4597,6 +4650,62 @@ function ValuesScreen({
   useEffect(() => {
     queueMicrotask(() => setCanRenderFloatingActions(true));
   }, []);
+
+  useEffect(() => {
+    if (tourActive && padExpanded) {
+      setPadExpanded(false);
+      valueEntryViewBeforeExpandRef.current = null;
+    }
+  }, [tourActive, padExpanded]);
+
+  useEffect(() => {
+    if (valueEntryView !== "pad" && padExpanded) {
+      setPadExpanded(false);
+      valueEntryViewBeforeExpandRef.current = null;
+    }
+  }, [valueEntryView, padExpanded]);
+
+  const openPadFullscreen = () => {
+    if (!padExpanded) {
+      valueEntryViewBeforeExpandRef.current = valueEntryView;
+    }
+    setValueEntryView("pad");
+    setPadExpanded(true);
+  };
+
+  const exitPadFullscreen = () => {
+    setPadExpanded(false);
+    const previousView = valueEntryViewBeforeExpandRef.current;
+    valueEntryViewBeforeExpandRef.current = null;
+    if (previousView && previousView !== "pad") {
+      setValueEntryView(previousView);
+    }
+  };
+
+  useEffect(() => {
+    if (!padExpanded) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setPadExpanded(false);
+      const previousView = valueEntryViewBeforeExpandRef.current;
+      valueEntryViewBeforeExpandRef.current = null;
+      if (previousView && previousView !== "pad") {
+        setValueEntryView(previousView);
+      }
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.dataset.valuesPadExpanded = "true";
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      delete document.documentElement.dataset.valuesPadExpanded;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [padExpanded]);
 
   useEffect(() => {
     if (!hasVisibleParameters) {
@@ -4685,7 +4794,7 @@ function ValuesScreen({
       ) : null}
 
       {/* Compact toolbar: search + controls */}
-      <div className="values-toolbar">
+      <div className="values-toolbar" data-tour="values-toolbar">
         <div className="values-toolbar__row">
           <div className="relative min-w-0 flex-1">
               <Search size={15} className="values-search-icon" />
@@ -4723,14 +4832,41 @@ function ValuesScreen({
 
           <div className="values-toolbar__filters">
             <ViewLayoutToggle
-              value={valueEntryView === "cards" ? "grid" : "list"}
+              value={
+                valueEntryView === "list"
+                  ? "list"
+                  : valueEntryView === "pad"
+                    ? "pad"
+                    : "grid"
+              }
               onChange={(mode) =>
-                setValueEntryView(mode === "grid" ? "cards" : "table")
+                setValueEntryView(
+                  mode === "list" ? "list" : mode === "pad" ? "pad" : "table"
+                )
               }
               listLabel={valuesChrome.viewLayoutList}
               gridLabel={valuesChrome.viewLayoutGrid}
+              padLabel={
+                valuesChrome.viewLayoutPad || "Pad"
+              }
               className="values-toolbar__view-toggle"
             />
+
+            {hasVisibleParameters ? (
+              <button
+                type="button"
+                className="values-toolbar-btn values-toolbar-btn--accent"
+                onClick={openPadFullscreen}
+                title={
+                  valuesChrome.viewLayoutPadExpand || "Full screen"
+                }
+                aria-label={
+                  valuesChrome.viewLayoutPadExpand || "Full screen"
+                }
+              >
+                <Maximize2 size={16} aria-hidden />
+              </button>
+            ) : null}
 
             <ParameterCategoryFilter
               categories={parameterCategories}
@@ -4782,7 +4918,7 @@ function ValuesScreen({
       ) : null}
 
       {sampleType === "soil" ? (
-        <div className="values-skip-crop-block">
+        <div className="values-skip-crop-block values-skip-crop-block--method">
           <p className="values-block-label">{t.extractionMethodLabel}</p>
           <ExtractionMethodChips
             t={t}
@@ -4823,13 +4959,14 @@ function ValuesScreen({
                 <div className="values-interpret-fab fixed z-[14000] animate-slide-up">
                   <button
                     type="button"
+                    data-tour="save-analysis"
                     onClick={() => void saveAnalysis()}
                     disabled={
                       loading ||
                       saving ||
                       Boolean(pendingEditableAnalysis) ||
-                      !hasEnteredValues ||
-                      !cropId ||
+                      (!tourActive && !hasEnteredValues) ||
+                      (!tourActive && !cropId) ||
                       isSaved ||
                       isQueued
                     }
@@ -4894,8 +5031,12 @@ function ValuesScreen({
         </div>
       )}
 
-      {hasVisibleParameters && valueEntryView === "table" && (
-        <div ref={parameterGridRef} className="values-entry-list">
+      {hasVisibleParameters && valueEntryView === "list" && (
+        <div
+          ref={parameterGridRef}
+          className="values-entry-list"
+          data-tour="values-entry"
+        >
           {parameterGroups.map((group) => (
             <section key={group.tier ?? "all"} className="values-entry-group">
               {group.tier && sortMode === "type" ? (
@@ -5036,12 +5177,13 @@ function ValuesScreen({
         </div>
       )}
 
-      {hasVisibleParameters && valueEntryView === "cards" && (
+      {hasVisibleParameters && valueEntryView === "table" && (
         <div
           ref={parameterGridRef}
           className={`values-table-shell${
             isCompactViewport ? " values-table-shell--compact" : ""
           }`}
+          data-tour="values-entry"
         >
           <table className="values-table w-full table-fixed border-collapse text-xs sm:text-sm">
             <colgroup>
@@ -5189,6 +5331,152 @@ function ValuesScreen({
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {hasVisibleParameters && valueEntryView === "pad" && (
+        <div
+          ref={parameterGridRef}
+          className={`values-table-shell values-pad-shell${
+            padExpanded ? " values-pad-shell--expanded" : ""
+          }`}
+          data-tour="values-entry"
+        >
+          {padExpanded || hasEnteredValues ? (
+            <div
+              className={`values-pad-toolbar${
+                padExpanded ? " values-pad-toolbar--expanded" : ""
+              }`}
+            >
+              {padExpanded ? (
+                <BackButton
+                  variant="icon"
+                  onClick={exitPadFullscreen}
+                  label={
+                    valuesChrome.viewLayoutPadBack ||
+                    valuesChrome.viewLayoutPadCollapse ||
+                    "Back"
+                  }
+                  className="values-pad-toolbar__back"
+                />
+              ) : null}
+              {padExpanded ? (
+                <div className="values-pad-toolbar__search">
+                  <Search size={14} className="values-pad-toolbar__search-icon" />
+                  <input
+                    className="values-pad-toolbar__search-input"
+                    placeholder={t.searchPlaceholder}
+                    value={parameterSearch}
+                    onChange={(e) => setParameterSearch(e.target.value)}
+                    aria-label={t.searchPlaceholder}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    enterKeyHint="search"
+                    inputMode="search"
+                  />
+                </div>
+              ) : null}
+              <div className="values-pad-toolbar__actions">
+                {hasEnteredValues ? (
+                  <button
+                    type="button"
+                    className="values-table-clear-btn"
+                    onClick={() => {
+                      if (window.confirm(t.clearValuesConfirm)) {
+                        clearAllValues();
+                      }
+                    }}
+                    title={t.clearAllValues}
+                    aria-label={t.clearAllValues}
+                  >
+                    <Eraser size={14} aria-hidden />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          <div className="values-pad-grid">
+            {filteredParameters.map((parameter) => {
+              const { selectedUnit, selectedUnitDisplayKey } =
+                resolveParameterUnitState(
+                  parameter,
+                  selectedUnits,
+                  selectedUnitDisplayKeys
+                );
+              const label = formatParameterEntryLabel(parameter, false);
+              const liveResult = findResultForParameter(results, parameter);
+              const hasValue = Boolean(
+                values[parameter.parameter_key]?.trim()
+              );
+              const isMissing =
+                hasValue && missingKeySet.has(parameter.parameter_key);
+              const unitSymbol =
+                selectedUnit?.display_symbol ||
+                selectedUnit?.unit_symbol ||
+                parameter.unit_symbol ||
+                "";
+
+              return (
+                <div
+                  key={parameter.parameter_key}
+                  className={`values-pad-cell${
+                    liveResult
+                      ? ` ${getLevelToneClass(liveResult.level_code)}`
+                      : ""
+                  }${isMissing ? " values-pad-cell--missing" : ""}`}
+                >
+                  <div className="values-pad-cell__top">
+                    <span
+                      className="values-pad-cell__label"
+                      title={
+                        label.secondary
+                          ? `${label.primary} (${label.secondary})`
+                          : label.primary
+                      }
+                    >
+                      {label.primary}
+                    </span>
+                    {unitSymbol ? (
+                      <div className="values-pad-cell__unit">
+                        <ParameterUnitPicker
+                          units={parameter.available_units}
+                          selectedUnit={selectedUnit}
+                          selectedDisplayKey={selectedUnitDisplayKey}
+                          getUnitOptionKey={getUnitOptionKey}
+                          dedupeUnitOptions={dedupeUnitOptions}
+                          changeUnitLabel={t.changeUnit}
+                          compact
+                          embedded
+                          onChange={(unitId, displayKey) =>
+                            updateUnit(
+                              parameter.parameter_key,
+                              unitId,
+                              displayKey
+                            )
+                          }
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  <input
+                    className="values-pad-cell__input"
+                    type="text"
+                    inputMode="decimal"
+                    value={values[parameter.parameter_key] || ""}
+                    onChange={(event) =>
+                      updateValue(
+                        parameter.parameter_key,
+                        event.target.value
+                      )
+                    }
+                    placeholder="—"
+                    aria-label={`${parameter.display_name} ${t.valueLabel}`}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -6358,54 +6646,6 @@ function ResultsHorizontalGraphs({
         ))}
       </div>
     </section>
-  );
-}
-
-function WelcomeGuide({
-  open,
-  t,
-  onClose,
-}: {
-  open: boolean;
-  t: (typeof translations)[Language];
-  onClose: () => void;
-}) {
-  if (!open) return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[24000] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-md">
-      <section className="glass-modal-shell w-full max-w-lg rounded-3xl p-5 animate-scale-in">
-        <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-emerald-700">
-          {t.authWelcome}
-        </p>
-        <h2 className="mt-2 text-2xl font-extrabold text-green-950">
-          {t.agronomicInterpretation}
-        </h2>
-        <div className="mt-4 grid gap-3">
-          <GuideStep title={t.step1Title} text={t.step1Text} />
-          <GuideStep title={t.step2Title} text={t.step2Text} />
-          <GuideStep title={t.step3Title} text={t.step3Text} />
-          <GuideStep title={t.calculators} text={t.calculatorsDesc} />
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-5 min-h-12 w-full rounded-2xl bg-emerald-700 px-5 font-bold text-white shadow-lg shadow-emerald-950/15 hover:bg-emerald-800"
-        >
-          {t.continueShort}
-        </button>
-      </section>
-    </div>,
-    document.body
-  );
-}
-
-function GuideStep({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="auth-panel-muted rounded-2xl p-3">
-      <p className="font-bold text-green-950">{title}</p>
-      <p className="mt-1 text-sm text-slate-600">{text}</p>
-    </div>
   );
 }
 

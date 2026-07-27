@@ -25,6 +25,17 @@ export type ScheduleStageKey =
 /** annual = planting crops; perennial = banana/fruit trees; fruiting = tomato etc. */
 export type ScheduleCycleMode = "annual" | "perennial" | "fruiting";
 
+/**
+ * What part of the crop cycle this plan covers.
+ * Controls which application windows are built (doses are renormalized to 100%).
+ */
+export type SchedulePurpose =
+  | "full_cycle"
+  | "establishment"
+  | "vegetative"
+  | "reproductive"
+  | "maintenance";
+
 export type ScheduleLine = {
   nutrient: string;
   nutrientKey?: string;
@@ -54,6 +65,57 @@ function round1(n: number) {
 function addDays(isoDate: string, days: number) {
   const base = new Date(`${isoDate}T12:00:00`);
   return new Date(base.getTime() + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+export function daysBetweenDates(startIso: string, endIso: string) {
+  const start = new Date(`${startIso}T12:00:00`).getTime();
+  const end = new Date(`${endIso}T12:00:00`).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return 0;
+  return Math.round((end - start) / DAY_MS);
+}
+
+export function addDaysToIso(isoDate: string, days: number) {
+  return addDays(isoDate, days);
+}
+
+/** Stages included for a chosen fertilization purpose. */
+export function stagesForPurpose(purpose: SchedulePurpose): ScheduleStageKey[] {
+  switch (purpose) {
+    case "establishment":
+      return ["amendment", "basal"];
+    case "vegetative":
+      return ["vegetative"];
+    case "reproductive":
+      return ["reproductive"];
+    case "maintenance":
+      return ["vegetative", "reproductive"];
+    case "full_cycle":
+    default:
+      return ["amendment", "basal", "vegetative", "reproductive"];
+  }
+}
+
+function renormalizeSplits(
+  splits: Partial<Record<ScheduleStageKey, number>>,
+  allowed: ScheduleStageKey[]
+): Partial<Record<ScheduleStageKey, number>> {
+  const allowedSet = new Set(allowed);
+  const kept = (
+    Object.entries(splits) as Array<[ScheduleStageKey, number]>
+  ).filter(([stage, fraction]) => allowedSet.has(stage) && fraction > 0);
+
+  if (kept.length > 0) {
+    const sum = kept.reduce((acc, [, fraction]) => acc + fraction, 0);
+    if (!(sum > 0)) return {};
+    return Object.fromEntries(
+      kept.map(([stage, fraction]) => [stage, fraction / sum])
+    ) as Partial<Record<ScheduleStageKey, number>>;
+  }
+
+  // Nutrient had no share in the selected windows (e.g. Ca→amendment only
+  // while purpose is fruit fill) — put the full dose on the last allowed stage.
+  const fallback = allowed[allowed.length - 1];
+  return fallback ? { [fallback]: 1 } : {};
 }
 
 function nutrientFamily(dose: ScheduleDoseInput): "n" | "p" | "k" | "mg" | "ca" | "other" {
@@ -201,7 +263,10 @@ function metaForMode(mode: ScheduleCycleMode) {
   return ANNUAL_META;
 }
 
-function seasonSpanDays(mode: ScheduleCycleMode, profile: UptakeProfile | null) {
+export function seasonSpanDays(
+  mode: ScheduleCycleMode,
+  profile: UptakeProfile | null
+) {
   if (mode === "perennial") {
     return Math.max(180, Math.min(360, (profile?.stages.length || 5) * 55));
   }
@@ -209,6 +274,27 @@ function seasonSpanDays(mode: ScheduleCycleMode, profile: UptakeProfile | null) 
     return Math.max(70, Math.min(160, (profile?.stages.length || 5) * 22));
   }
   return Math.max(60, Math.min(150, (profile?.stages.length || 4) * 25));
+}
+
+/** Suggested plan end date from crop cycle heuristics. */
+export function suggestSeasonEndDate(args: {
+  startDate: string;
+  cropName?: string | null;
+  language?: Language;
+  cycleMode?: ScheduleCycleMode;
+}) {
+  const language = args.language || "en";
+  const mode =
+    args.cycleMode || resolveScheduleCycleMode(args.cropName, language);
+  let profile: UptakeProfile | null = null;
+  if (args.cropName) {
+    try {
+      profile = getUptakeProfileForCrop(args.cropName, language);
+    } catch {
+      profile = null;
+    }
+  }
+  return addDays(args.startDate, seasonSpanDays(mode, profile));
 }
 
 /** Prefer uptake-profile stage names for perennial / fruiting crops. */
@@ -247,10 +333,10 @@ function profileLabelsForStage(
 
 function offsetsForMode(
   mode: ScheduleCycleMode,
-  profile: UptakeProfile | null
+  profile: UptakeProfile | null,
+  seasonDays: number
 ): Record<ScheduleStageKey, number> {
   const meta = metaForMode(mode);
-  const seasonDays = seasonSpanDays(mode, profile);
   const base = {
     amendment: meta.amendment.offsetDays,
     basal: meta.basal.offsetDays,
@@ -258,7 +344,30 @@ function offsetsForMode(
     reproductive: meta.reproductive.offsetDays,
   };
 
-  if (!profile || profile.stages.length < 3) return base;
+  if (!profile || profile.stages.length < 3) {
+    if (mode === "annual") {
+      return {
+        amendment: meta.amendment.offsetDays,
+        basal: 0,
+        vegetative: Math.round(seasonDays * 0.35),
+        reproductive: Math.round(seasonDays * 0.65),
+      };
+    }
+    if (mode === "fruiting") {
+      return {
+        amendment: meta.amendment.offsetDays,
+        basal: 0,
+        vegetative: Math.max(21, Math.round(seasonDays * 0.4)),
+        reproductive: Math.max(42, Math.round(seasonDays * 0.7)),
+      };
+    }
+    return {
+      amendment: 0,
+      basal: Math.max(7, Math.round(seasonDays * 0.12)),
+      vegetative: Math.round(seasonDays * 0.45),
+      reproductive: Math.round(seasonDays * 0.85),
+    };
+  }
 
   const uptakeOffset = (index: number, fallback: number) => {
     const stage = profile.stages[index];
@@ -271,7 +380,7 @@ function offsetsForMode(
       amendment: 0,
       basal: Math.max(7, uptakeOffset(1, base.basal) - 14),
       vegetative: uptakeOffset(2, base.vegetative),
-      reproductive: uptakeOffset(3, base.reproductive),
+      reproductive: Math.min(seasonDays, uptakeOffset(3, base.reproductive)),
     };
   }
 
@@ -293,15 +402,40 @@ function offsetsForMode(
   };
 }
 
+/** Stretch positive offsets so the last application lands on the plan end date. */
+function fitOffsetsToSeasonEnd(
+  offsets: Record<ScheduleStageKey, number>,
+  allowed: ScheduleStageKey[],
+  seasonDays: number
+): Record<ScheduleStageKey, number> {
+  if (!(seasonDays >= 14)) return offsets;
+  const positive = allowed.filter((stage) => offsets[stage] >= 0);
+  if (positive.length === 0) return offsets;
+
+  const maxOff = Math.max(...positive.map((stage) => offsets[stage]), 1);
+  const next = { ...offsets };
+  for (const stage of allowed) {
+    if (next[stage] < 0) continue;
+    next[stage] = Math.round((next[stage] / maxOff) * seasonDays);
+  }
+  // Guarantee the final included stage is exactly on the end date.
+  const last = [...allowed].reverse().find((stage) => next[stage] >= 0);
+  if (last) next[last] = seasonDays;
+  return next;
+}
+
 /**
  * Build a split application schedule from nutritional-plan doses.
- * Mode follows crop uptake pattern (planting vs perennial fruiting cycles).
+ * Mode follows crop uptake pattern; purpose filters which windows are built.
+ * When startDate + endDate are set, applications are stretched to finish then.
  */
 export function buildFertilizationSchedule(args: {
   doses: ScheduleDoseInput[];
   cropName?: string | null;
   language?: Language;
   startDate?: string;
+  endDate?: string;
+  purpose?: SchedulePurpose;
   labels?: Partial<Record<ScheduleStageKey, { label: string; hint: string }>>;
   cycleMode?: ScheduleCycleMode;
 }): ApplicationWindow[] {
@@ -317,6 +451,8 @@ export function buildFertilizationSchedule(args: {
   const language = args.language || "en";
   const mode =
     args.cycleMode || resolveScheduleCycleMode(args.cropName, language);
+  const purpose = args.purpose || "full_cycle";
+  const allowedStages = stagesForPurpose(purpose);
 
   let profile: UptakeProfile | null = null;
   if (args.cropName) {
@@ -329,7 +465,21 @@ export function buildFertilizationSchedule(args: {
 
   const familySplits = splitsForMode(mode);
   const stageMeta = metaForMode(mode);
-  const offsets = offsetsForMode(mode, profile);
+
+  let seasonDays = seasonSpanDays(mode, profile);
+  let fitToEnd = false;
+  if (args.startDate && args.endDate) {
+    const span = daysBetweenDates(args.startDate, args.endDate);
+    if (span >= 14) {
+      seasonDays = span;
+      fitToEnd = true;
+    }
+  }
+
+  let offsets = offsetsForMode(mode, profile, seasonDays);
+  if (fitToEnd) {
+    offsets = fitOffsetsToSeasonEnd(offsets, allowedStages, seasonDays);
+  }
 
   const buckets: Record<ScheduleStageKey, ScheduleLine[]> = {
     amendment: [],
@@ -348,12 +498,13 @@ export function buildFertilizationSchedule(args: {
         ? "Topdress / sidedress"
         : "Incorporate / band";
 
-    const splits =
+    const rawSplits =
       family === "other"
         ? ({ basal: 0.5, vegetative: 0.5 } as Partial<
             Record<ScheduleStageKey, number>
           >)
         : familySplits[family];
+    const splits = renormalizeSplits(rawSplits, allowedStages);
 
     for (const [stage, fraction] of Object.entries(splits) as Array<
       [ScheduleStageKey, number]
@@ -373,16 +524,9 @@ export function buildFertilizationSchedule(args: {
     }
   }
 
-  const order: ScheduleStageKey[] = [
-    "amendment",
-    "basal",
-    "vegetative",
-    "reproductive",
-  ];
-
   const windows: ApplicationWindow[] = [];
   let sequence = 1;
-  for (const stage of order) {
+  for (const stage of allowedStages) {
     const lines = buckets[stage];
     if (lines.length === 0) continue;
     const meta = stageMeta[stage];

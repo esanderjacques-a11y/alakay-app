@@ -66,6 +66,37 @@ export function countryCodeForName(name: string) {
   return null;
 }
 
+export function regionForCountryName(name: string): CountryRegion | null {
+  const code = countryCodeForName(name);
+  if (!code) return null;
+  for (const [region, codes] of Object.entries(countryCodesByRegion)) {
+    if (codes.includes(code)) return region as CountryRegion;
+  }
+  return null;
+}
+
+/** Broad continents for impact storytelling (Americas grouped). */
+export type StoryContinent =
+  | "Americas"
+  | "Europe"
+  | "Africa"
+  | "Asia"
+  | "Oceania";
+
+export function continentForCountryName(name: string): StoryContinent | null {
+  const region = regionForCountryName(name);
+  if (!region) return null;
+  if (
+    region === "Caribbean" ||
+    region === "Central America" ||
+    region === "North America" ||
+    region === "South America"
+  ) {
+    return "Americas";
+  }
+  return region;
+}
+
 export const countryRegions = Object.entries(countryCodesByRegion).map(
   ([region, codes]) => ({
     region: region as CountryRegion,

@@ -70,10 +70,18 @@
   homeSubtitle: "Elija cómo iniciar o continuar un análisis.",
   homeWelcomeNew: "Bienvenido",
   homeWelcomeBack: "Bienvenido de nuevo, {name}",
-  homeHeroCycle1: "Bienvenido, {name}, ¿cómo te sientes hoy?",
-  homeHeroCycle2: "¿Qué vas a hacer hoy?",
+  homeGoodMorning: "Buenos días, {name}",
+  homeGoodAfternoon: "Buenas tardes, {name}",
+  homeGoodNight: "Buenas noches, {name}",
+  homeHeroCycle1: "Bienvenido, {name} — qué gusto verte.",
+  homeHeroCycle2: "Tu suelo tiene una historia. Leámosla juntos.",
   homeHeroCycle3:
-    "Dame información y te diré qué le pide tu cultivo o tu suelo.",
+    "Dame unos valores de laboratorio y te diré qué pide tu cultivo o tu suelo.",
+  homeHeroCycle4: "Cuando quieras — tu próximo análisis está a un toque.",
+  homeHeroCycle5: "Unos datos entran, consejos más claros salen. Tú puedes.",
+  homeHeroCycle6: "Suelo sano, cosechas más felices. Empieza con la muestra de hoy.",
+  homeHeroCycle7: "Estoy aquí para ayudarte a cuidar tu tierra, lectura a lectura.",
+  homeHeroCycle8: "¿Qué revisamos hoy — suelo, hojas o un cálculo rápido?",
   homeSearchPlaceholder: "Buscar acciones, herramientas, ajustes o fincas…",
   homeSearchEmpty: "Sin coincidencias. Prueba otra búsqueda.",
   inputData: "Ingresar datos",
@@ -535,6 +543,33 @@
   step3Title: "3. Resultados",
   step3Text: "Revise la interpretación y guarde si inició sesión.",
 
+  tourSkip: "Omitir recorrido",
+  tourPrevious: "Anterior",
+  tourNext: "Siguiente",
+  tourFinish: "Listo",
+  tourStepOf: "Paso {current} de {total}",
+  tourTakeAgain: "Volver a hacer el recorrido",
+  tourTakeAgainDesc:
+    "Recorre cómo ingresar datos, guardar un análisis y generar un informe.",
+  tourStepInputTitle: "Empieza con tus datos",
+  tourStepInputBody:
+    "Toca Ingresar datos para iniciar un análisis de suelo o foliar manual.",
+  tourStepFarmCropTitle: "Añade finca y elige cultivo",
+  tourStepFarmCropBody:
+    "Vincula la muestra a una finca y lote, luego elige el cultivo que analizas.",
+  tourStepValuesTitle: "Ingresa valores de laboratorio",
+  tourStepValuesBody:
+    "Completa al menos un parámetro de tu informe. Puedes dejar el resto vacío.",
+  tourStepSaveTitle: "Guarda tu análisis",
+  tourStepSaveBody:
+    "Después de ingresar valores, toca Guardar para usarlos en calculadoras e informes.",
+  tourStepCalculatorsTitle: "Abre Calculadoras",
+  tourStepCalculatorsBody:
+    "Desde Inicio, abre Calculadoras para CIC, pH, DOP, planes de fertilización y más.",
+  tourStepReportTitle: "Genera un informe completo",
+  tourStepReportBody:
+    "En Calculadoras, usa el botón de informe para exportar un PDF con interpretación, gráficos y recomendaciones.",
+
   viewSavedReports: "Ver reportes guardados.",
   loginToViewReports: "Inicie sesión para guardar y ver reportes.",
   loginOrGuest: "Inicie sesión o continúe como invitado.",
@@ -571,18 +606,67 @@
   aboutTagline: "Inteligencia del suelo para cada productor",
   aboutIntro:
     "Cultosol convierte reportes de laboratorio de suelo y foliar en orientación clara para el campo—para que los pequeños productores actúen con confianza y sepan cuándo consultar a un experto.",
+  aboutStoryLabel: "Historia de Cultosol",
+  aboutStoryEyebrow: "Nuestro camino",
+  aboutStoryPrev: "Historia anterior",
+  aboutStoryNext: "Siguiente historia",
+  aboutStoryFoundedKicker: "Creación",
+  aboutStoryFoundedTitle: "Nacido en {year}",
+  aboutStoryFoundedBody:
+    "Cultosol nació como una idea desde el campo: convertir números densos de laboratorio en orientación que todo productor pueda confiar—sin esperar un informe lejano.",
+  aboutStoryFoundedHint: "Fundado",
+  aboutStoryImpactKicker: "Impacto hasta hoy",
+  aboutStoryAnalysesTitle: "Lecturas de laboratorio hechas acción",
+  aboutStoryAnalysesBody:
+    "Análisis de suelo y foliar completados guiados con Cultosol — contados hasta el {date}.",
+  aboutStoryReachKicker: "Alcance global",
+  aboutStoryContinentsTitle: "A través de continentes",
+  aboutStoryContinentsBody:
+    "Activo en {continents} continentes y en {countries} países — al {date}.",
+  aboutStoryContinentsHint: "Continentes",
+  aboutStoryFieldKicker: "En el terreno",
+  aboutStoryRegionsTitle: "Provincias y regiones alcanzadas",
+  aboutStoryRegionsBody:
+    "Provincias y estados locales donde los productores guardan informes — actualizado hasta el {date}.",
+  aboutPillarsLabel: "Misión, visión y valores",
+  aboutPillarsEyebrow: "Quiénes somos",
+  aboutPillarsTitle: "Misión · Visión · Valores",
+  aboutPillarsLede:
+    "Toca cada pilar para explorar lo que impulsa Cultosol—un producto con espíritu de ONG, hecho para productores, no para barreras.",
   aboutMissionLabel: "Misión",
   aboutMission:
     "Poner orientación clara y confiable en las manos de cada productor. Cultosol convierte resultados de laboratorio de suelo y foliar en recomendaciones prácticas—para que los pequeños productores actúen con confianza, protejan sus cultivos y sepan cuándo consultar a un experto.",
   aboutVisionLabel: "Visión",
   aboutVision:
     "Un mundo donde ningún agricultor quede adivinando su suelo. Cada productor puede leer los datos de su cultivo con claridad, decidir mejor en el campo y acceder a asesoría agronómica profesional sin demora—dondequiera que cultive.",
+  aboutValuesLabel: "Valores",
+  aboutValues:
+    "Construimos con claridad, acceso y alianza con la agronomía local—para que la tecnología sirva al campo, y no al revés.",
+  aboutValue1Title: "Claridad primero",
+  aboutValue1Body:
+    "Cada número debe convertirse en una decisión que el productor entienda en el campo.",
+  aboutValue2Title: "Acceso abierto",
+  aboutValue2Body:
+    "El conocimiento debe viajar más lejos que laboratorios y oficinas—sobre todo hacia pequeños productores.",
+  aboutValue3Title: "Alianza de campo",
+  aboutValue3Body:
+    "Amplificamos la expertise agronómica local; nunca pretendemos reemplazarla.",
   aboutContactLabel: "Contacto",
   aboutPhoneCr: "Costa Rica",
   aboutPhoneHt: "Haití",
   aboutDisclaimerShort:
     "Cultosol apoya sus decisiones—no reemplaza el asesoramiento agronómico profesional.",
   aboutAddRequest: "Sugerir una mejora",
+  aboutUserGuide: "Guía de usuario",
+  aboutUserGuideDesc:
+    "Descarga un PDF con el recorrido de Inicio, Valores, Guardar, Calculadoras e informes.",
+  aboutUserGuideDownload: "Descargar PDF",
+  aboutUserGuideGenerating: "Generando…",
+  aboutUserGuideError: "No se pudo crear el PDF. Inténtalo de nuevo.",
+  aboutUserGuideLangEn: "Inglés",
+  aboutUserGuideLangEs: "Español",
+  aboutUserGuideLangFr: "Francés",
+  aboutUserGuideLangPt: "Portugués",
   aboutDonate: "Apoyar Cultosol",
   aboutDonateSoon: "Enlace de PayPal próximamente.",
   aboutDonateSupport: "Donación segura con PayPal",
@@ -785,11 +869,10 @@
     calendarDesc:
       "Convierte tus dosis nutricionales en un plan temporizado: los fertilizantes se reparten a lo largo de la temporada, no se aplican todos de una vez.",
     howItWorksTitle: "Cómo funciona este plan",
-    howItWorks1: "Indica la finca (y lote) donde vas a fertilizar.",
+    howItWorks1: "Define finca, lote, propósito y fechas de inicio/fin.",
     howItWorks2:
-      "Genera la secuencia desde el plan nutricional: enmienda → basal → vegetativo → reproductivo.",
-    howItWorks3:
-      "Cada paso muestra qué aplicar, qué porcentaje de la dosis total y cuándo — edita fechas si tu ciclo es distinto.",
+      "Crea el calendario desde tu plan nutricional para ese periodo.",
+    howItWorks3: "Revisa cada aplicación y guárdala en la finca.",
     contextTitle: "Dónde y cuándo",
     farmLabel: "Finca",
     farmPlaceholder: "Nombre de la finca",
@@ -801,19 +884,40 @@
     lotLabel: "Lote / parcela",
     lotPlaceholder: "Lote opcional",
     seasonStart: "Siembra / inicio de temporada",
+    seasonEnd: "Fecha de fin del plan",
+    seasonEndHint:
+      "Las aplicaciones se espacian para que la última caiga en esta fecha.",
+    seasonEndBeforeStart: "La fecha de fin debe ser posterior a la de inicio.",
+    purposeTitle: "Propósito del plan",
+    purposeHint: "¿Para qué parte del ciclo del cultivo es esta fertilización?",
+    purposeFullCycle: "Temporada completa",
+    purposeFullCycleHint: "Desde enmienda hasta reproductivo / llenado",
+    purposeEstablishment: "Establecimiento",
+    purposeEstablishmentHint: "Solo enmienda y dosis basal / siembra",
+    purposeVegetative: "Crecimiento vegetativo",
+    purposeVegetativeHint: "Empuje de hojas y dosel (cobertura)",
+    purposeReproductive: "Llenado de fruto / grano",
+    purposeReproductiveHint: "Floración, llenado de fruto o grano",
+    purposeMaintenance: "Mantenimiento (veg. + llenado)",
+    purposeMaintenanceHint: "Manejo continuo — sin siembra / establecimiento",
+    purposeReproductivePerennial: "Llenado / calidad",
+    purposeEstablishmentPerennial: "Corrección de suelo + brote",
     cropLabel: "Cultivo",
     cropUnknown: "Aún no hay cultivo seleccionado",
     goToSetup: "Definir finca en Configuración",
     goToPlan: "Abrir plan nutricional",
     scheduleBuilderTitle: "Crear secuencia de aplicaciones",
     scheduleBuilderHint:
-      "{count} dosis listas — las repartiremos en aplicaciones a lo largo del tiempo.",
+      "{count} dosis listas — las repartiremos en aplicaciones según el propósito que elegiste.",
     buildSchedule: "Crear calendario",
+    scheduleNeedsRebuild:
+      "El propósito o las fechas cambiaron. Pulsa Crear calendario para actualizar la línea de tiempo; aún muestra la secuencia anterior.",
     previewTitle: "Vista previa de la secuencia",
     recommendedTitle: "Recomendado del plan",
     suggestFromPlan: "Sugerir desde el plan nutricional",
     needPlanHint: "Abre Calculadoras → Plan nutricional primero para programar las dosis.",
-    recommendHint: "Revisa las aplicaciones en secuencia y guárdalas en esta finca.",
+    recommendHint:
+      "Crear calendario reemplaza la línea de aplicaciones de esta finca según el propósito elegido.",
     acceptRecommended: "Guardar calendario en la finca",
     discardRecommended: "Descartar vista previa",
     manualEventTitle: "Añadir aplicación personalizada",
@@ -859,6 +963,8 @@
     pdfCrop: "Cultivo",
     pdfResponsible: "Responsable",
     pdfSeasonStart: "Inicio de temporada",
+    pdfSeasonEnd: "Fin del plan",
+    pdfPurpose: "Propósito del plan",
     pdfGenerated: "Generado",
     pdfScheduleTable: "Calendario de aplicaciones",
     pdfColDate: "Fecha",
@@ -888,14 +994,17 @@
     pdfRecNitrogen:
       "Nitrógeno: divida las dosis como en el plan; evite aplicaciones grandes antes de tormentas o calor extremo.",
     howItWorks2Perennial:
-      "Para banano y frutales perennes, el plan sigue el ciclo productivo: corrección de suelo → brote vegetativo → prefloración / diferenciación → llenado (no una siembra nueva).",
+      "Crea un calendario de ciclo (no una siembra nueva) desde tu plan nutricional.",
     howItWorks2Fruiting:
-      "Para cultivos de fruto, las dosis se temporizan: establecimiento → floración / cuaje → llenado.",
+      "Crea un calendario de fructificación desde tu plan nutricional.",
     seasonStartPerennial: "Inicio de ciclo (cosecha, floración o rebrote)",
     seasonStartFruiting: "Trasplante / inicio de temporada",
     cycleModeAnnual: "Modo de plan: siembra / cultivo anual",
     cycleModePerennial: "Modo de plan: ciclo perenne / fructificación (no siembra)",
     cycleModeFruiting: "Modo de plan: floración / llenado de fruto",
+    cycleModeAnnualShort: "Anual / siembra",
+    cycleModePerennialShort: "Ciclo perenne",
+    cycleModeFruitingShort: "Cultivo de fruto",
     stageAmendmentPerennial: "Corrección de suelo · Enmienda",
     stageAmendmentPerennialHint:
       "Corrige la química del suelo en cualquier ciclo — no depende de sembrar un nuevo lote.",

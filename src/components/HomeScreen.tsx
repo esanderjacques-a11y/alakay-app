@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   Calculator,
   Camera,
@@ -49,6 +49,26 @@ type Props = {
 
 type HomeActionId = "input" | "import" | "reports" | "calculators";
 
+const HERO_CYCLE_MS = 7500;
+
+function resolveHomeWelcomeLine(
+  t: Props["t"],
+  name: string,
+  isReturningUser: boolean,
+  hour = new Date().getHours()
+) {
+  if (hour >= 5 && hour < 12) {
+    return formatMessage(t.homeGoodMorning, { name });
+  }
+  if (hour >= 12 && hour < 18) {
+    return formatMessage(
+      isReturningUser ? t.homeWelcomeBack : t.homeGoodAfternoon,
+      { name }
+    );
+  }
+  return formatMessage(t.homeGoodNight, { name });
+}
+
 function matchesAction(terms: string[], query: string): boolean {
   if (!normalizeSearchText(query)) return true;
   return searchHomeCatalog(
@@ -85,9 +105,9 @@ export default function HomeScreen({
 }: Props) {
   const p = t.planning;
   const heroName = displayName || t.guestMode;
-  const welcomeLine = isReturningUser
-    ? formatMessage(t.homeWelcomeBack, { name: heroName })
-    : t.homeWelcomeNew;
+  const [welcomeLine, setWelcomeLine] = useState(() =>
+    resolveHomeWelcomeLine(t, heroName, isReturningUser)
+  );
   const [dash, setDash] = useState<UserFarmDashboard | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -96,11 +116,29 @@ export default function HomeScreen({
 
   useDismissible(importMenuOpen, () => setImportMenuOpen(false), importMenuRef);
 
-  const heroLines = [
-    formatMessage(t.homeHeroCycle1, { name: heroName }),
-    t.homeHeroCycle2,
-    t.homeHeroCycle3,
-  ];
+  const heroLines = useMemo(
+    () =>
+      [
+        formatMessage(t.homeHeroCycle1, { name: heroName }),
+        t.homeHeroCycle2,
+        t.homeHeroCycle3,
+        t.homeHeroCycle4,
+        t.homeHeroCycle5,
+        t.homeHeroCycle6,
+        t.homeHeroCycle7,
+        t.homeHeroCycle8,
+      ].filter(Boolean),
+    [t, heroName]
+  );
+  const heroCycleDurationMs = Math.max(heroLines.length, 1) * HERO_CYCLE_MS;
+
+  useEffect(() => {
+    setWelcomeLine(resolveHomeWelcomeLine(t, heroName, isReturningUser));
+    const timer = window.setInterval(() => {
+      setWelcomeLine(resolveHomeWelcomeLine(t, heroName, isReturningUser));
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [t, heroName, isReturningUser]);
 
   const isAuthed = Boolean(session?.user && !guestMode);
 
@@ -208,9 +246,22 @@ export default function HomeScreen({
       <div className="home-screen__inner">
         <div className="home-screen__hero">
           <p className="home-screen__welcome">{welcomeLine}</p>
-          <div className="home-hero-cycle home-hero-cycle--tall">
-            {heroLines.map((line) => (
-              <span key={line}>{line}</span>
+          <div
+            className="home-hero-cycle home-hero-cycle--tall"
+            aria-live="polite"
+            style={
+              {
+                "--home-hero-cycle-duration": `${heroCycleDurationMs}ms`,
+              } as CSSProperties
+            }
+          >
+            {heroLines.map((line, index) => (
+              <span
+                key={line}
+                style={{ animationDelay: `${index * HERO_CYCLE_MS}ms` }}
+              >
+                {line}
+              </span>
             ))}
           </div>
         </div>
@@ -279,6 +330,7 @@ export default function HomeScreen({
                     type="button"
                     onClick={startNewAnalysis}
                     className="home-action-tile home-action-tile--primary"
+                    data-tour="input-data"
                   >
                     <span className="home-action-tile__icon home-action-tile__icon--primary">
                       <Plus size={20} />
@@ -389,6 +441,7 @@ export default function HomeScreen({
                     type="button"
                     onClick={goCalculators}
                     className="home-action-tile"
+                    data-tour="open-calculators"
                   >
                     <span className="home-action-tile__icon">
                       <Calculator size={20} />

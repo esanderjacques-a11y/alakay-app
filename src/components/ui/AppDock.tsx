@@ -423,6 +423,9 @@ export default function AppDock({
                   disabled={disabled}
                   tabIndex={keyboardOpen ? -1 : undefined}
                   onClick={() => onStepChange(step.id)}
+                  data-tour={
+                    step.id === "calculators" ? "open-calculators" : undefined
+                  }
                   className={`touch-target flex min-h-[3.75rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-all ${
                     active
                       ? "app-dock-tab-active"

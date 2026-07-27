@@ -396,6 +396,8 @@ export function suggestEventsFromPlan(args: {
   farmName?: string;
   lotName?: string;
   startDate?: string;
+  endDate?: string;
+  purpose?: Parameters<typeof buildFertilizationSchedule>[0]["purpose"];
   language?: Language;
   stageLabels?: Parameters<typeof buildFertilizationSchedule>[0]["labels"];
 }): CalendarEvent[] {
@@ -408,6 +410,8 @@ export function suggestEventsFromPlan(args: {
     cropName: args.cropName,
     language: args.language,
     startDate: start,
+    endDate: args.endDate,
+    purpose: args.purpose,
     labels: args.stageLabels,
   });
   if (windows.length === 0) return [];

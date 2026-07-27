@@ -434,7 +434,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
         allowedProductKeys: null,
         optimizeFor: "mix",
       },
-      3
+      4
     );
   }, [strategy, formulationInput]);
 
@@ -477,10 +477,12 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
   const awaitingInexactChoice = selectionNeedsChoice && !useRandomMix;
 
   const showChoiceBanner = selectionNeedsChoice || useRandomMix;
+  const bestMixIsClosest =
+    bestMixScenarios.length > 0 &&
+    bestMixScenarios.every((scenario) => !scenario.exactMatch);
   const showBestMixCarousel =
     strategy === "auto" &&
     !useRandomMix &&
-    !awaitingInexactChoice &&
     bestMixScenarios.length > 0;
 
   useEffect(() => {
@@ -550,19 +552,6 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
     return `saco:${bagKg}:${displayCurrency}:${productKey}`;
   }
 
-  function strategyLabelForPdf() {
-    if (useRandomMix) {
-      return t.fertilizerFormulationRandomMix || "Random mix";
-    }
-    if (strategy === "auto") {
-      return t.fertilizerFormulationBestMix || "Best mix";
-    }
-    if (strategy === "value") {
-      return t.fertilizerFormulationBestValue || "Best value";
-    }
-    return t.fertilizerFormulationMyProducts || "Select product";
-  }
-
   async function handleExportPdf() {
     if (!result.feasible || exportingPdf) return;
     setExportingPdf(true);
@@ -590,8 +579,6 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
             t.fertilizerFormulationPdfSubtitle || "Blend composition summary",
           grade: t.fertilizerFormulationPdfGrade || "Grade",
           target: t.fertilizerFormulationPdfTarget || "Target N-P-K",
-          finishMode: t.fertilizerFormulationFinish || "Finish mode",
-          strategy: t.fertilizerFormulationStrategy || "Product strategy",
           recipe: t.fertilizerFormulationResult || "Recipe",
           product: t.fertilizerFormulationPdfProduct || "Product",
           analysis: t.fertilizerFormulationPdfAnalysis || "Analysis",
@@ -614,15 +601,12 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
         result,
         lines: pdfLines,
         massUnit: recipeUnitLabel,
-        finishModeLabel:
-          finishMode === "filler"
-            ? t.fertilizerFormulationUseFiller || "Use filler"
-            : t.fertilizerFormulationNoFiller || "No filler (adjust grade)",
-        strategyLabel: strategyLabelForPdf(),
         includePrices: exportIncludePrices,
         currency: displayCurrency,
         production:
-          productionScale > 0
+          // Only include when the batch is actually scaled away from the
+          // 100 kg basis recipe — otherwise it duplicates the result table.
+          productionScale > 0 && Math.abs(productionScale - 1) > 0.001
             ? {
                 lines: result.lines.map((line) => ({
                   label: line.label,
@@ -1141,8 +1125,11 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
             {showBestMixCarousel ? (
               <>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {t.fertilizerFormulationBestMixScenariosHint ||
-                    "Swipe or use the arrows to compare the top exact mixes (fewest products first)."}
+                  {bestMixIsClosest
+                    ? t.fertilizerFormulationBestMixClosestHint ||
+                      "Exact grade does not fit the bag. Compare the closest covering mixes (highest nutrients first), including single-nutrient blends."
+                    : t.fertilizerFormulationBestMixScenariosHint ||
+                      "Swipe or use the arrows to compare the top exact mixes (fewest products first)."}
                 </p>
                 <div
                   ref={bestMixScrollRef}
@@ -1196,6 +1183,8 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                             "Scenario {n}"
                           ).replace("{n}", String(index + 1))}
                           <span>
+                            {" · "}
+                            {scenario.gradeLabel}
                             {" · "}
                             {products.length}{" "}
                             {products.length === 1

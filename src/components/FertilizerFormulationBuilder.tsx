@@ -1839,11 +1839,11 @@ export default function FertilizerFormulationBuilder({
                   </span>
                 </div>
                 {finishMode === "filler" && result.fillerMassKg > 0.05 ? (
-                  <p className="rounded-lg border border-emerald-900/20 bg-white/90 px-2.5 py-2 text-xs dark:border-white/20 dark:bg-zinc-900/80">
-                    <span className="font-semibold text-green-950 dark-text-primary">
+                  <p className="formulation-filler-note">
+                    <span className="formulation-filler-note__name">
                       {fillerName(selectedFiller.key, selectedFiller.label)}
                     </span>
-                    <span className="text-slate-700 dark:text-slate-200">
+                    <span className="formulation-filler-note__meta">
                       {" · "}
                       {t.fertilizerFormulationFillerTag || "filler"}
                       {": "}

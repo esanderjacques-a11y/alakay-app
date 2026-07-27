@@ -22,6 +22,11 @@ export type AmendmentKind =
 
 export type SoilAmendmentInput = {
   ph?: number | null;
+  /**
+   * Explicit crop / method target pH. Only used when provided — never invent a
+   * generic 6.2 default (that would force liming on acid-loving crops like pineapple).
+   */
+  targetPh?: number | null;
   cec?: number | null;
   ca?: number | null;
   mg?: number | null;
@@ -54,6 +59,9 @@ export type SoilAmendmentRecommendation = {
   insufficientData: boolean;
 };
 
+/** Why liming is indicated (when needsLime). */
+export type LimeNeedReason = "exchangeable_acidity" | "ph_below_target" | null;
+
 /** Why lime or gypsum is (or is not) indicated from CICe / V% chemistry. */
 export type AmendmentChemistryGate = {
   insufficientData: boolean;
@@ -63,15 +71,23 @@ export type AmendmentChemistryGate = {
   lowBaseSaturation: boolean;
   /** Exchangeable acidity (H+Al or Al) present. */
   hasAcidity: boolean;
+  /** H+Al (or Al proxy) above the adequate band (> 0.5 cmol(+)/kg). */
+  acidityHigh: boolean;
   /** Elevated Na (sodicity risk). */
   sodic: boolean;
   /** Mg% below Tabla N.° 2 adequate minimum. */
   mgLow: boolean;
-  /** Soil chemistry warrants agricultural lime (raises pH / displaces acidity). */
+  /**
+   * Soil chemistry warrants agricultural lime (raises pH / displaces acidity).
+   * Requires a cation deficit (low Ca% or low V%) AND either high exchangeable
+   * acidity or measured pH below an explicit targetPh.
+   */
   needsLime: boolean;
+  /** Dominant reason when needsLime is true. */
+  limeReason: LimeNeedReason;
   /**
    * Soil chemistry warrants gypsum (Ca without raising pH): sodicity, or Ca deficit
-   * without exchangeable acidity (document + encaladoCaDeficitNoAcidity).
+   * without a liming pathway.
    */
   needsGypsum: boolean;
   /** No lime and no gypsum indicated from CICe / V% / acidity / Na. */
@@ -125,8 +141,9 @@ function buildSaturation(input: SoilAmendmentInput): BaseSaturationResult | null
 }
 
 /**
- * Gate lime / gypsum on CICe distribution and base saturation (Tutoría §§1.2–1.5).
- * Sufficient ranges → no Lime or Gypsum calculation/recommendation.
+ * Gate lime / gypsum on CICe distribution, exchangeable acidity, and optional target pH.
+ * Low V% or low Ca% alone does NOT force liming — acid-loving crops (e.g. pineapple)
+ * often need Ca via gypsum without raising pH.
  */
 export function assessAmendmentChemistry(
   input: SoilAmendmentInput
@@ -137,9 +154,11 @@ export function assessAmendmentChemistry(
       caDeficit: false,
       lowBaseSaturation: false,
       hasAcidity: false,
+      acidityHigh: false,
       sodic: false,
       mgLow: false,
       needsLime: false,
+      limeReason: null,
       needsGypsum: false,
       noLimeOrGypsum: true,
       caPercent: null,
@@ -156,8 +175,13 @@ export function assessAmendmentChemistry(
     aluminumUnit: input.aluminumUnit || undefined,
   });
   const naCmol = finite(input.na);
+  const ph = finite(input.ph);
+  const targetPh = finite(input.targetPh);
   const hasAcidity = acidity > 0;
   const acidityHigh = acidity > ACIDITY_ADEQUATE_MAX;
+  // Only when caller passes an explicit target — never invent 6.2.
+  const wantsHigherPh =
+    ph != null && targetPh != null && ph < targetPh;
 
   const caPercent = sat != null && sat.caPercent > 0 ? sat.caPercent : null;
   const vPercent =
@@ -173,9 +197,15 @@ export function assessAmendmentChemistry(
       ? sat.naPercent > IDEAL.na.max
       : naCmol != null && naCmol > 1.0;
 
-  // Lime (Cal): low V% / PSB, or low Ca sat coinciding with excess extractable acidity.
-  // Acidic pH alone does NOT force liming when CICe / V% already look sufficient.
-  const needsLime = lowBaseSaturation || (caDeficit && acidityHigh);
+  const cationDeficit = lowBaseSaturation || caDeficit;
+  const needsLime = cationDeficit && (acidityHigh || wantsHigherPh);
+  const limeReason: LimeNeedReason = !needsLime
+    ? null
+    : acidityHigh
+      ? "exchangeable_acidity"
+      : wantsHigherPh
+        ? "ph_below_target"
+        : null;
 
   // Gypsum: sodicity, or Ca sat below sufficient without a liming pathway.
   const needsGypsum = sodic || (caDeficit && !needsLime);
@@ -188,9 +218,11 @@ export function assessAmendmentChemistry(
     caDeficit,
     lowBaseSaturation,
     hasAcidity,
+    acidityHigh,
     sodic,
     mgLow,
     needsLime,
+    limeReason,
     needsGypsum,
     noLimeOrGypsum,
     caPercent,
@@ -202,8 +234,8 @@ export function assessAmendmentChemistry(
 
 /**
  * Diagnose which soil amendment(s) to name in recommendations.
- * Priority: gypsum (sodicity / Ca without liming need) → lime (low V% / Ca+acidity)
- * → sulfur (alkaline pH) → organic matter (low OM).
+ * Priority: gypsum (sodicity / Ca without liming need) → lime (cation deficit +
+ * high H+Al or pH below explicit target) → sulfur (alkaline pH) → organic matter.
  * Calcitic vs dolomitic is named only when liming is chemically warranted.
  */
 export function recommendSoilAmendment(
@@ -278,13 +310,13 @@ const FALLBACKS: Record<string, string> = {
   amendRecInsufficientData:
     "Amendment: insufficient CICe / base-saturation data to decide — enter exchangeable bases, CIC (or H+Al), in Values.",
   amendRecCalciticLime:
-    "Amendment: use calcareous (calcitic) agricultural lime — base saturation (V%) or Ca saturation is below the sufficient CICe range.",
+    "Amendment: use calcareous (calcitic) agricultural lime — cation deficit with high exchangeable acidity (H+Al) or pH below an explicit target.",
   amendRecDolomiticLime:
-    "Amendment: use dolomitic lime — base saturation is low and Mg saturation is below the sufficient CICe range.",
+    "Amendment: use dolomitic lime — liming is warranted and Mg saturation is below the sufficient CICe range.",
   amendRecGypsumNa:
     "Amendment: use gypsum — Na saturation is above the sufficient CICe range; gypsum supplies Ca to displace Na without raising pH much.",
   amendRecGypsumCa:
-    "Amendment: use gypsum (or another Ca source) — Ca saturation is below the sufficient CICe range without a liming need.",
+    "Amendment: use gypsum (or another Ca source) — Ca saturation is below the sufficient CICe range without high exchangeable acidity or a pH-raise target (lime would raise pH).",
   amendRecElementalSulfur:
     "Amendment: use elemental sulfur — soil pH is high and may need acidification for the crop.",
   amendRecOrganicMatter:

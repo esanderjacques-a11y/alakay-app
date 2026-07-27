@@ -381,6 +381,8 @@ export default function PhAmendmentCalculator({
     () =>
       assessAmendmentChemistry({
         ph: resolvedCurrentPh || null,
+        // Explicit user/crop target only — do NOT pass resolvedTargetPh defaults (6.2 / 5.5).
+        targetPh: targetPh > 0 ? targetPh : null,
         cec: resolvedCec || null,
         ca: resolvedCa || null,
         mg: shared.mg || null,
@@ -392,6 +394,7 @@ export default function PhAmendmentCalculator({
       }),
     [
       resolvedCurrentPh,
+      targetPh,
       resolvedCec,
       resolvedCa,
       shared.mg,
@@ -450,6 +453,7 @@ export default function PhAmendmentCalculator({
     const applicability = phAmendUiModeApplicability(next, {
       needsGypsum: chemGate.needsGypsum,
       needsLime: chemGate.needsLime,
+      limeReason: chemGate.limeReason,
       sodic: chemGate.sodic,
       caDeficit: chemGate.caDeficit,
       noLimeOrGypsum: chemGate.noLimeOrGypsum,
@@ -481,12 +485,15 @@ export default function PhAmendmentCalculator({
   function toggleLimeMaterial() {
     if (!methodRaisesPh(method)) return;
     setMaterialManual(true);
-    if (material === "dolomitic_lime") {
-      setMaterial("calcitic_lime");
-      setCcePercent(CALCITIC_PRNT);
-    } else {
+    if (material === "calcitic_lime") {
       setMaterial("dolomitic_lime");
       setCcePercent(DOLOMITIC_PRNT);
+    } else if (material === "dolomitic_lime") {
+      setMaterial("calcium_oxide");
+      setCcePercent(defaultPrntForLimeMaterial("calcium_oxide"));
+    } else {
+      setMaterial("calcitic_lime");
+      setCcePercent(CALCITIC_PRNT);
     }
   }
 
@@ -509,6 +516,8 @@ export default function PhAmendmentCalculator({
           caSaturationTarget > 0 ? caSaturationTarget : DEFAULT_CA_SATURATION_TARGET,
         exchangeableAcidity: resolvedAcidity,
         currentPh: resolvedCurrentPh,
+        // Formulas for target_ph / sulfur need a numeric target; liming gate ignores
+        // non–target_ph defaults inside chemistryInputFromPhAmend.
         targetPh: resolvedTargetPh,
         texture,
         exchangeableAl: resolvedAl,
@@ -610,6 +619,7 @@ export default function PhAmendmentCalculator({
           const applicability = phAmendUiModeApplicability(chip.id, {
             needsGypsum: chemGate.needsGypsum,
             needsLime: chemGate.needsLime,
+            limeReason: chemGate.limeReason,
             sodic: chemGate.sodic,
             caDeficit: chemGate.caDeficit,
             noLimeOrGypsum: chemGate.noLimeOrGypsum,
@@ -647,10 +657,7 @@ export default function PhAmendmentCalculator({
       </div>
 
       {modeNotice ? (
-        <p
-          className="rounded-xl border border-amber-500/30 bg-amber-50/80 px-3 py-2 text-sm text-amber-950 dark:border-amber-400/20 dark:bg-amber-950/30 dark:text-amber-100"
-          role="status"
-        >
+        <p className="values-alert values-alert--warning !m-0 text-sm" role="status">
           {modeNotice}
         </p>
       ) : null}
@@ -1096,9 +1103,11 @@ function PhAmendmentResultsCard({
       ? t.phAmendBagsUnit || "× 50 kg bags"
       : t.phAmendBagsPerHa || "× 50 kg bags/ha";
   const bagsHint =
-    result.material === "dolomitic_lime"
-      ? t.phAmendTapForCalcitic || "Tap for agricultural lime (higher PRNT)"
-      : t.phAmendTapForDolomite || "Tap for dolomite (lower PRNT)";
+    result.material === "calcitic_lime"
+      ? t.phAmendTapForDolomite || "Tap for dolomite (lower PRNT)"
+      : result.material === "dolomitic_lime"
+        ? t.phAmendTapForCao || "Tap for calcium oxide (CaO)"
+        : t.phAmendTapForCalcitic || "Tap for agricultural lime (higher PRNT)";
 
   return (
     <div className="ph-amend-results calc-surface p-3 space-y-3">

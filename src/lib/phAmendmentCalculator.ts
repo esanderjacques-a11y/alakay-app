@@ -43,7 +43,7 @@ export function recommendPhAmendUiMode(input: {
 }): PhAmendUiMode {
   // Sodicity / Ca without liming pathway → gypsum first.
   if (input.needsGypsum) return "gypsum";
-  // Low V% / Ca + acidity → lime (Ca for pH / CICe balance).
+  // Cation deficit + high H+Al or pH below explicit target → lime.
   if (input.needsLime) return "calcium";
   // Alkaline soils → other methods (sulfur).
   if (Number.isFinite(input.currentPh) && input.currentPh > 7.5) return "other";
@@ -56,6 +56,7 @@ export function phAmendUiModeApplicability(
   input: {
     needsGypsum: boolean;
     needsLime: boolean;
+    limeReason?: "exchangeable_acidity" | "ph_below_target" | null;
     sodic: boolean;
     caDeficit: boolean;
     noLimeOrGypsum: boolean;
@@ -73,7 +74,13 @@ export function phAmendUiModeApplicability(
       return { ok: false, reasonKey: "phAmendModeGypsumNeedData" };
     }
     if (input.needsLime) {
-      return { ok: false, reasonKey: "phAmendModeGypsumBlockedLime" };
+      return {
+        ok: false,
+        reasonKey:
+          input.limeReason === "ph_below_target"
+            ? "phAmendModeGypsumBlockedLimePh"
+            : "phAmendModeGypsumBlockedLimeAcidity",
+      };
     }
     if (input.noLimeOrGypsum) {
       return { ok: false, reasonKey: "phAmendModeGypsumBlockedOk" };
@@ -352,8 +359,20 @@ export function validatePhAmendmentInput(input: PhAmendmentInput): PhAmendmentVa
 }
 
 function chemistryInputFromPhAmend(input: PhAmendmentInput): SoilAmendmentInput {
+  // Only the target-pH method treats targetPh as an explicit "raise pH" goal for liming.
+  // Dose formulas on other methods may still pass a default targetPh — ignore those here
+  // so acid-loving crops are not forced into lime by a silent 6.2 default.
+  const chemistryTargetPh =
+    input.method === "target_ph" &&
+    input.targetPh != null &&
+    Number.isFinite(input.targetPh) &&
+    input.targetPh > 0
+      ? input.targetPh
+      : null;
+
   return {
     ph: input.ph ?? input.currentPh,
+    targetPh: chemistryTargetPh,
     cec: input.cec,
     ca: input.caCmol,
     mg: input.mgCmol,

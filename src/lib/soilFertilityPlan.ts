@@ -694,10 +694,10 @@ export function buildNutrientDosePlan(
         unit: "kg/ha",
         tableRef: undefined,
         interpretation: useGypsumProduct
-          ? "Yeso (sin subir pH): déficit de Ca sin vía de encalado y/o sodicidad."
+          ? "Yeso (sin subir pH): déficit de Ca sin H+Al alto ni meta de subir pH, y/o sodicidad."
           : limeMaterial === "dolomitic_lime"
-            ? "Cal dolomítica: déficit de Ca con V%/acidez y Mg bajo."
-            : "Cal agrícola: déficit de saturación de Ca con V% baja o acidez.",
+            ? "Cal dolomítica: déficit de Ca/V% con acidez intercambiable (H+Al) alta o pH bajo meta, y Mg bajo."
+            : "Cal agrícola: déficit de Ca/V% con acidez intercambiable (H+Al) alta o pH bajo meta.",
       });
     } else {
       caSteps.push({

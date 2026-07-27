@@ -219,7 +219,7 @@ export default function InventoryScreen({
       </div>
 
       {lowStock.length > 0 ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-900/40 dark:bg-amber-950/30">
+        <div className="values-alert values-alert--warning !m-0 text-sm">
           <p className="font-semibold">{t.lowStock}</p>
           <ul className="mt-1 space-y-0.5">
             {lowStock.map((item) => (
@@ -270,7 +270,7 @@ export default function InventoryScreen({
         </p>
       ) : null}
       {info ? (
-        <p className="rounded-xl border border-amber-500/30 bg-amber-50/80 px-3 py-2 text-sm text-amber-950 dark:border-amber-400/20 dark:bg-amber-950/30 dark:text-amber-100">
+        <p className="values-alert values-alert--warning !m-0 text-sm" role="status">
           {info}
         </p>
       ) : null}
@@ -278,15 +278,15 @@ export default function InventoryScreen({
       {tab === "catalog" ? (
         <div className="calc-surface space-y-3 p-3">
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="text-sm">
+            <label className="calc-field-label grid gap-1">
               <span className="font-semibold">Name</span>
               <input
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+                className="calc-field-input"
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
               />
             </label>
-            <label className="text-sm">
+            <label className="calc-field-label grid gap-1">
               <span className="font-semibold">Catalog link</span>
               <MenuSelect
                 value={catalogKey}
@@ -294,18 +294,18 @@ export default function InventoryScreen({
                 options={[{ value: "", label: "—" }, ...catalogOptions]}
               />
             </label>
-            <label className="text-sm">
+            <label className="calc-field-label grid gap-1">
               <span className="font-semibold">Min stock</span>
               <input
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+                className="calc-field-input"
                 value={minStock}
                 onChange={(e) => setMinStock(e.target.value)}
               />
             </label>
-            <label className="text-sm">
+            <label className="calc-field-label grid gap-1">
               <span className="font-semibold">Unit cost</span>
               <input
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+                className="calc-field-input"
                 value={unitCost}
                 onChange={(e) => setUnitCost(e.target.value)}
               />
@@ -354,10 +354,10 @@ export default function InventoryScreen({
               }))}
             />
           </label>
-          <label className="block text-sm">
+          <label className="calc-field-label grid gap-1">
             <span className="font-semibold">Quantity</span>
             <input
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+              className="calc-field-input"
               value={qty}
               onChange={(e) => setQty(e.target.value)}
             />

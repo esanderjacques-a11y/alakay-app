@@ -1481,7 +1481,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     encaladoNoAcidityNoDeficit:
       "No exchangeable acidity or Ca saturation deficit — the Ca saturation lime method does not apply.",
     encaladoCaDeficitNoAcidity:
-      "Ca deficit without exchangeable acidity — use gypsum or another Ca source; saturation-based liming does not apply.",
+      "Ca deficit without high exchangeable acidity (H+Al) — use gypsum or another Ca source; saturation-based liming (which raises pH) does not apply.",
     encaladoAcidityCaAdequate:
       "Exchangeable acidity is present, but Ca saturation is {sat}% (target {target}%). Correct acidity with the amendment calculator (pH / base saturation).",
     encaladoInsufficientData:
@@ -1502,19 +1502,23 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendModeOther: "Other",
     phAmendModeRecommended: "Recommended from soil analysis",
     phAmendModeGypsumHint:
-      "For sodicity or Ca balance without raising pH (CICe Ca without a liming pathway).",
+      "For sodicity or Ca supply without raising pH (CICe Ca deficit without a liming need).",
     phAmendModeCalciumHint:
-      "Lime to raise pH and/or correct Ca saturation in the CICe when acidity and base saturation require it.",
+      "Lime when exchangeable acidity (H+Al) is high or measured pH is below an explicit target — raises pH while supplying Ca.",
     phAmendModeGypsumBlockedLime:
-      "Gypsum is not the primary path here: low base saturation / Ca with excess acidity points to lime (calcium) instead.",
+      "Gypsum is not the primary path: cation deficit with high exchangeable acidity (H+Al) points to lime instead.",
+    phAmendModeGypsumBlockedLimeAcidity:
+      "Gypsum is not the primary path: low Ca or base saturation with high exchangeable acidity (H+Al) points to lime (raises pH).",
+    phAmendModeGypsumBlockedLimePh:
+      "Gypsum is not the primary path: measured pH is below the target pH, so lime is indicated to raise pH while supplying Ca.",
     phAmendModeGypsumBlockedOk:
       "Gypsum is not indicated: no sodicity and no Ca deficit that needs gypsum without liming.",
     phAmendModeGypsumNeedData:
       "Not enough cation / CICe data yet to confirm gypsum. Enter Ca, bases, and acidity in Values.",
     phAmendModeCalciumBlockedGypsum:
-      "Liming is not indicated: chemistry points to gypsum (sodicity or Ca deficit without an acidity liming pathway).",
+      "Liming is not indicated: chemistry points to gypsum — Ca deficit or sodicity without high exchangeable acidity (H+Al) or a pH-below-target goal (lime would raise pH).",
     phAmendModeCalciumBlockedOk:
-      "Lime is not needed: CICe cation distribution and base saturation are within sufficient ranges.",
+      "Lime is not needed: CICe cation distribution and base saturation are within sufficient ranges, or there is no liming signal (high H+Al or pH below target).",
     phAmendModeCalciumNeedData:
       "Not enough CICe / base-saturation data yet to confirm liming. Enter Ca, CIC or bases, and acidity in Values.",
     phAmendMaterialCalcitic: "Agricultural lime (CaCO₃)",
@@ -1606,6 +1610,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendBagsUnit: "bags",
     phAmendTapForDolomite: "Tap for dolomite (lower PRNT)",
     phAmendTapForCalcitic: "Tap for agricultural lime (higher PRNT)",
+    phAmendTapForCao: "Tap for calcium oxide (CaO)",
     phAmendResultAdjusted: "Adjusted requirement",
     phAmendResultFormula: "Formula used",
     phAmendResultExplanation: "Explanation",
@@ -1747,9 +1752,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     amendRecInsufficientData:
       "Amendment: insufficient CICe / base-saturation data to decide — enter exchangeable bases, CIC (or H+Al), in Values.",
     amendRecCalciticLime:
-      "Amendment: use calcareous (calcitic) agricultural lime — base saturation (V%) or Ca saturation is below the sufficient CICe range.",
+      "Amendment: use calcareous (calcitic) agricultural lime — cation deficit with high exchangeable acidity (H+Al) or measured pH below an explicit target.",
     amendRecDolomiticLime:
-      "Amendment: use dolomitic lime — base saturation is low and Mg saturation is below the sufficient CICe range.",
+      "Amendment: use dolomitic lime — liming is warranted and Mg saturation is below the sufficient CICe range.",
     amendRecCalciticLimeCrop:
       "Amendment: supply crop Ca with calcareous (calcitic) agricultural lime (not NPK fertilizer) — CICe sats indicate liming is warranted.",
     amendRecDolomiticLimeCrop:
@@ -1757,7 +1762,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     amendRecGypsumNa:
       "Amendment: use gypsum — Na saturation is above the sufficient CICe range; gypsum supplies Ca to displace Na without raising pH much.",
     amendRecGypsumCa:
-      "Amendment: use gypsum (or another Ca source) — Ca saturation is below the sufficient CICe range without a liming need.",
+      "Amendment: use gypsum (or another Ca source) — Ca saturation is below the sufficient CICe range without high exchangeable acidity (H+Al) or a pH-raise target.",
     amendRecElementalSulfur:
       "Amendment: use elemental sulfur — soil pH is high and may need acidification for the crop.",
     amendRecOrganicMatter:
@@ -2231,7 +2236,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     encaladoNoAcidityNoDeficit:
       "Sin acidez intercambiable ni déficit de saturación de Ca — no aplica el método de encalado por saturación.",
     encaladoCaDeficitNoAcidity:
-      "Hay déficit de Ca, pero sin acidez intercambiable: use yeso u otra fuente de Ca; el encalado por saturación no aplica.",
+      "Hay déficit de Ca, pero sin acidez intercambiable (H+Al) alta: use yeso u otra fuente de Ca; el encalado por saturación (que sube el pH) no aplica.",
     encaladoAcidityCaAdequate:
       "Hay acidez intercambiable, pero la saturación de Ca es {sat}% (meta {target}%). Corrija la acidez con la calculadora de enmiendas (pH / saturación de bases).",
     encaladoInsufficientData:
@@ -2252,19 +2257,23 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendModeOther: "Otros",
     phAmendModeRecommended: "Recomendado según el análisis de suelo",
     phAmendModeGypsumHint:
-      "Para sodicidad o balance de Ca sin subir el pH (Ca en CICe sin vía de encalado).",
+      "Para sodicidad o aporte de Ca sin subir el pH (déficit de Ca en CICe sin necesidad de encalar).",
     phAmendModeCalciumHint:
-      "Cal para subir el pH y/o corregir la saturación de Ca en la CICe cuando la acidez y la saturación de bases lo requieren.",
+      "Cal cuando la acidez intercambiable (H+Al) es alta o el pH medido está bajo una meta explícita — sube el pH y aporta Ca.",
     phAmendModeGypsumBlockedLime:
-      "El yeso no es la vía principal: baja saturación de bases / Ca con acidez en exceso apunta a cal (calcio).",
+      "El yeso no es la vía principal: déficit de cationes con acidez intercambiable (H+Al) alta apunta a cal.",
+    phAmendModeGypsumBlockedLimeAcidity:
+      "El yeso no es la vía principal: Ca o saturación de bases bajos con acidez intercambiable (H+Al) alta apuntan a cal (sube el pH).",
+    phAmendModeGypsumBlockedLimePh:
+      "El yeso no es la vía principal: el pH medido está por debajo del pH meta, así que la cal está indicada para subir el pH y aportar Ca.",
     phAmendModeGypsumBlockedOk:
       "El yeso no está indicado: no hay sodicidad ni déficit de Ca que requiera yeso sin encalado.",
     phAmendModeGypsumNeedData:
       "Faltan datos de cationes / CICe para confirmar yeso. Ingrese Ca, bases y acidez en Valores.",
     phAmendModeCalciumBlockedGypsum:
-      "El encalado no está indicado: la química apunta a yeso (sodicidad o déficit de Ca sin vía de encalado por acidez).",
+      "El encalado no está indicado: la química apunta a yeso — déficit de Ca o sodicidad sin H+Al alto ni meta de subir pH (la cal subiría el pH).",
     phAmendModeCalciumBlockedOk:
-      "No se necesita cal: la distribución de cationes en CICe y la saturación de bases están en rangos suficientes.",
+      "No se necesita cal: la CICe está en rangos suficientes, o no hay señal de encalado (H+Al alto o pH bajo la meta).",
     phAmendModeCalciumNeedData:
       "Faltan datos de CICe / saturación de bases para confirmar encalado. Ingrese Ca, CIC o bases, y acidez en Valores.",
     phAmendMaterialCalcitic: "Cal agrícola (CaCO₃)",
@@ -2356,6 +2365,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendBagsUnit: "sacos",
     phAmendTapForDolomite: "Toca para cal dolomítica (PRNT menor)",
     phAmendTapForCalcitic: "Toca para cal agrícola (PRNT mayor)",
+    phAmendTapForCao: "Toca para óxido de calcio (CaO)",
     phAmendResultAdjusted: "Requerimiento ajustado",
     phAmendResultFormula: "Fórmula utilizada",
     phAmendResultExplanation: "Explicación",
@@ -2501,9 +2511,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     amendRecInsufficientData:
       "Enmienda: faltan datos de CICe / saturación de bases — ingrese bases intercambiables, CIC (o H+Al) en Valores.",
     amendRecCalciticLime:
-      "Enmienda: use cal agrícola calcárea (calcítica) — la saturación de bases (V%) o de Ca está por debajo del rango suficiente de CICe.",
+      "Enmienda: use cal agrícola calcárea (calcítica) — déficit de cationes con acidez intercambiable (H+Al) alta o pH medido bajo una meta explícita.",
     amendRecDolomiticLime:
-      "Enmienda: use cal dolomítica — saturación de bases baja y saturación de Mg por debajo del rango suficiente de CICe.",
+      "Enmienda: use cal dolomítica — el encalado está justificado y la saturación de Mg está por debajo del rango suficiente de CICe.",
     amendRecCalciticLimeCrop:
       "Enmienda: aporte Ca del cultivo con cal agrícola calcárea (calcítica) (no como fertilizante NPK) — la CICe indica que el encalado es necesario.",
     amendRecDolomiticLimeCrop:
@@ -2511,7 +2521,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     amendRecGypsumNa:
       "Enmienda: use yeso — la saturación de Na supera el rango suficiente de CICe; el yeso aporta Ca para desplazar Na sin subir mucho el pH.",
     amendRecGypsumCa:
-      "Enmienda: use yeso (u otra fuente de Ca) — saturación de Ca por debajo del rango suficiente de CICe sin necesidad de encalado.",
+      "Enmienda: use yeso (u otra fuente de Ca) — saturación de Ca por debajo del rango suficiente de CICe sin H+Al alto ni meta de subir pH.",
     amendRecElementalSulfur:
       "Enmienda: use azufre elemental — el pH del suelo es alto y puede requerir acidificación para el cultivo.",
     amendRecOrganicMatter:
@@ -2989,19 +2999,23 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendModeOther: "Autres",
     phAmendModeRecommended: "Recommandé d'après l'analyse de sol",
     phAmendModeGypsumHint:
-      "Pour la sodicité ou l'équilibre en Ca sans relever le pH.",
+      "Pour la sodicité ou l'apport de Ca sans relever le pH (déficit de Ca CICe sans besoin de chaulage).",
     phAmendModeCalciumHint:
-      "Chaux pour relever le pH et/ou corriger la saturation en Ca de la CICe.",
+      "Chaux quand l'acidité échangeable (H+Al) est élevée ou le pH mesuré est sous une cible explicite — relève le pH et apporte du Ca.",
     phAmendModeGypsumBlockedLime:
-      "Le gypse n'est pas la voie principale : une faible saturation / Ca avec acidité oriente vers la chaux.",
+      "Le gypse n'est pas la voie principale : déficit cationique avec acidité échangeable (H+Al) élevée oriente vers la chaux.",
+    phAmendModeGypsumBlockedLimeAcidity:
+      "Le gypse n'est pas la voie principale : Ca ou saturation des bases bas avec H+Al élevé oriente vers la chaux (relève le pH).",
+    phAmendModeGypsumBlockedLimePh:
+      "Le gypse n'est pas la voie principale : le pH mesuré est sous le pH cible, la chaux est indiquée pour relever le pH et apporter du Ca.",
     phAmendModeGypsumBlockedOk:
       "Gypse non indiqué : pas de sodicité ni de déficit de Ca nécessitant du gypse sans chaulage.",
     phAmendModeGypsumNeedData:
       "Données CICe / cations insuffisantes pour confirmer le gypse.",
     phAmendModeCalciumBlockedGypsum:
-      "Chaulage non indiqué : la chimie oriente vers le gypse.",
+      "Chaulage non indiqué : la chimie oriente vers le gypse — déficit de Ca ou sodicité sans H+Al élevé ni objectif de relever le pH.",
     phAmendModeCalciumBlockedOk:
-      "Chaux non nécessaire : distribution des cations et saturation des bases suffisantes.",
+      "Chaux non nécessaire : CICe suffisante, ou pas de signal de chaulage (H+Al élevé ou pH sous cible).",
     phAmendModeCalciumNeedData:
       "Données CICe / saturation insuffisantes pour confirmer le chaulage.",
     phAmendMaterialCalcitic: "Chaux agricole (CaCO₃)",
@@ -3093,6 +3107,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendBagsUnit: "sacs",
     phAmendTapForDolomite: "Toucher pour dolomie (PRNT plus bas)",
     phAmendTapForCalcitic: "Toucher pour chaux agricole (PRNT plus haut)",
+    phAmendTapForCao: "Toucher pour oxyde de calcium (CaO)",
     phAmendResultAdjusted: "Besoin ajusté",
     phAmendResultFormula: "Formule utilisée",
     phAmendResultExplanation: "Explication",
@@ -3725,17 +3740,23 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendModeCalciumShort: "Kalsyòm",
     phAmendModeOther: "Lòt",
     phAmendModeRecommended: "Rekòmande dapre analiz tè a",
-    phAmendModeGypsumHint: "Pou sodisite oswa balans Ca san ogmante pH.",
-    phAmendModeCalciumHint: "Chò pou ogmante pH ak/oswa korije saturasyon Ca nan CICe.",
+    phAmendModeGypsumHint:
+      "Pou sodisite oswa bay Ca san ogmante pH (defisi Ca nan CICe san bezwen choulaj).",
+    phAmendModeCalciumHint:
+      "Chò lè asidite echanjabl (H+Al) wo oswa pH mezire anba yon objektif klè — ogmante pH epi bay Ca.",
     phAmendModeGypsumBlockedLime:
-      "Jips pa se chemen prensipal la: saturasyon ba / Ca ak asidite montre chò.",
+      "Jips pa se chemen prensipal la: defisi kasyon ak asidite echanjabl (H+Al) wo montre chò.",
+    phAmendModeGypsumBlockedLimeAcidity:
+      "Jips pa se chemen prensipal la: Ca oswa saturasyon baz ba ak H+Al wo montre chò (ogmante pH).",
+    phAmendModeGypsumBlockedLimePh:
+      "Jips pa se chemen prensipal la: pH mezire a anba pH objektif la, kidonk chò endike pou ogmante pH epi bay Ca.",
     phAmendModeGypsumBlockedOk:
       "Jips pa endike: pa gen sodisite ni defisi Ca ki bezwen jips san choulaj.",
     phAmendModeGypsumNeedData: "Done CICe / kasyon yo pa ase pou konfime jips.",
     phAmendModeCalciumBlockedGypsum:
-      "Choulaj pa endike: chimi a montre jips.",
+      "Choulaj pa endike: chimi a montre jips — defisi Ca oswa sodisite san H+Al wo ni objektif ogmante pH.",
     phAmendModeCalciumBlockedOk:
-      "Pa bezwen chò: distribisyon kasyon ak saturasyon baz yo sifizan.",
+      "Pa bezwen chò: CICe sifizan, oswa pa gen siyal choulaj (H+Al wo oswa pH anba objektif).",
     phAmendModeCalciumNeedData:
       "Done CICe / saturasyon pa ase pou konfime choulaj.",
     phAmendMaterialCalcitic: "Chò agrikòl (CaCO₃)",
@@ -3827,6 +3848,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendBagsUnit: "sak",
     phAmendTapForDolomite: "Tape pou chò dolomitik (PRNT pi ba)",
     phAmendTapForCalcitic: "Tape pou chò agrikòl (PRNT pi wo)",
+    phAmendTapForCao: "Tape pou oksid kalsyòm (CaO)",
     phAmendResultAdjusted: "Bezwen ajiste",
     phAmendResultFormula: "Fòmil itilize",
     phAmendResultExplanation: "Eksplikasyon",
@@ -4458,19 +4480,23 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendModeOther: "Outros",
     phAmendModeRecommended: "Recomendado conforme a análise de solo",
     phAmendModeGypsumHint:
-      "Para sodicidade ou balanço de Ca sem elevar o pH.",
+      "Para sodicidade ou aporte de Ca sem elevar o pH (déficit de Ca na CICe sem necessidade de calagem).",
     phAmendModeCalciumHint:
-      "Cal para elevar o pH e/ou corrigir a saturação de Ca na CICe.",
+      "Cal quando a acidez trocável (H+Al) é alta ou o pH medido está abaixo de uma meta explícita — eleva o pH e fornece Ca.",
     phAmendModeGypsumBlockedLime:
-      "O gesso não é a via principal: baixa saturação / Ca com acidez aponta para cal.",
+      "O gesso não é a via principal: déficit de cátions com acidez trocável (H+Al) alta aponta para cal.",
+    phAmendModeGypsumBlockedLimeAcidity:
+      "O gesso não é a via principal: Ca ou saturação de bases baixos com H+Al alto apontam para cal (eleva o pH).",
+    phAmendModeGypsumBlockedLimePh:
+      "O gesso não é a via principal: o pH medido está abaixo do pH meta, então a cal é indicada para elevar o pH e fornecer Ca.",
     phAmendModeGypsumBlockedOk:
       "Gesso não indicado: sem sodicidade nem déficit de Ca que exija gesso sem calagem.",
     phAmendModeGypsumNeedData:
       "Dados de CICe / cátions insuficientes para confirmar gesso.",
     phAmendModeCalciumBlockedGypsum:
-      "Calagem não indicada: a química aponta para gesso.",
+      "Calagem não indicada: a química aponta para gesso — déficit de Ca ou sodicidade sem H+Al alto nem meta de elevar pH.",
     phAmendModeCalciumBlockedOk:
-      "Cal não necessária: distribuição de cátions e saturação de bases suficientes.",
+      "Cal não necessária: CICe suficiente, ou sem sinal de calagem (H+Al alto ou pH abaixo da meta).",
     phAmendModeCalciumNeedData:
       "Dados de CICe / saturação insuficientes para confirmar calagem.",
     phAmendMaterialCalcitic: "Calcário agrícola (CaCO₃)",
@@ -4562,6 +4588,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendBagsUnit: "sacos",
     phAmendTapForDolomite: "Toque para calcário dolomítico (PRNT menor)",
     phAmendTapForCalcitic: "Toque para calcário agrícola (PRNT maior)",
+    phAmendTapForCao: "Toque para óxido de cálcio (CaO)",
     phAmendResultAdjusted: "Requerimento ajustado",
     phAmendResultFormula: "Fórmula utilizada",
     phAmendResultExplanation: "Explicação",
@@ -5193,18 +5220,23 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendModeCalciumShort: "Kalsiamu",
     phAmendModeOther: "Zingine",
     phAmendModeRecommended: "Inapendekezwa kutoka uchambuzi wa udongo",
-    phAmendModeGypsumHint: "Kwa sodicity au usawa wa Ca bila kuongeza pH.",
+    phAmendModeGypsumHint:
+      "Kwa sodicity au kutoa Ca bila kuongeza pH (upungufu wa Ca katika CICe bila hitaji la chokaa).",
     phAmendModeCalciumHint:
-      "Chokaa kuinua pH na/au kurekebisha kueneza kwa Ca katika CICe.",
+      "Chokaa wakati asidi inayobadilishika (H+Al) ni juu au pH iliyopimwa iko chini ya lengwa — inaongeza pH na kutoa Ca.",
     phAmendModeGypsumBlockedLime:
-      "Gypsum si njia kuu: kueneza chini / Ca na asidi inaonyesha chokaa.",
+      "Gypsum si njia kuu: upungufu wa kation na H+Al juu inaonyesha chokaa.",
+    phAmendModeGypsumBlockedLimeAcidity:
+      "Gypsum si njia kuu: Ca au kueneza kwa besi chini na H+Al juu inaonyesha chokaa (inaongeza pH).",
+    phAmendModeGypsumBlockedLimePh:
+      "Gypsum si njia kuu: pH iliyopimwa iko chini ya pH lengwa, kwa hiyo chokaa inaonyeshwa kuinua pH na kutoa Ca.",
     phAmendModeGypsumBlockedOk:
       "Gypsum haijaonyeshwa: hakuna sodicity wala upungufu wa Ca unaohitaji gypsum bila chokaa.",
     phAmendModeGypsumNeedData: "Data ya CICe / kation haitoshi kuthibitisha gypsum.",
     phAmendModeCalciumBlockedGypsum:
-      "Chokaa haijaonyeshwa: kemia inaonyesha gypsum.",
+      "Chokaa haijaonyeshwa: kemia inaonyesha gypsum — upungufu wa Ca au sodicity bila H+Al juu wala lengwa la kuinua pH.",
     phAmendModeCalciumBlockedOk:
-      "Chokaa haitajiwi: usambazaji wa kation na kueneza kwa besi ni wa kutosha.",
+      "Chokaa haitajiwi: CICe inatosha, au hakuna ishara ya chokaa (H+Al juu au pH chini ya lengwa).",
     phAmendModeCalciumNeedData:
       "Data ya CICe / kueneza haitoshi kuthibitisha chokaa.",
     phAmendMaterialCalcitic: "Chokaa cha kilimo (CaCO₃)",
@@ -5296,6 +5328,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendBagsUnit: "mifuko",
     phAmendTapForDolomite: "Gusa kwa dolomiti (PRNT chini)",
     phAmendTapForCalcitic: "Gusa kwa chokaa cha kilimo (PRNT juu)",
+    phAmendTapForCao: "Gusa kwa oksidi ya kalsiamu (CaO)",
     phAmendResultAdjusted: "Mahitaji yaliyorekebishwa",
     phAmendResultFormula: "Fomula iliyotumika",
     phAmendResultExplanation: "Maelezo",

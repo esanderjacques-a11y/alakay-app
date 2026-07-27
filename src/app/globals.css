@@ -2,6 +2,10 @@
 @source "../app";
 @source "../components";
 
+/* Match app theme toggle (data-theme), not OS prefers-color-scheme.
+   Otherwise phone Dark Mode applies dark:bg-* while data-theme stays light → unreadable contrast. */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 :root {
   /* Lock light mode so mobile browsers don't auto-darken/wash out the page. */
   color-scheme: light;
@@ -7366,6 +7370,41 @@ html[data-theme="dark"] .app-header {
 
   html[data-theme="dark"] .formulation-price-row__name {
     color: var(--foreground, #e8e8e8);
+  }
+
+  .formulation-filler-note {
+    margin: 0;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(22 101 52 / 0.16);
+    background: rgb(240 253 244 / 0.92);
+    padding: 0.55rem 0.7rem;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: #14532d;
+  }
+
+  .formulation-filler-note__name {
+    font-weight: 700;
+    color: #14532d;
+  }
+
+  .formulation-filler-note__meta {
+    font-weight: 500;
+    color: #166534;
+  }
+
+  html[data-theme="dark"] .formulation-filler-note {
+    border-color: rgb(74 222 128 / 0.22);
+    background: rgb(20 83 45 / 0.35);
+    color: #bbf7d0;
+  }
+
+  html[data-theme="dark"] .formulation-filler-note__name {
+    color: #dcfce7;
+  }
+
+  html[data-theme="dark"] .formulation-filler-note__meta {
+    color: #bbf7d0;
   }
 
   .calc-irrigation-picker {

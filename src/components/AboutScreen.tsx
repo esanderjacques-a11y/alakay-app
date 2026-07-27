@@ -13,6 +13,7 @@ import {
   Send,
   Sparkles,
 } from "lucide-react";
+import AboutPillars from "@/components/AboutPillars";
 import AboutStoryCarousel from "@/components/AboutStoryCarousel";
 import FeedbackSection from "@/components/FeedbackSection";
 import ImpactSection from "@/components/ImpactSection";
@@ -221,50 +222,26 @@ export default function AboutScreen({
                   <AboutStoryCarousel t={t} language={language} />
                 </div>
 
+                <div className="fade-in-section">
+                  <AboutPillars t={t} />
+                </div>
+
                 <section className="about-section about-section--contact fade-in-section">
                   <h2 className="about-kicker">{t.aboutContactLabel}</h2>
-                  <ul className="about-contact about-contact--flat">
-                    <li>
-                      <span className="about-contact__icon" aria-hidden>
-                        <Mail size={15} />
-                      </span>
-                      <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
-                    </li>
-                    <li>
-                      <span className="about-contact__icon" aria-hidden>
-                        <Phone size={15} />
-                      </span>
-                      <div>
-                        <a href={`tel:${PHONE_CR.replace(/\s/g, "")}`}>
-                          {PHONE_CR}
-                        </a>
-                        <span>{t.aboutPhoneCr}</span>
-                      </div>
-                    </li>
-                    <li>
-                      <span className="about-contact__icon" aria-hidden>
-                        <Phone size={15} />
-                      </span>
-                      <div>
-                        <a href={`tel:${PHONE_HT.replace(/\s/g, "")}`}>
-                          {PHONE_HT}
-                        </a>
-                        <span>{t.aboutPhoneHt}</span>
-                      </div>
-                    </li>
-                    <li>
-                      <span className="about-contact__icon" aria-hidden>
-                        <Linkedin size={15} />
-                      </span>
-                      <a
-                        href={LINKEDIN_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        LinkedIn
-                      </a>
-                    </li>
-                  </ul>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600 dark:text-slate-400">
+                    <a href={`mailto:${CONTACT_EMAIL}`} className="flex items-center gap-1.5 hover:text-emerald-600 transition-colors">
+                      <Mail size={14} /> {CONTACT_EMAIL}
+                    </a>
+                    <a href={`tel:${PHONE_CR.replace(/\s/g, "")}`} className="flex items-center gap-1.5 hover:text-emerald-600 transition-colors">
+                      <Phone size={14} /> {PHONE_CR}
+                    </a>
+                    <a href={`tel:${PHONE_HT.replace(/\s/g, "")}`} className="flex items-center gap-1.5 hover:text-emerald-600 transition-colors">
+                      <Phone size={14} /> {PHONE_HT}
+                    </a>
+                    <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-emerald-600 transition-colors">
+                      <Linkedin size={14} /> LinkedIn
+                    </a>
+                  </div>
                 </section>
 
                 <p className="about-note fade-in-section">{t.aboutDisclaimerShort}</p>

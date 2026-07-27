@@ -642,13 +642,13 @@
     "Touchez chaque pilier pour explorer ce qui anime Cultosol—un produit à l’esprit ONG, conçu pour les producteurs, pas pour les barrières.",
   aboutMissionLabel: "Mission",
   aboutMission:
-    "Mettre des conseils de terrain clairs et fiables entre les mains de chaque producteur. Cultosol transforme les résultats de laboratoire sol et foliaire en recommandations concrètes—pour que les petits producteurs agissent avec confiance, protègent leurs cultures et sachent quand consulter un expert.",
+    "Transformer les résultats de laboratoire en conseils de terrain clairs et pratiques pour chaque producteur.",
   aboutVisionLabel: "Vision",
   aboutVision:
-    "Un monde où aucun agriculteur ne reste dans le doute face à son sol. Chaque producteur peut lire les données de sa culture avec clarté, mieux décider au champ et rejoindre un conseil agronomique professionnel sans délai—où qu’il cultive.",
+    "Un monde où chaque agriculteur comprend son sol et prend des décisions en toute confiance.",
   aboutValuesLabel: "Valeurs",
   aboutValues:
-    "Nous construisons pour la clarté, l’accès et le partenariat avec l’agronomie locale—pour que la technologie serve le terrain, et non l’inverse.",
+    "Clarté, accès ouvert et partenariat avec l'agronomie locale.",
   aboutValue1Title: "La clarté d’abord",
   aboutValue1Body:
     "Chaque chiffre doit devenir une décision qu’un producteur comprend au champ.",

@@ -629,13 +629,13 @@
     "Tape chak pilè pou eksplore sa ki pouse Cultosol—yon pwodui ak lespri ONG, fèt pou kiltivatè, pa pou baryè.",
   aboutMissionLabel: "Misyon",
   aboutMission:
-    "Mete konsèy klè ak solid nan men chak kiltivatè. Cultosol tounen rezilta laboratwa tè ak fèy yo an rekòmandasyon pratik—pou ti pwodiktè yo aji ak konfyans, pwoteje rekòt yo, epi konnen egzakteman lè pou yo chèche yon ekspè.",
+    "Tounen rezilta laboratwa an konsèy klè ak pratik pou chak kiltivatè nan jaden an.",
   aboutVisionLabel: "Vizyon",
   aboutVision:
-    "Yon mond kote okenn kiltivatè pa rete ap peze tè a. Chak pwodiktè ka li done rekòt yo ak klète, pran pi bon desizyon nan jaden, epi jwenn konsèy agwonòm pwofesyonèl san reta—kote yo ap grandi a.",
+    "Yon mond kote chak kiltivatè konprann tè yo epi pran desizyon ak konfyans.",
   aboutValuesLabel: "Valè",
   aboutValues:
-    "Nou bati pou klète, aksè, ak patenarya ak agwonomi lokal—pou teknoloji a sèvi jaden an, pa lòt wout la.",
+    "Klète, aksè louvri, ak patenarya ak agwonomi lokal.",
   aboutValue1Title: "Klète an premye",
   aboutValue1Body:
     "Chak chif dwe tounen yon desizyon yon kiltivatè ka konprann nan jaden.",

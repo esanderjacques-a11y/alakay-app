@@ -396,13 +396,13 @@ const sw = {
     "Gusa kila nguzo ili kuchunguza kinachoendesha Cultosol—bidhaa yenye roho ya NGO, iliyojengwa kwa wakulima, si vizuizi.",
   aboutMissionLabel: "Dhamira",
   aboutMission:
-    "Kuweka mwongozo wazi na unaoaminika mikononi mwa kila mkulima. Cultosol hugeuza matokeo ya maabara ya udongo na majani kuwa mapendekezo yanayotekelezeka—ili wazalishaji wadogo wachukue hatua kwa ujasiri, walinde mazao yao, na wajue lini waite mtaalamu.",
+    "Kugeuza matokeo ya maabara kuwa mwongozo wazi na wa vitendo kwa kila mkulima.",
   aboutVisionLabel: "Maono",
   aboutVision:
-    "Ulimwengu ambapo hakuna mkulima anayebaki akikisia udongo wake. Kila mzalishaji anaweza kusoma data ya mazao kwa uwazi, kufanya maamuzi bora shambani, na kufikia ushauri wa kitaalamu wa kilimo bila kuchelewa—popote anapokulima.",
+    "Ulimwengu ambapo kila mkulima anaelewa udongo wake na kufanya maamuzi kwa ujasiri.",
   aboutValuesLabel: "Maadili",
   aboutValues:
-    "Tunajenga kwa uwazi, ufikiaji, na ushirikiano na kilimo cha ndani—ili teknolojia ihudumie shamba, si kinyume chake.",
+    "Uwazi, ufikiaji wazi, na ushirikiano na kilimo cha ndani.",
   aboutValue1Title: "Uwazi kwanza",
   aboutValue1Body:
     "Kila nambari inapaswa kuwa uamuzi mkulima anaelewa shambani.",

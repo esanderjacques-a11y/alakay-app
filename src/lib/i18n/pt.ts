@@ -407,13 +407,13 @@ const pt = {
     "Toque em cada pilar para explorar o que move o Cultosol—um produto com espírito de ONG, feito para produtores, não para barreiras.",
   aboutMissionLabel: "Missão",
   aboutMission:
-    "Colocar orientação clara e confiável nas mãos de cada produtor. O Cultosol transforma resultados de laboratório de solo e foliar em recomendações práticas—para que pequenos produtores ajam com confiança, protejam suas culturas e saibam quando chamar um especialista.",
+    "Transformar resultados de laboratório em orientações de campo claras e práticas para cada produtor.",
   aboutVisionLabel: "Visão",
   aboutVision:
-    "Um mundo em que nenhum agricultor fique adivinhando seu solo. Cada produtor pode ler os dados da cultura com clareza, decidir melhor no campo e acessar aconselhamento agronômico profissional sem demora—onde quer que cultive.",
+    "Um mundo onde cada agricultor entenda seu solo e tome decisões com confiança.",
   aboutValuesLabel: "Valores",
   aboutValues:
-    "Construímos para clareza, acesso e parceria com a agronomia local—para que a tecnologia sirva o campo, e não o contrário.",
+    "Clareza, acesso aberto e parceria com a agronomia local.",
   aboutValue1Title: "Clareza em primeiro",
   aboutValue1Body:
     "Cada número deve virar uma decisão que o produtor entenda no campo.",

@@ -616,13 +616,13 @@
     "Tap each pillar to explore what drives Cultosol—an NGO-minded product built for growers, not gatekeepers.",
   aboutMissionLabel: "Mission",
   aboutMission:
-    "Put clear, trustworthy field guidance in every grower’s hands. Cultosol turns soil and foliar lab results into practical recommendations—so small producers can act with confidence, protect their crops, and know exactly when to call in an expert.",
+    "Turn lab results into clear, practical field guidance for every grower.",
   aboutVisionLabel: "Vision",
   aboutVision:
-    "A world where no farmer is left guessing at their soil. Every producer can read crop data with clarity, make better decisions in the field, and reach professional agronomic advice without delay—wherever they grow.",
+    "A world where every farmer understands their soil and makes confident decisions.",
   aboutValuesLabel: "Values",
   aboutValues:
-    "We build for clarity, access, and partnership with local agronomy—so technology serves the field, not the other way around.",
+    "Clarity, open access, and partnership with local agronomy.",
   aboutValue1Title: "Clarity first",
   aboutValue1Body:
     "Every number should become a decision a grower can understand in the field.",

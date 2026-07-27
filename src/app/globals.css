@@ -16515,6 +16515,7 @@ html[data-theme="dark"] .app-header {
     min-height: 0;
     padding-inline: var(--about-flat-inset-x);
     padding-top: 1.25rem;
+    position: relative;
   }
 
   .about-header {
@@ -17186,7 +17187,7 @@ html[data-theme="dark"] .app-header {
     gap: 0.35rem;
     padding: 0.25rem;
     border: 1px solid var(--glass-border);
-    border-radius: 999px;
+    border-radius: 0.5rem;
     background: var(--glass-surface-muted);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
@@ -17200,7 +17201,7 @@ html[data-theme="dark"] .app-header {
     flex: 1;
     min-height: 2rem;
     border: none;
-    border-radius: 999px;
+    border-radius: 0.35rem;
     background: transparent;
     font-family: inherit;
     font-size: 0.75rem;
@@ -17247,6 +17248,7 @@ html[data-theme="dark"] .app-header {
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    padding-bottom: 7.5rem;
   }
 
   .about-content {
@@ -18539,15 +18541,19 @@ html[data-theme="dark"] .app-header {
   }
 
   .about-flat-bottom-bar {
-    position: sticky;
+    position: absolute;
     bottom: 0;
+    left: 0;
+    right: 0;
     z-index: 15;
     flex-shrink: 0;
     margin-top: auto;
     margin-inline: 0;
     padding: 0.75rem var(--about-flat-inset-x) calc(0.35rem + env(safe-area-inset-bottom));
-    overflow: visible;
-    background: transparent;
+    background: var(--glass-surface-strong);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--glass-border);
   }
 
   .about-flat-bottom-bar::before,

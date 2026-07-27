@@ -187,8 +187,19 @@ function mapCropRows(rows: CropRow[]) {
       label: row.label,
       patterns: (row.match_patterns || [])
         .map((pattern) => {
+          const raw = String(pattern || "").trim();
+          if (!raw) return null;
           try {
-            return new RegExp(pattern, "i");
+            // DB stores plain alias phrases; wrap like Tabla N.° 5 word-boundary matchers.
+            if (raw.startsWith("(") || raw.includes("\\b") || raw.includes("(?:")) {
+              return new RegExp(raw, "i");
+            }
+            const escaped = raw
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .toLowerCase()
+              .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            return new RegExp(`(?:^|\\b)${escaped}(?:$|\\b)`, "i");
           } catch {
             return null;
           }

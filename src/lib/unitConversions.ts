@@ -66,6 +66,25 @@ export function convertLabUnit(
     };
   }
 
+  // Dry-matter mass fraction: 1% = 10 000 ppm = 10 000 mg/kg.
+  // Used when foliar labs report Na (and similar) in % but the app stores ppm/mg/kg.
+  const percentUnits = ["%", "percent", "g/100g", "dag/kg", "dagkg-1"];
+  const ppmUnits = ["ppm", "mg/kg", "mgkg-1", "mg.kg-1", "ug/g"];
+  if (percentUnits.includes(from) && ppmUnits.includes(to)) {
+    return {
+      value: roundConvertedValue(value * 10000),
+      unit: toUnit,
+      note: "Converted % dry matter to ppm (× 10 000).",
+    };
+  }
+  if (ppmUnits.includes(from) && percentUnits.includes(to)) {
+    return {
+      value: roundConvertedValue(value / 10000, 4),
+      unit: toUnit,
+      note: "Converted ppm to % dry matter (÷ 10 000).",
+    };
+  }
+
   const factors: Record<string, number> = {
     "g/kg->%": 0.1,
     "%->g/kg": 10,

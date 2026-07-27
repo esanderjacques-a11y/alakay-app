@@ -12,6 +12,8 @@ import {
 import {
   ArrowLeft,
   Camera,
+  ChevronDown,
+  ChevronRight,
   Loader2,
   RefreshCcw,
   Save,
@@ -37,7 +39,7 @@ import {
   type DocumentUnitContext,
 } from "@/lib/import/importUnitContext";
 import type { Language } from "@/lib/translations";
-import { canConvertLabUnit } from "@/lib/unitConversions";
+import { canConvertLabUnit, convertLabUnit } from "@/lib/unitConversions";
 import MenuSelect from "@/components/ui/MenuSelect";
 import {
   getImportCache,
@@ -611,9 +613,37 @@ function getParameterAliasTerms(parameter: ParameterForImport) {
   return Array.from(aliases);
 }
 
+function looksLikeElementSymbol(value: string) {
+  const normalized = normalizeText(value);
+  if (!normalized) return false;
+  // Element / nutrient symbols: C, N, P, K, Fe, Ca, Mg, Zn, Mn, B, Na, Cu, S, Mo…
+  return /^[a-z]{1,2}(?:[0-9]*[+\-]?)?$/.test(normalized) && normalized.length <= 4;
+}
+
 function extractSymbolHint(value: string) {
   const parenthesized = value.match(/\(([A-Za-z][A-Za-z0-9+\-]{0,5})\)/);
   if (parenthesized?.[1]) return normalizeText(parenthesized[1]);
+
+  const trimmed = String(value || "").trim();
+  // Standalone symbol cells: "C", "Fe", "N %", "K%"
+  const bare = trimmed.match(/^([A-Za-z]{1,2})\s*%?$/);
+  if (bare?.[1] && looksLikeElementSymbol(bare[1])) {
+    return normalizeText(bare[1]);
+  }
+
+  return "";
+}
+
+function resolveEffectiveSymbolHint(rawName: string, rawSymbolHint?: string) {
+  const fromHint = normalizeText(rawSymbolHint || "");
+  if (fromHint && looksLikeElementSymbol(fromHint)) return fromHint;
+
+  const fromName = extractSymbolHint(rawName);
+  if (fromName) return fromName;
+
+  const normalizedName = normalizeText(rawName);
+  if (looksLikeElementSymbol(normalizedName)) return normalizedName;
+
   return "";
 }
 
@@ -840,6 +870,31 @@ function parameterMatchScore(rawName: string, terms: string[]) {
   return best;
 }
 
+function findParametersBySymbol(
+  parameters: ParameterForImport[],
+  symbol: string
+) {
+  const normalizedSymbol = normalizeText(symbol);
+  if (!normalizedSymbol) return [];
+  return parameters.filter(
+    (parameter) => normalizeText(parameter.symbol || "") === normalizedSymbol
+  );
+}
+
+function isSymbolDrivenMatch(
+  rawName: string,
+  parameter: ParameterForImport,
+  rawSymbolHint?: string
+) {
+  const effectiveSymbol = resolveEffectiveSymbolHint(rawName, rawSymbolHint);
+  const parameterSymbol = normalizeText(parameter.symbol || "");
+  if (!effectiveSymbol || !parameterSymbol || effectiveSymbol !== parameterSymbol) {
+    return false;
+  }
+  const nameScore = parameterMatchScore(rawName, getParameterSearchTerms(parameter));
+  return nameScore < 0.86;
+}
+
 function findBestParameterMatch(
   rawName: string,
   parameters: ParameterForImport[],
@@ -848,33 +903,61 @@ function findBestParameterMatch(
   methodHint?: string
 ) {
   const normalizedRawName = normalizeText(rawName);
-  if (!normalizedRawName) return null;
-  const normalizedRawSymbol = normalizeText(rawSymbolHint || extractSymbolHint(rawName));
+  if (!normalizedRawName) {
+    // Still try a pure symbol when the label cell is empty/OCR-failed.
+    const symbolOnly = resolveEffectiveSymbolHint("", rawSymbolHint);
+    if (!symbolOnly) return null;
+    const bySymbol = findParametersBySymbol(parameters, symbolOnly);
+    if (bySymbol.length === 1) {
+      return forceCriticalParameterMatch(
+        rawSymbolHint || symbolOnly,
+        bySymbol[0],
+        parameters,
+        rawSymbolHint,
+        methodHint
+      );
+    }
+    return null;
+  }
+
+  const normalizedRawSymbol = resolveEffectiveSymbolHint(rawName, rawSymbolHint);
   const rawFamilies = detectAliasFamilies(rawName);
 
-  const ranked = parameters
-    .map((parameter) => {
-      const baseScore = parameterMatchScore(rawName, getParameterSearchTerms(parameter));
-      const parameterSymbol = normalizeText(parameter.symbol || "");
-      const parameterFamilies = detectAliasFamilies(
-        `${parameter.display_name} ${parameter.parameter_name} ${parameter.symbol || ""} ${(parameter.aliases || []).join(" ")}`
-      );
-      const familyOverlap = hasFamilyOverlap(rawFamilies, parameterFamilies);
+  const scored = parameters.map((parameter) => {
+    const baseScore = parameterMatchScore(rawName, getParameterSearchTerms(parameter));
+    const parameterSymbol = normalizeText(parameter.symbol || "");
+    const parameterFamilies = detectAliasFamilies(
+      `${parameter.display_name} ${parameter.parameter_name} ${parameter.symbol || ""} ${(parameter.aliases || []).join(" ")}`
+    );
+    const familyOverlap = hasFamilyOverlap(rawFamilies, parameterFamilies);
+    const symbolExact =
+      Boolean(normalizedRawSymbol) &&
+      Boolean(parameterSymbol) &&
+      parameterSymbol === normalizedRawSymbol;
 
-      let score = baseScore;
+    let score = baseScore;
 
-      if (normalizedRawSymbol) {
-        if (parameterSymbol && parameterSymbol === normalizedRawSymbol) score += 0.3;
-        else if (!familyOverlap && parameterSymbol && parameterSymbol !== normalizedRawSymbol)
-          score -= 0.08;
-      }
+    if (symbolExact) {
+      // Symbol agreement is enough to surface a match even when the label is noisy.
+      score = Math.max(score, 0.9);
+      if (baseScore >= 0.5) score = Math.max(score, 0.96);
+    } else if (
+      normalizedRawSymbol &&
+      !familyOverlap &&
+      parameterSymbol &&
+      parameterSymbol !== normalizedRawSymbol
+    ) {
+      score -= 0.08;
+    }
 
-      if (rawFamilies.size > 0 && parameterFamilies.size > 0) {
-        score += familyOverlap ? 0.25 : -0.2;
-      }
+    if (rawFamilies.size > 0 && parameterFamilies.size > 0) {
+      score += familyOverlap ? 0.25 : -0.2;
+    }
 
-      return { parameter, score };
-    })
+    return { parameter, score, symbolExact };
+  });
+
+  const ranked = scored
     .filter((match) => match.score >= 0.8)
     .sort((left, right) => right.score - left.score);
 
@@ -903,6 +986,37 @@ function findBestParameterMatch(
   }
 
   if (ranked.length === 0) {
+    // Fallback: unique symbol match when the written name did not score high enough.
+    if (normalizedRawSymbol) {
+      const bySymbol = findParametersBySymbol(parameters, normalizedRawSymbol);
+      if (bySymbol.length === 1) {
+        return forceCriticalParameterMatch(
+          rawName,
+          bySymbol[0],
+          parameters,
+          rawSymbolHint,
+          methodHint
+        );
+      }
+      if (bySymbol.length > 1) {
+        const bestSymbol = bySymbol
+          .map((parameter) => ({
+            parameter,
+            score: parameterMatchScore(rawName, getParameterSearchTerms(parameter)),
+          }))
+          .sort((left, right) => right.score - left.score)[0];
+        if (bestSymbol) {
+          return forceCriticalParameterMatch(
+            rawName,
+            bestSymbol.parameter,
+            parameters,
+            rawSymbolHint,
+            methodHint
+          );
+        }
+      }
+    }
+
     return forceCriticalParameterMatch(
       rawName,
       null,
@@ -941,9 +1055,11 @@ function findBestParameterMatch(
     }
   }
   if (ranked[1] && ranked[0].score - ranked[1].score < 0.06) {
+    // Prefer the candidate that agrees on symbol when scores are close.
+    const symbolPreferred = ranked.find((item) => item.symbolExact);
     return forceCriticalParameterMatch(
       rawName,
-      ranked[0].parameter,
+      (symbolPreferred || ranked[0]).parameter,
       parameters,
       rawSymbolHint,
       methodHint
@@ -1054,6 +1170,43 @@ function findUnitSelection(
 
   const normalizedRawUnit = normalizeUnitForMatching(reconciledUnit);
   const rawUnitLiteral = reconciledUnit.trim().toLowerCase().replace(/\s+/g, "");
+
+  // Foliar Na is often printed as % dry matter — prefer ppm/mg/kg for the app.
+  const isPercentRaw =
+    rawUnitLiteral === "%" ||
+    rawUnitLiteral === "percent" ||
+    rawUnitLiteral === "g/100g";
+  if (isPercentRaw && isSodiumParameter(parameter)) {
+    const ppmOption = parameter.available_units.find((unit) => {
+      const raw = String(unit.display_symbol || unit.unit_symbol || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "");
+      return raw === "ppm";
+    });
+    const mgKgOption =
+      preferredMgKg ||
+      parameter.available_units.find((unit) => {
+        const raw = String(unit.display_symbol || unit.unit_symbol || "")
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, "");
+        return raw === "mg/kg" || raw === "mgkg-1" || raw === "mg.kg-1";
+      });
+    const target = ppmOption || mgKgOption;
+    if (target) {
+      return {
+        unitId: target.unit_id,
+        displayKey: getUnitOptionKey({
+          unit_id: target.unit_id,
+          unit_symbol: target.unit_symbol,
+          display_symbol: ppmOption ? "ppm" : target.display_symbol || target.unit_symbol,
+        }),
+        quality: "compatible" as const,
+      };
+    }
+  }
+
   // ppm ≡ mg/kg — prefer showing mg/kg when the lab reports either.
   if (rawUnitLiteral === "ppm" || rawUnitLiteral === "ug/g" || rawUnitLiteral === "µg/g") {
     if (preferredMgKg) {
@@ -1157,7 +1310,8 @@ function resolveRowImportState(
       ...row,
       status: "invalid",
       message: "Missing parameter name.",
-      selected: false,
+      // Never force-clear a manual check — import still skips incomplete rows.
+      selected: preserveSelected ? row.selected : false,
     };
   }
 
@@ -1166,7 +1320,7 @@ function resolveRowImportState(
       ...row,
       status: "invalid",
       message: "Invalid numeric value.",
-      selected: false,
+      selected: preserveSelected ? row.selected : false,
     };
   }
 
@@ -1176,7 +1330,7 @@ function resolveRowImportState(
       value: normalizedValue,
       status: "unmatched",
       message: "Choose a parameter.",
-      selected: false,
+      selected: preserveSelected ? row.selected : false,
     };
   }
 
@@ -1190,7 +1344,7 @@ function resolveRowImportState(
       selectedUnitDisplayKey: null,
       status: "unmatched",
       message: "Choose a parameter.",
-      selected: false,
+      selected: preserveSelected ? row.selected : false,
     };
   }
 
@@ -1210,7 +1364,6 @@ function resolveRowImportState(
     );
     const ready =
       selectedUnit.quality === "exact" || selectedUnit.quality === "compatible";
-    const canImport = Boolean(selectedUnit.unitId && selectedUnit.displayKey);
     return {
       ...row,
       value: normalizedValue,
@@ -1220,13 +1373,7 @@ function resolveRowImportState(
       status: ready ? "matched" : "unmatched",
       message: ready ? "Ready." : "Review unit.",
       // Uncertain rows stay off by default, but keep a manual check if the user opted in.
-      selected: ready
-        ? preserveSelected
-          ? row.selected
-          : true
-        : preserveSelected && canImport
-          ? row.selected
-          : false,
+      selected: preserveSelected ? row.selected : ready,
     };
   }
 
@@ -1965,28 +2112,58 @@ export default function LabValueImporter({
 
     const preview = rows.map((unsafeRow, index) => {
       const row = repairImportedRow(unsafeRow);
+      const effectiveParameterName =
+        String(row.parameter || "").trim() || String(row.symbol || "").trim();
       const matchedParameter = findBestParameterMatch(
-        row.parameter,
+        effectiveParameterName,
         parameters,
         searchMap,
         row.symbol,
         row.method
       );
-      const parsedValue = parseImportedResultValue(String(row.value));
-      const numericValue = parsedValue ? Number(parsedValue) : undefined;
+      const parsedValueRaw = parseImportedResultValue(String(row.value));
+      let parsedValue = parsedValueRaw;
+      let numericValue = parsedValue ? Number(parsedValue) : undefined;
+      let rowUnitForMatch = row.unit;
+      // Convert foliar Na reported as % dry matter into ppm (× 10 000).
+      if (
+        matchedParameter &&
+        isSodiumParameter(matchedParameter) &&
+        parsedValue &&
+        numericValue !== undefined
+      ) {
+        const unitHint = String(row.unit || "").trim().toLowerCase();
+        const looksPercent =
+          unitHint === "%" ||
+          unitHint === "percent" ||
+          unitHint.includes("%") ||
+          // Bare fraction typical of tissue Na when unit header was % macros
+          (numericValue > 0 && numericValue < 1 && !unitHint);
+        if (looksPercent && (unitHint.includes("%") || unitHint === "percent" || unitHint === "")) {
+          // Only auto-convert when the report unit is explicitly % (avoid guessing bare decimals).
+          if (unitHint.includes("%") || unitHint === "percent") {
+            const converted = convertLabUnit(numericValue, "%", "ppm");
+            if (converted) {
+              parsedValue = String(converted.value);
+              numericValue = converted.value;
+              rowUnitForMatch = "ppm";
+            }
+          }
+        }
+      }
       const effectiveUnit = matchedParameter
         ? inferRowReportUnit(
-            row.unit,
+            rowUnitForMatch,
             matchedParameter.parameter_key,
             numericValue,
             unitContext
           )
-        : row.unit;
+        : rowUnitForMatch;
       const reportReferenceRange = formatReportReferenceRange(
         row.reportRange || undefined
       );
       const reportRating = row.reportRating?.trim() || null;
-      const baseId = `${index + 2}-${row.parameter}-${row.value}`;
+      const baseId = `${index + 2}-${effectiveParameterName || row.parameter}-${row.value}`;
       const sourceDetail =
         [
           row.source || "",
@@ -1996,8 +2173,11 @@ export default function LabValueImporter({
         ]
           .filter(Boolean)
           .join(" | ") || null;
+      const symbolDriven =
+        Boolean(matchedParameter) &&
+        isSymbolDrivenMatch(effectiveParameterName, matchedParameter!, row.symbol);
 
-      if (!row.parameter.trim()) {
+      if (!effectiveParameterName) {
         return {
           id: baseId,
           rowNumber: index + 2,
@@ -2021,7 +2201,7 @@ export default function LabValueImporter({
         return {
           id: baseId,
           rowNumber: index + 2,
-          rawParameter: row.parameter,
+          rawParameter: effectiveParameterName,
           matchedParameterKey: matchedParameter?.parameter_key || null,
           value: row.value,
           unit: row.unit || null,
@@ -2055,7 +2235,7 @@ export default function LabValueImporter({
         return {
           id: baseId,
           rowNumber: index + 2,
-          rawParameter: row.parameter,
+          rawParameter: effectiveParameterName,
           matchedParameterKey: null,
           value: parsedValue,
           unit: effectiveUnit || row.unit || null,
@@ -2079,11 +2259,12 @@ export default function LabValueImporter({
       );
       const requiresUnitReview =
         Boolean(row.unit?.trim()) && selectedUnit.quality === "none";
+      const needsConfirm = requiresUnitReview || symbolDriven;
 
       return {
         id: baseId,
         rowNumber: index + 2,
-        rawParameter: row.parameter,
+        rawParameter: effectiveParameterName,
         matchedParameterKey: matchedParameter.parameter_key,
         value: parsedValue,
         unit: effectiveUnit?.trim() || row.unit?.trim() || null,
@@ -2091,17 +2272,20 @@ export default function LabValueImporter({
         source: sourceDetail,
         selectedUnitId: selectedUnit.unitId,
         selectedUnitDisplayKey: selectedUnit.displayKey,
-        status: requiresUnitReview ? ("unmatched" as const) : ("matched" as const),
+        status: needsConfirm ? ("unmatched" as const) : ("matched" as const),
         message: requiresUnitReview
           ? "Review unit."
-          : row.confidence && row.confidence < 0.75
-            ? "Review match."
-            : selectedUnit.quality === "compatible"
-              ? "Ready (unit equivalent)."
-              : unitContext.defaultMassUnit && !row.unit?.trim()
-                ? `Ready (${unitContext.defaultMassUnit} from report).`
-                : "Ready.",
-        selected: !requiresUnitReview,
+          : symbolDriven
+            ? "Confirm — matched by symbol."
+            : row.confidence && row.confidence < 0.75
+              ? "Review match."
+              : selectedUnit.quality === "compatible"
+                ? "Ready (unit equivalent)."
+                : unitContext.defaultMassUnit && !row.unit?.trim()
+                  ? `Ready (${unitContext.defaultMassUnit} from report).`
+                  : "Ready.",
+        // Symbol/unit-uncertain rows stay off by default but remain checkable.
+        selected: !needsConfirm,
         reportReferenceRange,
         reportRating,
       };
@@ -2690,7 +2874,7 @@ export default function LabValueImporter({
           },
           parameterByKey,
           documentUnitContext,
-          { preserveSelected: false }
+          { preserveSelected: true }
         );
       })
     );
@@ -2708,15 +2892,36 @@ export default function LabValueImporter({
         );
         if (!unit || !parameter) return row;
 
+        const previousUnit =
+          parameter.available_units.find(
+            (option) => getUnitOptionKey(option) === row.selectedUnitDisplayKey
+          ) ||
+          parameter.available_units.find(
+            (option) => option.unit_id === row.selectedUnitId
+          );
+        const fromUnit =
+          previousUnit?.display_symbol ||
+          previousUnit?.unit_symbol ||
+          row.unit ||
+          parameter.unit_symbol;
+        const toUnit = unit.display_symbol || unit.unit_symbol;
+        const current = Number(String(row.value).replace(",", "."));
+        const converted =
+          Number.isFinite(current) && fromUnit
+            ? convertLabUnit(current, fromUnit, toUnit)
+            : null;
+
         return resolveRowImportState(
           {
             ...row,
+            value: converted ? String(converted.value) : row.value,
+            unit: toUnit,
             selectedUnitId: unit.unit_id,
             selectedUnitDisplayKey: getUnitOptionKey(unit),
           },
           parameterByKey,
           documentUnitContext,
-          { preserveSelected: false }
+          { preserveSelected: true }
         );
       })
     );
@@ -2747,12 +2952,33 @@ export default function LabValueImporter({
     );
   }
 
+  function selectLotRows(lotKey: string, selected: boolean) {
+    setPreviewRows((previousRows) =>
+      previousRows.map((row) => {
+        const rowLot = getImportLotKey(row.sampleName);
+        if (rowLot !== lotKey) return row;
+        return { ...row, selected };
+      })
+    );
+  }
+
   function selectAllMatchedRows(selected: boolean) {
     setPreviewRows((previousRows) =>
       previousRows.map((row) => ({
         ...row,
-        selected: row.status === "matched" ? selected : false,
+        // Keep every row checkable; "Select matched" only toggles confident matches.
+        selected: selected
+          ? row.status === "matched" || row.selected
+          : row.status === "matched"
+            ? false
+            : row.selected,
       }))
+    );
+  }
+
+  function clearAllSelectedRows() {
+    setPreviewRows((previousRows) =>
+      previousRows.map((row) => ({ ...row, selected: false }))
     );
   }
 
@@ -3285,6 +3511,7 @@ export default function LabValueImporter({
               existingValues={existingValues}
               onRequestCreateParameter={onRequestCreateParameter}
               onSelectRow={updateRowSelected}
+              onSelectLot={selectLotRows}
               onSampleChange={updateRowSample}
               onParameterChange={updateRowParameter}
               onValueChange={updateRowValue}
@@ -3307,7 +3534,7 @@ export default function LabValueImporter({
             </button>
             <button
               type="button"
-              onClick={() => selectAllMatchedRows(false)}
+              onClick={clearAllSelectedRows}
               className="lab-import-page__footer-btn lab-import-page__footer-btn--ghost"
             >
               Clear
@@ -3506,6 +3733,35 @@ function ImportFlowStepper({
   );
 }
 
+function getImportLotKey(sampleName: string | null | undefined) {
+  const trimmed = sampleName?.trim() || "";
+  return trimmed || "__unlabeled__";
+}
+
+function getImportLotLabel(lotKey: string) {
+  return lotKey === "__unlabeled__" ? "Unlabeled sample" : lotKey;
+}
+
+function groupImportRowsByLot(rows: ImportPreviewRow[]) {
+  const order: string[] = [];
+  const groups = new Map<string, ImportPreviewRow[]>();
+
+  for (const row of rows) {
+    const key = getImportLotKey(row.sampleName);
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      order.push(key);
+    }
+    groups.get(key)!.push(row);
+  }
+
+  return order.map((key) => ({
+    key,
+    label: getImportLotLabel(key),
+    rows: groups.get(key) || [],
+  }));
+}
+
 function getImportParameterShortLabel(
   matchedParameter: ParameterForImport | null | undefined,
   rawParameter: string,
@@ -3535,6 +3791,7 @@ function ImportReviewList({
   existingValues,
   onRequestCreateParameter,
   onSelectRow,
+  onSelectLot,
   onSampleChange,
   onParameterChange,
   onValueChange,
@@ -3547,154 +3804,293 @@ function ImportReviewList({
   existingValues: Record<string, string>;
   onRequestCreateParameter?: Props["onRequestCreateParameter"];
   onSelectRow: (id: string, selected: boolean) => void;
+  onSelectLot: (lotKey: string, selected: boolean) => void;
   onSampleChange: (id: string, sample: string) => void;
   onParameterChange: (id: string, key: string) => void;
   onValueChange: (id: string, value: string) => void;
   onValueBlur: (id: string, value: string) => void;
   onUnitChange: (id: string, unitKey: string) => void;
 }) {
-  const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  const lotGroups = useMemo(() => groupImportRowsByLot(rows), [rows]);
+  const useLotSections = lotGroups.length > 1;
+
+  const [expandedLots, setExpandedLots] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 899px)");
-    const sync = () => setIsCompactViewport(media.matches);
-    sync();
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
-  }, []);
+    setExpandedLots((previous) => {
+      const next: Record<string, boolean> = {};
+      for (const group of lotGroups) {
+        next[group.key] = previous[group.key] ?? true;
+      }
+      return next;
+    });
+  }, [lotGroups]);
 
-  return (
-    <>
-      <div className="lab-import-review-table-wrap lab-import-review-table-wrap--desktop preview-table-wrap">
-        <table className="lab-import-review-table w-full border-collapse text-sm">
-        <thead>
-          <tr>
-            <th>Import</th>
-            <th>Parameter</th>
-            <th className="lab-import-review-table__sample-col">Sample</th>
-            <th>Value</th>
-            <th>Unit</th>
+  function toggleLot(lotKey: string) {
+    setExpandedLots((previous) => ({
+      ...previous,
+      [lotKey]: !(previous[lotKey] ?? true),
+    }));
+  }
+
+  function renderDesktopRow(row: ImportPreviewRow) {
+    const matchedParameter = row.matchedParameterKey
+      ? parameterByKey.get(row.matchedParameterKey)
+      : null;
+    const needsReview = row.status !== "matched";
+    const needsParameterPick = !row.matchedParameterKey;
+    const displayName = matchedParameter
+      ? getParameterLabel(matchedParameter)
+      : row.rawParameter || "-";
+    const selectedRowUnit = matchedParameter?.available_units.find(
+      (option) => getUnitOptionKey(option) === row.selectedUnitDisplayKey
+    );
+    const hasExistingValue =
+      row.matchedParameterKey && existingValues[row.matchedParameterKey]?.trim();
+
+    return (
+      <tr
+        key={row.id}
+        className={needsReview ? "lab-import-review-table__row--review" : ""}
+      >
+        <td>
+          <input
+            type="checkbox"
+            checked={row.selected}
+            onChange={(event) => onSelectRow(row.id, event.target.checked)}
+            aria-label={`Import ${displayName}`}
+          />
+        </td>
+        <td>
+          <div className="lab-import-review-table__param">
+            {needsReview ? (
+              <span
+                className="lab-import-review__dot"
+                title={row.message}
+                aria-label="Needs review"
+              />
+            ) : null}
+            <div className="min-w-0">
+              <div className="font-semibold">{displayName}</div>
+              {row.rawParameter && matchedParameter && row.rawParameter !== displayName ? (
+                <div className="text-xs text-slate-500">{row.rawParameter}</div>
+              ) : null}
+              {needsParameterPick ? (
+                <div className="mt-1">
+                  <MenuSelect
+                    compact
+                    value={row.matchedParameterKey || ""}
+                    heading="Select parameter"
+                    variant="field"
+                    fullWidth
+                    placeholder="Select parameter"
+                    onChange={(next) => onParameterChange(row.id, next)}
+                    options={[
+                      { value: "", label: "Select parameter" },
+                      ...parameters.map((parameter) => ({
+                        value: parameter.parameter_key,
+                        label: getParameterLabel(parameter),
+                      })),
+                    ]}
+                  />
+                </div>
+              ) : null}
+              {row.status === "unmatched" && onRequestCreateParameter ? (
+                <button
+                  type="button"
+                  className="lab-import-review-row__create-btn mt-1"
+                  onClick={() =>
+                    onRequestCreateParameter({
+                      parameterName: row.rawParameter,
+                      unitSymbol: row.unit || undefined,
+                    })
+                  }
+                >
+                  Add custom parameter
+                </button>
+              ) : null}
+              {row.reportReferenceRange ? (
+                <p className="lab-import-review-row__report-range mt-1">
+                  Report range: {row.reportReferenceRange}
+                </p>
+              ) : null}
+              {row.reportRating ? (
+                <p className="lab-import-review-row__report-range mt-1">
+                  Lab rating: {row.reportRating}
+                </p>
+              ) : null}
+              {needsReview && row.message ? (
+                <p className="lab-import-review-row__replace-note mt-1">{row.message}</p>
+              ) : null}
+              {hasExistingValue ? (
+                <p className="lab-import-review-row__replace-note mt-1">
+                  Replaces existing value
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </td>
+        <td className="lab-import-review-table__sample-col">
+          <input
+            className="calc-field-input w-full rounded-lg p-2"
+            value={row.sampleName || ""}
+            placeholder="Optional"
+            onChange={(event) => onSampleChange(row.id, event.target.value)}
+          />
+        </td>
+        <td>
+          <input
+            type="text"
+            inputMode="decimal"
+            className="calc-field-input w-full rounded-lg p-2 font-bold"
+            value={row.value}
+            onChange={(event) => onValueChange(row.id, event.target.value)}
+            onBlur={() => onValueBlur(row.id, row.value)}
+          />
+        </td>
+        <td>
+          {matchedParameter ? (
+            <MenuSelect
+              compact
+              value={row.selectedUnitDisplayKey || ""}
+              heading="Unit"
+              variant="field"
+              fullWidth
+              onChange={(next) => onUnitChange(row.id, next)}
+              options={matchedParameter.available_units.map((unit, index) => {
+                const canConvert =
+                  !selectedRowUnit ||
+                  canConvertLabUnit(
+                    selectedRowUnit.unit_symbol || selectedRowUnit.display_symbol,
+                    unit.unit_symbol || unit.display_symbol
+                  );
+                return {
+                  value: getUnitOptionKey(unit),
+                  label: unit.display_symbol || unit.unit_symbol,
+                  disabled: !canConvert,
+                  description:
+                    index === 0 && row.unit ? `Detected: ${row.unit}` : undefined,
+                };
+              })}
+            />
+          ) : (
+            row.unit || "—"
+          )}
+        </td>
+      </tr>
+    );
+  }
+
+  function renderCompactRows(groupRows: ImportPreviewRow[]) {
+    return groupRows.map((row) => {
+      const matchedParameter = row.matchedParameterKey
+        ? parameterByKey.get(row.matchedParameterKey)
+        : null;
+      const needsReview = row.status !== "matched";
+      const needsParameterPick = !row.matchedParameterKey;
+      const displayName = getImportParameterShortLabel(
+        matchedParameter,
+        row.rawParameter,
+        true
+      );
+      const fullName = matchedParameter
+        ? getParameterLabel(matchedParameter)
+        : row.rawParameter || "-";
+      const selectedRowUnit = matchedParameter?.available_units.find(
+        (option) => getUnitOptionKey(option) === row.selectedUnitDisplayKey
+      );
+      const unitLabel =
+        selectedRowUnit?.display_symbol ||
+        selectedRowUnit?.unit_symbol ||
+        row.unit ||
+        "—";
+      const statusTone = getImportRowStatusTone(row.status);
+      const isExpanded = expandedRowId === row.id;
+
+      return (
+        <Fragment key={row.id}>
+          <tr
+            className={`lab-import-review-compact__row lab-import-review-compact__row--${statusTone}${
+              needsReview ? " lab-import-review-compact__row--action" : ""
+            }`}
+            onClick={() => {
+              if (needsReview) {
+                setExpandedRowId(isExpanded ? null : row.id);
+              }
+            }}
+          >
+            <td className="lab-import-review-compact__check">
+              <input
+                type="checkbox"
+                checked={row.selected}
+                onChange={(event) => onSelectRow(row.id, event.target.checked)}
+                onClick={(event) => event.stopPropagation()}
+                aria-label={`Import ${fullName}`}
+              />
+            </td>
+            <td className="lab-import-review-compact__param" title={fullName}>
+              {displayName}
+            </td>
+            <td className="lab-import-review-compact__value">
+              <input
+                type="text"
+                inputMode="decimal"
+                className="lab-import-review-compact__value-input"
+                value={row.value}
+                onChange={(event) => onValueChange(row.id, event.target.value)}
+                onBlur={() => onValueBlur(row.id, row.value)}
+                onClick={(event) => event.stopPropagation()}
+                aria-label={`${fullName} value`}
+              />
+            </td>
+            <td className="lab-import-review-compact__unit" title={unitLabel}>
+              {matchedParameter && !needsParameterPick ? (
+                <button
+                  type="button"
+                  className="lab-import-review-compact__unit-btn"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setExpandedRowId(isExpanded ? null : row.id);
+                  }}
+                >
+                  {unitLabel}
+                </button>
+              ) : (
+                unitLabel
+              )}
+            </td>
+            <td className="lab-import-review-compact__status">
+              <span
+                className={`lab-import-status-dot lab-import-status-dot--${statusTone}`}
+                title={row.message}
+                aria-label={row.message}
+              />
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const matchedParameter = row.matchedParameterKey
-              ? parameterByKey.get(row.matchedParameterKey)
-              : null;
-            const needsReview = row.status !== "matched";
-            const needsParameterPick = !row.matchedParameterKey;
-            const displayName = matchedParameter
-              ? getParameterLabel(matchedParameter)
-              : row.rawParameter || "-";
-            const selectedRowUnit = matchedParameter?.available_units.find(
-              (option) => getUnitOptionKey(option) === row.selectedUnitDisplayKey
-            );
-            const hasExistingValue =
-              row.matchedParameterKey && existingValues[row.matchedParameterKey]?.trim();
-
-            return (
-              <tr
-                key={row.id}
-                className={needsReview ? "lab-import-review-table__row--review" : ""}
-              >
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={row.selected}
-                    disabled={!isImportableRow(row)}
-                    onChange={(event) => onSelectRow(row.id, event.target.checked)}
-                    aria-label={`Import ${displayName}`}
-                  />
-                </td>
-                <td>
-                  <div className="lab-import-review-table__param">
-                    {needsReview ? (
-                      <span
-                        className="lab-import-review__dot"
-                        title={row.message}
-                        aria-label="Needs review"
-                      />
-                    ) : null}
-                    <div className="min-w-0">
-                      <div className="font-semibold">{displayName}</div>
-                      {row.rawParameter && matchedParameter && row.rawParameter !== displayName ? (
-                        <div className="text-xs text-slate-500">{row.rawParameter}</div>
-                      ) : null}
-                      {needsParameterPick ? (
-                        <div className="mt-1">
-                          <MenuSelect
-                            compact
-                            value={row.matchedParameterKey || ""}
-                            heading="Select parameter"
-                            variant="field"
-                            fullWidth
-                            placeholder="Select parameter"
-                            onChange={(next) => onParameterChange(row.id, next)}
-                            options={[
-                              { value: "", label: "Select parameter" },
-                              ...parameters.map((parameter) => ({
-                                value: parameter.parameter_key,
-                                label: getParameterLabel(parameter),
-                              })),
-                            ]}
-                          />
-                        </div>
-                      ) : null}
-                      {row.status === "unmatched" && onRequestCreateParameter ? (
-                        <button
-                          type="button"
-                          className="lab-import-review-row__create-btn mt-1"
-                          onClick={() =>
-                            onRequestCreateParameter({
-                              parameterName: row.rawParameter,
-                              unitSymbol: row.unit || undefined,
-                            })
-                          }
-                        >
-                          Add custom parameter
-                        </button>
-                      ) : null}
-                      {row.reportReferenceRange ? (
-                        <p className="lab-import-review-row__report-range mt-1">
-                          Report range: {row.reportReferenceRange}
-                        </p>
-                      ) : null}
-                      {row.reportRating ? (
-                        <p className="lab-import-review-row__report-range mt-1">
-                          Lab rating: {row.reportRating}
-                        </p>
-                      ) : null}
-                      {needsReview && row.message ? (
-                        <p className="lab-import-review-row__replace-note mt-1">{row.message}</p>
-                      ) : null}
-                      {hasExistingValue ? (
-                        <p className="lab-import-review-row__replace-note mt-1">
-                          Replaces existing value
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                </td>
-                <td className="lab-import-review-table__sample-col">
-                  <input
-                    className="calc-field-input w-full rounded-lg p-2"
-                    value={row.sampleName || ""}
-                    placeholder="Optional"
-                    onChange={(event) => onSampleChange(row.id, event.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    className="calc-field-input w-full rounded-lg p-2 font-bold"
-                    value={row.value}
-                    onChange={(event) => onValueChange(row.id, event.target.value)}
-                    onBlur={() => onValueBlur(row.id, row.value)}
-                  />
-                </td>
-                <td>
+          {isExpanded ? (
+            <tr className="lab-import-review-compact__details-row">
+              <td colSpan={5}>
+                <div className="lab-import-review-compact__details">
+                  <p className="lab-import-review-compact__details-title">{fullName}</p>
+                  {needsParameterPick ? (
+                    <MenuSelect
+                      compact
+                      value={row.matchedParameterKey || ""}
+                      heading="Select parameter"
+                      variant="field"
+                      fullWidth
+                      placeholder="Select parameter"
+                      onChange={(next) => onParameterChange(row.id, next)}
+                      options={[
+                        { value: "", label: "Select parameter" },
+                        ...parameters.map((parameter) => ({
+                          value: parameter.parameter_key,
+                          label: getParameterLabel(parameter),
+                        })),
+                      ]}
+                    />
+                  ) : null}
                   {matchedParameter ? (
                     <MenuSelect
                       compact
@@ -3703,31 +4099,136 @@ function ImportReviewList({
                       variant="field"
                       fullWidth
                       onChange={(next) => onUnitChange(row.id, next)}
-                      options={matchedParameter.available_units.map((unit, index) => {
+                      options={matchedParameter.available_units.map((unit) => {
                         const canConvert =
                           !selectedRowUnit ||
                           canConvertLabUnit(
-                            selectedRowUnit.unit_symbol || selectedRowUnit.display_symbol,
+                            selectedRowUnit.unit_symbol ||
+                              selectedRowUnit.display_symbol,
                             unit.unit_symbol || unit.display_symbol
                           );
                         return {
                           value: getUnitOptionKey(unit),
                           label: unit.display_symbol || unit.unit_symbol,
                           disabled: !canConvert,
-                          description:
-                            index === 0 && row.unit ? `Detected: ${row.unit}` : undefined,
                         };
                       })}
                     />
-                  ) : (
-                    row.unit || "—"
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  ) : null}
+                  {row.reportReferenceRange ? (
+                    <p className="lab-import-review-row__report-range">
+                      Report range: {row.reportReferenceRange}
+                    </p>
+                  ) : null}
+                  {row.reportRating ? (
+                    <p className="lab-import-review-row__report-range">
+                      Lab rating: {row.reportRating}
+                    </p>
+                  ) : null}
+                  {needsReview && row.message ? (
+                    <p className="lab-import-review-row__replace-note">{row.message}</p>
+                  ) : null}
+                  {row.status === "unmatched" && onRequestCreateParameter ? (
+                    <button
+                      type="button"
+                      className="lab-import-review-row__create-btn"
+                      onClick={() =>
+                        onRequestCreateParameter({
+                          parameterName: row.rawParameter,
+                          unitSymbol: row.unit || undefined,
+                        })
+                      }
+                    >
+                      Add custom parameter
+                    </button>
+                  ) : null}
+                </div>
+              </td>
+            </tr>
+          ) : null}
+        </Fragment>
+      );
+    });
+  }
+
+  function renderLotHeader(
+    group: { key: string; label: string; rows: ImportPreviewRow[] },
+    colSpan: number,
+    compact: boolean
+  ) {
+    const isOpen = expandedLots[group.key] ?? true;
+    const selectedCount = group.rows.filter((row) => row.selected).length;
+    const allSelected = group.rows.length > 0 && selectedCount === group.rows.length;
+    const someSelected = selectedCount > 0 && !allSelected;
+    const Chevron = isOpen ? ChevronDown : ChevronRight;
+
+    return (
+      <tr
+        key={`lot-${group.key}`}
+        className={
+          compact
+            ? "lab-import-lot-header lab-import-lot-header--compact"
+            : "lab-import-lot-header"
+        }
+      >
+        <td colSpan={colSpan}>
+          <div className="lab-import-lot-header__inner">
+            <button
+              type="button"
+              className="lab-import-lot-header__toggle"
+              onClick={() => toggleLot(group.key)}
+              aria-expanded={isOpen}
+            >
+              <Chevron size={16} aria-hidden />
+              <span className="lab-import-lot-header__title">{group.label}</span>
+              <span className="lab-import-lot-header__count">
+                {group.rows.length}
+              </span>
+            </button>
+            <label className="lab-import-lot-header__select">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                ref={(node) => {
+                  if (node) node.indeterminate = someSelected;
+                }}
+                onChange={(event) => onSelectLot(group.key, event.target.checked)}
+                aria-label={`Select all parameters for ${group.label}`}
+              />
+              <span>All</span>
+            </label>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <>
+      <div className="lab-import-review-table-wrap lab-import-review-table-wrap--desktop preview-table-wrap">
+        <table className="lab-import-review-table w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              <th>Import</th>
+              <th>Parameter</th>
+              <th className="lab-import-review-table__sample-col">Sample</th>
+              <th>Value</th>
+              <th>Unit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {useLotSections
+              ? lotGroups.map((group) => (
+                  <Fragment key={group.key}>
+                    {renderLotHeader(group, 5, false)}
+                    {(expandedLots[group.key] ?? true)
+                      ? group.rows.map((row) => renderDesktopRow(row))
+                      : null}
+                  </Fragment>
+                ))
+              : rows.map((row) => renderDesktopRow(row))}
+          </tbody>
+        </table>
       </div>
 
       <div className="lab-import-review-compact">
@@ -3751,173 +4252,16 @@ function ImportReviewList({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
-              const matchedParameter = row.matchedParameterKey
-                ? parameterByKey.get(row.matchedParameterKey)
-                : null;
-              const needsReview = row.status !== "matched";
-              const needsParameterPick = !row.matchedParameterKey;
-              const displayName = getImportParameterShortLabel(
-                matchedParameter,
-                row.rawParameter,
-                true
-              );
-              const fullName = matchedParameter
-                ? getParameterLabel(matchedParameter)
-                : row.rawParameter || "-";
-              const selectedRowUnit = matchedParameter?.available_units.find(
-                (option) => getUnitOptionKey(option) === row.selectedUnitDisplayKey
-              );
-              const unitLabel =
-                selectedRowUnit?.display_symbol ||
-                selectedRowUnit?.unit_symbol ||
-                row.unit ||
-                "—";
-              const statusTone = getImportRowStatusTone(row.status);
-              const isExpanded = expandedRowId === row.id;
-
-              return (
-                <Fragment key={row.id}>
-                  <tr
-                    className={`lab-import-review-compact__row lab-import-review-compact__row--${statusTone}${
-                      needsReview ? " lab-import-review-compact__row--action" : ""
-                    }`}
-                    onClick={() => {
-                      if (needsReview) {
-                        setExpandedRowId(isExpanded ? null : row.id);
-                      }
-                    }}
-                  >
-                    <td className="lab-import-review-compact__check">
-                      <input
-                        type="checkbox"
-                        checked={row.selected}
-                        disabled={!isImportableRow(row)}
-                        onChange={(event) => onSelectRow(row.id, event.target.checked)}
-                        onClick={(event) => event.stopPropagation()}
-                        aria-label={`Import ${fullName}`}
-                      />
-                    </td>
-                    <td className="lab-import-review-compact__param" title={fullName}>
-                      {displayName}
-                    </td>
-                    <td className="lab-import-review-compact__value">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        className="lab-import-review-compact__value-input"
-                        value={row.value}
-                        onChange={(event) => onValueChange(row.id, event.target.value)}
-                        onBlur={() => onValueBlur(row.id, row.value)}
-                        onClick={(event) => event.stopPropagation()}
-                        aria-label={`${fullName} value`}
-                      />
-                    </td>
-                    <td className="lab-import-review-compact__unit" title={unitLabel}>
-                      {matchedParameter && !needsParameterPick ? (
-                        <button
-                          type="button"
-                          className="lab-import-review-compact__unit-btn"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setExpandedRowId(isExpanded ? null : row.id);
-                          }}
-                        >
-                          {unitLabel}
-                        </button>
-                      ) : (
-                        unitLabel
-                      )}
-                    </td>
-                    <td className="lab-import-review-compact__status">
-                      <span
-                        className={`lab-import-status-dot lab-import-status-dot--${statusTone}`}
-                        title={row.message}
-                        aria-label={row.message}
-                      />
-                    </td>
-                  </tr>
-                  {isExpanded ? (
-                    <tr className="lab-import-review-compact__details-row">
-                      <td colSpan={5}>
-                        <div className="lab-import-review-compact__details">
-                          <p className="lab-import-review-compact__details-title">{fullName}</p>
-                          {needsParameterPick ? (
-                            <MenuSelect
-                              compact
-                              value={row.matchedParameterKey || ""}
-                              heading="Select parameter"
-                              variant="field"
-                              fullWidth
-                              placeholder="Select parameter"
-                              onChange={(next) => onParameterChange(row.id, next)}
-                              options={[
-                                { value: "", label: "Select parameter" },
-                                ...parameters.map((parameter) => ({
-                                  value: parameter.parameter_key,
-                                  label: getParameterLabel(parameter),
-                                })),
-                              ]}
-                            />
-                          ) : null}
-                          {matchedParameter ? (
-                            <MenuSelect
-                              compact
-                              value={row.selectedUnitDisplayKey || ""}
-                              heading="Unit"
-                              variant="field"
-                              fullWidth
-                              onChange={(next) => onUnitChange(row.id, next)}
-                              options={matchedParameter.available_units.map((unit) => {
-                                const canConvert =
-                                  !selectedRowUnit ||
-                                  canConvertLabUnit(
-                                    selectedRowUnit.unit_symbol ||
-                                      selectedRowUnit.display_symbol,
-                                    unit.unit_symbol || unit.display_symbol
-                                  );
-                                return {
-                                  value: getUnitOptionKey(unit),
-                                  label: unit.display_symbol || unit.unit_symbol,
-                                  disabled: !canConvert,
-                                };
-                              })}
-                            />
-                          ) : null}
-                          {row.reportReferenceRange ? (
-                            <p className="lab-import-review-row__report-range">
-                              Report range: {row.reportReferenceRange}
-                            </p>
-                          ) : null}
-                          {row.reportRating ? (
-                            <p className="lab-import-review-row__report-range">
-                              Lab rating: {row.reportRating}
-                            </p>
-                          ) : null}
-                          {needsReview && row.message ? (
-                            <p className="lab-import-review-row__replace-note">{row.message}</p>
-                          ) : null}
-                          {row.status === "unmatched" && onRequestCreateParameter ? (
-                            <button
-                              type="button"
-                              className="lab-import-review-row__create-btn"
-                              onClick={() =>
-                                onRequestCreateParameter({
-                                  parameterName: row.rawParameter,
-                                  unitSymbol: row.unit || undefined,
-                                })
-                              }
-                            >
-                              Add custom parameter
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  ) : null}
-                </Fragment>
-              );
-            })}
+            {useLotSections
+              ? lotGroups.map((group) => (
+                  <Fragment key={group.key}>
+                    {renderLotHeader(group, 5, true)}
+                    {(expandedLots[group.key] ?? true)
+                      ? renderCompactRows(group.rows)
+                      : null}
+                  </Fragment>
+                ))
+              : renderCompactRows(rows)}
           </tbody>
         </table>
       </div>

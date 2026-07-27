@@ -796,11 +796,11 @@ export function getUptakeProfileForCrop(
   const crop = (selectedCropName || "").toLowerCase();
   const matchers: Array<[RegExp, string]> = [
     [/\b(banana|banano|platan|plantain|guineo)\b/, "banana"],
-    [/\b(tomato|tomate|pepper|pimiento|chili|aji|ají|pepino|cucumber|eggplant|berenjena)\b/, "fruiting-vegetable"],
-    [/\b(cassava|yuca|manioc|mandioca)\b/, "cassava"],
-    [/\b(bean|beans|frijol|frijoles|soya|soybean|cowpea|legume)\b/, "grain-legume"],
-    [/\b(maize|corn|maiz|maíz|rice|arroz|sorghum|wheat|trigo)\b/, "grain"],
-    [/\b(coffee|cafe|café|cacao|cocoa|mango|citrus|limon|limón|orange|naranja|pineapple|piña|papaya|avocado|aguacate)\b/, "perennial-fruit"],
+    [/\b(tomato|tomate|pepper|pimiento|chili|aji|ají|pepino|cucumber|eggplant|berenjena|lechuga|lettuce|zanahoria|carrot|sandia|sandía|watermelon|melon|melón)\b/, "fruiting-vegetable"],
+    [/\b(cassava|yuca|manioc|mandioca|batata|camote|sweet\s*potato)\b/, "cassava"],
+    [/\b(bean|beans|frijol|frijoles|frejol|frejoles|soya|soja|soybean|cowpea|legume|caupi)\b/, "grain-legume"],
+    [/\b(maize|corn|maiz|maíz|rice|arroz|sorghum|wheat|trigo|girasol|sunflower)\b/, "grain"],
+    [/\b(coffee|cafe|café|cacao|cocoa|mango|citrus|limon|limón|orange|naranja|pineapple|piña|papaya|avocado|aguacate|maracuya|maracuyá|passion|coco|coconut|palma|oil\s*palm|cana|caña|sugarcane)\b/, "perennial-fruit"],
   ];
   const profileKey = matchers.find(([pattern]) => pattern.test(crop))?.[1] || "general";
   const profiles = getUptakeProfiles(language);

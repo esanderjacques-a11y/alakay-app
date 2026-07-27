@@ -149,11 +149,11 @@ export const TABLE_5_CROP_EXTRACTION: CropExtractionCoefficients[] = [
   cropExtraction("batata", "Batata (Camote)", ["batata", "camote", "sweet potato"], 4.8, 1.8, 8.8, 1.2, 0.8, 15, 35),
   cropExtraction("malanga", "Malanga (Taro)", ["malanga", "taro"], 3.6, 1.4, 6.1, 1.8, 1, 15, 35),
   cropExtraction("coco", "Coco (copra)", ["coco", "copra", "coconut"], 50, 16.5, 11.8, 3.5, 2.8, 1, 4),
-  cropExtraction("palma_aceitera", "Palma aceitera (RFF)", ["palma aceitera", "rff", "oil palm"], 6, 2, 9.8, 2.6, 1.3, 15, 30),
+  cropExtraction("palma_aceitera", "Palma aceitera (RFF)", ["palma aceitera", "palma", "rff", "oil palm"], 6, 2, 9.8, 2.6, 1.3, 15, 30),
   cropExtraction("pepino", "Pepino ensalada", ["pepino ensalada", "pepino", "cucumber"], 1.3, 0.8, 2.8, 0.6, 0.3, 40, 300),
   cropExtraction("maiz_grano", "Maíz grano", ["maíz grano", "maíz", "maize", "corn"], 20, 6.9, 14, 4.5, 2.2, 12, 20),
   cropExtraction("tomate_campo", "Tomate campo", ["tomate campo", "tomate", "field tomato", "tomato"], 3.3, 0.8, 5, 1.2, 0.6, 45, 80),
-  cropExtraction("frejoles", "Frejoles", ["frejoles", "frejol", "frijol", "habichuela", "beans"], 20, 13.7, 40, 15, 10, 2, 4),
+  cropExtraction("frejoles", "Frejoles", ["frejoles", "frejol", "frijol", "frijoles", "habichuela", "beans", "bean"], 20, 13.7, 40, 15, 10, 2, 4),
   cropExtraction("naranja", "Naranja", ["naranja", "orange"], 2.7, 0.6, 4.2, 1.1, 0.6, 40, 70),
   cropExtraction("limon", "Limón", ["limón", "lemon", "lime"], 2.7, 0.6, 4.2, 1, 0.6, 40, 80),
   cropExtraction("aguacate", "Aguacate", ["aguacate", "avocado", "palta"], 6.2, 2.9, 18.2, 4.8, 2.5, 10, 15),
@@ -482,6 +482,21 @@ function significantCropTokens(normalized: string) {
     .sort((a, b) => b.length - a.length);
 }
 
+/** Tokens that belong to the same Tabla N.° 5 crop family (generic name → variants). */
+const CROP_FAMILY_SYNONYMS: string[][] = [
+  ["maiz", "maize", "corn"],
+  ["frijol", "frijoles", "frejol", "frejoles", "bean", "beans", "habichuela", "habichuelas", "caupi"],
+  ["tomate", "tomato"],
+];
+
+function expandCropFamilyTokens(token: string) {
+  const normalized = normalizeCropName(token);
+  for (const group of CROP_FAMILY_SYNONYMS) {
+    if (group.includes(normalized)) return [...group];
+  }
+  return [normalized];
+}
+
 function textHasCropToken(text: string, token: string) {
   return new RegExp(
     `(?:^|\\b)${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:$|\\b)`,
@@ -515,13 +530,16 @@ function findCropFamilyByToken(
   token: string,
   refs: Pick<SoilFertilityReference, "cropExtraction">
 ) {
+  const tokens = expandCropFamilyTokens(token);
   return refs.cropExtraction.filter((crop) => {
     const haystacks = [
       normalizeCropName(crop.label),
       normalizeCropName(crop.cropKey.replace(/_/g, " ")),
       ...(crop.patterns || []).map(patternSearchText),
     ];
-    return haystacks.some((text) => textHasCropToken(text, token));
+    return tokens.some((familyToken) =>
+      haystacks.some((text) => textHasCropToken(text, familyToken))
+    );
   });
 }
 

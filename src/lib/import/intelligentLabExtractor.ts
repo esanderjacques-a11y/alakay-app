@@ -192,7 +192,7 @@ const PARAMETER_ALIASES: ParameterAlias[] = [
   parameter("boron", ["B", "Boron", "Boro", "Bore"], ["soil", "foliar"], ["mg/kg", "ppm"]),
   parameter("molybdenum", ["Mo", "Molybdenum", "Molibdeno"], ["soil", "foliar"], ["mg/kg", "ppm"]),
   parameter("chloride", ["Cl", "Chloride", "Cloruro"], ["soil", "foliar"], ["mg/kg", "ppm"]),
-  parameter("sodium", ["Na", "Sodium", "Sodio"], ["soil", "foliar"], ["cmol(+)/kg", "mg/kg", "ppm"]),
+  parameter("sodium", ["Na", "Sodium", "Sodio"], ["soil", "foliar"], ["cmol(+)/kg", "mg/kg", "ppm", "%"]),
   parameter("aluminum", ["Al", "Aluminum", "Aluminio", "Aluminium"], ["soil"], ["mg/kg", "ppm", "cmol(+)/kg", "meq/100g"]),
   parameter("soluble_salts", ["soluble salts", "sales solubles"], ["soil"], ["dS/m", "mS/cm", "µS/cm"]),
   parameter("lime_requirement", ["lime requirement", "lime", "cal requirement", "encalado"], ["soil"]),

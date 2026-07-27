@@ -9512,6 +9512,89 @@ html[data-theme="dark"] .app-header {
     color: var(--foreground, #1c1c1e);
   }
 
+  .lab-import-lot-header td {
+    padding: 0.35rem 0.4rem !important;
+    border-bottom: 1px solid rgb(0 0 0 / 0.08);
+    background: var(--glass-surface-muted, #f1f5f9);
+  }
+
+  html[data-theme="dark"] .lab-import-lot-header td {
+    border-bottom-color: rgb(255 255 255 / 0.1);
+    background: rgb(30 30 34 / 0.92);
+  }
+
+  .lab-import-lot-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 1.75rem;
+  }
+
+  .lab-import-lot-header__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    padding: 0.15rem 0.1rem;
+    border: 0;
+    background: transparent;
+    color: var(--foreground, #1c1c1e);
+    font: inherit;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .lab-import-lot-header__title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .lab-import-lot-header__count {
+    flex-shrink: 0;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.06);
+    color: var(--text-muted, #6c6c70);
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+
+  html[data-theme="dark"] .lab-import-lot-header__count {
+    background: rgb(255 255 255 / 0.1);
+  }
+
+  .lab-import-lot-header__select {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+    color: var(--text-muted, #6c6c70);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .lab-import-lot-header__select input {
+    width: 0.95rem;
+    height: 0.95rem;
+    accent-color: var(--accent-600, #16a34a);
+    cursor: pointer;
+  }
+
+  .lab-import-review-compact__check input,
+  .lab-import-review-table td:first-child input[type="checkbox"] {
+    width: 0.95rem;
+    height: 0.95rem;
+    accent-color: var(--accent-600, #16a34a);
+    cursor: pointer;
+    opacity: 1;
+  }
+
   html[data-glass-ui="false"] .lab-import-review-table-wrap {
     background: var(--surface, #ffffff);
   }

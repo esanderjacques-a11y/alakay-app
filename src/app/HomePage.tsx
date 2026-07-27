@@ -644,10 +644,15 @@ function getPreferredFoliarUnitSymbol(parameter: {
   const name = parameter.parameter_name.toLowerCase();
   const category = String(parameter.category || "").toLowerCase();
 
+  // Foliar Na is typically reported/stored as ppm (labs often print % — convert ×10 000).
+  if (symbol === "na" || /\b(sodium|sodio|sodyom|sodyòm)\b/.test(name)) {
+    return "ppm";
+  }
+
   if (
     category.includes("micro") ||
     category.includes("toxic") ||
-    ["b", "cu", "fe", "mn", "zn", "al", "mo", "cl", "na", "si"].includes(symbol)
+    ["b", "cu", "fe", "mn", "zn", "al", "mo", "cl", "si"].includes(symbol)
   ) {
     return "mg/kg";
   }
@@ -1782,7 +1787,15 @@ export default function HomePage() {
       }
 
       for (const candidate of allUnits) {
-        if (!canConvertLabUnit(baseUnitSymbol, candidate.unit_symbol)) continue;
+        const convertibleFromBase = canConvertLabUnit(
+          baseUnitSymbol,
+          candidate.unit_symbol
+        );
+        const convertibleFromPreferred = canConvertLabUnit(
+          preferredUnitSymbol,
+          candidate.unit_symbol
+        );
+        if (!convertibleFromBase && !convertibleFromPreferred) continue;
         const friendlyDisplay = getFriendlyUnitSymbol(candidate.unit_symbol);
         addOption({
           unit_id: candidate.unit_id,
@@ -1801,12 +1814,17 @@ export default function HomePage() {
       }
 
       for (const alias of ["ppm"]) {
-        if (!canConvertLabUnit(baseUnitSymbol, alias)) continue;
+        const convertibleFromBase = canConvertLabUnit(baseUnitSymbol, alias);
+        const convertibleFromPreferred = canConvertLabUnit(
+          preferredUnitSymbol,
+          alias
+        );
+        if (!convertibleFromBase && !convertibleFromPreferred) continue;
         addOption({
-          unit_id: baseUnitId,
-          unit_symbol: baseUnitSymbol,
+          unit_id: preferredUnitId || baseUnitId,
+          unit_symbol: preferredUnitSymbol || baseUnitSymbol,
           display_symbol: alias,
-          canonical_symbol: baseUnitSymbol,
+          canonical_symbol: preferredUnitSymbol || baseUnitSymbol,
         });
       }
 
@@ -3884,7 +3902,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             values={values}
             results={results}
             sampleType={sampleType}
-            selectedCropName={selectedCrop?.crop_name || selectedCrop?.display_name || null}
+            selectedCropName={selectedCrop?.display_name || selectedCrop?.crop_name || null}
             selectedCountry={finalCountry || null}
             reportDate={reportDate.trim() || samplingDate.trim() || null}
             showCalculatorFormulas={effectiveShowCalculatorFormulas(appSettings)}

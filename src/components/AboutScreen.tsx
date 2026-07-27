@@ -75,6 +75,7 @@ export default function AboutScreen({
   const [tab, setTab] = useState<AboutTab>("about");
   const [showRequestForm, setShowRequestForm] = useState(false);
   const requestSectionRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("");
@@ -90,6 +91,9 @@ export default function AboutScreen({
   }, []);
 
   useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -99,10 +103,19 @@ export default function AboutScreen({
           }
         });
       },
-      { threshold: 0.05, rootMargin: "0px 0px -20px 0px" }
+      {
+        root,
+        threshold: 0.18,
+        rootMargin: "0px 0px -18% 0px",
+      }
     );
 
-    const elements = document.querySelectorAll(".fade-in-section");
+    const elements = root.querySelectorAll(".fade-in-section");
+    elements.forEach((el) => {
+      el.classList.remove("is-visible");
+    });
+    // Ensure opacity:0 paints before IntersectionObserver marks visible items.
+    void root.offsetHeight;
     elements.forEach((el) => observer.observe(el));
 
     return () => observer.disconnect();
@@ -164,7 +177,7 @@ export default function AboutScreen({
   return (
     <section className="animate-slide-up about-screen-wrap">
       <div className="about-shell">
-        <div className="about-scroll">
+        <div className="about-scroll" ref={scrollRef}>
           <div className="about-header">
             <div className="page-title-row page-title-row--centered">
               <BackButton variant="icon" onClick={onBack} label={t.home} />

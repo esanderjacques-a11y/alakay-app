@@ -36,7 +36,7 @@ type Props = {
 };
 
 const AUTO_MS = 5200;
-const FOUNDED_YEAR = 2025;
+const FOUNDED_YEAR = 2026;
 
 function usePrefersReducedMotion() {
   const [reduced, setReduced] = useState(false);

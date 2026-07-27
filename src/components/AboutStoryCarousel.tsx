@@ -5,7 +5,10 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Compass,
+  Eye,
   Globe2,
+  HeartHandshake,
   MapPin,
   Sparkles,
 } from "lucide-react";
@@ -24,6 +27,8 @@ type ImpactPayload = {
   totalRegions: number;
   countries: NamedCount[];
 };
+
+type StoryMode = "journey" | "mission" | "vision" | "values";
 
 type Props = {
   t: Translation;
@@ -84,6 +89,7 @@ function formatToday(language: string) {
 
 export default function AboutStoryCarousel({ t, language }: Props) {
   const reducedMotion = usePrefersReducedMotion();
+  const [mode, setMode] = useState<StoryMode>("journey");
   const [index, setIndex] = useState(0);
   const [dir, setDir] = useState<1 | -1>(1);
   const [paused, setPaused] = useState(false);
@@ -137,7 +143,7 @@ export default function AboutStoryCarousel({ t, language }: Props) {
         id: "founded",
         kicker: t.aboutStoryFoundedKicker,
         title: t.aboutStoryFoundedTitle.replace("{year}", String(FOUNDED_YEAR)),
-        body: t.aboutStoryFoundedBody,
+        body: t.aboutIntro,
         icon: CalendarDays,
         metric: String(FOUNDED_YEAR),
         metricHint: t.aboutStoryFoundedHint,
@@ -189,22 +195,30 @@ export default function AboutStoryCarousel({ t, language }: Props) {
     ]
   );
 
+  const modes: { id: StoryMode; label: string }[] = [
+    { id: "journey", label: t.aboutStoryEyebrow },
+    { id: "mission", label: t.aboutMissionLabel },
+    { id: "vision", label: t.aboutVisionLabel },
+    { id: "values", label: t.aboutValuesLabel },
+  ];
+
   const slideCount = slides.length;
   const slide = slides[index] ?? slides[0];
+  const journeyActive = mode === "journey";
   const animatedMetric = useCountUp(
     typeof slide.metric === "number" ? slide.metric : 0,
-    Boolean(slide.animate) && loadState !== "loading",
+    journeyActive && Boolean(slide.animate) && loadState !== "loading",
     950
   );
 
   useEffect(() => {
-    if (paused || reducedMotion || slideCount < 2) return;
+    if (!journeyActive || paused || reducedMotion || slideCount < 2) return;
     const id = window.setInterval(() => {
       setDir(1);
       setIndex((i) => (i + 1) % slideCount);
     }, AUTO_MS);
     return () => window.clearInterval(id);
-  }, [paused, reducedMotion, slideCount]);
+  }, [journeyActive, paused, reducedMotion, slideCount]);
 
   function go(next: number, direction: 1 | -1) {
     setDir(direction);
@@ -212,11 +226,13 @@ export default function AboutStoryCarousel({ t, language }: Props) {
   }
 
   function onTouchStart(e: React.TouchEvent) {
+    if (!journeyActive) return;
     touchX.current = e.touches[0]?.clientX ?? null;
     setPaused(true);
   }
 
   function onTouchEnd(e: React.TouchEvent) {
+    if (!journeyActive) return;
     const start = touchX.current;
     touchX.current = null;
     setPaused(false);
@@ -238,7 +254,7 @@ export default function AboutStoryCarousel({ t, language }: Props) {
   return (
     <section
       className="about-story"
-      aria-roledescription="carousel"
+      aria-roledescription={journeyActive ? "carousel" : undefined}
       aria-label={t.aboutStoryLabel}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -253,76 +269,143 @@ export default function AboutStoryCarousel({ t, language }: Props) {
     >
       <div className="about-story__glow" aria-hidden />
       <div className="about-story__top">
-        <p className="about-story__eyebrow">{t.aboutStoryEyebrow}</p>
-        <div className="about-story__nav">
-          <button
-            type="button"
-            className="about-story__arrow"
-            aria-label={t.aboutStoryPrev}
-            onClick={() => go(index - 1, -1)}
-          >
-            <ChevronLeft size={18} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="about-story__arrow"
-            aria-label={t.aboutStoryNext}
-            onClick={() => go(index + 1, 1)}
-          >
-            <ChevronRight size={18} aria-hidden />
-          </button>
+        <div className="about-story__modes" role="tablist" aria-label={t.aboutPillarsLabel}>
+          {modes.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={mode === item.id}
+              className={`about-story__mode${mode === item.id ? " is-active" : ""}`}
+              onClick={() => setMode(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
+        {journeyActive ? (
+          <div className="about-story__nav">
+            <button
+              type="button"
+              className="about-story__arrow"
+              aria-label={t.aboutStoryPrev}
+              onClick={() => go(index - 1, -1)}
+            >
+              <ChevronLeft size={18} aria-hidden />
+            </button>
+            <button
+              type="button"
+              className="about-story__arrow"
+              aria-label={t.aboutStoryNext}
+              onClick={() => go(index + 1, 1)}
+            >
+              <ChevronRight size={18} aria-hidden />
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="about-story__stage" aria-live="polite">
-        <article
-          key={slide.id}
-          className={`about-story__slide about-story__slide--${dir > 0 ? "in-right" : "in-left"}`}
-        >
-          <div className="about-story__metric" aria-hidden={slide.id === "founded"}>
-            <span className="about-story__metric-icon">
-              <Icon size={18} aria-hidden />
-            </span>
-            <strong className="about-story__metric-value">{displayMetric}</strong>
-            <span className="about-story__metric-hint">{slide.metricHint}</span>
-          </div>
-          <div className="about-story__copy">
-            <p className="about-story__kicker">{slide.kicker}</p>
-            <h3 className="about-story__title">{slide.title}</h3>
-            <p className="about-story__body">{slide.body}</p>
-            {"chips" in slide && slide.chips && slide.chips.length > 0 ? (
-              <ul className="about-story__chips">
-                {slide.chips.map((name) => (
-                  <li key={name}>{name}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        </article>
+        {journeyActive ? (
+          <article
+            key={slide.id}
+            className={`about-story__slide about-story__slide--${dir > 0 ? "in-right" : "in-left"}`}
+          >
+            <div
+              className="about-story__metric"
+              aria-hidden={slide.id === "founded"}
+            >
+              <span className="about-story__metric-icon">
+                <Icon size={20} aria-hidden />
+              </span>
+              <strong className="about-story__metric-value">{displayMetric}</strong>
+              <span className="about-story__metric-hint">{slide.metricHint}</span>
+            </div>
+            <div className="about-story__copy">
+              <p className="about-story__kicker">{slide.kicker}</p>
+              <h3 className="about-story__title">{slide.title}</h3>
+              <p className="about-story__body">{slide.body}</p>
+              {"chips" in slide && slide.chips && slide.chips.length > 0 ? (
+                <ul className="about-story__chips">
+                  {slide.chips.map((name) => (
+                    <li key={name}>{name}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </article>
+        ) : mode === "mission" ? (
+          <article key="mission" className="about-story__pillar about-story__slide--in-right">
+            <div className="about-story__pillar-head">
+              <span className="about-story__pillar-icon" aria-hidden>
+                <Compass size={20} />
+              </span>
+              <h3 className="about-story__title">{t.aboutMissionLabel}</h3>
+            </div>
+            <p className="about-story__body about-story__body--long">{t.aboutMission}</p>
+          </article>
+        ) : mode === "vision" ? (
+          <article key="vision" className="about-story__pillar about-story__slide--in-right">
+            <div className="about-story__pillar-head">
+              <span className="about-story__pillar-icon" aria-hidden>
+                <Eye size={20} />
+              </span>
+              <h3 className="about-story__title">{t.aboutVisionLabel}</h3>
+            </div>
+            <p className="about-story__body about-story__body--long">{t.aboutVision}</p>
+          </article>
+        ) : (
+          <article key="values" className="about-story__pillar about-story__slide--in-right">
+            <div className="about-story__pillar-head">
+              <span className="about-story__pillar-icon" aria-hidden>
+                <HeartHandshake size={20} />
+              </span>
+              <h3 className="about-story__title">{t.aboutValuesLabel}</h3>
+            </div>
+            <ul className="about-story__values">
+              <li>
+                <strong>{t.aboutValue1Title}</strong>
+                <span>{t.aboutValue1Body}</span>
+              </li>
+              <li>
+                <strong>{t.aboutValue2Title}</strong>
+                <span>{t.aboutValue2Body}</span>
+              </li>
+              <li>
+                <strong>{t.aboutValue3Title}</strong>
+                <span>{t.aboutValue3Body}</span>
+              </li>
+            </ul>
+          </article>
+        )}
       </div>
 
-      <div className="about-story__dots" role="tablist" aria-label={t.aboutStoryLabel}>
-        {slides.map((item, i) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={i === index}
-            aria-label={`${item.kicker}`}
-            className={`about-story__dot${i === index ? " is-active" : ""}`}
-            onClick={() => go(i, i > index ? 1 : -1)}
-          />
-        ))}
-      </div>
+      {journeyActive ? (
+        <>
+          <div className="about-story__dots" role="tablist" aria-label={t.aboutStoryLabel}>
+            {slides.map((item, i) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={i === index}
+                aria-label={`${item.kicker}`}
+                className={`about-story__dot${i === index ? " is-active" : ""}`}
+                onClick={() => go(i, i > index ? 1 : -1)}
+              />
+            ))}
+          </div>
 
-      <div className="about-story__progress" aria-hidden>
-        <span
-          key={index}
-          className={`about-story__progress-bar${
-            paused || reducedMotion ? " is-paused" : ""
-          }`}
-        />
-      </div>
+          <div className="about-story__progress" aria-hidden>
+            <span
+              key={index}
+              className={`about-story__progress-bar${
+                paused || reducedMotion ? " is-paused" : ""
+              }`}
+            />
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }

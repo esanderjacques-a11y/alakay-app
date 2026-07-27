@@ -208,7 +208,7 @@ const sw = {
   exportSectionFertilizerPlan: "Bidhaa za mbolea",
   fertilizerProductsTitle: "Mbolea za kibiashara na bei",
   aboutIntro:
-    "Cultosol hugeuza ripoti za udongo na majani kuwa mwongozo wazi kwa shamba—ili wazalishaji wadogo wachukue hatua kwa ujasiri na wajue lini kutafuta mtaalamu.",
+    "Ilianza darasani kama zana ya kazi za nyumbani, ikabadilika kuwa zana ya kutafsiri uchambuzi wa udongo kwa wazalishaji, na sasa ni jukwaa lenye kazi nyingi.",
   aboutDisclaimerShort:
     "Cultosol inasaidia maamuzi yako—haibadilishi ushauri wa kitaalamu wa kilimo.",
   importDataDesc:
@@ -389,6 +389,10 @@ const sw = {
   aboutStoryRegionsTitle: "Mikoa na maeneo yaliyofikiwa",
   aboutStoryRegionsBody:
     "Mikoa na majimbo ya ndani ambako wakulima huhifadhi ripoti — imesasishwa hadi {date}.",
+  aboutOurStoryEyebrow: "Tangu mwanzo",
+  aboutOurStoryTitle: "Hadithi yetu",
+  aboutOurStoryBody:
+    "Cultosol ilianza darasani, kutokana na hamu rahisi ya kufanya kujifunza kuwa wazi zaidi. Kilichoanza kama msaada wa kazi za nyumbani kiligeuka kuwa kitu chenye kina: njia ya kugeuza nambari nzito za maabara kuwa mwongozo ambao wazalishaji wanaweza kuamini shambani. Leo ni jukwaa lenye kazi nyingi, limetengenezwa na wakulima katika udongo na mipaka tofauti, bado likiwa na moyo uleule. Kila uchambuzi, kila eneo lililofikiwa, kila uamuzi wazi zaidi ni sehemu ya hadithi tunayoendelea kuiandika pamoja.",
   aboutPillarsLabel: "Dhamira, maono na maadili",
   aboutPillarsEyebrow: "Sisi ni nani",
   aboutPillarsTitle: "Dhamira · Maono · Maadili",
@@ -396,10 +400,10 @@ const sw = {
     "Gusa kila nguzo ili kuchunguza kinachoendesha Cultosol—bidhaa yenye roho ya NGO, iliyojengwa kwa wakulima, si vizuizi.",
   aboutMissionLabel: "Dhamira",
   aboutMission:
-    "Kugeuza matokeo ya maabara kuwa mwongozo wazi na wa vitendo kwa kila mkulima.",
+    "Tunasaidia kila mkulima kugeuza matokeo ya uchambuzi wa udongo na majani kuwa mwongozo wazi na wa vitendo wa shamba anaoweza kutumia kwa ujasiri.",
   aboutVisionLabel: "Maono",
   aboutVision:
-    "Ulimwengu ambapo kila mkulima anaelewa udongo wake na kufanya maamuzi kwa ujasiri.",
+    "Tunaona ulimwengu ambapo kila mkulima anaelewa udongo wake, anachukua hatua kutokana na uchambuzi wake, na anafanya maamuzi yenye uhakika kwa shamba lake na maisha yake.",
   aboutValuesLabel: "Maadili",
   aboutValues:
     "Uwazi, ufikiaji wazi, na ushirikiano na kilimo cha ndani.",
@@ -408,7 +412,7 @@ const sw = {
     "Kila nambari inapaswa kuwa uamuzi mkulima anaelewa shambani.",
   aboutValue2Title: "Ufikiaji wazi",
   aboutValue2Body:
-    "Maarifa yanapaswa kusafiri mbali zaidi ya maabara na ofisi—hasa kwa wazalishaji wadogo.",
+    "Maarifa yanapaswa kusafiri mbali zaidi ya maabara na ofisi, hasa kwa wazalishaji wadogo.",
   aboutValue3Title: "Ushirikiano wa shamba",
   aboutValue3Body:
     "Tunaongeza utaalamu wa kilimo wa ndani; hatudai kamwe kuubadilisha.",

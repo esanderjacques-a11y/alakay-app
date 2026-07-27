@@ -635,6 +635,10 @@
   aboutStoryRegionsTitle: "Provinces et régions atteintes",
   aboutStoryRegionsBody:
     "Provinces et États locaux où les producteurs enregistrent des rapports — mis à jour jusqu’au {date}.",
+  aboutOurStoryEyebrow: "Depuis le début",
+  aboutOurStoryTitle: "Notre histoire",
+  aboutOurStoryBody:
+    "Cultosol est né dans une salle de classe, d’un souhait simple : rendre l’apprentissage plus clair. Ce qui a commencé comme une aide aux devoirs est devenu quelque chose de plus profond : une façon de transformer des chiffres de laboratoire denses en conseils que les producteurs pouvaient vraiment utiliser au champ. Aujourd’hui, c’est une plateforme multifonctionnelle, façonnée par des producteurs à travers sols et frontières, avec le même cœur qu’au premier jour. Chaque analyse, chaque région atteinte, chaque décision plus claire fait partie d’une histoire que nous continuons d’écrire ensemble.",
   aboutPillarsLabel: "Mission, vision et valeurs",
   aboutPillarsEyebrow: "Qui nous sommes",
   aboutPillarsTitle: "Mission · Vision · Valeurs",
@@ -642,10 +646,10 @@
     "Touchez chaque pilier pour explorer ce qui anime Cultosol—un produit à l’esprit ONG, conçu pour les producteurs, pas pour les barrières.",
   aboutMissionLabel: "Mission",
   aboutMission:
-    "Transformer les résultats de laboratoire en conseils de terrain clairs et pratiques pour chaque producteur.",
+    "Nous aidons chaque producteur à transformer les résultats d’analyses de sol et foliaires en conseils de terrain clairs et pratiques, utilisables en toute confiance.",
   aboutVisionLabel: "Vision",
   aboutVision:
-    "Un monde où chaque agriculteur comprend son sol et prend des décisions en toute confiance.",
+    "Nous imaginons un monde où chaque agriculteur comprend son sol, agit sur son analyse et prend des décisions sereines pour sa terre et son métier.",
   aboutValuesLabel: "Valeurs",
   aboutValues:
     "Clarté, accès ouvert et partenariat avec l'agronomie locale.",
@@ -654,7 +658,7 @@
     "Chaque chiffre doit devenir une décision qu’un producteur comprend au champ.",
   aboutValue2Title: "Accès ouvert",
   aboutValue2Body:
-    "Le savoir doit aller plus loin que les laboratoires et les bureaux—surtout vers les petits producteurs.",
+    "Le savoir doit aller plus loin que les laboratoires et les bureaux, surtout vers les petits producteurs.",
   aboutValue3Title: "Partenariat de terrain",
   aboutValue3Body:
     "Nous amplifions l’expertise agronomique locale ; nous ne prétendons jamais la remplacer.",

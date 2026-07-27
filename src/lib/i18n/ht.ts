@@ -622,6 +622,10 @@
   aboutStoryRegionsTitle: "Pwovens ak rejyon yo rive",
   aboutStoryRegionsBody:
     "Pwovens ak eta lokal kote kiltivatè yo sove rapò — mete ajou jiska {date}.",
+  aboutOurStoryEyebrow: "Depi nan kòmansman",
+  aboutOurStoryTitle: "Istwa nou",
+  aboutOurStoryBody:
+    "Cultosol te kòmanse nan yon sal klas, soti nan yon senp dezi pou fè aprantisaj la pi klè. Sa ki te kòmanse kòm yon èd pou devwa yo te vin yon bagay pi fon: yon fason pou tounen chif laboratwa yo an konsèy pwodiktè yo ka fè konfyans nan jaden an. Jodi a se yon platfòm miltifonksyonèl, ki fòme pa kiltivatè atravè tè ak fwontyè, ak menm kè a toujou. Chak analiz, chak rejyon yo rive, chak desizyon ki pi klè fè pati yon istwa n ap kontinye ekri ansanm.",
   aboutPillarsLabel: "Misyon, vizyon ak valè",
   aboutPillarsEyebrow: "Ki moun nou ye",
   aboutPillarsTitle: "Misyon · Vizyon · Valè",
@@ -629,10 +633,10 @@
     "Tape chak pilè pou eksplore sa ki pouse Cultosol—yon pwodui ak lespri ONG, fèt pou kiltivatè, pa pou baryè.",
   aboutMissionLabel: "Misyon",
   aboutMission:
-    "Tounen rezilta laboratwa an konsèy klè ak pratik pou chak kiltivatè nan jaden an.",
+    "Nou ede chak kiltivatè tounen rezilta analiz tè ak fèy an konsèy klè ak pratik pou jaden an, yo ka itilize ak konfyans.",
   aboutVisionLabel: "Vizyon",
   aboutVision:
-    "Yon mond kote chak kiltivatè konprann tè yo epi pran desizyon ak konfyans.",
+    "Nou imajine yon mond kote chak kiltivatè konprann tè yo, aji sou analiz yo, epi pran desizyon solid pou tè yo ak lavi yo.",
   aboutValuesLabel: "Valè",
   aboutValues:
     "Klète, aksè louvri, ak patenarya ak agwonomi lokal.",
@@ -641,7 +645,7 @@
     "Chak chif dwe tounen yon desizyon yon kiltivatè ka konprann nan jaden.",
   aboutValue2Title: "Aksè louvri",
   aboutValue2Body:
-    "Konesans dwe ale pi lwen pase laboratwa ak biwo—sitou pou ti pwodiktè yo.",
+    "Konesans dwe ale pi lwen pase laboratwa ak biwo, sitou pou ti pwodiktè yo.",
   aboutValue3Title: "Patenarya jaden",
   aboutValue3Body:
     "Nou agrandi ekspètiz agwonòm lokal; nou pa janm pretann ranplase li.",

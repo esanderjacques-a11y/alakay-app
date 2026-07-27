@@ -43,15 +43,8 @@ export default function AboutPillars({ t }: Props) {
 
   return (
     <section className="about-pillars" aria-label={t.aboutPillarsLabel}>
-      <div className="about-pillars__head">
-        <p className="about-pillars__eyebrow">{t.aboutPillarsEyebrow}</p>
-        <h2 className="about-pillars__title">{t.aboutPillarsTitle}</h2>
-        <p className="about-pillars__lede">{t.aboutPillarsLede}</p>
-      </div>
-
       <div className="about-pillars__tabs" role="tablist" aria-label={t.aboutPillarsLabel}>
         {PILLARS.map((pillar) => {
-          const TabIcon = pillar.icon;
           const selected = pillar.id === active;
           return (
             <button
@@ -64,10 +57,7 @@ export default function AboutPillars({ t }: Props) {
               className={`about-pillars__tab${selected ? " is-active" : ""}`}
               onClick={() => setActive(pillar.id)}
             >
-              <span className="about-pillars__tab-icon" aria-hidden>
-                <TabIcon size={16} />
-              </span>
-              <span>{t[pillar.labelKey]}</span>
+              {t[pillar.labelKey]}
             </button>
           );
         })}
@@ -80,12 +70,12 @@ export default function AboutPillars({ t }: Props) {
         aria-labelledby={`about-pillar-tab-${current.id}`}
         className="about-pillars__panel"
       >
-        <div className="about-pillars__panel-icon" aria-hidden>
-          <Icon size={22} />
+        <div className="about-pillars__panel-head">
+          <div className="about-pillars__panel-icon" aria-hidden>
+            <Icon size={18} />
+          </div>
+          <h3 className="about-pillars__panel-label">{t[current.labelKey]}</h3>
         </div>
-        <h3 className="about-pillars__panel-label">{t[current.labelKey]}</h3>
-        <p className="about-pillars__panel-body">{t[current.bodyKey]}</p>
-
         {current.id === "values" ? (
           <ul className="about-pillars__values">
             <li>
@@ -101,7 +91,9 @@ export default function AboutPillars({ t }: Props) {
               <span>{t.aboutValue3Body}</span>
             </li>
           </ul>
-        ) : null}
+        ) : (
+          <p className="about-pillars__panel-body">{t[current.bodyKey]}</p>
+        )}
       </div>
     </section>
   );

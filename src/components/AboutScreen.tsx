@@ -4,16 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import BackButton from "@/components/ui/BackButton";
 import {
-  BookOpen,
   Heart,
   Linkedin,
-  Loader2,
   Mail,
   Phone,
   Send,
   Sparkles,
 } from "lucide-react";
-import AboutPillars from "@/components/AboutPillars";
 import AboutStoryCarousel from "@/components/AboutStoryCarousel";
 import FeedbackSection from "@/components/FeedbackSection";
 import ImpactSection from "@/components/ImpactSection";
@@ -167,36 +164,38 @@ export default function AboutScreen({
   return (
     <section className="animate-slide-up about-screen-wrap">
       <div className="about-shell">
-        <div className="about-header">
-          <div className="page-title-row page-title-row--centered">
-            <BackButton variant="icon" onClick={onBack} label={t.home} />
-            <h1 className="about-page-title page-title-row__title !mt-0">
-              {t.aboutTitle}
-            </h1>
-            <span className="page-title-row__spacer" aria-hidden="true" />
-          </div>
-
-          <header className="about-hero about-hero--stage">
-            <div className="about-hero__aura" aria-hidden />
-            {!photoError ? (
-              <img
-                src={CREATOR_PHOTO}
-                alt={t.aboutCreatorFullName}
-                className="about-hero-photo"
-                onError={() => setPhotoError(true)}
-              />
-            ) : (
-              <img
-                src="/app-icon.png"
-                alt={t.appName}
-                className="about-hero-photo about-hero-photo--logo"
-              />
-            )}
-            <div className="about-hero__copy">
-              <p className="about-brand">{t.appName}</p>
-              <p className="about-tagline">{t.aboutTagline}</p>
+        <div className="about-scroll">
+          <div className="about-header">
+            <div className="page-title-row page-title-row--centered">
+              <BackButton variant="icon" onClick={onBack} label={t.home} />
+              <h1 className="about-page-title page-title-row__title !mt-0">
+                {t.aboutTitle}
+              </h1>
+              <span className="page-title-row__spacer" aria-hidden="true" />
             </div>
-          </header>
+
+            <header className="about-hero about-hero--stage">
+              <div className="about-hero__aura" aria-hidden />
+              {!photoError ? (
+                <img
+                  src={CREATOR_PHOTO}
+                  alt={t.aboutCreatorFullName}
+                  className="about-hero-photo"
+                  onError={() => setPhotoError(true)}
+                />
+              ) : (
+                <img
+                  src="/app-icon.png"
+                  alt={t.appName}
+                  className="about-hero-photo about-hero-photo--logo"
+                />
+              )}
+              <div className="about-hero__copy">
+                <p className="about-brand">{t.appName}</p>
+                <p className="about-tagline">{t.aboutTagline}</p>
+              </div>
+            </header>
+          </div>
 
           <nav className="about-tabs" aria-label={t.aboutTitle}>
             {tabs.map((item) => (
@@ -210,21 +209,21 @@ export default function AboutScreen({
               </button>
             ))}
           </nav>
-        </div>
 
-        <div className="about-scroll">
           <div className="about-content">
             {tab === "about" ? (
               <div className="about-flow about-flow--story">
-                <p className="about-lede about-lede--intro fade-in-section">{t.aboutIntro}</p>
-
                 <div className="fade-in-section">
                   <AboutStoryCarousel t={t} language={language} />
                 </div>
 
-                <div className="fade-in-section">
-                  <AboutPillars t={t} />
-                </div>
+                <section className="about-our-story fade-in-section" aria-labelledby="about-our-story-title">
+                  <p className="about-our-story__eyebrow">{t.aboutOurStoryEyebrow}</p>
+                  <h2 id="about-our-story-title" className="about-our-story__title">
+                    {t.aboutOurStoryTitle}
+                  </h2>
+                  <p className="about-our-story__body">{t.aboutOurStoryBody}</p>
+                </section>
 
                 <section className="about-section about-section--contact fade-in-section">
                   <h2 className="about-kicker">{t.aboutContactLabel}</h2>

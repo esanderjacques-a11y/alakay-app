@@ -145,11 +145,16 @@ export default function ImpactWorldMap({
     );
     const pathGen = geoPath(projection);
 
-    return (collection.features as CountryFeature[]).map((f) => {
-      const id = String(f.id ?? "").padStart(3, "0");
-      const entry = byNumeric.get(id);
+    return (collection.features as CountryFeature[]).map((f, index) => {
+      const rawId = f.id;
+      const numericId =
+        rawId == null || rawId === ""
+          ? null
+          : String(rawId).padStart(3, "0");
+      const entry = numericId ? byNumeric.get(numericId) : undefined;
       return {
-        id,
+        key: numericId ? `${numericId}-${index}` : `feature-${index}`,
+        id: numericId ?? `feature-${index}`,
         d: pathGen(f) || "",
         name: entry?.name ?? null,
         count: entry?.count ?? 0,
@@ -375,7 +380,7 @@ export default function ImpactWorldMap({
               const hasUsers = p.count > 0;
               return (
                 <path
-                  key={p.id}
+                  key={p.key}
                   d={p.d}
                   className={`impact-geo-country${hasUsers ? " has-users" : ""}${
                     isActive ? " is-active" : ""

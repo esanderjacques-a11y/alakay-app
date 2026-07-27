@@ -208,7 +208,7 @@ const pt = {
   exportSectionFertilizerPlan: "Produtos fertilizantes",
   fertilizerProductsTitle: "Fertilizantes comerciais e preços",
   aboutIntro:
-    "O Cultosol transforma relatórios de solo e foliar em orientação clara para o campo—para que pequenos produtores ajam com confiança e saibam quando buscar um especialista.",
+    "Começou numa sala de aula como ferramenta para trabalhos escolares, evoluiu para uma ferramenta de interpretação de análises de solo para produtores, e agora é uma plataforma multifuncional.",
   aboutDisclaimerShort:
     "O Cultosol apoia suas decisões—não substitui o aconselhamento agronômico profissional.",
   importDataDesc:
@@ -400,6 +400,10 @@ const pt = {
   aboutStoryRegionsTitle: "Províncias e regiões alcançadas",
   aboutStoryRegionsBody:
     "Províncias e estados locais onde produtores salvam relatórios — atualizado até {date}.",
+  aboutOurStoryEyebrow: "Desde o começo",
+  aboutOurStoryTitle: "Nossa história",
+  aboutOurStoryBody:
+    "O Cultosol nasceu numa sala de aula, de um desejo simples: tornar o aprendizado mais claro. O que começou como uma ajuda para os trabalhos de casa passou a ser algo mais profundo: uma forma de transformar números densos de laboratório em orientação em que produtores possam confiar no campo. Hoje é uma plataforma multifuncional, moldada por produtores em solos e fronteiras diferentes, com o mesmo coração de sempre. Cada análise, cada região alcançada, cada decisão mais clara faz parte de uma história que seguimos escrevendo juntos.",
   aboutPillarsLabel: "Missão, visão e valores",
   aboutPillarsEyebrow: "Quem somos",
   aboutPillarsTitle: "Missão · Visão · Valores",
@@ -407,10 +411,10 @@ const pt = {
     "Toque em cada pilar para explorar o que move o Cultosol—um produto com espírito de ONG, feito para produtores, não para barreiras.",
   aboutMissionLabel: "Missão",
   aboutMission:
-    "Transformar resultados de laboratório em orientações de campo claras e práticas para cada produtor.",
+    "Ajudamos cada produtor a transformar resultados de análises de solo e foliar em orientação de campo clara e prática, para usar com confiança.",
   aboutVisionLabel: "Visão",
   aboutVision:
-    "Um mundo onde cada agricultor entenda seu solo e tome decisões com confiança.",
+    "Imaginamos um mundo onde cada agricultor entende seu solo, age sobre sua análise e toma decisões seguras para sua terra e seu sustento.",
   aboutValuesLabel: "Valores",
   aboutValues:
     "Clareza, acesso aberto e parceria com a agronomia local.",
@@ -419,7 +423,7 @@ const pt = {
     "Cada número deve virar uma decisão que o produtor entenda no campo.",
   aboutValue2Title: "Acesso aberto",
   aboutValue2Body:
-    "O conhecimento deve ir além de laboratórios e escritórios—especialmente até pequenos produtores.",
+    "O conhecimento deve ir além de laboratórios e escritórios, especialmente até pequenos produtores.",
   aboutValue3Title: "Parceria de campo",
   aboutValue3Body:
     "Amplificamos a expertise agronômica local; nunca pretendemos substituí-la.",

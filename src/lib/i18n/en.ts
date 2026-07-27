@@ -609,6 +609,10 @@
   aboutStoryRegionsTitle: "Provinces & regions reached",
   aboutStoryRegionsBody:
     "Local provinces and states where growers save reports — updated through {date}.",
+  aboutOurStoryEyebrow: "From the beginning",
+  aboutOurStoryTitle: "Our story",
+  aboutOurStoryBody:
+    "Cultosol began in a classroom, born from a simple wish to make learning clearer. What started as a homework helper slowly became something deeper: a way to turn dense lab numbers into guidance real producers could trust in the field. Today it is a multifunctional platform, shaped by growers across soils and borders, still carrying that same heart. Every analysis completed, every region reached, every clearer decision is part of a story we keep writing together.",
   aboutPillarsLabel: "Mission, vision, and values",
   aboutPillarsEyebrow: "Who we are",
   aboutPillarsTitle: "Mission · Vision · Values",
@@ -616,10 +620,10 @@
     "Tap each pillar to explore what drives Cultosol—an NGO-minded product built for growers, not gatekeepers.",
   aboutMissionLabel: "Mission",
   aboutMission:
-    "Turn lab results into clear, practical field guidance for every grower.",
+    "We help every grower turn soil and foliar lab results into clear, practical field guidance they can use with confidence.",
   aboutVisionLabel: "Vision",
   aboutVision:
-    "A world where every farmer understands their soil and makes confident decisions.",
+    "We envision a world where every farmer understands their soil, acts on their analysis, and makes confident decisions for their land and livelihood.",
   aboutValuesLabel: "Values",
   aboutValues:
     "Clarity, open access, and partnership with local agronomy.",
@@ -628,7 +632,7 @@
     "Every number should become a decision a grower can understand in the field.",
   aboutValue2Title: "Open access",
   aboutValue2Body:
-    "Knowledge should travel farther than labs and offices—especially to small producers.",
+    "Knowledge should travel farther than labs and offices, especially to small producers.",
   aboutValue3Title: "Field partnership",
   aboutValue3Body:
     "We amplify local agronomic expertise; we never claim to replace it.",

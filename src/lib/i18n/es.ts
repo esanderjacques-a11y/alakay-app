@@ -628,6 +628,10 @@
   aboutStoryRegionsTitle: "Provincias y regiones alcanzadas",
   aboutStoryRegionsBody:
     "Provincias y estados locales donde los productores guardan informes — actualizado hasta el {date}.",
+  aboutOurStoryEyebrow: "Desde el comienzo",
+  aboutOurStoryTitle: "Nuestra historia",
+  aboutOurStoryBody:
+    "Cultosol nació en un aula, de un deseo sencillo: hacer el aprendizaje más claro. Lo que empezó como una ayuda para las tareas se volvió algo más profundo: una forma de convertir números densos de laboratorio en orientación que los productores pudieran confiar en el campo. Hoy es una plataforma multifuncional, moldeada por productores en suelos y fronteras distintas, con el mismo corazón de siempre. Cada análisis, cada región alcanzada, cada decisión más clara es parte de una historia que seguimos escribiendo juntos.",
   aboutPillarsLabel: "Misión, visión y valores",
   aboutPillarsEyebrow: "Quiénes somos",
   aboutPillarsTitle: "Misión · Visión · Valores",
@@ -635,10 +639,10 @@
     "Toca cada pilar para explorar lo que impulsa Cultosol—un producto con espíritu de ONG, hecho para productores, no para barreras.",
   aboutMissionLabel: "Misión",
   aboutMission:
-    "Convertir resultados de laboratorio en orientación de campo clara y práctica para cada productor.",
+    "Ayudamos a cada productor a convertir resultados de análisis de suelo y foliar en orientación de campo clara y práctica que puedan usar con confianza.",
   aboutVisionLabel: "Visión",
   aboutVision:
-    "Un mundo donde cada agricultor entienda su suelo y tome decisiones con confianza.",
+    "Imaginamos un mundo donde cada agricultor entiende su suelo, actúa sobre su análisis y toma decisiones seguras para su tierra y su sustento.",
   aboutValuesLabel: "Valores",
   aboutValues:
     "Claridad, acceso abierto y alianza con la agronomía local.",
@@ -647,7 +651,7 @@
     "Cada número debe convertirse en una decisión que el productor entienda en el campo.",
   aboutValue2Title: "Acceso abierto",
   aboutValue2Body:
-    "El conocimiento debe viajar más lejos que laboratorios y oficinas—sobre todo hacia pequeños productores.",
+    "El conocimiento debe viajar más lejos que laboratorios y oficinas, sobre todo hacia pequeños productores.",
   aboutValue3Title: "Alianza de campo",
   aboutValue3Body:
     "Amplificamos la expertise agronómica local; nunca pretendemos reemplazarla.",

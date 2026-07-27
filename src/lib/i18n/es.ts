@@ -228,6 +228,18 @@
   cropLoadingError: "Error al cargar cultivos",
 
   analysisSummary: "Resumen del análisis",
+  waterQualityTitle: "Índices del agua de riego",
+  waterQualityDesc:
+    "Calculados con los métodos de EARTH Unidad 4 (Villaseñor): sales, RAS, dureza, Kelly y clase C–S del US Salinity Lab.",
+  waterSaltConc: "Concentración de sales",
+  waterRas: "RAS / SAR",
+  waterHardness: "Dureza",
+  waterKelly: "Índice de Kelly",
+  waterClassCS: "Clase de agua (C–S)",
+  waterSeverity: "Severidad",
+  waterSeverityNone: "Ninguna",
+  waterSeverityModerate: "Moderada",
+  waterSeverityHigh: "Alta",
   needsAttention: "Necesita atención",
   needsAttentionDesc: "Estos valores pueden requerir corrección o revisión.",
   warning: "Advertencia / Monitorear",
@@ -602,8 +614,8 @@
   noInProgressDetail:
     "No hay análisis en progreso. Inicie uno nuevo o importe valores primero.",
 
-  about: "ACERCA DE",
-  aboutTitle: "ACERCA DE",
+  about: "Acerca de",
+  aboutTitle: "Acerca de",
   aboutTagline: "Inteligencia del suelo para cada productor",
   aboutIntro:
     "Comenzó en un salón de clases como una herramienta para tareas, evolucionó hacia una herramienta para interpretar análisis de suelo para productores, y ahora es una plataforma multifuncional.",
@@ -1124,20 +1136,31 @@
       "Sugerido desde tu calendario de fertilización — edita libremente antes de guardar.",
     recommendedBadge: "Sugerido",
     notificationsTitle: "Notificaciones",
-    notificationsDesc: "Recordatorios, fechas del calendario y tips de planificación.",
+    notificationsDesc:
+      "Avisos de hoy y de las próximas horas — no de meses adelante. Las aplicaciones del calendario avisan unas 18 horas antes.",
     unreadCount: "{count} pendientes",
     allCaughtUp: "Estás al día",
     markAllRead: "Marcar todo leído",
-    emptyNotifications: "Aún no hay notificaciones.",
+    emptyNotifications: "Aún no hay recordatorios pendientes o próximos.",
+    notifGroupUpcoming: "Próximas",
     notifGroupToday: "Hoy",
     notifGroupYesterday: "Ayer",
     notifGroupThisWeek: "Esta semana",
     notifGroupThisMonth: "Este mes",
     notifGroupOlder: "Anteriores",
+    notifSoon: "Pronto",
+    notifSwipeHint: "Desliza a la derecha para eliminar",
     clearNotification: "Eliminar",
     clearAllNotifications: "Eliminar todas",
     clearAllNotificationsConfirm:
       "¿Eliminar todas las notificaciones? Esto no se puede deshacer.",
+    enablePhoneNotifications: "Notificaciones del teléfono",
+    enablePhoneNotificationsAction: "Activar",
+    phoneNotificationsHint:
+      "Permite que Cultosol avise en este teléfono cuando una aplicación esté por vencer.",
+    phoneNotificationsEnabled: "Alertas del teléfono activas",
+    phoneNotificationsDenied:
+      "Las notificaciones están bloqueadas. Actívalas en el navegador o en los ajustes del teléfono para Cultosol.",
   },
 
 

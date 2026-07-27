@@ -751,19 +751,7 @@ export default function FertilizerPlanCalculator({
                 value={customMinerCoefPercent}
                 onChange={setCustomMinerCoefPercent}
               />
-            ) : (
-              <p className="col-span-full text-xs text-slate-500 dark:text-slate-400">
-                {(
-                  t.mineralizationScenarioHint ||
-                  "SUE302 §2.5.1 — N supply from OM uses {coef}% mineralization ({label}). Changing the scenario changes the N dose."
-                )
-                  .replace("{coef}", String(round3(mineralizationCoef * 100)))
-                  .replace(
-                    "{label}",
-                    mineralizationScenarioLabel(mineralizationScenario, t)
-                  )}
-              </p>
-            )}
+            ) : null}
             <div className="col-span-full grid gap-3 sm:grid-cols-[1fr_auto]">
               <NumberField label={t.area || "Area"} value={area} onChange={setArea} />
               <SelectField

@@ -25,6 +25,57 @@ import {
 } from "@/lib/planningRepository";
 
 const STORAGE_KEY = "cultosol_planning_v1";
+const DISMISSED_NOTIFS_KEY = "cultosol_notif_dismissed_v1";
+
+/** Hours before the application morning (08:00) when the reminder becomes due. */
+export const CALENDAR_NOTIFY_LEAD_MS = 18 * 60 * 60 * 1000;
+/** How far ahead a notification may appear in the inbox (upcoming). */
+export const NOTIFICATION_INBOX_LEAD_MS = 24 * 60 * 60 * 1000;
+/** Drop stale delivered calendar reminders older than this. */
+const NOTIFICATION_STALE_MS = 14 * 24 * 60 * 60 * 1000;
+
+function dismissKey(kind: string, relatedId: string) {
+  return `${kind}:${relatedId}`;
+}
+
+function readDismissedNotificationKeys(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(DISMISSED_NOTIFS_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as string[];
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDismissedNotificationKeys(keys: Set<string>) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    DISMISSED_NOTIFS_KEY,
+    JSON.stringify([...keys].slice(-300))
+  );
+}
+
+/** Remember a dismissed related item so sync does not recreate it immediately. */
+export function dismissNotificationRelation(
+  kind: string,
+  relatedId: string | null | undefined
+) {
+  if (!relatedId) return;
+  const keys = readDismissedNotificationKeys();
+  keys.add(dismissKey(kind, relatedId));
+  writeDismissedNotificationKeys(keys);
+}
+
+function isNotificationRelationDismissed(
+  kind: string,
+  relatedId: string | null | undefined
+) {
+  if (!relatedId) return false;
+  return readDismissedNotificationKeys().has(dismissKey(kind, relatedId));
+}
 
 type PlanningState = {
   events: CalendarEvent[];
@@ -78,7 +129,7 @@ function writeState(state: PlanningState) {
   }
 }
 
-function queueRemote(task: () => Promise<void>) {
+function voidRemote(task: () => Promise<void>) {
   if (!activeUserId) return;
   void task().catch((error) => {
     console.warn("planning sync:", error);
@@ -209,7 +260,7 @@ export function upsertSavedCalendar(
     if (index >= 0) state.calendars[index] = next;
     else state.calendars.unshift(next);
     writeState(state);
-    queueRemote(() => upsertSavedCalendarRemote(activeUserId!, next));
+    voidRemote(() => upsertSavedCalendarRemote(activeUserId!, next));
     return next;
   }
   const created: SavedCalendar = {
@@ -222,7 +273,7 @@ export function upsertSavedCalendar(
   };
   state.calendars.unshift(created);
   writeState(state);
-  queueRemote(() => upsertSavedCalendarRemote(activeUserId!, created));
+  voidRemote(() => upsertSavedCalendarRemote(activeUserId!, created));
   return created;
 }
 
@@ -238,7 +289,7 @@ export function deleteSavedCalendar(id: string) {
   state.calendars = state.calendars.filter((c) => c.id !== id);
   state.events = state.events.filter((e) => e.calendarId !== id);
   writeState(state);
-  queueRemote(async () => {
+  voidRemote(async () => {
     await deleteSavedCalendarRemote(activeUserId!, id);
     await Promise.all(
       removedEvents.map((event) =>
@@ -264,7 +315,7 @@ export function saveCalendarEvent(
     if (index >= 0) state.events[index] = next;
     else state.events.unshift(next);
     writeState(state);
-    queueRemote(() => upsertCalendarEventRemote(activeUserId!, next));
+    voidRemote(() => upsertCalendarEventRemote(activeUserId!, next));
     return next;
   }
   const created: CalendarEvent = {
@@ -274,7 +325,7 @@ export function saveCalendarEvent(
   };
   state.events.unshift(created);
   writeState(state);
-  queueRemote(() => upsertCalendarEventRemote(activeUserId!, created));
+  voidRemote(() => upsertCalendarEventRemote(activeUserId!, created));
   return created;
 }
 
@@ -282,7 +333,7 @@ export function deleteCalendarEvent(id: string) {
   const state = readState();
   state.events = state.events.filter((e) => e.id !== id);
   writeState(state);
-  queueRemote(() => deleteCalendarEventRemote(activeUserId!, id));
+  voidRemote(() => deleteCalendarEventRemote(activeUserId!, id));
 }
 
 export function toggleCalendarEventCompleted(id: string) {
@@ -291,7 +342,7 @@ export function toggleCalendarEventCompleted(id: string) {
   if (!item) return;
   item.completed = !item.completed;
   writeState(state);
-  queueRemote(() => upsertCalendarEventRemote(activeUserId!, item));
+  voidRemote(() => upsertCalendarEventRemote(activeUserId!, item));
 }
 
 /** Remove previous recommended schedule for a farm (keeps manual events). */
@@ -311,7 +362,7 @@ export function clearRecommendedPlanForFarm(
   });
   state.events = state.events.filter((event) => !removed.includes(event));
   writeState(state);
-  queueRemote(async () => {
+  voidRemote(async () => {
     await replaceRecommendedEventsRemote(
       activeUserId!,
       farmName,
@@ -327,7 +378,7 @@ export function updateCalendarEventDate(id: string, date: string) {
   if (!item) return;
   item.date = date;
   writeState(state);
-  queueRemote(() => upsertCalendarEventRemote(activeUserId!, item));
+  voidRemote(() => upsertCalendarEventRemote(activeUserId!, item));
 }
 
 export function saveUserNote(
@@ -354,7 +405,7 @@ export function saveUserNote(
     else state.notes.unshift(next);
     writeState(state);
     maybeNotifyFromNote(next);
-    queueRemote(() => upsertUserNoteRemote(activeUserId!, next));
+    voidRemote(() => upsertUserNoteRemote(activeUserId!, next));
     return next;
   }
   const created: UserNote = {
@@ -366,7 +417,7 @@ export function saveUserNote(
   state.notes.unshift(created);
   writeState(state);
   maybeNotifyFromNote(created);
-  queueRemote(() => upsertUserNoteRemote(activeUserId!, created));
+  voidRemote(() => upsertUserNoteRemote(activeUserId!, created));
   return created;
 }
 
@@ -374,7 +425,130 @@ export function deleteUserNote(id: string) {
   const state = readState();
   state.notes = state.notes.filter((n) => n.id !== id);
   writeState(state);
-  queueRemote(() => deleteUserNoteRemote(activeUserId!, id));
+  voidRemote(() => deleteUserNoteRemote(activeUserId!, id));
+}
+
+export function calendarEventNotifyAt(eventDate: string): string {
+  const morning = new Date(`${eventDate}T08:00:00`);
+  if (!Number.isFinite(morning.getTime())) {
+    return `${eventDate}T08:00:00`;
+  }
+  return new Date(morning.getTime() - CALENDAR_NOTIFY_LEAD_MS).toISOString();
+}
+
+function notificationDueMs(item: AppNotification): number | null {
+  if (!item.dueAt) return null;
+  const ms = new Date(item.dueAt).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/** True when the reminder should count as pending / actionable. */
+export function isNotificationDue(
+  item: AppNotification,
+  now = new Date()
+): boolean {
+  if (item.read) return false;
+  const dueMs = notificationDueMs(item);
+  if (dueMs == null) return true;
+  return dueMs <= now.getTime();
+}
+
+/**
+ * Inbox visibility: already due, or becoming due within the next 24h.
+ * Far-future calendar rows (months/years ahead) stay out of the list.
+ */
+export function isNotificationInInbox(
+  item: AppNotification,
+  now = new Date()
+): boolean {
+  const dueMs = notificationDueMs(item);
+  if (dueMs == null) return true;
+  if (dueMs > now.getTime() + NOTIFICATION_INBOX_LEAD_MS) return false;
+  if (dueMs < now.getTime() - NOTIFICATION_STALE_MS) return false;
+  return true;
+}
+
+export function inboxNotifications(now = new Date()): AppNotification[] {
+  const state = readState();
+  return state.notifications
+    .filter((item) => isNotificationInInbox(item, now))
+    .sort((a, b) => {
+      const aDue = a.dueAt || a.createdAt;
+      const bDue = b.dueAt || b.createdAt;
+      return bDue.localeCompare(aDue);
+    });
+}
+
+/** Remove far-future calendar spam left from older app versions. */
+export function pruneFarFutureNotifications(now = new Date()): number {
+  const state = readState();
+  const before = state.notifications.length;
+  const keep: AppNotification[] = [];
+  const removedIds: string[] = [];
+  for (const item of state.notifications) {
+    const dueMs = notificationDueMs(item);
+    const farFuture =
+      item.kind === "calendar" &&
+      dueMs != null &&
+      dueMs > now.getTime() + NOTIFICATION_INBOX_LEAD_MS;
+    const stale =
+      dueMs != null && dueMs < now.getTime() - NOTIFICATION_STALE_MS && item.read;
+    if (farFuture || stale) {
+      removedIds.push(item.id);
+      continue;
+    }
+    keep.push(item);
+  }
+  if (removedIds.length === 0) return 0;
+  state.notifications = keep;
+  writeState(state);
+  voidRemote(() => deleteNotificationsRemote(activeUserId!, removedIds));
+  return before - keep.length;
+}
+
+/**
+ * Create near-term calendar reminders from accepted events.
+ * Far applications stay on the calendar only until they enter the lead window.
+ */
+export function syncCalendarDueNotifications(now = new Date()): number {
+  const state = readState();
+  let created = 0;
+  const horizon = now.getTime() + NOTIFICATION_INBOX_LEAD_MS;
+
+  for (const event of state.events) {
+    if (!event.date) continue;
+    const dueAt = calendarEventNotifyAt(event.date);
+    const dueMs = new Date(dueAt).getTime();
+    if (!Number.isFinite(dueMs)) continue;
+    // Not yet in the near window
+    if (dueMs > horizon) continue;
+    // Too old to resurface
+    if (dueMs < now.getTime() - NOTIFICATION_STALE_MS) continue;
+
+    const existing = state.notifications.find(
+      (n) => n.kind === "calendar" && n.relatedId === event.id
+    );
+    if (existing) continue;
+    if (isNotificationRelationDismissed("calendar", event.id)) continue;
+
+    const notification: AppNotification = {
+      id: uid(),
+      title: event.title,
+      body: `${event.date}${event.rate ? ` · ${event.rate}` : ""}`,
+      kind: "calendar",
+      hrefStep: "calendar",
+      relatedId: event.id,
+      dueAt,
+      createdAt: now.toISOString(),
+      read: false,
+    };
+    state.notifications.unshift(notification);
+    created += 1;
+    voidRemote(() => upsertNotificationRemote(activeUserId!, notification));
+  }
+
+  if (created > 0) writeState(state);
+  return created;
 }
 
 export function pushNotification(
@@ -402,13 +576,13 @@ export function pushNotification(
       existing.body = created.body;
       existing.dueAt = created.dueAt;
       writeState(state);
-      queueRemote(() => upsertNotificationRemote(activeUserId!, existing));
+      voidRemote(() => upsertNotificationRemote(activeUserId!, existing));
       return existing;
     }
   }
   state.notifications.unshift(created);
   writeState(state);
-  queueRemote(() => upsertNotificationRemote(activeUserId!, created));
+  voidRemote(() => upsertNotificationRemote(activeUserId!, created));
   return created;
 }
 
@@ -418,7 +592,7 @@ export function markNotificationRead(id: string) {
   if (item) item.read = true;
   writeState(state);
   if (item) {
-    queueRemote(() => upsertNotificationRemote(activeUserId!, item));
+    voidRemote(() => upsertNotificationRemote(activeUserId!, item));
   }
 }
 
@@ -426,7 +600,7 @@ export function markAllNotificationsRead() {
   const state = readState();
   for (const item of state.notifications) item.read = true;
   writeState(state);
-  queueRemote(async () => {
+  voidRemote(async () => {
     await Promise.all(
       state.notifications.map((item) =>
         upsertNotificationRemote(activeUserId!, item)
@@ -437,38 +611,36 @@ export function markAllNotificationsRead() {
 
 export function removeNotification(id: string) {
   const state = readState();
+  const target = state.notifications.find((item) => item.id === id);
   const next = state.notifications.filter((item) => item.id !== id);
   if (next.length === state.notifications.length) return;
+  if (target) {
+    dismissNotificationRelation(target.kind, target.relatedId);
+  }
   state.notifications = next;
   writeState(state);
-  queueRemote(() => deleteNotificationsRemote(activeUserId!, [id]));
+  voidRemote(() => deleteNotificationsRemote(activeUserId!, [id]));
 }
 
 export function clearAllNotifications() {
   const state = readState();
   const ids = state.notifications.map((item) => item.id);
   if (ids.length === 0) return;
+  for (const item of state.notifications) {
+    dismissNotificationRelation(item.kind, item.relatedId);
+  }
   state.notifications = [];
   writeState(state);
-  queueRemote(() => deleteNotificationsRemote(activeUserId!, ids));
+  voidRemote(() => deleteNotificationsRemote(activeUserId!, ids));
 }
 
 export function unreadNotificationCount(now = new Date()): number {
-  const state = readState();
-  return state.notifications.filter((n) => {
-    if (n.read) return false;
-    if (n.dueAt && new Date(n.dueAt).getTime() > now.getTime()) return false;
-    return true;
-  }).length;
+  return dueNotifications(now).length;
 }
 
 export function dueNotifications(now = new Date()): AppNotification[] {
   const state = readState();
-  return state.notifications.filter((n) => {
-    if (n.read) return false;
-    if (n.dueAt && new Date(n.dueAt).getTime() > now.getTime()) return false;
-    return true;
-  });
+  return state.notifications.filter((n) => isNotificationDue(n, now));
 }
 
 function maybeNotifyFromNote(note: UserNote) {
@@ -544,7 +716,6 @@ export function acceptSuggestedEvents(
   const state = readState();
   const now = new Date().toISOString();
   const createdEvents: CalendarEvent[] = [];
-  const createdNotifications: AppNotification[] = [];
   for (const draft of drafts) {
     const event: CalendarEvent = {
       ...draft,
@@ -553,32 +724,19 @@ export function acceptSuggestedEvents(
       createdAt: now,
       calendarId: options?.calendarId || draft.calendarId,
     };
-    const notification: AppNotification = {
-      id: uid(),
-      title: event.title,
-      body: `${event.date}${event.rate ? ` · ${event.rate}` : ""}`,
-      kind: "calendar",
-      hrefStep: "calendar",
-      relatedId: event.id,
-      dueAt: `${event.date}T08:00:00`,
-      createdAt: now,
-      read: false,
-    };
     state.events.unshift(event);
-    state.notifications.unshift(notification);
     createdEvents.push(event);
-    createdNotifications.push(notification);
   }
   writeState(state);
-  queueRemote(async () => {
-    await Promise.all([
-      ...createdEvents.map((event) =>
+  // Near-term reminders only - far dates stay on the calendar until lead time.
+  syncCalendarDueNotifications();
+  pruneFarFutureNotifications();
+  voidRemote(async () => {
+    await Promise.all(
+      createdEvents.map((event) =>
         upsertCalendarEventRemote(activeUserId!, event)
-      ),
-      ...createdNotifications.map((n) =>
-        upsertNotificationRemote(activeUserId!, n)
-      ),
-    ]);
+      )
+    );
   });
 }
 

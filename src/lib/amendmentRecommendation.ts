@@ -341,7 +341,13 @@ export function soilAmendmentInputFromLabLike(
       "h_al",
       "h+al",
     ]),
-    aluminum: getValue(["aluminum", "aluminium", "al"]),
+    aluminum: getValue(["aluminum", "aluminium", "al"]) ??
+      getValue([
+        "exchangeable_acidity",
+        "acidez_extraible",
+        "h_al",
+        "h+al",
+      ]),
     aluminumUnit: extras?.aluminumUnit,
     organicMatterPercent: getValue([
       "organic_matter",
@@ -397,8 +403,19 @@ export function soilAmendmentInputFromPdfResults(
     return null;
   };
 
-  return soilAmendmentInputFromLabLike(get, {
-    aluminumUnit: byKey.get("aluminum")?.unit,
-    cropCaViaLiming: extras?.cropCaViaLiming,
-  });
+  const aluminum =
+    get(["aluminum"]) ?? get(["exchangeable_acidity"]);
+
+  return soilAmendmentInputFromLabLike(
+    (keys) => {
+      if (keys.includes("aluminum") || keys.includes("aluminium") || keys.includes("al")) {
+        return aluminum;
+      }
+      return get(keys);
+    },
+    {
+      aluminumUnit: byKey.get("aluminum")?.unit ?? byKey.get("exchangeable_acidity")?.unit,
+      cropCaViaLiming: extras?.cropCaViaLiming,
+    }
+  );
 }

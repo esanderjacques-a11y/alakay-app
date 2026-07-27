@@ -19,6 +19,7 @@ type UnitAliasRow = {
 type ParameterAliasRow = {
   parameter_id?: number | null;
   priority?: number | null;
+  alias_type?: string | null;
   language_code?: string | null;
   language?: string | null;
   lang?: string | null;
@@ -30,6 +31,16 @@ type ParameterAliasRow = {
   display_name?: string | null;
   parameter_name?: string | null;
 };
+
+function aliasTypeRank(aliasType: string | null | undefined) {
+  const type = String(aliasType || "")
+    .trim()
+    .toLowerCase();
+  // Prefer human labels for display_name; keep symbols available later in the list.
+  if (type === "label" || type === "name" || type === "display") return 0;
+  if (type === "symbol") return 2;
+  return 1;
+}
 
 export async function loadCropAliasMap(
   language: Language,
@@ -105,7 +116,11 @@ export async function loadParameterAliasOptionsMap(
         aliasLanguage === "universal"
       );
     })
-    .sort((left, right) => (left.priority ?? 999) - (right.priority ?? 999));
+    .sort((left, right) => {
+      const typeCompare = aliasTypeRank(left.alias_type) - aliasTypeRank(right.alias_type);
+      if (typeCompare !== 0) return typeCompare;
+      return (left.priority ?? 999) - (right.priority ?? 999);
+    });
 
   for (const row of rows) {
     const parameterId = row.parameter_id;

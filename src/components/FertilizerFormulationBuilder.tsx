@@ -27,6 +27,12 @@ import {
 } from "@/lib/fertilizerFormulation";
 import { exportFormulationPdf } from "@/lib/formulationPdf";
 import type { FertilizerNutrient } from "@/lib/fertilizerCatalog";
+import type { Language } from "@/lib/i18n";
+import {
+  fertilizerSearchHaystack,
+  localizedFertilizerLabel,
+  localizedFillerLabel,
+} from "@/lib/fertilizerCatalogI18n";
 
 type PriceRow = {
   key: string;
@@ -43,9 +49,63 @@ type PriceResponse = {
   error?: string;
 };
 
+/** How the user enters product prices in the cost panel. */
+type PriceEntryUnit = "bag" | "kg" | "tonne" | "lb";
+
+const LB_PER_KG = 2.20462262185;
+
+function roundPrice(value: number, digits = 2) {
+  if (!Number.isFinite(value)) return 0;
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
+/** Convert a user-entered price in `unit` to price per bag (engine basis). */
+function toPricePerBag(
+  raw: number,
+  unit: PriceEntryUnit,
+  bagKg: number
+): number {
+  if (!(raw > 0) || !(bagKg > 0)) return 0;
+  switch (unit) {
+    case "bag":
+      return roundPrice(raw);
+    case "kg":
+      return roundPrice(raw * bagKg);
+    case "tonne":
+      return roundPrice(raw * (bagKg / 1000));
+    case "lb":
+      return roundPrice(raw * (bagKg * LB_PER_KG));
+    default:
+      return 0;
+  }
+}
+
+/** Convert online $/tonne into the selected entry unit for placeholders. */
+function fromTonneToEntryUnit(
+  pricePerMetricTonne: number,
+  unit: PriceEntryUnit,
+  bagKg: number
+): number | null {
+  if (!(pricePerMetricTonne > 0)) return null;
+  switch (unit) {
+    case "tonne":
+      return roundPrice(pricePerMetricTonne);
+    case "bag":
+      return pricePerBagFromTonne(pricePerMetricTonne, bagKg);
+    case "kg":
+      return roundPrice(pricePerMetricTonne / 1000, 4);
+    case "lb":
+      return roundPrice(pricePerMetricTonne / (1000 * LB_PER_KG), 4);
+    default:
+      return null;
+  }
+}
+
 type Props = {
   t: Record<string, string>;
   country?: string | null;
+  language?: Language;
 };
 
 type StrategyMode = "manual" | "auto" | "value";
@@ -262,7 +322,24 @@ function FilterChip({
   );
 }
 
-export default function FertilizerFormulationBuilder({ t, country }: Props) {
+export default function FertilizerFormulationBuilder({
+  t,
+  country,
+  language = "en",
+}: Props) {
+  function productName(key: string, fallback?: string | null) {
+    return localizedFertilizerLabel(key, language, fallback);
+  }
+
+  function fillerName(key: string, fallback?: string | null) {
+    return localizedFillerLabel(key, language, fallback);
+  }
+
+  function lineName(line: { productKey: string; label: string; isFiller?: boolean }) {
+    return line.isFiller
+      ? fillerName(line.productKey, line.label)
+      : productName(line.productKey, line.label);
+  }
   const [n, setN] = useState("");
   const [p2o5, setP2o5] = useState("");
   const [k2o, setK2o] = useState("");
@@ -289,7 +366,6 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
   const [productSearch, setProductSearch] = useState("");
   const [showAddFertilizer, setShowAddFertilizer] = useState(false);
   const [productPickerOpen, setProductPickerOpen] = useState(true);
-  const [saveFormulaName, setSaveFormulaName] = useState("");
   const [saveNotice, setSaveNotice] = useState("");
   /** When selected products can't hit the target, hide the recipe until a choice. */
   const [useRandomMix, setUseRandomMix] = useState(false);
@@ -298,6 +374,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
   const bestMixScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [currency, setCurrency] = useState("");
+  const [priceUnit, setPriceUnit] = useState<PriceEntryUnit>("bag");
   const [prices, setPrices] = useState<PriceResponse | null>(null);
   const [manualPrices, setManualPrices] = useState<Record<string, string>>({});
   const [bagKg] = useState(DEFAULT_FERTILIZER_BAG_KG);
@@ -342,17 +419,6 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
     return map;
   }, [prices]);
 
-  const productPrices = useMemo(
-    () =>
-      resolveProductPrices({
-        bagKg,
-        currency: displayCurrency,
-        manualPrices,
-        onlineByKey,
-      }),
-    [bagKg, displayCurrency, manualPrices, onlineByKey]
-  );
-
   const targetGrade = useMemo((): FormulationGrade => {
     const parse = (raw: string) => {
       const value = Number(String(raw).replace(",", "."));
@@ -385,6 +451,45 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
   const selectedFiller =
     INERT_FILLERS.find((item) => item.key === effectiveFillerKey) ||
     recommendedFiller;
+
+  const productPrices = useMemo(() => {
+    const base = resolveProductPrices({
+      bagKg,
+      currency: displayCurrency,
+      manualPrices: {},
+      onlineByKey,
+    });
+    const map = { ...base };
+    for (const product of listAllFertilizers()) {
+      const raw = Number(
+        String(
+          manualPrices[`price:${priceUnit}:${bagKg}:${displayCurrency}:${product.key}`] ||
+            ""
+        ).replace(",", ".")
+      );
+      if (raw > 0) {
+        map[product.key] = toPricePerBag(raw, priceUnit, bagKg);
+      }
+    }
+    const fillerRaw = Number(
+      String(
+        manualPrices[
+          `price:${priceUnit}:${bagKg}:${displayCurrency}:${effectiveFillerKey}`
+        ] || ""
+      ).replace(",", ".")
+    );
+    if (fillerRaw > 0) {
+      map[effectiveFillerKey] = toPricePerBag(fillerRaw, priceUnit, bagKg);
+    }
+    return map;
+  }, [
+    bagKg,
+    displayCurrency,
+    manualPrices,
+    onlineByKey,
+    effectiveFillerKey,
+    priceUnit,
+  ]);
 
   const batch = Number(String(batchSize).replace(",", ".")) || 0;
 
@@ -549,7 +654,20 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
   );
 
   function priceManualKey(productKey: string) {
-    return `saco:${bagKg}:${displayCurrency}:${productKey}`;
+    return `price:${priceUnit}:${bagKg}:${displayCurrency}:${productKey}`;
+  }
+
+  function priceFieldLabel() {
+    if (priceUnit === "kg") {
+      return t.fertilizerPricePerKg || "Price / kg";
+    }
+    if (priceUnit === "tonne") {
+      return t.fertilizerPricePerTonne || "Price / ton";
+    }
+    if (priceUnit === "lb") {
+      return t.fertilizerPricePerLb || "Price / lb";
+    }
+    return t.fertilizerPricePerBag || "Price / bag";
   }
 
   async function handleExportPdf() {
@@ -564,6 +682,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
           bagPrice > 0 && bagKg > 0 ? (line.kg / bagKg) * bagPrice : null;
         return {
           ...line,
+          label: lineName(line),
           displayMass: recipeMass(line.kg),
           percent,
           bagPrice: bagPrice > 0 ? bagPrice : null,
@@ -609,7 +728,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
           productionScale > 0 && Math.abs(productionScale - 1) > 0.001
             ? {
                 lines: result.lines.map((line) => ({
-                  label: line.label,
+                  label: lineName(line),
                   mass: displayMass(line.kg, true),
                   isFiller: line.isFiller,
                 })),
@@ -638,10 +757,6 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
 
   function setAllProducts(on: boolean) {
     setSelectedKeys(on ? catalog.map((p) => p.key) : []);
-  }
-
-  function autofillFiller() {
-    setFillerChoice(FILLER_AUTO);
   }
 
   function switchToBestMix() {
@@ -708,11 +823,15 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
       }
       // Pure nutrient token (e.g. "N", "P2O5") → only nutrient filter.
       if (nutrientMatches.length > 0) return false;
-      const haystack = `${product.label} ${product.analysis} ${product.key}`
-        .toLocaleLowerCase();
+      const haystack = fertilizerSearchHaystack(
+        product.key,
+        product.analysis,
+        language,
+        product.label
+      );
       return haystack.includes(text);
     });
-  }, [catalog, productSearch]);
+  }, [catalog, productSearch, language]);
 
   const productsByCategory = useMemo(() => {
     const groups = new Map<ProductCategoryId, typeof filteredProducts>();
@@ -768,9 +887,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
 
   function handleSaveFormula() {
     if (!result.feasible) return;
-    const name =
-      saveFormulaName.trim() ||
-      `${t.fertilizerFormulationFormulaPrefix || "Formula"} ${result.gradeLabel}`;
+    const name = `${t.fertilizerFormulationFormulaPrefix || "Formula"} ${result.gradeLabel}`;
     const product = upsertCustomFertilizer({
       label: name,
       grade: result.outputGrade,
@@ -782,7 +899,6 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
         : [...previous, product.key]
     );
     refreshCatalog();
-    setSaveFormulaName("");
     setSaveNotice(
       t.fertilizerFormulationSaved ||
         "Formula saved. It is now available in fertilizer lists."
@@ -923,7 +1039,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                         key={`picked-${product.key}`}
                         className="rounded-full border border-emerald-900/15 bg-white/80 px-2 py-0.5 text-[10px] font-medium text-green-950 dark:border-white/10 dark:bg-white/10 dark:text-slate-100"
                       >
-                        {product.label}
+                        {productName(product.key, product.label)}
                       </li>
                     ))}
                   </ul>
@@ -1011,8 +1127,12 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                       <ul className="formulation-product-grid grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4">
                         {group.products.map((product) => {
                           const checked = selectedKeys.includes(product.key);
+                          const displayLabel = productName(
+                            product.key,
+                            product.label
+                          );
                           const showAnalysis = analysisAddsInfo(
-                            product.label,
+                            displayLabel,
                             product.analysis
                           );
                           return (
@@ -1022,7 +1142,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                                 onClick={() => toggleProduct(product.key)}
                                 aria-pressed={checked}
                                 title={productDisplayTitle(
-                                  product.label,
+                                  displayLabel,
                                   product.analysis
                                 )}
                                 className={[
@@ -1038,7 +1158,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                                       checked ? "text-white" : "dark-text-primary"
                                     }
                                   >
-                                    {product.label}
+                                    {displayLabel}
                                   </span>
                                   {showAnalysis ? (
                                     <span
@@ -1195,14 +1315,17 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                           </span>
                         </p>
                         <ul className="formulation-best-mix-card__list">
-                          {products.map((line) => (
+                          {products.map((line) => {
+                            const name = lineName(line);
+                            return (
                             <li key={`${index}-${line.productKey}`}>
-                              {line.label}
-                              {analysisAddsInfo(line.label, line.analysis)
+                              {name}
+                              {analysisAddsInfo(name, line.analysis)
                                 ? ` · ${line.analysis}`
                                 : ""}
                             </li>
-                          ))}
+                            );
+                          })}
                         </ul>
                       </button>
                     );
@@ -1244,14 +1367,16 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
               <ul className="grid gap-1">
                 {result.lines
                   .filter((line) => !line.isFiller)
-                  .map((line) => (
+                  .map((line) => {
+                    const name = lineName(line);
+                    return (
                     <li
                       key={`mix-${line.productKey}`}
                       className="rounded-lg border border-emerald-900/10 bg-white/50 px-2.5 py-1.5 text-xs dark:border-white/10 dark:bg-white/5"
                     >
                       <p className="truncate text-green-950 dark-text-primary">
-                        <span className="font-semibold">{line.label}</span>
-                        {analysisAddsInfo(line.label, line.analysis) ? (
+                        <span className="font-semibold">{name}</span>
+                        {analysisAddsInfo(name, line.analysis) ? (
                           <span className="text-slate-500 dark:text-slate-400">
                             {" · "}
                             {line.analysis}
@@ -1259,7 +1384,8 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                         ) : null}
                       </p>
                     </li>
-                  ))}
+                    );
+                  })}
               </ul>
             ) : (
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -1292,18 +1418,9 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
 
         {finishMode === "filler" ? (
           <div className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
-                {t.fertilizerFormulationFiller || "Filler"}
-              </p>
-              <button
-                type="button"
-                className="rounded-xl bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-900"
-                onClick={autofillFiller}
-              >
-                {t.fertilizerFormulationAutofill || "Autofill filler"}
-              </button>
-            </div>
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
+              {t.fertilizerFormulationFiller || "Filler"}
+            </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {t.fertilizerFormulationFillerHint ||
                 "Auto picks the best inert filler so the blend reaches 100 kg. Amount shows in the recipe."}
@@ -1314,11 +1431,14 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
               options={[
                 [
                   FILLER_AUTO,
-                  `${t.fertilizerFormulationFillerAuto || "Auto (recommended)"} · ${recommendedFiller.label}`,
+                  `${t.fertilizerFormulationFillerAuto || "Auto (recommended)"} · ${fillerName(recommendedFiller.key, recommendedFiller.label)}`,
                 ] as [string, string],
                 ...INERT_FILLERS.map(
                   (filler) =>
-                    [filler.key, filler.label] as [string, string]
+                    [
+                      filler.key,
+                      fillerName(filler.key, filler.label),
+                    ] as [string, string]
                 ),
               ]}
               onChange={setFillerChoice}
@@ -1329,7 +1449,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
               result.fillerMassKg > 0.05 ? (
                 <p className="rounded-lg border border-emerald-900/10 bg-white/50 px-2.5 py-2 text-xs dark:border-white/10 dark:bg-white/5">
                   <span className="font-semibold text-green-950 dark-text-primary">
-                    {selectedFiller.label}
+                    {fillerName(selectedFiller.key, selectedFiller.label)}
                   </span>
                   <span className="text-slate-500">
                     {" · "}
@@ -1514,7 +1634,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
 
             {result.feasible ? (
               <>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <button
                     type="button"
                     className="text-xs font-semibold text-emerald-800 underline"
@@ -1524,7 +1644,20 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                       ? t.fertilizerFormulationHideCosts || "Hide costs"
                       : t.fertilizerFormulationShowCosts || "Show costs"}
                   </button>
+                  <button
+                    type="button"
+                    className="rounded-xl bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-900"
+                    onClick={handleSaveFormula}
+                  >
+                    {t.fertilizerFormulationSaveFormulaAction ||
+                      "Save as fertilizer"}
+                  </button>
                 </div>
+                {saveNotice ? (
+                  <p className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                    {saveNotice}
+                  </p>
+                ) : null}
 
                 {showCosts ? (
                   <div className="space-y-2 rounded-xl border border-emerald-900/10 bg-white/50 p-3 dark:border-white/10 dark:bg-white/5">
@@ -1534,6 +1667,35 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                         value={displayCurrency}
                         options={currencyOptions}
                         onChange={setCurrency}
+                        compact
+                        variant="field"
+                      />
+                      <MenuSelect
+                        label={
+                          t.fertilizerFormulationPriceUnit || "Price unit"
+                        }
+                        value={priceUnit}
+                        options={[
+                          [
+                            "bag",
+                            t.fertilizerFormulationPriceUnitBag || "Bags",
+                          ],
+                          [
+                            "kg",
+                            t.fertilizerFormulationPriceUnitKg || "Kilograms",
+                          ],
+                          [
+                            "tonne",
+                            t.fertilizerFormulationPriceUnitTonne || "Tons",
+                          ],
+                          [
+                            "lb",
+                            t.fertilizerFormulationPriceUnitLb || "Pounds",
+                          ],
+                        ]}
+                        onChange={(value) =>
+                          setPriceUnit(value as PriceEntryUnit)
+                        }
                         compact
                         variant="field"
                       />
@@ -1548,29 +1710,34 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                       ) : (
                         <p className="text-xs text-slate-500 dark:text-slate-400">
                           {t.fertilizerFormulationCostHint ||
-                            "Enter bag prices below to estimate formulation cost."}
+                            "Enter prices below to estimate formulation cost."}
                         </p>
                       )}
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="grid gap-2">
                       {usedProductLines.map((line) => {
                         const manualKey = priceManualKey(line.productKey);
                         const online = prices?.products.find(
                           (row) => row.key === line.productKey
                         );
-                        const onlineBag = pricePerBagFromTonne(
+                        const onlineInUnit = fromTonneToEntryUnit(
                           online?.pricePerMetricTonne || 0,
+                          priceUnit,
                           bagKg
                         );
+                        const name = lineName(line);
                         return (
                           <label
                             key={`cost-${line.productKey}`}
-                            className="calc-field-label grid gap-1"
+                            className="formulation-price-row"
                           >
-                            {`${line.label} — ${t.fertilizerPricePerBag || "Price / bag"} (${displayCurrency})`}
+                            <span className="formulation-price-row__name">
+                              {name}
+                            </span>
                             <input
-                              className="calc-field-input"
+                              className="calc-field-input formulation-price-row__input"
                               inputMode="decimal"
+                              aria-label={`${name} — ${priceFieldLabel()} (${displayCurrency})`}
                               value={manualPrices[manualKey] || ""}
                               onChange={(event) =>
                                 setManualPrices((previous) => ({
@@ -1579,45 +1746,46 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                                 }))
                               }
                               placeholder={
-                                onlineBag != null
-                                  ? String(onlineBag)
+                                onlineInUnit != null
+                                  ? String(onlineInUnit)
                                   : t.fertilizerManualPrice || "Manual price"
                               }
                             />
                           </label>
                         );
                       })}
+                      {finishMode === "filler" && result.fillerMassKg > 0.05 ? (
+                        <label className="formulation-price-row">
+                          <span className="formulation-price-row__name">
+                            {fillerName(selectedFiller.key, selectedFiller.label)}
+                          </span>
+                          <input
+                            className="calc-field-input formulation-price-row__input"
+                            inputMode="decimal"
+                            aria-label={`${fillerName(selectedFiller.key, selectedFiller.label)} — ${priceFieldLabel()} (${displayCurrency})`}
+                            value={
+                              manualPrices[
+                                priceManualKey(selectedFiller.key)
+                              ] || ""
+                            }
+                            onChange={(event) =>
+                              setManualPrices((previous) => ({
+                                ...previous,
+                                [priceManualKey(selectedFiller.key)]:
+                                  event.target.value,
+                              }))
+                            }
+                            placeholder={
+                              t.fertilizerFormulationFillerPricePlaceholder ||
+                              "0 (optional)"
+                            }
+                          />
+                        </label>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}
 
-                <div className="flex flex-wrap items-end gap-2 rounded-xl border border-emerald-900/10 bg-white/50 p-3 dark:border-white/10 dark:bg-white/5">
-                  <label className="calc-field-label grid min-w-[12rem] flex-1 gap-1">
-                    {t.fertilizerFormulationSaveFormula ||
-                      "Save formula to fertilizer lists"}
-                    <input
-                      className="calc-field-input"
-                      value={saveFormulaName}
-                      onChange={(event) =>
-                        setSaveFormulaName(event.target.value)
-                      }
-                      placeholder={`${t.fertilizerFormulationFormulaPrefix || "Formula"} ${result.gradeLabel}`}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className="rounded-xl bg-emerald-800 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-900"
-                    onClick={handleSaveFormula}
-                  >
-                    {t.fertilizerFormulationSaveFormulaAction ||
-                      "Save as fertilizer"}
-                  </button>
-                </div>
-                {saveNotice ? (
-                  <p className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
-                    {saveNotice}
-                  </p>
-                ) : null}
                 <ul className="grid">
                   {result.lines.map((line, index) => {
                     const pct =
@@ -1625,6 +1793,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                         ? (line.kg / result.batchMassKg) * 100
                         : 0;
                     const mass = recipeMass(line.kg);
+                    const name = lineName(line);
                     return (
                       <li
                         key={`${line.productKey}-${index}`}
@@ -1636,13 +1805,13 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                       >
                         <div className="min-w-0">
                           <p className="font-semibold text-green-950 dark-text-primary">
-                            {line.label}
+                            {name}
                             {line.isFiller ? (
                               <span className="ml-1 font-normal text-slate-500">
                                 ·{" "}
                                 {t.fertilizerFormulationFillerTag || "filler"}
                               </span>
-                            ) : analysisAddsInfo(line.label, line.analysis) ? (
+                            ) : analysisAddsInfo(name, line.analysis) ? (
                               <span className="font-normal text-slate-500">
                                 {" "}
                                 · {line.analysis}
@@ -1670,11 +1839,11 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                   </span>
                 </div>
                 {finishMode === "filler" && result.fillerMassKg > 0.05 ? (
-                  <p className="rounded-lg border border-emerald-900/15 bg-emerald-50/70 px-2.5 py-2 text-xs dark:border-emerald-400/20 dark:bg-emerald-950/30">
-                    <span className="font-semibold text-emerald-900 dark:text-emerald-200">
-                      {selectedFiller.label}
+                  <p className="rounded-lg border border-emerald-900/20 bg-white/90 px-2.5 py-2 text-xs dark:border-white/20 dark:bg-zinc-900/80">
+                    <span className="font-semibold text-green-950 dark-text-primary">
+                      {fillerName(selectedFiller.key, selectedFiller.label)}
                     </span>
-                    <span className="text-slate-600 dark:text-slate-300">
+                    <span className="text-slate-700 dark:text-slate-200">
                       {" · "}
                       {t.fertilizerFormulationFillerTag || "filler"}
                       {": "}
@@ -1800,7 +1969,7 @@ export default function FertilizerFormulationBuilder({ t, country }: Props) {
                         }`}
                       >
                         <p className="font-semibold text-green-950 dark-text-primary">
-                          {line.label}
+                          {lineName(line)}
                           {line.isFiller
                             ? ` · ${t.fertilizerFormulationFillerTag || "filler"}`
                             : ""}

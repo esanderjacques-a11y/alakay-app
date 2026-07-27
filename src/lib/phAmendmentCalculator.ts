@@ -14,7 +14,101 @@ export type PhAmendmentMethod =
   | "gypsum"
   | "sulfur";
 
-export type PhAmendmentMaterial = "calcitic_lime" | "dolomitic_lime";
+/** Top-level UI modes for the amendment calculator. */
+export type PhAmendUiMode = "gypsum" | "calcium" | "other";
+
+export const PH_AMEND_CALCIUM_METHODS: PhAmendmentMethod[] = [
+  "ca_saturation",
+  "base_saturation",
+];
+
+export const PH_AMEND_OTHER_METHODS: PhAmendmentMethod[] = [
+  "exchangeable_acidity",
+  "target_ph",
+  "sulfur",
+];
+
+export type PhAmendModeApplicability = {
+  ok: boolean;
+  /** i18n key explaining why the mode cannot be applied (when ok is false). */
+  reasonKey: string | null;
+};
+
+export function recommendPhAmendUiMode(input: {
+  needsGypsum: boolean;
+  needsLime: boolean;
+  sodic: boolean;
+  caDeficit: boolean;
+  currentPh: number;
+}): PhAmendUiMode {
+  // Sodicity / Ca without liming pathway → gypsum first.
+  if (input.needsGypsum) return "gypsum";
+  // Low V% / Ca + acidity → lime (Ca for pH / CICe balance).
+  if (input.needsLime) return "calcium";
+  // Alkaline soils → other methods (sulfur).
+  if (Number.isFinite(input.currentPh) && input.currentPh > 7.5) return "other";
+  // Explore Ca balance by default when chemistry is already sufficient.
+  return "calcium";
+}
+
+export function phAmendUiModeApplicability(
+  mode: PhAmendUiMode,
+  input: {
+    needsGypsum: boolean;
+    needsLime: boolean;
+    sodic: boolean;
+    caDeficit: boolean;
+    noLimeOrGypsum: boolean;
+    insufficientData: boolean;
+    currentPh: number;
+  }
+): PhAmendModeApplicability {
+  if (mode === "other") {
+    return { ok: true, reasonKey: null };
+  }
+
+  if (mode === "gypsum") {
+    if (input.needsGypsum) return { ok: true, reasonKey: null };
+    if (input.insufficientData) {
+      return { ok: false, reasonKey: "phAmendModeGypsumNeedData" };
+    }
+    if (input.needsLime) {
+      return { ok: false, reasonKey: "phAmendModeGypsumBlockedLime" };
+    }
+    if (input.noLimeOrGypsum) {
+      return { ok: false, reasonKey: "phAmendModeGypsumBlockedOk" };
+    }
+    return { ok: false, reasonKey: "phAmendModeGypsumBlockedOk" };
+  }
+
+  // calcium (lime / Ca saturation for pH raise or CICe Ca balance)
+  if (input.needsLime) return { ok: true, reasonKey: null };
+  if (input.insufficientData) {
+    return { ok: false, reasonKey: "phAmendModeCalciumNeedData" };
+  }
+  if (input.needsGypsum && !input.needsLime) {
+    return { ok: false, reasonKey: "phAmendModeCalciumBlockedGypsum" };
+  }
+  if (input.noLimeOrGypsum) {
+    return { ok: false, reasonKey: "phAmendModeCalciumBlockedOk" };
+  }
+  return { ok: false, reasonKey: "phAmendModeCalciumBlockedOk" };
+}
+
+export function defaultMethodForUiMode(
+  mode: PhAmendUiMode,
+  currentPh: number
+): PhAmendmentMethod {
+  if (mode === "gypsum") return "gypsum";
+  if (mode === "calcium") return "ca_saturation";
+  if (Number.isFinite(currentPh) && currentPh > 7.5) return "sulfur";
+  return "target_ph";
+}
+
+export type PhAmendmentMaterial =
+  | "calcitic_lime"
+  | "dolomitic_lime"
+  | "calcium_oxide";
 
 export type SoilTexture = "sand" | "sandy_loam" | "loam" | "clay_loam" | "clay";
 
@@ -312,10 +406,7 @@ export function calculateCalFromCaSaturation(input: {
   const bulkDensity = Math.max(0.1, Number(input.bulkDensity) || 1);
   const prnt = Math.max(1, Number(input.prntPercent) || 100);
   const material = input.material || "calcitic_lime";
-  const caoPercent =
-    material === "dolomitic_lime"
-      ? TABLE_12_AMENDMENTS.dolomita.caoPercent
-      : TABLE_12_AMENDMENTS.cal_agricola.caoPercent;
+  const caoPercent = limeMaterialCaoPercent(material);
 
   const caCurrentPercent = cice > 0 ? (ca / cice) * 100 : 0;
   const caTargetCmol = cice * (targetPct / 100);
@@ -518,12 +609,21 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
         explanationKey = "phAmendExplainGypsum";
         break;
       }
-      // Prefer Al-based gypsum rate when Al is present; otherwise Ca-deficit path uses cal method with gypsum CaO%.
-      const al = input.exchangeableAl ?? 0;
+      // Prefer Al-based gypsum rate when Al is present; if Al is missing, use
+      // extractable acidity (H+Al) as proxy. Otherwise Ca-deficit path uses cal→gypsum.
+      const al =
+        (input.exchangeableAl ?? 0) > 0
+          ? Number(input.exchangeableAl)
+          : (input.exchangeableAcidity ?? 0) > 0
+            ? Number(input.exchangeableAcidity)
+            : 0;
       detailCurrent = al;
       if (al > 0) {
         baseRequirementTha = al * 1.72 * df;
-        formula = "Al × 1.72 × (Depth / 10) × (BD / 1.3)";
+        formula =
+          (input.exchangeableAl ?? 0) > 0
+            ? "Al × 1.72 × (Depth / 10) × (BD / 1.3)"
+            : "Extractable acidity (H+Al) × 1.72 × (Depth / 10) × (BD / 1.3)";
       } else if (gate.caDeficit && (input.cec ?? 0) > 0 && Number.isFinite(input.caCmol)) {
         const gypsumCal = calculateCalFromCaSaturation({
           cice: input.cec!,
@@ -612,7 +712,25 @@ export function calculatePhAmendment(input: PhAmendmentInput): {
 export const LIME_MATERIAL_CAO_PERCENT: Record<PhAmendmentMaterial, number> = {
   calcitic_lime: 40,
   dolomitic_lime: 30,
+  /** Pure / labeled CaO (cal viva) — dose ≈ CaO requirement at 100% PRNT. */
+  calcium_oxide: 100,
 };
+
+export function limeMaterialCaoPercent(material: PhAmendmentMaterial): number {
+  if (material === "dolomitic_lime") {
+    return TABLE_12_AMENDMENTS.dolomita.caoPercent;
+  }
+  if (material === "calcium_oxide") {
+    return LIME_MATERIAL_CAO_PERCENT.calcium_oxide;
+  }
+  return TABLE_12_AMENDMENTS.cal_agricola.caoPercent;
+}
+
+export function defaultPrntForLimeMaterial(material: PhAmendmentMaterial): number {
+  if (material === "dolomitic_lime") return 75;
+  if (material === "calcium_oxide") return 100;
+  return 90;
+}
 
 export type CropCaoLimeRequirement = {
   cropLabel: string;

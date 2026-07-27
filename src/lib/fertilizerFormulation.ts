@@ -742,6 +742,21 @@ function recipeCost(
   );
 }
 
+function formulationLinesCost(
+  lines: FormulationLine[],
+  prices: Record<string, number>,
+  bagKg: number
+) {
+  if (!(bagKg > 0)) return 0;
+  return round2(
+    lines.reduce((sum, line) => {
+      const price = prices[line.productKey] || 0;
+      if (!(price > 0)) return sum;
+      return sum + (line.kg / bagKg) * price;
+    }, 0)
+  );
+}
+
 function nutrientsFromLines(lines: RawLine[]): FormulationGrade {
   const delivered: FormulationGrade = {};
   for (const line of lines) {
@@ -873,6 +888,8 @@ function finalizeFormulationResult(args: {
       }
     }
 
+    const totalCost = formulationLinesCost(lines, prices, bagKg);
+
     return {
       feasible: true,
       exactMatch,
@@ -888,7 +905,7 @@ function finalizeFormulationResult(args: {
       scaleFactor: 1,
       unmet,
       unmetLabels: unmetLabelsFrom(unmet),
-      estimatedCost: best.cost > 0 ? best.cost : null,
+      estimatedCost: totalCost > 0 ? totalCost : null,
       fillers,
     };
   }

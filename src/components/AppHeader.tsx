@@ -11,7 +11,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  CreditCard,
   Globe,
   Info,
   Landmark,
@@ -35,7 +34,6 @@ import LanguageFlag from "@/components/LanguageFlag";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
 import { getLocalBillingBundle } from "@/lib/billing";
-import { getBillingText } from "@/lib/i18n/billingText";
 import type { JackoAppContext } from "@/lib/jackoContext";
 import { Language, Translation } from "@/lib/translations";
 
@@ -54,7 +52,6 @@ type Props = {
   onOpenSettings: () => void;
   onOpenAccountSettings?: () => void;
   settingsActive?: boolean;
-  onOpenBilling: () => void;
   onOpenRecycleBin: () => void;
   onOpenCustomData: () => void;
   onOpenAbout: () => void;
@@ -66,7 +63,6 @@ type Props = {
   theme: "light" | "dark";
   onToggleTheme: () => void;
   isAdmin?: boolean;
-  planTier?: import("@/lib/appSettings").PlanTier;
   jackoContext?: JackoAppContext | null;
 };
 
@@ -97,7 +93,6 @@ export default function AppHeader({
   onOpenSettings,
   onOpenAccountSettings,
   settingsActive = false,
-  onOpenBilling,
   onOpenRecycleBin,
   onOpenCustomData,
   onOpenAbout,
@@ -109,10 +104,8 @@ export default function AppHeader({
   theme,
   onToggleTheme,
   isAdmin = false,
-  planTier,
   jackoContext = null,
 }: Props) {
-  const billingLabels = getBillingText(language);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuPresence = useAnimatedPresence(mobileMenuOpen, 220);
   const [mobileLanguageOpen, setMobileLanguageOpen] = useState(false);
@@ -479,23 +472,6 @@ export default function AppHeader({
                     onClick={() => {
                       closeMobileMenu();
                       onOpenNotifications();
-                    }}
-                  />
-                </div>
-
-                <div className="mobile-menu-panel__divider" />
-
-                <div className="px-2 py-1">
-                  <p className="mobile-menu-panel__section-label">
-                    {billingLabels.menu}
-                  </p>
-                  <MenuRow
-                    icon={<CreditCard size={17} />}
-                    title={billingLabels.menu}
-                    rightIcon={<ChevronRight size={15} />}
-                    onClick={() => {
-                      closeMobileMenu();
-                      onOpenBilling();
                     }}
                   />
                 </div>

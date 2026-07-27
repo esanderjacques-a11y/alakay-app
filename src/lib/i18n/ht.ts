@@ -223,6 +223,18 @@
   cropLoadingError: "Erè pandan chajman plant yo",
 
   analysisSummary: "Rezime analiz la",
+  waterQualityTitle: "Endis dlo irigasyon",
+  waterQualityDesc:
+    "Kalkile ak metòd EARTH Inite 4 (Villaseñor): sèl, RAS, dite, Kelly ak klas C–S.",
+  waterSaltConc: "Konsantrasyon sèl",
+  waterRas: "RAS / SAR",
+  waterHardness: "Dite",
+  waterKelly: "Endèks Kelly",
+  waterClassCS: "Klas dlo (C–S)",
+  waterSeverity: "Severite",
+  waterSeverityNone: "Okenn",
+  waterSeverityModerate: "Modere",
+  waterSeverityHigh: "Wo",
   needsAttention: "Bezwen atansyon",
   needsAttentionDesc:
     "Valè sa yo ka bezwen koreksyon oswa plis verifikasyon.",
@@ -596,8 +608,8 @@
   noInProgressDetail:
     "Pa gen analiz an kou. Kòmanse yon nouvo analiz oswa enpòte valè anvan.",
 
-  about: "SOU",
-  aboutTitle: "SOU",
+  about: "Sou",
+  aboutTitle: "Sou",
   aboutTagline: "Entelijans tè pou chak kiltivatè",
   aboutIntro:
     "Te kòmanse nan yon sal klas kòm yon zouti pou devwa, li evolye nan yon zouti pou entèprete analiz tè pou pwodiktè yo, epi kounye a se yon platfòm miltifonksyonèl.",
@@ -1112,20 +1124,31 @@
       "Sijere soti nan kalandriye fètilizasyon ou — modifye anvan ou sove.",
     recommendedBadge: "Sijere",
     notificationsTitle: "Notifikasyon",
-    notificationsDesc: "Rapèl, dat kalandriye, ak konsèy planifikasyon.",
+    notificationsDesc:
+      "Avètisman pou jodi a ak kèk èdtan kap vini — pa pou mwa nan lavni. Aplikasyon kalandriye yo raple ou anviron 18 èdtan anvan.",
     unreadCount: "{count} an reta",
     allCaughtUp: "Ou a jou",
     markAllRead: "Make tout li",
-    emptyNotifications: "Poko gen notifikasyon.",
+    emptyNotifications: "Poko gen rapèl ki dwe oswa k ap vini.",
+    notifGroupUpcoming: "Kap vini",
     notifGroupToday: "Jodi a",
     notifGroupYesterday: "Ye",
     notifGroupThisWeek: "Semèn sa a",
     notifGroupThisMonth: "Mwa sa a",
     notifGroupOlder: "Anvan yo",
+    notifSoon: "Talè",
+    notifSwipeHint: "Glise adwat pou efase",
     clearNotification: "Efase",
     clearAllNotifications: "Efase tout",
     clearAllNotificationsConfirm:
       "Efase tout notifikasyon yo? Ou pa ka defèt aksyon sa a.",
+    enablePhoneNotifications: "Notifikasyon telefòn",
+    enablePhoneNotificationsAction: "Aktive",
+    phoneNotificationsHint:
+      "Pèmèt Cultosol avèti ou sou telefòn sa a lè yon aplikasyon ap vini.",
+    phoneNotificationsEnabled: "Avètisman telefòn aktif",
+    phoneNotificationsDenied:
+      "Notifikasyon yo bloke. Aktive yo nan navigatè a oswa nan paramèt telefòn nan.",
   },
 
 

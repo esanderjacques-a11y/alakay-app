@@ -198,3 +198,49 @@ self.addEventListener("message", (event) => {
     void self.skipWaiting();
   }
 });
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const data = event.notification.data || {};
+  const targetUrl =
+    typeof data.url === "string" && data.url
+      ? data.url
+      : data.step
+        ? `/?step=${encodeURIComponent(data.step)}${
+            data.relatedId
+              ? `&related=${encodeURIComponent(data.relatedId)}`
+              : ""
+          }${data.notifId ? `&notif=${encodeURIComponent(data.notifId)}` : ""}`
+        : "/?step=notifications";
+
+  event.waitUntil(
+    (async () => {
+      const allClients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      for (const client of allClients) {
+        if ("focus" in client) {
+          await client.focus();
+          if ("navigate" in client) {
+            try {
+              await client.navigate(targetUrl);
+            } catch {
+              /* ignore navigate errors on older browsers */
+            }
+          }
+          client.postMessage({
+            type: "CULTOSOL_OPEN_STEP",
+            step: data.step || "notifications",
+            relatedId: data.relatedId || null,
+            notifId: data.notifId || null,
+          });
+          return;
+        }
+      }
+      if (self.clients.openWindow) {
+        await self.clients.openWindow(targetUrl);
+      }
+    })()
+  );
+});

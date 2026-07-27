@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import {
   adjustStock,
   farmStockValuation,
+  inventoryUsesBodegaFallback,
   listLowStock,
   listMovements,
   listProducts,
   receiveStock,
+  resetInventorySchemaProbe,
   transferStock,
   upsertProduct,
   useStock,
@@ -69,6 +71,7 @@ export default function InventoryScreen({
   const [farms, setFarms] = useState<FarmRecord[]>([]);
   const [valuation, setValuation] = useState(0);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
   const [productName, setProductName] = useState("");
   const [catalogKey, setCatalogKey] = useState("");
@@ -89,8 +92,11 @@ export default function InventoryScreen({
   );
 
   async function reload() {
+    setError("");
+    setInfo("");
+    resetInventorySchemaProbe();
     const [p, m, low, farmList, value] = await Promise.all([
-      listProducts(userId),
+      listProducts(userId, farmId),
       listMovements(userId, farmId),
       listLowStock(userId, farmId),
       listUserFarms(userId),
@@ -102,6 +108,12 @@ export default function InventoryScreen({
     setFarms(farmList);
     setValuation(value);
     if (!selectedProductId && p[0]) setSelectedProductId(p[0].id);
+    // Only surface a soft note if the remote ledger is still missing.
+    setInfo(
+      inventoryUsesBodegaFallback()
+        ? "Using farm bodega stock for now. Movement history needs the inventory ledger on the server."
+        : ""
+    );
   }
 
   useEffect(() => {
@@ -124,6 +136,7 @@ export default function InventoryScreen({
         productKey: key,
         minStock: Number(minStock) || 0,
         unitCost: unitCost ? Number(unitCost) : null,
+        farmId,
       });
       setProductName("");
       setCatalogKey("");
@@ -254,6 +267,11 @@ export default function InventoryScreen({
       {error ? (
         <p className="text-sm text-red-600" role="alert">
           {error}
+        </p>
+      ) : null}
+      {info ? (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-50/80 px-3 py-2 text-sm text-amber-950 dark:border-amber-400/20 dark:bg-amber-950/30 dark:text-amber-100">
+          {info}
         </p>
       ) : null}
 

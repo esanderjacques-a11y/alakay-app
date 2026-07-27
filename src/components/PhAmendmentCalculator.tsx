@@ -7,15 +7,23 @@ import {
   calculatePhAmendment,
   convertPhAmendmentPlotTotal,
   convertPhAmendmentUnit,
+  defaultMethodForUiMode,
   formatPhAmendmentDisplay,
   methodRaisesPh,
   phAmendmentUnitLabel,
+  phAmendUiModeApplicability,
+  recommendPhAmendUiMode,
   DEFAULT_CA_SATURATION_TARGET,
   PH_AMENDMENT_OUTPUT_UNITS,
+  PH_AMEND_CALCIUM_METHODS,
+  PH_AMEND_OTHER_METHODS,
+  defaultPrntForLimeMaterial,
   suggestBaseSaturationTarget,
+  type PhAmendUiMode,
   type PhAmendmentMaterial,
   type PhAmendmentMethod,
   type PhAmendmentOutputUnit,
+  type PhAmendmentResult,
   type SoilTexture,
 } from "@/lib/phAmendmentCalculator";
 import { assessAmendmentChemistry } from "@/lib/amendmentRecommendation";
@@ -38,14 +46,202 @@ type Props = {
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
 };
 
-const METHOD_OPTIONS: PhAmendmentMethod[] = [
-  "ca_saturation",
-  "base_saturation",
-  "exchangeable_acidity",
-  "target_ph",
-  "gypsum",
-  "sulfur",
-];
+const OTHER_METHOD_OPTIONS: PhAmendmentMethod[] = PH_AMEND_OTHER_METHODS;
+const CALCIUM_METHOD_OPTIONS: PhAmendmentMethod[] = PH_AMEND_CALCIUM_METHODS;
+
+function fillPhAmendTemplate(
+  template: string,
+  vars: Record<string, string | number | undefined>
+) {
+  return template.replace(/\{(\w+)\}/g, (_, key: string) => {
+    const value = vars[key];
+    return value === undefined || value === null ? "" : String(value);
+  });
+}
+
+function shortMaterialLabel(material: PhAmendmentMaterial, t: Record<string, string>) {
+  if (material === "dolomitic_lime") {
+    return t.phAmendMaterialDolomiticShort || t.phAmendMaterialDolomitic || "Dolomitic lime";
+  }
+  if (material === "calcium_oxide") {
+    return t.phAmendMaterialCaoShort || t.phAmendMaterialCao || "CaO";
+  }
+  return t.phAmendMaterialCalciticShort || t.phAmendMaterialCalcitic || "Agricultural lime";
+}
+
+type FriendlyPhAmendRecommendation = {
+  summary: string;
+  howToApply: string;
+  considerations: string;
+};
+
+function buildFriendlyPhAmendRecommendation(
+  result: PhAmendmentResult,
+  t: Record<string, string>,
+  opts: {
+    doseDisplay: string;
+    unitLabel: string;
+    depthCm?: number;
+    doseTha?: number;
+  }
+): FriendlyPhAmendRecommendation {
+  const materialName = result.material
+    ? shortMaterialLabel(result.material, t)
+    : t.amendmentMaterial || "amendment";
+  const depth = Math.max(1, Math.round(opts.depthCm || 15));
+  const doseTha = opts.doseTha ?? 0;
+  const highDose = doseTha >= 3;
+
+  const lead =
+    result.method === "gypsum"
+      ? fillPhAmendTemplate(
+          t.phAmendRecLeadGypsum || "Apply {dose} {unit} of gypsum.",
+          { dose: opts.doseDisplay, unit: opts.unitLabel }
+        )
+      : result.method === "sulfur"
+        ? fillPhAmendTemplate(
+            t.phAmendRecLeadSulfur || "Apply {dose} {unit} of elemental sulfur.",
+            { dose: opts.doseDisplay, unit: opts.unitLabel }
+          )
+        : fillPhAmendTemplate(
+            t.phAmendRecLeadLime || "Apply {dose} {unit} of {material}.",
+            {
+              dose: opts.doseDisplay,
+              unit: opts.unitLabel,
+              material: materialName,
+            }
+          );
+
+  const summaryParts = [lead];
+
+  if (
+    result.method === "ca_saturation" &&
+    result.detailCurrent !== undefined &&
+    result.detailTarget !== undefined
+  ) {
+    summaryParts.push(
+      fillPhAmendTemplate(
+        t.phAmendRecDetailCaSat ||
+          "Current Ca saturation is {current}%; target is {target}%.",
+        {
+          current: Math.round(result.detailCurrent * 10) / 10,
+          target: Math.round(result.detailTarget * 10) / 10,
+        }
+      )
+    );
+  } else if (
+    result.method === "base_saturation" &&
+    result.detailCurrent !== undefined &&
+    result.detailTarget !== undefined
+  ) {
+    summaryParts.push(
+      fillPhAmendTemplate(
+        t.phAmendRecDetailBaseSat ||
+          "Current base saturation (V%) is {current}%; target is {target}%.",
+        {
+          current: Math.round(result.detailCurrent * 10) / 10,
+          target: Math.round(result.detailTarget * 10) / 10,
+        }
+      )
+    );
+  } else if (
+    (result.method === "target_ph" || result.method === "sulfur") &&
+    result.detailCurrent !== undefined &&
+    result.detailTarget !== undefined
+  ) {
+    summaryParts.push(
+      fillPhAmendTemplate(
+        t.phAmendRecDetailPh || "Soil pH {current} → target {target}.",
+        {
+          current: Math.round(result.detailCurrent * 100) / 100,
+          target: Math.round(result.detailTarget * 100) / 100,
+        }
+      )
+    );
+  } else if (result.method === "gypsum") {
+    summaryParts.push(
+      t.phAmendRecDetailGypsum ||
+        "Supplies Ca and helps with Al / Na without raising pH much."
+    );
+  } else if (result.method === "exchangeable_acidity") {
+    summaryParts.push(
+      t.phAmendRecDetailAcidity ||
+        "Dose follows exchangeable acidity (H+Al) for the incorporation depth."
+    );
+  }
+
+  if (
+    result.adjustedRequirementTha !== undefined &&
+    result.ccePercent !== undefined &&
+    methodRaisesPh(result.method)
+  ) {
+    summaryParts.push(
+      fillPhAmendTemplate(
+        t.phAmendRecPrntNote || "Already adjusted for PRNT {prnt}%.",
+        { prnt: result.ccePercent }
+      )
+    );
+  }
+
+  let howToApply: string;
+  let considerations: string;
+
+  if (result.method === "gypsum") {
+    howToApply = fillPhAmendTemplate(
+      t.phAmendRecHowGypsum ||
+        "Broadcast evenly and lightly incorporate into the top {depth} cm, or leave on the surface if rain/irrigation will move it. Moisture is needed so Ca can displace Na and Al.",
+      { depth }
+    );
+    considerations =
+      t.phAmendRecConsiderGypsum ||
+      "Gypsum does not raise pH. It works best with drainage and enough water to leach displaced Na. Can be applied closer to planting than lime. Do not expect acidity correction from gypsum alone.";
+  } else if (result.method === "sulfur") {
+    howToApply = fillPhAmendTemplate(
+      t.phAmendRecHowSulfur ||
+        "Broadcast and incorporate into the top {depth} cm. Keep the soil moist — microbes oxidize sulfur slowly over weeks to months.",
+      { depth }
+    );
+    considerations =
+      t.phAmendRecConsiderSulfur ||
+      "pH drop is gradual, not immediate. Avoid overdosing sensitive crops; re-check pH before a second application. Do not mix with lime in the same pass.";
+  } else if (result.material === "calcium_oxide") {
+    howToApply = fillPhAmendTemplate(
+      t.phAmendRecHowCao ||
+        "Broadcast carefully and incorporate immediately into the top {depth} cm. Avoid wet foliage and standing water — CaO reacts with moisture and can heat.",
+      { depth }
+    );
+    considerations = highDose
+      ? t.phAmendRecConsiderCaoHigh ||
+        "CaO is stronger and faster than limestone. Use PPE, keep product dry until spreading, and split high rates into two passes 2–4 weeks apart. Wait before planting until the soil has settled; confirm product purity."
+      : t.phAmendRecConsiderCao ||
+        "CaO is stronger and faster than limestone. Use PPE, keep product dry until spreading, and wait before planting until the soil has settled. Confirm product purity.";
+  } else {
+    // Agricultural / dolomitic lime
+    howToApply = fillPhAmendTemplate(
+      t.phAmendRecHowLime ||
+        "Broadcast evenly over the soil and incorporate with tillage into the top {depth} cm, ideally 4–8 weeks before planting (or ahead of rains) so it can react.",
+      { depth }
+    );
+    const considerBase =
+      result.material === "dolomitic_lime"
+        ? t.phAmendRecConsiderDolomite ||
+          "Dolomitic lime also supplies Mg. Prefer fine material with known PRNT. Do not mix in the same pass with urea or ammonium fertilizers — separate by time or placement. Re-sample soil after 6–12 months."
+        : t.phAmendRecConsiderLime ||
+          "Prefer fine material with known PRNT. Do not mix in the same pass with urea or ammonium fertilizers — separate by time or placement. Moist soil helps reaction. Re-sample soil after 6–12 months.";
+    considerations = highDose
+      ? `${considerBase} ${
+          t.phAmendRecConsiderHighDose ||
+          "This rate is high: split into two applications (e.g. half now, half after 2–4 weeks or next tillage) to avoid over-liming the surface."
+        }`
+      : considerBase;
+  }
+
+  return {
+    summary: summaryParts.filter(Boolean).join(" "),
+    howToApply,
+    considerations,
+  };
+}
 
 const METHOD_ICONS: Record<
   PhAmendmentMethod,
@@ -70,10 +266,6 @@ function textureLabelKey(texture: SoilTexture) {
   return `phAmendTexture_${texture}` as const;
 }
 
-function materialLabelKey(material: PhAmendmentMaterial) {
-  return material === "calcitic_lime" ? "phAmendMaterialCalcitic" : "phAmendMaterialDolomitic";
-}
-
 function outputUnitLabel(unit: PhAmendmentOutputUnit, t: Record<string, string>) {
   return t[`phAmendUnit_${unit}`] || phAmendmentUnitLabel(unit);
 }
@@ -87,12 +279,15 @@ export default function PhAmendmentCalculator({
 }: Props) {
   const cropSuggestedTarget = suggestBaseSaturationTarget(selectedCropName);
 
+  const [uiMode, setUiMode] = useState<PhAmendUiMode>("calcium");
+  const [uiModeManual, setUiModeManual] = useState(false);
+  const [modeNotice, setModeNotice] = useState<string | null>(null);
   const [method, setMethod] = useState<PhAmendmentMethod>("ca_saturation");
   const [material, setMaterial] = useState<PhAmendmentMaterial>("calcitic_lime");
   const [materialManual, setMaterialManual] = useState(false);
   const [ccePercent, setCcePercent] = useMemoryNumber("amendment", "ccePercent", 90);
-  const CALCITIC_PRNT = 90;
-  const DOLOMITIC_PRNT = 75;
+  const CALCITIC_PRNT = defaultPrntForLimeMaterial("calcitic_lime");
+  const DOLOMITIC_PRNT = defaultPrntForLimeMaterial("dolomitic_lime");
   const [outputUnit, setOutputUnit] = useState<PhAmendmentOutputUnit>("t_ha");
   const [plotArea, setPlotArea] = useMemoryNumber("amendment", "plotArea", 0);
   const [plotAreaUnit, setPlotAreaUnit] = useState<AreaUnit>("ha");
@@ -133,7 +328,7 @@ export default function PhAmendmentCalculator({
   const [exchangeableAl, setExchangeableAl] = useMemoryNumber(
     "amendment",
     "exchangeableAl",
-    lab.get("aluminum")?.value || 0
+    lab.get("aluminum")?.value || lab.get("exchangeable_acidity")?.value || 0
   );
   const [bulkDensity, setBulkDensity] = useMemoryNumber(
     "amendment",
@@ -163,13 +358,17 @@ export default function PhAmendmentCalculator({
     shared.cecReported <= 0;
   const resolvedAcidity =
     exchangeableAcidity > 0 ? exchangeableAcidity : estimatedAcidity;
+  // When extractable Al is missing, use extractable acidity (H+Al) as the gypsum Al proxy.
+  const aluminumFromLab = getCicAcidityContribution({
+    aluminum: shared.aluminum,
+    aluminumUnit: shared.aluminumUnit,
+  });
   const resolvedAl =
     exchangeableAl > 0
       ? exchangeableAl
-      : getCicAcidityContribution({
-          aluminum: shared.aluminum,
-          aluminumUnit: shared.aluminumUnit,
-        });
+      : aluminumFromLab > 0
+        ? aluminumFromLab
+        : resolvedAcidity;
   const resolvedCurrentPh = currentPh > 0 ? currentPh : lab.get("ph")?.value || 0;
   const resolvedTargetPh =
     targetPh > 0 ? targetPh : method === "sulfur" ? 5.5 : 6.2;
@@ -188,7 +387,7 @@ export default function PhAmendmentCalculator({
         k: shared.k || null,
         na: shared.na || null,
         exchangeableAcidity: resolvedAcidity || null,
-        aluminum: shared.aluminum || null,
+        aluminum: shared.aluminum || resolvedAcidity || null,
         aluminumUnit: shared.aluminumUnit,
       }),
     [
@@ -214,6 +413,70 @@ export default function PhAmendmentCalculator({
       setCcePercent(CALCITIC_PRNT);
     }
   }, [chemGate.needsLime, chemGate.mgLow, materialManual, setCcePercent]);
+
+  const recommendedMode = useMemo(
+    () =>
+      recommendPhAmendUiMode({
+        needsGypsum: chemGate.needsGypsum,
+        needsLime: chemGate.needsLime,
+        sodic: chemGate.sodic,
+        caDeficit: chemGate.caDeficit,
+        currentPh: resolvedCurrentPh,
+      }),
+    [
+      chemGate.needsGypsum,
+      chemGate.needsLime,
+      chemGate.sodic,
+      chemGate.caDeficit,
+      resolvedCurrentPh,
+    ]
+  );
+
+  useEffect(() => {
+    if (uiModeManual) return;
+    setUiMode(recommendedMode);
+    setMethod(defaultMethodForUiMode(recommendedMode, resolvedCurrentPh));
+    setModeNotice(null);
+  }, [recommendedMode, resolvedCurrentPh, uiModeManual]);
+
+  function modeReasonText(reasonKey: string | null) {
+    if (!reasonKey) return null;
+    return t[reasonKey] || reasonKey;
+  }
+
+  function selectUiMode(next: PhAmendUiMode) {
+    setUiModeManual(true);
+    setUiMode(next);
+    const applicability = phAmendUiModeApplicability(next, {
+      needsGypsum: chemGate.needsGypsum,
+      needsLime: chemGate.needsLime,
+      sodic: chemGate.sodic,
+      caDeficit: chemGate.caDeficit,
+      noLimeOrGypsum: chemGate.noLimeOrGypsum,
+      insufficientData: chemGate.insufficientData,
+      currentPh: resolvedCurrentPh,
+    });
+    if (!applicability.ok) {
+      setModeNotice(modeReasonText(applicability.reasonKey));
+    } else {
+      setModeNotice(null);
+    }
+    if (next === "other") {
+      setMethod((previous) =>
+        OTHER_METHOD_OPTIONS.includes(previous)
+          ? previous
+          : defaultMethodForUiMode("other", resolvedCurrentPh)
+      );
+    } else if (next === "calcium") {
+      setMethod((previous) =>
+        CALCIUM_METHOD_OPTIONS.includes(previous)
+          ? previous
+          : defaultMethodForUiMode("calcium", resolvedCurrentPh)
+      );
+    } else {
+      setMethod(defaultMethodForUiMode(next, resolvedCurrentPh));
+    }
+  }
 
   function toggleLimeMaterial() {
     if (!methodRaisesPh(method)) return;
@@ -288,25 +551,17 @@ export default function PhAmendmentCalculator({
           ? "Elemental sulfur requirement"
           : "Lime requirement";
 
-    const notes = [t[result.explanationKey] || result.explanationKey];
-    if (methodRaisesPh(method) && result.material) {
-      const materialName =
-        result.material === "dolomitic_lime"
-          ? t.phAmendMaterialDolomitic || "Dolomitic limestone"
-          : t.phAmendMaterialCalcitic || "Agricultural limestone";
-      const why =
-        result.material === "dolomitic_lime"
-          ? t.phAmendWhyDolomite ||
-            "Dolomitic lime chosen to supply calcium and magnesium (low Mg)."
-          : t.phAmendWhyCalcitic ||
-            "Agricultural lime chosen to raise pH / Ca without adding magnesium.";
-      notes.push(`${materialName}. ${why}`);
-    }
-    if (result.adjustedRequirementTha !== undefined && result.ccePercent !== undefined) {
-      notes.push(
-        `${t.phAmendResultBase || "Base requirement"}: ${formatPhAmendmentDisplay(result.baseRequirementTha, outputUnit)} ${phAmendmentUnitLabel(outputUnit)} · CCE ${result.ccePercent}%`
-      );
-    }
+    const rec = buildFriendlyPhAmendRecommendation(result, t, {
+      doseDisplay: formatPhAmendmentDisplay(primaryValue, outputUnit),
+      unitLabel: phAmendmentUnitLabel(outputUnit),
+      depthCm: resolvedDepthCm,
+      doseTha: primaryValue,
+    });
+    const notes = [
+      rec.summary,
+      `${t.phAmendRecHowLabel || "How to apply"}: ${rec.howToApply}`,
+      `${t.phAmendRecConsiderLabel || "Keep in mind"}: ${rec.considerations}`,
+    ];
     if (plotArea > 0) {
       const totalT = convertPhAmendmentPlotTotal(primaryValue, plotArea, plotAreaUnit);
       notes.push(
@@ -322,76 +577,138 @@ export default function PhAmendmentCalculator({
       notes,
     });
     return rows;
-  }, [result, method, outputUnit, plotArea, plotAreaUnit, t]);
+  }, [result, method, material, outputUnit, plotArea, plotAreaUnit, resolvedDepthCm, t]);
 
   useEmitCalculatorOutputs(onOutputsChange, outputs);
 
   const showMaterial = methodRaisesPh(method) && chemGate.needsLime;
   const unitLabel = phAmendmentUnitLabel(outputUnit);
 
+  const modeChips: Array<{ id: PhAmendUiMode; label: string }> = [
+    {
+      id: "calcium",
+      label: t.phAmendModeCalciumShort || t.phAmendModeCalcium || "Calcium",
+    },
+    {
+      id: "gypsum",
+      label: t.phAmendModeGypsum || "Gypsum",
+    },
+    {
+      id: "other",
+      label: t.phAmendModeOther || "Other methods",
+    },
+  ];
+
   return (
     <div className="calc-page px-0 space-y-4">
-      <div className="calc-surface p-4 space-y-4">
-        <section className="space-y-3">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-emerald-800">
-            {t.phAmendSectionMethod || "1. Method"}
-          </h2>
+      <div
+        className="ph-amend-mode-bar"
+        role="tablist"
+        aria-label={t.phAmendModeBar || "Amendment mode"}
+      >
+        {modeChips.map((chip) => {
+          const applicability = phAmendUiModeApplicability(chip.id, {
+            needsGypsum: chemGate.needsGypsum,
+            needsLime: chemGate.needsLime,
+            sodic: chemGate.sodic,
+            caDeficit: chemGate.caDeficit,
+            noLimeOrGypsum: chemGate.noLimeOrGypsum,
+            insufficientData: chemGate.insufficientData,
+            currentPh: resolvedCurrentPh,
+          });
+          const recommended = recommendedMode === chip.id;
+          return (
+            <button
+              key={chip.id}
+              type="button"
+              role="tab"
+              aria-selected={uiMode === chip.id}
+              title={
+                !applicability.ok
+                  ? modeReasonText(applicability.reasonKey) || chip.label
+                  : recommended
+                    ? t.phAmendModeRecommended || "Recommended from soil analysis"
+                    : chip.label
+              }
+              className={[
+                "ph-amend-mode-bar__chip",
+                uiMode === chip.id ? "ph-amend-mode-bar__chip--active" : "",
+                recommended ? "ph-amend-mode-bar__chip--recommended" : "",
+                !applicability.ok ? "ph-amend-mode-bar__chip--blocked" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              onClick={() => selectUiMode(chip.id)}
+            >
+              {chip.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {modeNotice ? (
+        <p
+          className="rounded-xl border border-amber-500/30 bg-amber-50/80 px-3 py-2 text-sm text-amber-950 dark:border-amber-400/20 dark:bg-amber-950/30 dark:text-amber-100"
+          role="status"
+        >
+          {modeNotice}
+        </p>
+      ) : null}
+
+      <div className="calc-surface p-3 space-y-3">
+        {uiMode === "other" || uiMode === "calcium" ? (
           <SelectField
             label={t.limeMethod || "Method"}
             value={method}
             onChange={(value) => setMethod(value as PhAmendmentMethod)}
             fullWidth
-            heading={t.phAmendSectionMethod || "Method"}
-            options={METHOD_OPTIONS.map((key) => ({
+            options={(uiMode === "calcium"
+              ? CALCIUM_METHOD_OPTIONS
+              : OTHER_METHOD_OPTIONS
+            ).map((key) => ({
               value: key,
               label: t[methodLabelKey(key)] || key,
               icon: METHOD_ICONS[key],
             }))}
           />
-        </section>
+        ) : null}
 
         {showMaterial ? (
-          <section className="space-y-3 border-t border-emerald-100/80 pt-4 dark:border-white/10">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-emerald-800">
-              {t.phAmendSectionMaterial || "2. Amendment material"}
-            </h2>
+          <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-2">
             <SelectField
-              label={t.amendmentMaterial || "Amendment material"}
+              label={t.amendmentMaterial || "Amendment"}
               value={material}
               onChange={(value) => {
                 setMaterialManual(true);
                 const next = value as PhAmendmentMaterial;
                 setMaterial(next);
-                setCcePercent(
-                  next === "dolomitic_lime" ? DOLOMITIC_PRNT : CALCITIC_PRNT
-                );
+                setCcePercent(defaultPrntForLimeMaterial(next));
               }}
               fullWidth
               options={[
-                ["calcitic_lime", t.phAmendMaterialCalcitic || "Agricultural Limestone (CaCO₃)"],
-                ["dolomitic_lime", t.phAmendMaterialDolomitic || "Dolomitic Limestone (CaMg(CO₃)₂)"],
+                [
+                  "calcitic_lime",
+                  t.phAmendMaterialCalcitic || "Agricultural lime (CaCO₃)",
+                ],
+                [
+                  "dolomitic_lime",
+                  t.phAmendMaterialDolomitic || "Dolomitic lime (CaMg(CO₃)₂)",
+                ],
+                ["calcium_oxide", t.phAmendMaterialCao || "Calcium oxide (CaO)"],
               ]}
             />
             <NumberField
-              label={t.phAmendMaterialQuality || "Material quality (CCE / PRNT %)"}
+              label={t.phAmendMaterialQuality || "PRNT / CCE (%)"}
               value={ccePercent}
               onChange={(value) => {
                 setMaterialManual(true);
                 setCcePercent(value);
               }}
             />
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t.phAmendCceHint ||
-                "Adjusted requirement = Base requirement / (CCE / 100). Calcitic ~90%, dolomitic ~75%."}
-            </p>
-          </section>
+          </div>
         ) : null}
 
-        <section className="space-y-3 border-t border-emerald-100/80 pt-4 dark:border-white/10">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-emerald-800">
-            {t.phAmendSectionInputs || "Inputs"}
-          </h2>
-          <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-2">
+        <div className="calc-form-fields calc-form-fields--grid grid gap-3 sm:grid-cols-2">
             {method === "ca_saturation" ? (
               <>
                 <NumberField
@@ -421,7 +738,7 @@ export default function PhAmendmentCalculator({
                   placeholder={`${DEFAULT_CA_SATURATION_TARGET} (${t.phAmendDefault || "default"})`}
                 />
                 <NumberField
-                  label={t.phAmendExchangeableAcidity || "Exchangeable acidity (cmol(+)/kg)"}
+                  label={t.phAmendExchangeableAcidity || "Exchangeable acidity"}
                   value={exchangeableAcidity}
                   onChange={setExchangeableAcidity}
                   placeholder={
@@ -473,18 +790,27 @@ export default function PhAmendmentCalculator({
                   onChange={setBaseSaturationTarget}
                   placeholder={`${cropSuggestedTarget} (${t.phAmendAuto || "auto"})`}
                 />
-                <p className="text-xs font-semibold text-slate-600 sm:col-span-2 dark:text-slate-300">
-                  {`${t.v2SuggestedByCrop || "Target suggested by crop"}: ${cropSuggestedTarget}%`}
-                  {!(cec > 0) && estimatedCec > 0
-                    ? ` · ${t.phAmendCecAutoNote || "CEC estimated from exchangeable bases (+ H+Al/Al when reported)"}`
-                    : ""}
-                  {!(baseSaturationCurrent > 0) && estimatedBaseSaturation > 0
-                    ? ` · ${t.phAmendVAutoNote || "Current V% calculated from bases / CEC"}`
-                    : ""}
-                  {needsMeasuredCecOrV
-                    ? ` · ${t.phAmendNeedVNote || "Enter measured CIC (or H+Al) to auto-estimate V%, or type current V% yourself. Bases alone imply ~100% V% and cannot diagnose lime need."}`
-                    : ""}
-                </p>
+                {(!(cec > 0) && estimatedCec > 0) ||
+                (!(baseSaturationCurrent > 0) && estimatedBaseSaturation > 0) ||
+                needsMeasuredCecOrV ? (
+                  <p className="text-xs text-slate-500 sm:col-span-2 dark:text-slate-400">
+                    {[
+                      `${t.v2SuggestedByCrop || "Target suggested by crop"}: ${cropSuggestedTarget}%`,
+                      !(cec > 0) && estimatedCec > 0
+                        ? t.phAmendCecAutoNote || "CEC estimated from bases"
+                        : "",
+                      !(baseSaturationCurrent > 0) && estimatedBaseSaturation > 0
+                        ? t.phAmendVAutoNote || "Current V% from bases / CEC"
+                        : "",
+                      needsMeasuredCecOrV
+                        ? t.phAmendNeedVNote ||
+                          "Enter measured CIC or current V%."
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                ) : null}
                 <NumberField
                   label={`${t.bulkDensity || "Bulk density"} (${t.phAmendOptional || "optional"})`}
                   value={bulkDensity}
@@ -503,7 +829,7 @@ export default function PhAmendmentCalculator({
             {method === "exchangeable_acidity" ? (
               <>
                 <NumberField
-                  label={t.phAmendExchangeableAcidity || "Exchangeable acidity (cmol(+)/kg)"}
+                  label={t.phAmendExchangeableAcidity || "Exchangeable acidity"}
                   value={exchangeableAcidity}
                   onChange={setExchangeableAcidity}
                   placeholder={
@@ -599,7 +925,6 @@ export default function PhAmendmentCalculator({
               />
             </div>
           </div>
-        </section>
       </div>
 
       {errors.length > 0 ? (
@@ -620,6 +945,7 @@ export default function PhAmendmentCalculator({
         unitLabel={unitLabel}
         plotArea={plotArea}
         plotAreaUnit={plotAreaUnit}
+        depthCm={resolvedDepthCm}
         showCalculatorFormulas={showCalculatorFormulas}
         onToggleLimeMaterial={
           methodRaisesPh(method) ? toggleLimeMaterial : undefined
@@ -637,6 +963,7 @@ function PhAmendmentResultsCard({
   unitLabel,
   plotArea,
   plotAreaUnit,
+  depthCm = 15,
   showCalculatorFormulas = false,
   onToggleLimeMaterial,
 }: {
@@ -647,6 +974,7 @@ function PhAmendmentResultsCard({
   unitLabel: string;
   plotArea: number;
   plotAreaUnit: AreaUnit;
+  depthCm?: number;
   showCalculatorFormulas?: boolean;
   onToggleLimeMaterial?: () => void;
 }) {
@@ -741,12 +1069,15 @@ function PhAmendmentResultsCard({
 
   const methodLabel = t[methodLabelKey(result.method)] || result.method;
   const materialLabel = result.material
-    ? t[materialLabelKey(result.material)] || result.material
+    ? shortMaterialLabel(result.material, t)
     : "";
-  const recommendation =
-    t[result.explanationKey] ||
-    result.explanationKey ||
-    (t.phAmendNoRequirement || "Review amendment dose before applying.");
+  const doseDisplay = formatPhAmendmentDisplay(primaryTha, outputUnit);
+  const recommendation = buildFriendlyPhAmendRecommendation(result, t, {
+    doseDisplay,
+    unitLabel,
+    depthCm,
+    doseTha: primaryTha,
+  });
 
   const doseKgHa = Math.max(0, primaryTha) * 1000;
   const bagsPerHa = doseKgHa / 50;
@@ -805,16 +1136,31 @@ function PhAmendmentResultsCard({
         />
       </dl>
 
-      <div className="ph-amend-results__rec rounded-xl px-3 py-2.5 calc-surface-inner">
-        <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
-          {t.phAmendRecommendation || t.phAmendResultExplanation || "Recommendation"}
-        </p>
-        <p className="mt-1 text-xs leading-snug text-slate-700 dark:text-slate-200">
-          {recommendation}
-          {hasAdjusted && result.ccePercent !== undefined
-            ? ` ${t.phAmendAdjustedNote || `Adjusted for CCE ${result.ccePercent}%.`}`
-            : ""}
-        </p>
+      <div className="ph-amend-results__rec rounded-xl px-3 py-2.5 calc-surface-inner space-y-2">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
+            {t.phAmendRecommendation || t.phAmendResultExplanation || "Recommendation"}
+          </p>
+          <p className="mt-1 text-xs leading-snug text-slate-700 dark:text-slate-200">
+            {recommendation.summary}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
+            {t.phAmendRecHowLabel || "How to apply"}
+          </p>
+          <p className="mt-1 text-xs leading-snug text-slate-700 dark:text-slate-200">
+            {recommendation.howToApply}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
+            {t.phAmendRecConsiderLabel || "Keep in mind"}
+          </p>
+          <p className="mt-1 text-xs leading-snug text-slate-700 dark:text-slate-200">
+            {recommendation.considerations}
+          </p>
+        </div>
       </div>
 
       {showCalculatorFormulas ? (

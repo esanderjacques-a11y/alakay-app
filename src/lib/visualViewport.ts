@@ -76,7 +76,16 @@ export function placeFloatingMenu(opts: {
   const estimatedHeight = opts.estimatedHeight ?? 280;
   const minWidth = opts.minWidth ?? 180;
   const vv = getVisualViewportBox();
-  const sheet = shouldUseMenuSheet(vv);
+  const spaceBelow = vv.bottom - opts.triggerRect.bottom - gap - padding;
+  const spaceAbove = opts.triggerRect.top - vv.top - gap - padding;
+  const roomNearTrigger = Math.max(spaceBelow, spaceAbove);
+  // Short option lists stay anchored to the trigger. Bottom sheets are for
+  // longer pickers (≈6+ rows) or when the keyboard leaves too little room.
+  // 4 compact rows (~250px) must not force a sheet — that was docking price
+  // unit / similar menus at the bottom of the page on phones.
+  const sheet =
+    shouldUseMenuSheet(vv) &&
+    (estimatedHeight >= 300 || roomNearTrigger < Math.min(estimatedHeight, 180));
 
   if (sheet) {
     const maxPanel = Math.max(
@@ -102,8 +111,6 @@ export function placeFloatingMenu(opts: {
     };
   }
 
-  const spaceBelow = vv.bottom - opts.triggerRect.bottom - gap - padding;
-  const spaceAbove = opts.triggerRect.top - vv.top - gap - padding;
   const openAbove =
     spaceBelow < Math.min(estimatedHeight, 200) && spaceAbove > spaceBelow;
   const available = Math.max(120, openAbove ? spaceAbove : spaceBelow);

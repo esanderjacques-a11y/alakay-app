@@ -144,6 +144,8 @@ type Props = {
   exportingPdf?: boolean;
   exportPdfLabel?: string;
   showCalculatorFormulas?: boolean;
+  /** Explorer landing tab: Recommended or Favorites (from app settings). */
+  defaultCalculatorHubLanding?: "priority" | "favorites";
   userId?: string | null;
   farmName?: string | null;
   initialActiveKey?: string | null;
@@ -187,8 +189,11 @@ const tabs: Array<{ key: CalculatorKey; icon: ReactNode }> = [
   { key: "graphs", icon: <BarChart3 size={17} /> },
 ];
 
-function visibleCalculatorTabs(sampleType: "soil" | "foliar" | "water") {
-  return tabs.filter(({ key }) => {
+function visibleCalculatorTabs(
+  sampleType: "soil" | "foliar" | "water",
+  landing: "priority" | "favorites" = "priority"
+) {
+  const list = tabs.filter(({ key }) => {
     // Foliar-only tools
     if (key === "dop") return sampleType === "foliar";
     // Soil-only tools (lime, CIC, fertilizer plan/cost/formulation)
@@ -208,6 +213,10 @@ function visibleCalculatorTabs(sampleType: "soil" | "foliar" | "water") {
     // Shared: Recommended, Favorites, absorption curve, nutrient graphs
     return true;
   });
+  if (landing !== "favorites") return list;
+  const favoritesTab = list.find((tab) => tab.key === "favorites");
+  if (!favoritesTab) return list;
+  return [favoritesTab, ...list.filter((tab) => tab.key !== "favorites")];
 }
 
 function favoriteableTabs(sampleType: "soil" | "foliar" | "water") {
@@ -262,13 +271,15 @@ export default function CalculatorHub({
   exportingPdf,
   exportPdfLabel,
   showCalculatorFormulas = false,
+  defaultCalculatorHubLanding = "priority",
   userId = null,
   farmName = null,
   initialActiveKey = null,
   onInitialActiveKeyConsumed,
 }: Props) {
   const t = calculatorHubText[language] || calculatorHubText.en;
-  const defaultCalculatorFilter: CalculatorKey = "priority";
+  const defaultCalculatorFilter: CalculatorKey =
+    defaultCalculatorHubLanding === "favorites" ? "favorites" : "priority";
   const lab = useMemo(
     () => buildLabValueIndex(parameters, values, results, parameterUnits),
     [parameters, values, results, parameterUnits]
@@ -301,6 +312,7 @@ export default function CalculatorHub({
         exportingPdf={exportingPdf}
         exportPdfLabel={exportPdfLabel}
         defaultCalculatorFilter={defaultCalculatorFilter}
+        defaultCalculatorHubLanding={defaultCalculatorHubLanding}
         showCalculatorFormulas={showCalculatorFormulas}
         userId={userId}
         farmName={farmName}
@@ -333,6 +345,7 @@ function CalculatorHubBody({
   exportingPdf,
   exportPdfLabel,
   defaultCalculatorFilter,
+  defaultCalculatorHubLanding = "priority",
   showCalculatorFormulas = false,
   userId = null,
   farmName = null,
@@ -364,6 +377,7 @@ function CalculatorHubBody({
   exportingPdf?: boolean;
   exportPdfLabel?: string;
   defaultCalculatorFilter: CalculatorKey;
+  defaultCalculatorHubLanding?: "priority" | "favorites";
   showCalculatorFormulas?: boolean;
   userId?: string | null;
   farmName?: string | null;
@@ -378,8 +392,8 @@ function CalculatorHubBody({
   );
   const [importMessage, setImportMessage] = useState("");
   const calculatorTabs = useMemo(
-    () => visibleCalculatorTabs(sampleType),
-    [sampleType]
+    () => visibleCalculatorTabs(sampleType, defaultCalculatorHubLanding),
+    [sampleType, defaultCalculatorHubLanding]
   );
   const guidedSteps = useMemo(() => {
     const visibleKeys = new Set(calculatorTabs.map((tab) => tab.key));
@@ -785,6 +799,34 @@ function CalculatorHubBody({
               <span />
             )}
             <div className="calculator-hub-actions">
+              {isFavoriteCalculatorKey(active) ? (
+                <button
+                  type="button"
+                  onClick={() => handleToggleFavorite(active)}
+                  className={`calculator-hub-action calculator-hub-action--icon calculator-hub-action--favorite${
+                    favorites.includes(active)
+                      ? " calculator-hub-action--favorite-on"
+                      : ""
+                  }`}
+                  aria-pressed={favorites.includes(active)}
+                  aria-label={
+                    favorites.includes(active)
+                      ? t.favoritesRemove || "Remove from favorites"
+                      : t.favoritesAdd || "Add to favorites"
+                  }
+                  title={
+                    favorites.includes(active)
+                      ? t.favoritesRemove || "Remove from favorites"
+                      : t.favoritesAdd || "Add to favorites"
+                  }
+                >
+                  <Star
+                    size={15}
+                    fill={favorites.includes(active) ? "currentColor" : "none"}
+                    aria-hidden
+                  />
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={handleImportFromValues}
@@ -959,14 +1001,6 @@ function CalculatorHubBody({
             setActive={setActive}
           />
         ) : null}
-        {isFavoriteCalculatorKey(active) ? (
-          <CalculatorFavoriteToggle
-            favorited={favorites.includes(active)}
-            addLabel={t.favoritesAdd || "Add to favorites"}
-            removeLabel={t.favoritesRemove || "Remove from favorites"}
-            onToggle={() => handleToggleFavorite(active)}
-          />
-        ) : null}
         {active === "cic" ? (
           <CicCalculator
             t={t}
@@ -1063,7 +1097,11 @@ function CalculatorHubBody({
         {active === "fertilizerFormulation" ? (
           sampleType === "soil" ? (
             <CalculatorPage>
-              <FertilizerFormulationBuilder t={t} country={selectedCountry} />
+              <FertilizerFormulationBuilder
+                t={t}
+                country={selectedCountry}
+                language={language}
+              />
             </CalculatorPage>
           ) : (
             <CalculatorPage>
@@ -1189,35 +1227,6 @@ function PriorityCalculators({
         ))}
       </div>
     </CalculatorPage>
-  );
-}
-
-function CalculatorFavoriteToggle({
-  favorited,
-  addLabel,
-  removeLabel,
-  onToggle,
-}: {
-  favorited: boolean;
-  addLabel: string;
-  removeLabel: string;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="calculator-page-favorite">
-      <button
-        type="button"
-        className={`calculator-page-favorite__btn${
-          favorited ? " calculator-page-favorite__btn--on" : ""
-        }`}
-        onClick={onToggle}
-        aria-pressed={favorited}
-        aria-label={favorited ? removeLabel : addLabel}
-        title={favorited ? removeLabel : addLabel}
-      >
-        <Star size={18} fill={favorited ? "currentColor" : "none"} aria-hidden />
-      </button>
-    </div>
   );
 }
 
@@ -1987,11 +1996,7 @@ function CropUptakeGuide({
     <CalculatorPage>
       <div className="uptake-guide">
         <header className="uptake-guide__intro">
-          <div className="uptake-guide__heading">
-            <h2 className="uptake-guide__title">{profile.title}</h2>
-            <p className="uptake-guide__eyebrow">{t.uptakeCurve}</p>
-          </div>
-          <p className="uptake-guide__desc">{t.uptakeCurveDesc}</p>
+          <h2 className="uptake-guide__title">{profile.title}</h2>
         </header>
 
         <div className="uptake-chart-shell">

@@ -1026,7 +1026,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     favoritesAdd: "Add to favorites",
     favoritesRemove: "Remove from favorites",
     cic: "CIC & bases",
-    amendment: "pH",
+    amendment: "pH / amendment",
     fertilizer: "Nutrition",
     fertilizerCost: "Cost",
     fertilizerFormulation: "Formulation",
@@ -1080,7 +1080,13 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationShowCosts: "Show costs",
     fertilizerFormulationHideCosts: "Hide costs",
     fertilizerFormulationCostHint:
-      "Enter bag prices below to estimate formulation cost.",
+      "Enter prices below to estimate formulation cost.",
+    fertilizerFormulationPriceUnit: "Price unit",
+    fertilizerFormulationPriceUnitBag: "Bags",
+    fertilizerFormulationPriceUnitKg: "Kilograms",
+    fertilizerFormulationPriceUnitTonne: "Tons",
+    fertilizerFormulationPriceUnitLb: "Pounds",
+    fertilizerFormulationFillerPricePlaceholder: "0 (optional)",
     fertilizerFormulationFiller: "Filler",
     fertilizerFormulationAutofill: "Autofill filler",
     fertilizerFormulationFillerHint:
@@ -1384,6 +1390,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Enter the price per bag (saco). Online placeholders are benchmarks converted from tonne prices.",
     fertilizerBagKg: "Bag weight (kg)",
     fertilizerPricePerBag: "Price / bag (saco)",
+    fertilizerPricePerKg: "Price / kg",
+    fertilizerPricePerTonne: "Price / ton",
+    fertilizerPricePerLb: "Price / lb",
     fertilizerBags: "bags",
     fertilizerBag: "bag",
     fertilizerPerPlot: "per plot",
@@ -1481,15 +1490,80 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendSectionMaterial: "2. Amendment material",
     phAmendSectionInputs: "Inputs",
     phAmendMethod_ca_saturation: "Ca saturation",
-    phAmendMethod_base_saturation: "Base Saturation Method",
-    phAmendMethod_exchangeable_acidity: "Exchangeable Acidity Method",
-    phAmendMethod_target_ph: "Target pH Method",
-    phAmendMethod_gypsum: "Gypsum Requirement",
-    phAmendMethod_sulfur: "Sulfur Requirement",
-    phAmendMaterialCalcitic: "Agricultural Limestone (CaCO₃)",
-    phAmendMaterialDolomitic: "Dolomitic Limestone (CaMg(CO₃)₂)",
-    phAmendMaterialQuality: "Material quality (CCE / PRNT %)",
-    phAmendCceHint: "Adjusted requirement = Base requirement / (CCE / 100). Default 100%.",
+    phAmendMethod_base_saturation: "Base saturation (V%)",
+    phAmendMethod_exchangeable_acidity: "Exchangeable acidity",
+    phAmendMethod_target_ph: "Target pH",
+    phAmendMethod_gypsum: "Gypsum",
+    phAmendMethod_sulfur: "Sulfur",
+    phAmendModeBar: "Amendment mode",
+    phAmendModeGypsum: "Gypsum",
+    phAmendModeCalcium: "Calcium",
+    phAmendModeCalciumShort: "Calcium",
+    phAmendModeOther: "Other",
+    phAmendModeRecommended: "Recommended from soil analysis",
+    phAmendModeGypsumHint:
+      "For sodicity or Ca balance without raising pH (CICe Ca without a liming pathway).",
+    phAmendModeCalciumHint:
+      "Lime to raise pH and/or correct Ca saturation in the CICe when acidity and base saturation require it.",
+    phAmendModeGypsumBlockedLime:
+      "Gypsum is not the primary path here: low base saturation / Ca with excess acidity points to lime (calcium) instead.",
+    phAmendModeGypsumBlockedOk:
+      "Gypsum is not indicated: no sodicity and no Ca deficit that needs gypsum without liming.",
+    phAmendModeGypsumNeedData:
+      "Not enough cation / CICe data yet to confirm gypsum. Enter Ca, bases, and acidity in Values.",
+    phAmendModeCalciumBlockedGypsum:
+      "Liming is not indicated: chemistry points to gypsum (sodicity or Ca deficit without an acidity liming pathway).",
+    phAmendModeCalciumBlockedOk:
+      "Lime is not needed: CICe cation distribution and base saturation are within sufficient ranges.",
+    phAmendModeCalciumNeedData:
+      "Not enough CICe / base-saturation data yet to confirm liming. Enter Ca, CIC or bases, and acidity in Values.",
+    phAmendMaterialCalcitic: "Agricultural lime (CaCO₃)",
+    phAmendMaterialDolomitic: "Dolomitic lime (CaMg(CO₃)₂)",
+    phAmendMaterialCao: "Calcium oxide (CaO)",
+    phAmendMaterialCalciticShort: "agricultural lime (CaCO₃)",
+    phAmendMaterialDolomiticShort: "dolomitic lime (CaMg(CO₃)₂)",
+    phAmendMaterialCaoShort: "CaO",
+    phAmendMaterialQuality: "PRNT / CCE (%)",
+    phAmendCceHint: "Dose ÷ PRNT/CCE. Typical: CaCO₃ ~90%, dolomite ~75%, CaO ~100%.",
+    phAmendRecLeadLime: "Apply {dose} {unit} of {material}.",
+    phAmendRecLeadGypsum: "Apply {dose} {unit} of gypsum.",
+    phAmendRecLeadSulfur: "Apply {dose} {unit} of elemental sulfur.",
+    phAmendRecDetailCaSat:
+      "Current Ca saturation is {current}%; target is {target}%.",
+    phAmendRecDetailBaseSat:
+      "Current base saturation (V%) is {current}%; target is {target}%.",
+    phAmendRecDetailPh: "Soil pH {current} → target {target}.",
+    phAmendRecDetailGypsum:
+      "Supplies Ca and helps with Al / Na without raising pH much.",
+    phAmendRecDetailAcidity:
+      "Dose follows exchangeable acidity (H+Al) for the incorporation depth.",
+    phAmendRecPrntNote: "Already adjusted for PRNT {prnt}%.",
+    phAmendWhyDolomiteShort: "Dolomitic lime also supplies Mg.",
+    phAmendWhyCaoShort: "CaO is a concentrated liming source.",
+    phAmendRecHowLabel: "How to apply",
+    phAmendRecConsiderLabel: "Keep in mind",
+    phAmendRecHowLime:
+      "Broadcast evenly and incorporate with tillage into the top {depth} cm, ideally 4–8 weeks before planting (or ahead of rains) so it can react.",
+    phAmendRecHowCao:
+      "Broadcast carefully and incorporate immediately into the top {depth} cm. Avoid wet foliage and standing water — CaO reacts with moisture and can heat.",
+    phAmendRecHowGypsum:
+      "Broadcast evenly and lightly incorporate into the top {depth} cm, or leave on the surface if rain/irrigation will move it. Moisture is needed so Ca can displace Na and Al.",
+    phAmendRecHowSulfur:
+      "Broadcast and incorporate into the top {depth} cm. Keep the soil moist — microbes oxidize sulfur slowly over weeks to months.",
+    phAmendRecConsiderLime:
+      "Prefer fine material with known PRNT. Do not mix in the same pass with urea or ammonium fertilizers — separate by time or placement. Moist soil helps reaction. Re-sample soil after 6–12 months.",
+    phAmendRecConsiderDolomite:
+      "Dolomitic lime also supplies Mg. Prefer fine material with known PRNT. Do not mix in the same pass with urea or ammonium fertilizers — separate by time or placement. Re-sample soil after 6–12 months.",
+    phAmendRecConsiderCao:
+      "CaO is stronger and faster than limestone. Use PPE, keep product dry until spreading, and wait before planting until the soil has settled. Confirm product purity.",
+    phAmendRecConsiderCaoHigh:
+      "CaO is stronger and faster than limestone. Use PPE, keep product dry until spreading, and split high rates into two passes 2–4 weeks apart. Wait before planting until the soil has settled; confirm product purity.",
+    phAmendRecConsiderGypsum:
+      "Gypsum does not raise pH. It works best with drainage and enough water to leach displaced Na. Can be applied closer to planting than lime. Do not expect acidity correction from gypsum alone.",
+    phAmendRecConsiderSulfur:
+      "pH drop is gradual, not immediate. Avoid overdosing sensitive crops; re-check pH before a second application. Do not mix with lime in the same pass.",
+    phAmendRecConsiderHighDose:
+      "This rate is high: split into two applications (e.g. half now, half after 2–4 weeks or next tillage) to avoid over-liming the surface.",
     phAmendCurrentPh: "Current soil pH",
     phAmendTargetPh: "Target soil pH",
     phAmendSoilTexture: "Soil texture",
@@ -1498,7 +1572,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendTexture_loam: "Loam",
     phAmendTexture_clay_loam: "Clay Loam",
     phAmendTexture_clay: "Clay",
-    phAmendExchangeableAcidity: "Exchangeable acidity (cmol(+)/kg)",
+    phAmendExchangeableAcidity: "Exchangeable acidity",
     phAmendExchangeableAl: "Exchangeable aluminum (cmol(+)/kg)",
     phAmendOutputUnit: "Output unit",
     phAmendUnitTha: "t/ha",
@@ -1629,9 +1703,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     cicBandUnknown: "Unknown",
     cicSatVeryLow: "Very low",
     cicSatLow: "Low",
-    cicSatModeratelyLow: "Moderately low",
+    cicSatModeratelyLow: "Mod. low",
     cicSatAdequate: "Adequate",
-    cicSatModeratelyHigh: "Moderately high",
+    cicSatModeratelyHigh: "Mod. high",
     cicSatHigh: "High",
     cicSatVeryHigh: "Very high",
     cicRatioOptimal: "Within the adequate ratio range.",
@@ -1703,7 +1777,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     favoritesAdd: "Agregar a favoritos",
     favoritesRemove: "Quitar de favoritos",
     cic: "CIC y bases",
-    amendment: "pH",
+    amendment: "pH y/o enmienda",
     fertilizer: "Nutrición",
     fertilizerCost: "Costo",
     fertilizerFormulation: "Formulación",
@@ -1757,7 +1831,13 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationShowCosts: "Ver costos",
     fertilizerFormulationHideCosts: "Ocultar costos",
     fertilizerFormulationCostHint:
-      "Ingrese precios por saco abajo para estimar el costo de la fórmula.",
+      "Ingrese precios abajo para estimar el costo de la fórmula.",
+    fertilizerFormulationPriceUnit: "Unidad de precio",
+    fertilizerFormulationPriceUnitBag: "Sacos",
+    fertilizerFormulationPriceUnitKg: "Kilos",
+    fertilizerFormulationPriceUnitTonne: "Ton",
+    fertilizerFormulationPriceUnitLb: "Libras",
+    fertilizerFormulationFillerPricePlaceholder: "0 (opcional)",
     fertilizerFormulationFiller: "Relleno",
     fertilizerFormulationAutofill: "Autocompletar relleno",
     fertilizerFormulationFillerHint:
@@ -2060,6 +2140,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Ingrese el precio por saco. Los valores en línea son referencias convertidas desde precio por tonelada.",
     fertilizerBagKg: "Peso del saco (kg)",
     fertilizerPricePerBag: "Precio / saco",
+    fertilizerPricePerKg: "Precio / kg",
+    fertilizerPricePerTonne: "Precio / ton",
+    fertilizerPricePerLb: "Precio / lb",
     fertilizerBags: "sacos",
     fertilizerBag: "saco",
     fertilizerPerPlot: "por parcela",
@@ -2157,15 +2240,80 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendSectionMaterial: "2. Material enmienda",
     phAmendSectionInputs: "Entradas",
     phAmendMethod_ca_saturation: "Saturación de Ca",
-    phAmendMethod_base_saturation: "Método de saturación de bases",
-    phAmendMethod_exchangeable_acidity: "Método de acidez intercambiable",
-    phAmendMethod_target_ph: "Método de pH objetivo",
-    phAmendMethod_gypsum: "Requerimiento de yeso",
-    phAmendMethod_sulfur: "Requerimiento de azufre",
+    phAmendMethod_base_saturation: "Saturación de bases (V%)",
+    phAmendMethod_exchangeable_acidity: "Acidez intercambiable",
+    phAmendMethod_target_ph: "pH objetivo",
+    phAmendMethod_gypsum: "Yeso",
+    phAmendMethod_sulfur: "Azufre",
+    phAmendModeBar: "Modo de enmienda",
+    phAmendModeGypsum: "Yeso",
+    phAmendModeCalcium: "Calcio",
+    phAmendModeCalciumShort: "Calcio",
+    phAmendModeOther: "Otros",
+    phAmendModeRecommended: "Recomendado según el análisis de suelo",
+    phAmendModeGypsumHint:
+      "Para sodicidad o balance de Ca sin subir el pH (Ca en CICe sin vía de encalado).",
+    phAmendModeCalciumHint:
+      "Cal para subir el pH y/o corregir la saturación de Ca en la CICe cuando la acidez y la saturación de bases lo requieren.",
+    phAmendModeGypsumBlockedLime:
+      "El yeso no es la vía principal: baja saturación de bases / Ca con acidez en exceso apunta a cal (calcio).",
+    phAmendModeGypsumBlockedOk:
+      "El yeso no está indicado: no hay sodicidad ni déficit de Ca que requiera yeso sin encalado.",
+    phAmendModeGypsumNeedData:
+      "Faltan datos de cationes / CICe para confirmar yeso. Ingrese Ca, bases y acidez en Valores.",
+    phAmendModeCalciumBlockedGypsum:
+      "El encalado no está indicado: la química apunta a yeso (sodicidad o déficit de Ca sin vía de encalado por acidez).",
+    phAmendModeCalciumBlockedOk:
+      "No se necesita cal: la distribución de cationes en CICe y la saturación de bases están en rangos suficientes.",
+    phAmendModeCalciumNeedData:
+      "Faltan datos de CICe / saturación de bases para confirmar encalado. Ingrese Ca, CIC o bases, y acidez en Valores.",
     phAmendMaterialCalcitic: "Cal agrícola (CaCO₃)",
     phAmendMaterialDolomitic: "Cal dolomítica (CaMg(CO₃)₂)",
-    phAmendMaterialQuality: "Calidad del material (CCE / PRNT %)",
-    phAmendCceHint: "Requerimiento ajustado = Requerimiento base / (CCE / 100). Predeterminado 100%.",
+    phAmendMaterialCao: "Óxido de calcio (CaO)",
+    phAmendMaterialCalciticShort: "cal agrícola (CaCO₃)",
+    phAmendMaterialDolomiticShort: "cal dolomítica (CaMg(CO₃)₂)",
+    phAmendMaterialCaoShort: "CaO",
+    phAmendMaterialQuality: "PRNT / CCE (%)",
+    phAmendCceHint: "Dosis ÷ PRNT/CCE. Típico: CaCO₃ ~90%, dolomita ~75%, CaO ~100%.",
+    phAmendRecLeadLime: "Aplique {dose} {unit} de {material}.",
+    phAmendRecLeadGypsum: "Aplique {dose} {unit} de yeso.",
+    phAmendRecLeadSulfur: "Aplique {dose} {unit} de azufre elemental.",
+    phAmendRecDetailCaSat:
+      "La saturación de Ca actual es {current}%; la meta es {target}%.",
+    phAmendRecDetailBaseSat:
+      "La saturación de bases (V%) actual es {current}%; la meta es {target}%.",
+    phAmendRecDetailPh: "pH del suelo {current} → meta {target}.",
+    phAmendRecDetailGypsum:
+      "Aporta Ca y ayuda con Al / Na sin subir mucho el pH.",
+    phAmendRecDetailAcidity:
+      "La dosis sigue la acidez intercambiable (H+Al) para la profundidad de incorporación.",
+    phAmendRecPrntNote: "Ya ajustada al PRNT {prnt}%.",
+    phAmendWhyDolomiteShort: "La cal dolomítica también aporta Mg.",
+    phAmendWhyCaoShort: "El CaO es una fuente de encalado concentrada.",
+    phAmendRecHowLabel: "Cómo aplicar",
+    phAmendRecConsiderLabel: "Tener en cuenta",
+    phAmendRecHowLime:
+      "Reparta de forma pareja e incorpore con labranza en los primeros {depth} cm, idealmente 4–8 semanas antes de sembrar (o antes de lluvias) para que reaccione.",
+    phAmendRecHowCao:
+      "Reparta con cuidado e incorpore de inmediato en los primeros {depth} cm. Evite follaje húmedo y agua estancada: el CaO reacciona con la humedad y puede calentar.",
+    phAmendRecHowGypsum:
+      "Reparta de forma pareja e incorpore superficialmente en los primeros {depth} cm, o déjelo en superficie si la lluvia/riego lo moverá. Se necesita humedad para que el Ca desplace Na y Al.",
+    phAmendRecHowSulfur:
+      "Reparta e incorpore en los primeros {depth} cm. Mantenga el suelo húmedo: los microbios oxidan el azufre lentamente en semanas a meses.",
+    phAmendRecConsiderLime:
+      "Prefiera material fino con PRNT conocido. No mezcle en la misma pasada con urea o fertilizantes amoniacales: separe por tiempo o ubicación. El suelo húmedo ayuda a la reacción. Vuelva a muestrear a los 6–12 meses.",
+    phAmendRecConsiderDolomite:
+      "La cal dolomítica también aporta Mg. Prefiera material fino con PRNT conocido. No mezcle en la misma pasada con urea o fertilizantes amoniacales: separe por tiempo o ubicación. Vuelva a muestrear a los 6–12 meses.",
+    phAmendRecConsiderCao:
+      "El CaO es más fuerte y rápido que la cal agrícola. Use EPP, mantenga el producto seco hasta esparcirlo y espere a sembrar hasta que el suelo se estabilice. Confirme la pureza del producto.",
+    phAmendRecConsiderCaoHigh:
+      "El CaO es más fuerte y rápido que la cal agrícola. Use EPP, mantenga el producto seco hasta esparcirlo y divida dosis altas en dos pasadas con 2–4 semanas de diferencia. Espere a sembrar hasta que el suelo se estabilice; confirme la pureza.",
+    phAmendRecConsiderGypsum:
+      "El yeso no sube el pH. Funciona mejor con drenaje y agua suficiente para lixiviar el Na desplazado. Se puede aplicar más cerca de la siembra que la cal. No espere corrección de acidez solo con yeso.",
+    phAmendRecConsiderSulfur:
+      "La bajada de pH es gradual, no inmediata. Evite sobredosis en cultivos sensibles; vuelva a medir pH antes de una segunda aplicación. No mezcle con cal en la misma pasada.",
+    phAmendRecConsiderHighDose:
+      "Esta dosis es alta: divídala en dos aplicaciones (p. ej. mitad ahora y mitad a las 2–4 semanas o en la siguiente labranza) para no sobreencalar la superficie.",
     phAmendCurrentPh: "pH actual del suelo",
     phAmendTargetPh: "pH objetivo del suelo",
     phAmendSoilTexture: "Textura del suelo",
@@ -2174,7 +2322,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendTexture_loam: "Franco",
     phAmendTexture_clay_loam: "Franco arcilloso",
     phAmendTexture_clay: "Arcilla",
-    phAmendExchangeableAcidity: "Acidez intercambiable (cmol(+)/kg)",
+    phAmendExchangeableAcidity: "Acidez intercambiable",
     phAmendExchangeableAl: "Aluminio intercambiable (cmol(+)/kg)",
     phAmendOutputUnit: "Unidad de salida",
     phAmendUnitTha: "t/ha",
@@ -2308,9 +2456,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     cicBandUnknown: "Desconocido",
     cicSatVeryLow: "Muy bajo",
     cicSatLow: "Bajo",
-    cicSatModeratelyLow: "Moderadamente bajo",
+    cicSatModeratelyLow: "Mod. bajo",
     cicSatAdequate: "Adecuado",
-    cicSatModeratelyHigh: "Moderadamente alto",
+    cicSatModeratelyHigh: "Mod. alto",
     cicSatHigh: "Alto",
     cicSatVeryHigh: "Muy alto",
     cicRatioOptimal: "Dentro del rango adecuado de la relación.",
@@ -2383,7 +2531,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     favoritesAdd: "Ajouter aux favoris",
     favoritesRemove: "Retirer des favoris",
     cic: "CIC et bases",
-    amendment: "pH",
+    amendment: "pH et/ou amendement",
     fertilizer: "Nutrition",
     fertilizerCost: "Coût",
     fertilizerFormulation: "Formulation",
@@ -2410,6 +2558,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationBestMixProducts: "produits",
     fertilizerFormulationMyProducts: "Choisir produit",
     fertilizerFormulationBestValue: "Meilleure valeur",
+    fertilizerFormulationMixProducts: "Engrais de ce mélange",
+    fertilizerFormulationMixPending:
+      "Définissez un grade cible pour voir quels engrais le Meilleur mélange choisit.",
     fertilizerFormulationSelectAll: "Tout sélectionner",
     fertilizerFormulationClearAll: "Effacer",
     fertilizerFormulationDoneSelecting: "OK",
@@ -2443,6 +2594,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationFillerToReach: "pour atteindre 100 kg",
     fertilizerFormulationFillerNone:
       "Les produits remplissent déjà 100 kg — aucune charge nécessaire.",
+    fertilizerFormulationFillerMultiHint:
+      "Choisit automatiquement la meilleure charge inerte pour atteindre 100 kg. La quantité apparaît dans la recette.",
     fertilizerFormulationResult: "Recette",
     fertilizerFormulationInfeasible:
       "Impossible d’atteindre ce grade avec les produits choisis",
@@ -2824,15 +2977,80 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendSectionMaterial: "2. Matériau amendement",
     phAmendSectionInputs: "Entrées",
     phAmendMethod_ca_saturation: "Saturation en Ca",
-    phAmendMethod_base_saturation: "Méthode de saturation des bases",
-    phAmendMethod_exchangeable_acidity: "Méthode d'acidité échangeable",
-    phAmendMethod_target_ph: "Méthode du pH cible",
-    phAmendMethod_gypsum: "Besoin en gypse",
-    phAmendMethod_sulfur: "Besoin en soufre",
+    phAmendMethod_base_saturation: "Saturation des bases (V%)",
+    phAmendMethod_exchangeable_acidity: "Acidité échangeable",
+    phAmendMethod_target_ph: "pH cible",
+    phAmendMethod_gypsum: "Gypse",
+    phAmendMethod_sulfur: "Soufre",
+    phAmendModeBar: "Mode d'amendement",
+    phAmendModeGypsum: "Gypse",
+    phAmendModeCalcium: "Calcium",
+    phAmendModeCalciumShort: "Calcium",
+    phAmendModeOther: "Autres",
+    phAmendModeRecommended: "Recommandé d'après l'analyse de sol",
+    phAmendModeGypsumHint:
+      "Pour la sodicité ou l'équilibre en Ca sans relever le pH.",
+    phAmendModeCalciumHint:
+      "Chaux pour relever le pH et/ou corriger la saturation en Ca de la CICe.",
+    phAmendModeGypsumBlockedLime:
+      "Le gypse n'est pas la voie principale : une faible saturation / Ca avec acidité oriente vers la chaux.",
+    phAmendModeGypsumBlockedOk:
+      "Gypse non indiqué : pas de sodicité ni de déficit de Ca nécessitant du gypse sans chaulage.",
+    phAmendModeGypsumNeedData:
+      "Données CICe / cations insuffisantes pour confirmer le gypse.",
+    phAmendModeCalciumBlockedGypsum:
+      "Chaulage non indiqué : la chimie oriente vers le gypse.",
+    phAmendModeCalciumBlockedOk:
+      "Chaux non nécessaire : distribution des cations et saturation des bases suffisantes.",
+    phAmendModeCalciumNeedData:
+      "Données CICe / saturation insuffisantes pour confirmer le chaulage.",
     phAmendMaterialCalcitic: "Chaux agricole (CaCO₃)",
     phAmendMaterialDolomitic: "Chaux dolomitique (CaMg(CO₃)₂)",
-    phAmendMaterialQuality: "Qualité du matériau (CCE / PRNT %)",
-    phAmendCceHint: "Besoin ajusté = Besoin de base / (CCE / 100). Défaut 100%.",
+    phAmendMaterialCao: "Oxyde de calcium (CaO)",
+    phAmendMaterialCalciticShort: "chaux agricole (CaCO₃)",
+    phAmendMaterialDolomiticShort: "chaux dolomitique (CaMg(CO₃)₂)",
+    phAmendMaterialCaoShort: "CaO",
+    phAmendMaterialQuality: "PRNT / CCE (%)",
+    phAmendCceHint: "Dose ÷ PRNT/CCE. Typique : CaCO₃ ~90%, dolomie ~75%, CaO ~100%.",
+    phAmendRecLeadLime: "Appliquer {dose} {unit} de {material}.",
+    phAmendRecLeadGypsum: "Appliquer {dose} {unit} de gypse.",
+    phAmendRecLeadSulfur: "Appliquer {dose} {unit} de soufre élémentaire.",
+    phAmendRecDetailCaSat:
+      "Saturation en Ca actuelle : {current}% ; cible : {target}%.",
+    phAmendRecDetailBaseSat:
+      "Saturation des bases (V%) actuelle : {current}% ; cible : {target}%.",
+    phAmendRecDetailPh: "pH du sol {current} → cible {target}.",
+    phAmendRecDetailGypsum:
+      "Apporte du Ca et aide pour Al / Na sans beaucoup relever le pH.",
+    phAmendRecDetailAcidity:
+      "La dose suit l'acidité échangeable (H+Al) pour la profondeur d'incorporation.",
+    phAmendRecPrntNote: "Déjà ajustée au PRNT {prnt}%.",
+    phAmendWhyDolomiteShort: "La chaux dolomitique apporte aussi du Mg.",
+    phAmendWhyCaoShort: "Le CaO est une source de chaulage concentrée.",
+    phAmendRecHowLabel: "Comment appliquer",
+    phAmendRecConsiderLabel: "À retenir",
+    phAmendRecHowLime:
+      "Épandre uniformément et incorporer par labour dans les {depth} cm de surface, idéalement 4–8 semaines avant semis (ou avant les pluies) pour laisser réagir.",
+    phAmendRecHowCao:
+      "Épandre avec précaution et incorporer immédiatement dans les {depth} cm de surface. Éviter le feuillage humide et l'eau stagnante — le CaO réagit à l'humidité et peut chauffer.",
+    phAmendRecHowGypsum:
+      "Épandre uniformément et incorporer légèrement dans les {depth} cm de surface, ou laisser en surface si pluie/irrigation le déplacera. L'humidité est nécessaire pour que le Ca déplace Na et Al.",
+    phAmendRecHowSulfur:
+      "Épandre et incorporer dans les {depth} cm de surface. Garder le sol humide — les microbes oxydent le soufre lentement sur des semaines à des mois.",
+    phAmendRecConsiderLime:
+      "Préférer un matériau fin avec PRNT connu. Ne pas mélanger dans le même passage avec urée ou engrais ammoniacaux — séparer dans le temps ou l'emplacement. Un sol humide favorise la réaction. Recontrôler le sol après 6–12 mois.",
+    phAmendRecConsiderDolomite:
+      "La chaux dolomitique apporte aussi du Mg. Préférer un matériau fin avec PRNT connu. Ne pas mélanger avec urée/ammoniacaux dans le même passage. Recontrôler après 6–12 mois.",
+    phAmendRecConsiderCao:
+      "Le CaO est plus fort et plus rapide que la chaux agricole. Porter des EPI, garder le produit sec jusqu'à l'épandage, et attendre le semis jusqu'à stabilisation du sol. Vérifier la pureté.",
+    phAmendRecConsiderCaoHigh:
+      "Le CaO est plus fort et plus rapide que la chaux agricole. Porter des EPI, garder le produit sec, et fractionner les fortes doses en deux passages à 2–4 semaines. Attendre le semis jusqu'à stabilisation; vérifier la pureté.",
+    phAmendRecConsiderGypsum:
+      "Le gypse ne relève pas le pH. Il fonctionne mieux avec drainage et assez d'eau pour lessiver le Na déplacé. Applicable plus près du semis que la chaux. Ne pas attendre une correction d'acidité par le seul gypse.",
+    phAmendRecConsiderSulfur:
+      "La baisse de pH est progressive, pas immédiate. Éviter le surdosage des cultures sensibles; recontrôler le pH avant une 2ᵉ application. Ne pas mélanger avec de la chaux dans le même passage.",
+    phAmendRecConsiderHighDose:
+      "Ce taux est élevé : fractionner en deux applications (p. ex. moitié maintenant, moitié après 2–4 semaines ou au prochain labour) pour éviter de surchauler la surface.",
     phAmendCurrentPh: "pH actuel du sol",
     phAmendTargetPh: "pH cible du sol",
     phAmendSoilTexture: "Texture du sol",
@@ -2841,7 +3059,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendTexture_loam: "Loam",
     phAmendTexture_clay_loam: "Loam argileux",
     phAmendTexture_clay: "Argile",
-    phAmendExchangeableAcidity: "Acidité échangeable (cmol(+)/kg)",
+    phAmendExchangeableAcidity: "Acidité échangeable",
     phAmendExchangeableAl: "Aluminium échangeable (cmol(+)/kg)",
     phAmendOutputUnit: "Unité de sortie",
     phAmendUnitTha: "t/ha",
@@ -2975,9 +3193,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     cicBandUnknown: "Inconnu",
     cicSatVeryLow: "Très bas",
     cicSatLow: "Bas",
-    cicSatModeratelyLow: "Modérément bas",
+    cicSatModeratelyLow: "Mod. bas",
     cicSatAdequate: "Adéquat",
-    cicSatModeratelyHigh: "Modérément élevé",
+    cicSatModeratelyHigh: "Mod. élevé",
     cicSatHigh: "Élevé",
     cicSatVeryHigh: "Très élevé",
     cicRatioOptimal: "Dans la plage adéquate du ratio.",
@@ -3050,7 +3268,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     favoritesAdd: "Ajoute nan preferé",
     favoritesRemove: "Retire nan preferé",
     cic: "CIC ak baz",
-    amendment: "pH",
+    amendment: "pH ak/oswa amandman",
     fertilizer: "Nitrisyon",
     fertilizerCost: "Pri",
     fertilizerFormulation: "Fòmilasyon",
@@ -3077,6 +3295,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationBestMixProducts: "pwodwi",
     fertilizerFormulationMyProducts: "Chwazi pwodui",
     fertilizerFormulationBestValue: "Pi bon valè",
+    fertilizerFormulationMixProducts: "Angrè nan melanj sa a",
+    fertilizerFormulationMixPending:
+      "Mete yon nivo sib pou wè ki angrè Pi bon melanj chwazi.",
     fertilizerFormulationSelectAll: "Chwazi tout",
     fertilizerFormulationClearAll: "Efase",
     fertilizerFormulationDoneSelecting: "OK",
@@ -3110,6 +3331,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationFillerToReach: "pou rive nan 100 kg",
     fertilizerFormulationFillerNone:
       "Pwodui yo deja ranpli 100 kg — pa bezwen ranpli.",
+    fertilizerFormulationFillerMultiHint:
+      "Chwazi otomatikman pi bon ranpli inèt pou rive 100 kg. Kantite a parèt nan resèt la.",
     fertilizerFormulationResult: "Resèt",
     fertilizerFormulationInfeasible:
       "Pa ka rive nan gradyan sa a ak pwodui yo chwazi",
@@ -3491,15 +3714,77 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendSectionMaterial: "2. Materyèl amandman",
     phAmendSectionInputs: "Antre",
     phAmendMethod_ca_saturation: "Saturasyon Ca",
-    phAmendMethod_base_saturation: "Metòd saturasyon baz",
-    phAmendMethod_exchangeable_acidity: "Metòd asidite echanjabl",
-    phAmendMethod_target_ph: "Metòd pH objektif",
-    phAmendMethod_gypsum: "Bezwen jips",
-    phAmendMethod_sulfur: "Bezwen souf",
+    phAmendMethod_base_saturation: "Saturasyon baz (V%)",
+    phAmendMethod_exchangeable_acidity: "Asidite echanjabl",
+    phAmendMethod_target_ph: "pH objektif",
+    phAmendMethod_gypsum: "Jips",
+    phAmendMethod_sulfur: "Souf",
+    phAmendModeBar: "Mòd amandman",
+    phAmendModeGypsum: "Jips",
+    phAmendModeCalcium: "Kalsyòm",
+    phAmendModeCalciumShort: "Kalsyòm",
+    phAmendModeOther: "Lòt",
+    phAmendModeRecommended: "Rekòmande dapre analiz tè a",
+    phAmendModeGypsumHint: "Pou sodisite oswa balans Ca san ogmante pH.",
+    phAmendModeCalciumHint: "Chò pou ogmante pH ak/oswa korije saturasyon Ca nan CICe.",
+    phAmendModeGypsumBlockedLime:
+      "Jips pa se chemen prensipal la: saturasyon ba / Ca ak asidite montre chò.",
+    phAmendModeGypsumBlockedOk:
+      "Jips pa endike: pa gen sodisite ni defisi Ca ki bezwen jips san choulaj.",
+    phAmendModeGypsumNeedData: "Done CICe / kasyon yo pa ase pou konfime jips.",
+    phAmendModeCalciumBlockedGypsum:
+      "Choulaj pa endike: chimi a montre jips.",
+    phAmendModeCalciumBlockedOk:
+      "Pa bezwen chò: distribisyon kasyon ak saturasyon baz yo sifizan.",
+    phAmendModeCalciumNeedData:
+      "Done CICe / saturasyon pa ase pou konfime choulaj.",
     phAmendMaterialCalcitic: "Chò agrikòl (CaCO₃)",
     phAmendMaterialDolomitic: "Chò dolomitik (CaMg(CO₃)₂)",
-    phAmendMaterialQuality: "Kalite materyèl (CCE / PRNT %)",
-    phAmendCceHint: "Bezwen ajiste = Bezwen debaz / (CCE / 100). Default 100%.",
+    phAmendMaterialCao: "Oksid kalsyòm (CaO)",
+    phAmendMaterialCalciticShort: "chò agrikòl (CaCO₃)",
+    phAmendMaterialDolomiticShort: "chò dolomitik (CaMg(CO₃)₂)",
+    phAmendMaterialCaoShort: "CaO",
+    phAmendMaterialQuality: "PRNT / CCE (%)",
+    phAmendCceHint: "Dòz ÷ PRNT/CCE. Tipik: CaCO₃ ~90%, dolomit ~75%, CaO ~100%.",
+    phAmendRecLeadLime: "Aplike {dose} {unit} {material}.",
+    phAmendRecLeadGypsum: "Aplike {dose} {unit} jips.",
+    phAmendRecLeadSulfur: "Aplike {dose} {unit} souf elemen.",
+    phAmendRecDetailCaSat:
+      "Saturasyon Ca aktyèl se {current}%; objektif se {target}%.",
+    phAmendRecDetailBaseSat:
+      "Saturasyon baz (V%) aktyèl se {current}%; objektif se {target}%.",
+    phAmendRecDetailPh: "pH tè {current} → objektif {target}.",
+    phAmendRecDetailGypsum:
+      "Bay Ca epi ede ak Al / Na san ogmante pH anpil.",
+    phAmendRecDetailAcidity:
+      "Dòz la swiv asidite echanjabl (H+Al) pou pwofondè enkòporasyon an.",
+    phAmendRecPrntNote: "Deja ajiste pou PRNT {prnt}%.",
+    phAmendWhyDolomiteShort: "Chò dolomitik bay Mg tou.",
+    phAmendWhyCaoShort: "CaO se yon sous choulaj konsantre.",
+    phAmendRecHowLabel: "Kijan pou aplike",
+    phAmendRecConsiderLabel: "Sa pou w sonje",
+    phAmendRecHowLime:
+      "Simaye egal epi enkòpore nan premye {depth} cm yo, idealman 4–8 semèn anvan plante (oswa anvan lapli) pou li reyaji.",
+    phAmendRecHowCao:
+      "Simaye ak prekosyon epi enkòpore imedyatman nan premye {depth} cm yo. Evite fèy mouye ak dlo kanpe — CaO reyaji ak imidite epi li ka chofe.",
+    phAmendRecHowGypsum:
+      "Simaye egal epi enkòpore lejèman nan premye {depth} cm yo, oswa kite sou sifas si lapli/irigasyon pral deplase li. Bezwen imidite pou Ca deplase Na ak Al.",
+    phAmendRecHowSulfur:
+      "Simaye epi enkòpore nan premye {depth} cm yo. Kenbe tè a mouye — mikwòb yo oksidize souf la tou dousman pandan semèn a mwa.",
+    phAmendRecConsiderLime:
+      "Pito materyèl amann ak PRNT konnen. Pa melanje nan menm pasaj ak ure oswa angrè amonyak — separe nan tan oswa kote. Tè mouye ede reyaksyon an. Re-pran echantiyon apre 6–12 mwa.",
+    phAmendRecConsiderDolomite:
+      "Chò dolomitik bay Mg tou. Pito materyèl amann ak PRNT konnen. Pa melanje ak ure/amonyak nan menm pasaj. Re-pran echantiyon apre 6–12 mwa.",
+    phAmendRecConsiderCao:
+      "CaO pi fò epi pi rapid pase chò agrikòl. Sèvi ak pwoteksyon, kenbe pwodui a sèch jiskaske w simaye, epi tann plante jouk tè a estabilize. Verifye pirite.",
+    phAmendRecConsiderCaoHigh:
+      "CaO pi fò epi pi rapid pase chò agrikòl. Sèvi ak pwoteksyon, kenbe pwodui a sèch, epi divize gwo dòz an de pasaj 2–4 semèn apa. Tann plante jouk tè a estabilize; verifye pirite.",
+    phAmendRecConsiderGypsum:
+      "Jips pa ogmante pH. Li mache pi byen ak drenaj ak ase dlo pou leve Na deplase a. Ou ka aplike pi pre plante pase chò. Pa atann koreksyon asidite ak jips sèlman.",
+    phAmendRecConsiderSulfur:
+      "Desann pH la gradyèl, pa imedyat. Evite twòp dòz sou rekòt sansib; re-mezi pH anvan yon 2yèm aplikasyon. Pa melanje ak chò nan menm pasaj.",
+    phAmendRecConsiderHighDose:
+      "Dòz sa a wo: divize an de aplikasyon (egzanp mwatye kounye a, mwatye apre 2–4 semèn oswa pwochen travay tè) pou pa twòp choulaj sifas la.",
     phAmendCurrentPh: "pH aktyèl tè a",
     phAmendTargetPh: "pH objektif tè a",
     phAmendSoilTexture: "Teksti tè a",
@@ -3508,7 +3793,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendTexture_loam: "Limon",
     phAmendTexture_clay_loam: "Limon ajil",
     phAmendTexture_clay: "Ajil",
-    phAmendExchangeableAcidity: "Asidite echanjabl (cmol(+)/kg)",
+    phAmendExchangeableAcidity: "Asidite echanjabl",
     phAmendExchangeableAl: "Aliminyòm echanjabl (cmol(+)/kg)",
     phAmendOutputUnit: "Inite rezilta",
     phAmendUnitTha: "t/ha",
@@ -3715,7 +4000,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     favoritesAdd: "Adicionar aos favoritos",
     favoritesRemove: "Remover dos favoritos",
     cic: "CIC e bases",
-    amendment: "pH",
+    amendment: "pH e/ou corretivo",
     fertilizer: "Nutrição",
     fertilizerCost: "Custo",
     fertilizerFormulation: "Formulação",
@@ -3742,6 +4027,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationBestMixProducts: "produtos",
     fertilizerFormulationMyProducts: "Selecionar produto",
     fertilizerFormulationBestValue: "Melhor valor",
+    fertilizerFormulationMixProducts: "Fertilizantes nesta mistura",
+    fertilizerFormulationMixPending:
+      "Defina um grau alvo para ver quais fertilizantes a Melhor mistura escolhe.",
     fertilizerFormulationSelectAll: "Selecionar tudo",
     fertilizerFormulationClearAll: "Limpar",
     fertilizerFormulationDoneSelecting: "OK",
@@ -3775,6 +4063,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationFillerToReach: "para chegar a 100 kg",
     fertilizerFormulationFillerNone:
       "Os produtos já preenchem 100 kg — não é necessário enchimento.",
+    fertilizerFormulationFillerMultiHint:
+      "Escolhe automaticamente o melhor enchimento inerte para chegar a 100 kg. A quantidade aparece na receita.",
     fertilizerFormulationResult: "Receita",
     fertilizerFormulationInfeasible:
       "Não é possível atingir este grau com os produtos selecionados",
@@ -4156,15 +4446,80 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendSectionMaterial: "2. Material corretivo",
     phAmendSectionInputs: "Entradas",
     phAmendMethod_ca_saturation: "Saturação de Ca",
-    phAmendMethod_base_saturation: "Método de saturação de bases",
-    phAmendMethod_exchangeable_acidity: "Método de acidez trocável",
-    phAmendMethod_target_ph: "Método de pH alvo",
-    phAmendMethod_gypsum: "Requerimento de gesso",
-    phAmendMethod_sulfur: "Requerimento de enxofre",
+    phAmendMethod_base_saturation: "Saturação de bases (V%)",
+    phAmendMethod_exchangeable_acidity: "Acidez trocável",
+    phAmendMethod_target_ph: "pH alvo",
+    phAmendMethod_gypsum: "Gesso",
+    phAmendMethod_sulfur: "Enxofre",
+    phAmendModeBar: "Modo de corretivo",
+    phAmendModeGypsum: "Gesso",
+    phAmendModeCalcium: "Cálcio",
+    phAmendModeCalciumShort: "Cálcio",
+    phAmendModeOther: "Outros",
+    phAmendModeRecommended: "Recomendado conforme a análise de solo",
+    phAmendModeGypsumHint:
+      "Para sodicidade ou balanço de Ca sem elevar o pH.",
+    phAmendModeCalciumHint:
+      "Cal para elevar o pH e/ou corrigir a saturação de Ca na CICe.",
+    phAmendModeGypsumBlockedLime:
+      "O gesso não é a via principal: baixa saturação / Ca com acidez aponta para cal.",
+    phAmendModeGypsumBlockedOk:
+      "Gesso não indicado: sem sodicidade nem déficit de Ca que exija gesso sem calagem.",
+    phAmendModeGypsumNeedData:
+      "Dados de CICe / cátions insuficientes para confirmar gesso.",
+    phAmendModeCalciumBlockedGypsum:
+      "Calagem não indicada: a química aponta para gesso.",
+    phAmendModeCalciumBlockedOk:
+      "Cal não necessária: distribuição de cátions e saturação de bases suficientes.",
+    phAmendModeCalciumNeedData:
+      "Dados de CICe / saturação insuficientes para confirmar calagem.",
     phAmendMaterialCalcitic: "Calcário agrícola (CaCO₃)",
     phAmendMaterialDolomitic: "Calcário dolomítico (CaMg(CO₃)₂)",
-    phAmendMaterialQuality: "Qualidade do material (CCE / PRNT %)",
-    phAmendCceHint: "Requerimento ajustado = Requerimento base / (CCE / 100). Padrão 100%.",
+    phAmendMaterialCao: "Óxido de cálcio (CaO)",
+    phAmendMaterialCalciticShort: "calcário agrícola (CaCO₃)",
+    phAmendMaterialDolomiticShort: "calcário dolomítico (CaMg(CO₃)₂)",
+    phAmendMaterialCaoShort: "CaO",
+    phAmendMaterialQuality: "PRNT / CCE (%)",
+    phAmendCceHint: "Dose ÷ PRNT/CCE. Típico: CaCO₃ ~90%, dolomita ~75%, CaO ~100%.",
+    phAmendRecLeadLime: "Aplique {dose} {unit} de {material}.",
+    phAmendRecLeadGypsum: "Aplique {dose} {unit} de gesso.",
+    phAmendRecLeadSulfur: "Aplique {dose} {unit} de enxofre elementar.",
+    phAmendRecDetailCaSat:
+      "A saturação de Ca atual é {current}%; a meta é {target}%.",
+    phAmendRecDetailBaseSat:
+      "A saturação de bases (V%) atual é {current}%; a meta é {target}%.",
+    phAmendRecDetailPh: "pH do solo {current} → meta {target}.",
+    phAmendRecDetailGypsum:
+      "Fornece Ca e ajuda com Al / Na sem elevar muito o pH.",
+    phAmendRecDetailAcidity:
+      "A dose segue a acidez trocável (H+Al) para a profundidade de incorporação.",
+    phAmendRecPrntNote: "Já ajustada ao PRNT {prnt}%.",
+    phAmendWhyDolomiteShort: "O calcário dolomítico também fornece Mg.",
+    phAmendWhyCaoShort: "O CaO é uma fonte de calagem concentrada.",
+    phAmendRecHowLabel: "Como aplicar",
+    phAmendRecConsiderLabel: "Ter em conta",
+    phAmendRecHowLime:
+      "Espalhe de forma uniforme e incorpore com preparo nos primeiros {depth} cm, idealmente 4–8 semanas antes do plantio (ou antes das chuvas) para reagir.",
+    phAmendRecHowCao:
+      "Espalhe com cuidado e incorpore imediatamente nos primeiros {depth} cm. Evite folhagem molhada e água parada — o CaO reage com umidade e pode aquecer.",
+    phAmendRecHowGypsum:
+      "Espalhe de forma uniforme e incorpore levemente nos primeiros {depth} cm, ou deixe na superfície se chuva/irrigação o deslocar. É preciso umidade para o Ca deslocar Na e Al.",
+    phAmendRecHowSulfur:
+      "Espalhe e incorpore nos primeiros {depth} cm. Mantenha o solo úmido — micróbios oxidam o enxofre lentamente ao longo de semanas a meses.",
+    phAmendRecConsiderLime:
+      "Prefira material fino com PRNT conhecido. Não misture na mesma passagem com ureia ou fertilizantes amoniacais — separe por tempo ou local. Solo úmido ajuda a reação. Reamostrar após 6–12 meses.",
+    phAmendRecConsiderDolomite:
+      "O calcário dolomítico também fornece Mg. Prefira material fino com PRNT conhecido. Não misture com ureia/amoniacais na mesma passagem. Reamostrar após 6–12 meses.",
+    phAmendRecConsiderCao:
+      "O CaO é mais forte e rápido que o calcário agrícola. Use EPI, mantenha o produto seco até espalhar e espere o plantio até o solo estabilizar. Confirme a pureza.",
+    phAmendRecConsiderCaoHigh:
+      "O CaO é mais forte e rápido que o calcário agrícola. Use EPI, mantenha o produto seco e divida doses altas em duas passagens com 2–4 semanas. Espere o plantio até o solo estabilizar; confirme a pureza.",
+    phAmendRecConsiderGypsum:
+      "O gesso não eleva o pH. Funciona melhor com drenagem e água suficiente para lixiviar o Na deslocado. Pode ser aplicado mais perto do plantio que a cal. Não espere correção de acidez só com gesso.",
+    phAmendRecConsiderSulfur:
+      "A queda de pH é gradual, não imediata. Evite overdose em culturas sensíveis; remeça o pH antes de uma 2ª aplicação. Não misture com cal na mesma passagem.",
+    phAmendRecConsiderHighDose:
+      "Esta dose é alta: divida em duas aplicações (ex.: metade agora e metade após 2–4 semanas ou na próxima preparo) para não sobrecalcar a superfície.",
     phAmendCurrentPh: "pH atual do solo",
     phAmendTargetPh: "pH alvo do solo",
     phAmendSoilTexture: "Textura do solo",
@@ -4173,7 +4528,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendTexture_loam: "Franco",
     phAmendTexture_clay_loam: "Franco-argiloso",
     phAmendTexture_clay: "Argila",
-    phAmendExchangeableAcidity: "Acidez trocável (cmol(+)/kg)",
+    phAmendExchangeableAcidity: "Acidez trocável",
     phAmendExchangeableAl: "Alumínio trocável (cmol(+)/kg)",
     phAmendOutputUnit: "Unidade de saída",
     phAmendUnitTha: "t/ha",
@@ -4306,9 +4661,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     cicBandUnknown: "Desconhecido",
     cicSatVeryLow: "Muito baixo",
     cicSatLow: "Baixo",
-    cicSatModeratelyLow: "Moderadamente baixo",
+    cicSatModeratelyLow: "Mod. baixo",
     cicSatAdequate: "Adequado",
-    cicSatModeratelyHigh: "Moderadamente alto",
+    cicSatModeratelyHigh: "Mod. alto",
     cicSatHigh: "Alto",
     cicSatVeryHigh: "Muito alto",
     cicRatioOptimal: "Dentro da faixa adequada da relação.",
@@ -4381,7 +4736,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     favoritesAdd: "Ongeza kwenye vipendwa",
     favoritesRemove: "Ondoa kutoka vipendwa",
     cic: "CIC na besi",
-    amendment: "pH",
+    amendment: "pH na/au marekebisho",
     fertilizer: "Lishe",
     fertilizerCost: "Gharama",
     fertilizerFormulation: "Uundaji",
@@ -4408,6 +4763,9 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationBestMixProducts: "bidhaa",
     fertilizerFormulationMyProducts: "Chagua bidhaa",
     fertilizerFormulationBestValue: "Thamani bora",
+    fertilizerFormulationMixProducts: "Mbolea katika mchanganyiko huu",
+    fertilizerFormulationMixPending:
+      "Weka daraja lengwa ili kuona mbolea zipi Mchanganyiko bora huchagua.",
     fertilizerFormulationSelectAll: "Chagua zote",
     fertilizerFormulationClearAll: "Futa",
     fertilizerFormulationDoneSelecting: "Sawa",
@@ -4441,6 +4799,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerFormulationFillerToReach: "ili kufikia kg 100",
     fertilizerFormulationFillerNone:
       "Bidhaa tayari zimejazwa kg 100 — hakuna kichujio kinachohitajika.",
+    fertilizerFormulationFillerMultiHint:
+      "Huchagua kiotomatiki kichujio bora cha inert ili kufikia kg 100. Kiasi huonekana kwenye resipi.",
     fertilizerFormulationResult: "Resipi",
     fertilizerFormulationInfeasible:
       "Haiwezi kufikia daraja hili kwa bidhaa zilizochaguliwa",
@@ -4822,15 +5182,78 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendSectionMaterial: "2. Nyenzo ya marekebisho",
     phAmendSectionInputs: "Ingizo",
     phAmendMethod_ca_saturation: "Kuenea kwa Ca",
-    phAmendMethod_base_saturation: "Njia ya kuenea kwa besi",
-    phAmendMethod_exchangeable_acidity: "Njia ya asidi inayobadilishika",
-    phAmendMethod_target_ph: "Njia ya pH lengwa",
-    phAmendMethod_gypsum: "Mahitaji ya gypsum",
-    phAmendMethod_sulfur: "Mahitaji ya sulfuri",
+    phAmendMethod_base_saturation: "Kuenea kwa besi (V%)",
+    phAmendMethod_exchangeable_acidity: "Asidi inayobadilishika",
+    phAmendMethod_target_ph: "pH lengwa",
+    phAmendMethod_gypsum: "Gypsum",
+    phAmendMethod_sulfur: "Sulfuri",
+    phAmendModeBar: "Hali ya marekebisho",
+    phAmendModeGypsum: "Gypsum",
+    phAmendModeCalcium: "Kalsiamu",
+    phAmendModeCalciumShort: "Kalsiamu",
+    phAmendModeOther: "Zingine",
+    phAmendModeRecommended: "Inapendekezwa kutoka uchambuzi wa udongo",
+    phAmendModeGypsumHint: "Kwa sodicity au usawa wa Ca bila kuongeza pH.",
+    phAmendModeCalciumHint:
+      "Chokaa kuinua pH na/au kurekebisha kueneza kwa Ca katika CICe.",
+    phAmendModeGypsumBlockedLime:
+      "Gypsum si njia kuu: kueneza chini / Ca na asidi inaonyesha chokaa.",
+    phAmendModeGypsumBlockedOk:
+      "Gypsum haijaonyeshwa: hakuna sodicity wala upungufu wa Ca unaohitaji gypsum bila chokaa.",
+    phAmendModeGypsumNeedData: "Data ya CICe / kation haitoshi kuthibitisha gypsum.",
+    phAmendModeCalciumBlockedGypsum:
+      "Chokaa haijaonyeshwa: kemia inaonyesha gypsum.",
+    phAmendModeCalciumBlockedOk:
+      "Chokaa haitajiwi: usambazaji wa kation na kueneza kwa besi ni wa kutosha.",
+    phAmendModeCalciumNeedData:
+      "Data ya CICe / kueneza haitoshi kuthibitisha chokaa.",
     phAmendMaterialCalcitic: "Chokaa cha kilimo (CaCO₃)",
     phAmendMaterialDolomitic: "Chokaa cha dolomiti (CaMg(CO₃)₂)",
-    phAmendMaterialQuality: "Ubora wa nyenzo (CCE / PRNT %)",
-    phAmendCceHint: "Mahitaji yaliyorekebishwa = Mahitaji ya msingi / (CCE / 100). Chaguo-msingi 100%.",
+    phAmendMaterialCao: "Oksidi ya kalsiamu (CaO)",
+    phAmendMaterialCalciticShort: "chokaa cha kilimo (CaCO₃)",
+    phAmendMaterialDolomiticShort: "chokaa cha dolomiti (CaMg(CO₃)₂)",
+    phAmendMaterialCaoShort: "CaO",
+    phAmendMaterialQuality: "PRNT / CCE (%)",
+    phAmendCceHint: "Kipimo ÷ PRNT/CCE. kawaida: CaCO₃ ~90%, dolomiti ~75%, CaO ~100%.",
+    phAmendRecLeadLime: "Tumia {dose} {unit} ya {material}.",
+    phAmendRecLeadGypsum: "Tumia {dose} {unit} ya gypsum.",
+    phAmendRecLeadSulfur: "Tumia {dose} {unit} ya sulfuri.",
+    phAmendRecDetailCaSat:
+      "Kuenea kwa Ca sasa ni {current}%; lengwa ni {target}%.",
+    phAmendRecDetailBaseSat:
+      "Kuenea kwa besi (V%) sasa ni {current}%; lengwa ni {target}%.",
+    phAmendRecDetailPh: "pH ya udongo {current} → lengwa {target}.",
+    phAmendRecDetailGypsum:
+      "Inatoa Ca na husaidia Al / Na bila kuongeza pH sana.",
+    phAmendRecDetailAcidity:
+      "Kipimo kinafuata asidi inayobadilishika (H+Al) kwa kina cha kuchanganya.",
+    phAmendRecPrntNote: "Tayari imerekebishwa kwa PRNT {prnt}%.",
+    phAmendWhyDolomiteShort: "Chokaa cha dolomiti pia hutoa Mg.",
+    phAmendWhyCaoShort: "CaO ni chanzo chenye mkazo cha chokaa.",
+    phAmendRecHowLabel: "Jinsi ya kutumia",
+    phAmendRecConsiderLabel: "Kumbuka",
+    phAmendRecHowLime:
+      "Tawanya sawasawa na changanya kwenye cm {depth} za juu, bora wiki 4–8 kabla ya kupanda (au kabla ya mvua) ili iweze kuguswa.",
+    phAmendRecHowCao:
+      "Tawanya kwa uangalifu na changanya mara moja kwenye cm {depth} za juu. Epuka majani yenye unyevu na maji yaliyotuama — CaO huguswa na unyevu na inaweza kutoa joto.",
+    phAmendRecHowGypsum:
+      "Tawanya sawasawa na changanya kidogo kwenye cm {depth} za juu, au acha juu ikiwa mvua/umwagiliaji utaisogeza. Unyevu unahitajika ili Ca ibadilishe Na na Al.",
+    phAmendRecHowSulfur:
+      "Tawanya na changanya kwenye cm {depth} za juu. Weka udongo unyevu — vijidudu huoksidisha sulfuri polepole kwa wiki hadi miezi.",
+    phAmendRecConsiderLime:
+      "Pendelea nyenzo laini yenye PRNT inayojulikana. Usichanganye katika pasi moja na urea au mbolea za amonia — tengeneza kwa muda au mahali. Udongo unyevu husaidia mmenyuko. Chukua sampuli tena baada ya miezi 6–12.",
+    phAmendRecConsiderDolomite:
+      "Chokaa cha dolomiti pia hutoa Mg. Pendelea nyenzo laini yenye PRNT inayojulikana. Usichanganye na urea/amonia katika pasi moja. Chukua sampuli tena baada ya miezi 6–12.",
+    phAmendRecConsiderCao:
+      "CaO ni kali na haraka kuliko chokaa cha kilimo. Tumia PPE, weka bidhaa kavu hadi kutawanya, na subiri kupanda hadi udongo utulie. Thibitisha usafi.",
+    phAmendRecConsiderCaoHigh:
+      "CaO ni kali na haraka kuliko chokaa cha kilimo. Tumia PPE, weka bidhaa kavu, na gawanya kipimo kikubwa katika pasi mbili wiki 2–4 kati. Subiri kupanda hadi udongo utulie; thibitisha usafi.",
+    phAmendRecConsiderGypsum:
+      "Gypsum haiongezi pH. Inafanya kazi vizuri na mifereji na maji ya kutosha kusafirisha Na iliyohamishwa. Inaweza kutumika karibu na kupanda kuliko chokaa. Usitarajie kurekebisha asidi kwa gypsum pekee.",
+    phAmendRecConsiderSulfur:
+      "Kushuka kwa pH ni taratibu, si papo hapo. Epuka kipimo kupita kiasi kwa mazao nyeti; pima pH tena kabla ya matumizi ya pili. Usichanganye na chokaa katika pasi moja.",
+    phAmendRecConsiderHighDose:
+      "Kipimo hiki ni kikubwa: gawanya katika matumizi mawili (mf. nusu sasa, nusu baada ya wiki 2–4 au kulima ijayo) ili kuepuka chokaa kupita kiasi juu.",
     phAmendCurrentPh: "pH ya sasa ya udongo",
     phAmendTargetPh: "pH lengwa ya udongo",
     phAmendSoilTexture: "Muundo wa udongo",
@@ -4839,7 +5262,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     phAmendTexture_loam: "Lomu",
     phAmendTexture_clay_loam: "Lomu-udongo",
     phAmendTexture_clay: "Udongo",
-    phAmendExchangeableAcidity: "Asidi inayobadilishika (cmol(+)/kg)",
+    phAmendExchangeableAcidity: "Asidi inayobadilishika",
     phAmendExchangeableAl: "Alumini inayobadilishika (cmol(+)/kg)",
     phAmendOutputUnit: "Kipimo cha matokeo",
     phAmendUnitTha: "t/ha",

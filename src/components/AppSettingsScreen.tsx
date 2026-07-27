@@ -38,6 +38,7 @@ import {
   AppFontPreference,
   AppThemePreference,
   DefaultCrop,
+  DefaultCalculatorHubLanding,
   DefaultExportFormat,
   DefaultImportType,
   DefaultSampleType,
@@ -178,6 +179,8 @@ type SettingsText = {
     enablePhWarnings: string;
     showCalculatorFormulas: string;
     showCalculatorFormulasHint: string;
+    defaultCalculatorHubLanding: string;
+    defaultCalculatorHubLandingHint: string;
     planTier: string;
     planTierHint: string;
     defaultImportType: string;
@@ -246,6 +249,8 @@ type SettingsText = {
     rice: string;
     tomato: string;
     sweetPepper: string;
+    calculatorRecommended: string;
+    calculatorFavorites: string;
     sufficiencyRange: string;
     dop: string;
     customRange: string;
@@ -317,6 +322,9 @@ const settingsText: Record<Language, SettingsText> = {
       showCalculatorFormulas: "Show calculator formulas",
       showCalculatorFormulasHint:
         "Requires Pro or Business plan. Shows formulas and step-by-step explanations in the Calculator.",
+      defaultCalculatorHubLanding: "Default calculator start page",
+      defaultCalculatorHubLandingHint:
+        "Which tab opens first in Calculators (Explorer): Recommended or Favorites.",
       planTier: "App plan",
       planTierHint:
         "Placeholder for future billing. Pro/Business unlock calculator formulas when enabled below.",
@@ -389,6 +397,8 @@ const settingsText: Record<Language, SettingsText> = {
       rice: "Rice",
       tomato: "Tomato",
       sweetPepper: "Sweet Pepper",
+      calculatorRecommended: "Recommended",
+      calculatorFavorites: "Favorites",
       sufficiencyRange: "Sufficiency range",
       dop: "DOP",
       customRange: "Custom range",
@@ -458,6 +468,9 @@ const settingsText: Record<Language, SettingsText> = {
       showCalculatorFormulas: "Mostrar fórmulas en calculadora",
       showCalculatorFormulasHint:
         "Requiere plan Pro o Business. Muestra fórmulas y explicaciones paso a paso.",
+      defaultCalculatorHubLanding: "Página inicial de calculadoras",
+      defaultCalculatorHubLandingHint:
+        "Qué pestaña se abre primero en Calculadoras (Explorar): Recomendadas o Favoritos.",
       planTier: "Plan de la app",
       planTierHint:
         "Base para facturación futura. Pro/Business desbloquean las fórmulas si están activadas.",
@@ -524,6 +537,8 @@ const settingsText: Record<Language, SettingsText> = {
       rice: "Arroz",
       tomato: "Tomate",
       sweetPepper: "Ají dulce",
+      calculatorRecommended: "Recomendadas",
+      calculatorFavorites: "Favoritos",
       sufficiencyRange: "Rango de suficiencia",
       dop: "DOP",
       customRange: "Rango personalizado",
@@ -593,6 +608,9 @@ const settingsText: Record<Language, SettingsText> = {
       showCalculatorFormulas: "Afficher les formules du calculateur",
       showCalculatorFormulasHint:
         "Nécessite Pro ou Business. Affiche formules et explications étape par étape.",
+      defaultCalculatorHubLanding: "Page d’accueil des calculateurs",
+      defaultCalculatorHubLandingHint:
+        "Onglet ouvert en premier dans Calculateurs (Explorer) : Recommandés ou Favoris.",
       planTier: "Offre de l’app",
       planTierHint:
         "Base pour la facturation future. Pro/Business débloquent les formules si activées.",
@@ -659,6 +677,8 @@ const settingsText: Record<Language, SettingsText> = {
       rice: "Riz",
       tomato: "Tomate",
       sweetPepper: "Piment doux",
+      calculatorRecommended: "Recommandés",
+      calculatorFavorites: "Favoris",
       sufficiencyRange: "Plage de suffisance",
       dop: "DOP",
       customRange: "Plage personnalisée",
@@ -728,6 +748,9 @@ const settingsText: Record<Language, SettingsText> = {
       showCalculatorFormulas: "Montre fòmil kalkilatè yo",
       showCalculatorFormulasHint:
         "Mande plan Pro oswa Business. Montre fòmil ak eksplikasyon etap pa etap.",
+      defaultCalculatorHubLanding: "Paj demaraj kalkilatè yo",
+      defaultCalculatorHubLandingHint:
+        "Ki onglet ki louvri an premye nan Kalkilatè (Eksplore) : Rekòmande oswa Preferé.",
       planTier: "Plan app la",
       planTierHint:
         "Fondasyon pou faktirasyon nan lavni. Pro/Business debloke fòmil yo si yo aktive.",
@@ -794,6 +817,8 @@ const settingsText: Record<Language, SettingsText> = {
       rice: "Diri",
       tomato: "Tomat",
       sweetPepper: "Piman dous",
+      calculatorRecommended: "Rekòmande",
+      calculatorFavorites: "Preferé",
       sufficiencyRange: "Ranje sifizans",
       dop: "DOP",
       customRange: "Ranje pèsonalize",
@@ -863,6 +888,9 @@ const settingsText: Record<Language, SettingsText> = {
       showCalculatorFormulas: "Mostrar fórmulas na calculadora",
       showCalculatorFormulasHint:
         "Requer plano Pro ou Business. Exibe fórmulas e explicações passo a passo.",
+      defaultCalculatorHubLanding: "Página inicial das calculadoras",
+      defaultCalculatorHubLandingHint:
+        "Qual aba abre primeiro em Calculadoras (Explorar): Recomendadas ou Favoritos.",
       planTier: "Plano do app",
       planTierHint:
         "Base para cobrança futura. Pro/Business desbloqueiam fórmulas quando ativadas.",
@@ -929,6 +957,8 @@ const settingsText: Record<Language, SettingsText> = {
       rice: "Arroz",
       tomato: "Tomate",
       sweetPepper: "Pimentão",
+      calculatorRecommended: "Recomendadas",
+      calculatorFavorites: "Favoritos",
       sufficiencyRange: "Faixa de suficiência",
       dop: "DOP",
       customRange: "Faixa personalizada",
@@ -998,6 +1028,9 @@ const settingsText: Record<Language, SettingsText> = {
       showCalculatorFormulas: "Onyesha fomula za kikokotoo",
       showCalculatorFormulasHint:
         "Inahitaji Pro au Business. Inaonyesha fomula na maelezo hatua kwa hatua.",
+      defaultCalculatorHubLanding: "Ukurasa wa kuanza wa kikokotoo",
+      defaultCalculatorHubLandingHint:
+        "Kichupo kinachofunguka kwanza katika Vikokotoo (Chunguza): Vinavyopendekezwa au Vipendwa.",
       planTier: "Mpango wa app",
       planTierHint:
         "Msingi wa bili baadaye. Pro/Business hufungua fomula zikipindiwa.",
@@ -1064,6 +1097,8 @@ const settingsText: Record<Language, SettingsText> = {
       rice: "Mchele",
       tomato: "Nyanya",
       sweetPepper: "Pilipili hoho",
+      calculatorRecommended: "Vinavyopendekezwa",
+      calculatorFavorites: "Vipendwa",
       sufficiencyRange: "Kiwango cha kutosha",
       dop: "DOP",
       customRange: "Kiwango maalum",
@@ -1146,6 +1181,13 @@ const sensitivityOptions = (text: SettingsText): { value: WarningSensitivity; la
   { value: "flexible", label: text.options.flexible },
   { value: "normal", label: text.options.normal },
   { value: "strict", label: text.options.strict },
+];
+
+const calculatorLandingOptions = (
+  text: SettingsText
+): { value: DefaultCalculatorHubLanding; label: string }[] => [
+  { value: "priority", label: text.options.calculatorRecommended },
+  { value: "favorites", label: text.options.calculatorFavorites },
 ];
 
 const importTypeOptions = (text: SettingsText): { value: DefaultImportType; label: string }[] => [
@@ -1714,6 +1756,18 @@ export default function AppSettingsScreen({
               }
               disabled={draftSettings.billing.planTier === "free"}
             />
+            <MenuSelect
+              compact
+              label={text.labels.defaultCalculatorHubLanding}
+              value={draftSettings.analysis.defaultCalculatorHubLanding}
+              options={calculatorLandingOptions(text)}
+              onChange={(value) =>
+                changeSetting("analysis", "defaultCalculatorHubLanding", value)
+              }
+            />
+            <p className="px-0.5 text-xs leading-snug text-slate-500 dark:text-slate-400">
+              {text.labels.defaultCalculatorHubLandingHint}
+            </p>
           </SettingsGroup>
 
           <SettingsGroup title={text.sections.importAi}>

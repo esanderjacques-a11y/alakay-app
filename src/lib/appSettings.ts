@@ -23,6 +23,7 @@ export type AccentColor =
   | "brown"
   | "fuchsia";
 export type DefaultSampleType = "soil" | "foliar" | "water" | "both";
+export type DefaultCalculatorHubLanding = "priority" | "favorites";
 export type DefaultCrop =
   | "banana"
   | "coffee"
@@ -64,6 +65,8 @@ export type AppSettings = {
     enableNutrientRatios: boolean;
     enablePhWarnings: boolean;
     showCalculatorFormulas: boolean;
+    /** Explorer landing tab when opening Calculators (no saved session / back to list). */
+    defaultCalculatorHubLanding: DefaultCalculatorHubLanding;
   };
   billing: {
     planTier: PlanTier;
@@ -118,6 +121,7 @@ export const defaultAppSettings: AppSettings = {
     enableNutrientRatios: true,
     enablePhWarnings: true,
     showCalculatorFormulas: false,
+    defaultCalculatorHubLanding: "priority",
   },
   billing: {
     planTier: "free",
@@ -265,6 +269,12 @@ function mergeSettings(settings: Partial<AppSettings>): AppSettings {
   merged.general.glassUi = merged.general.glassUi !== false;
   merged.analysis.showCalculatorFormulas =
     merged.analysis.showCalculatorFormulas === true;
+  if (
+    merged.analysis.defaultCalculatorHubLanding !== "priority" &&
+    merged.analysis.defaultCalculatorHubLanding !== "favorites"
+  ) {
+    merged.analysis.defaultCalculatorHubLanding = "priority";
+  }
   const rawPlanTier = (settings.billing?.planTier ?? merged.billing.planTier) as string;
   if (rawPlanTier === "plus") merged.billing.planTier = "plus";
   else if (rawPlanTier === "pro" || rawPlanTier === "premium" || rawPlanTier === "business")

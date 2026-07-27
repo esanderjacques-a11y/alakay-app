@@ -215,6 +215,18 @@
   cropLoadingError: "Crop loading error",
 
   analysisSummary: "Analysis Summary",
+  waterQualityTitle: "Irrigation water indices",
+  waterQualityDesc:
+    "Computed from your values using EARTH Unidad 4 methods (Villaseñor): salts, RAS, hardness, Kelly, and US Salinity Lab C–S class.",
+  waterSaltConc: "Salt concentration",
+  waterRas: "RAS / SAR",
+  waterHardness: "Hardness",
+  waterKelly: "Kelly index",
+  waterClassCS: "Water class (C–S)",
+  waterSeverity: "Severity",
+  waterSeverityNone: "None",
+  waterSeverityModerate: "Moderate",
+  waterSeverityHigh: "High",
   needsAttention: "Needs attention",
   needsAttentionDesc: "These values may require correction or closer review.",
   warning: "Warning / Monitor",
@@ -583,8 +595,8 @@
   noInProgressDetail:
     "No in-progress analysis yet. Start a new analysis or import lab values first.",
 
-  about: "ABOUT",
-  aboutTitle: "ABOUT",
+  about: "About",
+  aboutTitle: "About",
   aboutTagline: "Soil intelligence for every grower",
   aboutIntro:
     "Started in a classroom as a tool for homework, it evolved into a tool for interpreting soil analysis for producers, and is now a multifunctional platform.",
@@ -1105,19 +1117,30 @@
       "Suggested from your fertilization calendar — edit freely before saving.",
     recommendedBadge: "Suggested",
     notificationsTitle: "Notifications",
-    notificationsDesc: "Reminders, calendar due dates, and planning tips.",
+    notificationsDesc:
+      "Alerts for today and the next hours — not months ahead. Calendar applications remind you about 18 hours before.",
     unreadCount: "{count} due",
     allCaughtUp: "You're all caught up",
     markAllRead: "Mark all read",
-    emptyNotifications: "No notifications yet.",
+    emptyNotifications: "No due or upcoming reminders yet.",
+    notifGroupUpcoming: "Upcoming",
     notifGroupToday: "Today",
     notifGroupYesterday: "Yesterday",
     notifGroupThisWeek: "This week",
     notifGroupThisMonth: "This month",
     notifGroupOlder: "Earlier",
+    notifSoon: "Soon",
+    notifSwipeHint: "Swipe right to delete",
     clearNotification: "Clear",
     clearAllNotifications: "Clear all",
     clearAllNotificationsConfirm: "Clear all notifications? This cannot be undone.",
+    enablePhoneNotifications: "Phone notifications",
+    enablePhoneNotificationsAction: "Enable",
+    phoneNotificationsHint:
+      "Allow Cultosol to alert on this phone when an application is due.",
+    phoneNotificationsEnabled: "Phone alerts on",
+    phoneNotificationsDenied:
+      "Notifications are blocked. Enable them in your browser or phone settings for Cultosol.",
   },
 };
 

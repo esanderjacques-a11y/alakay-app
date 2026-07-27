@@ -14,11 +14,13 @@ import {
   BarChart3,
   Info,
   Maximize2,
+  Moon,
   Plus,
   Save,
   Search,
   SlidersHorizontal,
   Sprout,
+  Sun,
   Upload,
   X,
 } from "lucide-react";
@@ -30,6 +32,18 @@ import {
   detectSampleTypeFromLabel,
   type SampleTypeCode,
 } from "@/lib/sampleType";
+import {
+  getLocalWaterRange,
+  isWaterColumnMissingError,
+  listLocalWaterParameters,
+  localWaterRangeAsMatch,
+  LOCAL_WATER_PARAMETERS,
+} from "@/lib/waterParameterCatalog";
+import {
+  HARDNESS_CLASS_LABELS,
+  summaryFromInterpretationRows,
+  type Severity,
+} from "@/lib/irrigationWaterQuality";
 import CustomParameterModal from "@/components/CustomParameterModal";
 import CustomParameterManager from "@/components/CustomParameterManager";
 import CustomRangeManager from "@/components/CustomRangeManager";
@@ -68,10 +82,16 @@ import { detectLocation } from "@/lib/geolocation";
 import {
   hydratePlanningFromCloud,
   loadPlanningState,
+  markNotificationRead,
+  pruneFarFutureNotifications,
   pushNotification,
   setPlanningUserId,
+  syncCalendarDueNotifications,
   unreadNotificationCount,
 } from "@/lib/planningStore";
+import {
+  startDeviceNotificationWatch,
+} from "@/lib/deviceNotifications";
 import type { JackoAppContext } from "@/lib/jackoContext";
 
 import BackButton from "@/components/ui/BackButton";
@@ -293,6 +313,49 @@ function normalizeForMatching(value: string | null | undefined) {
   return normalizeParameterText(value)
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function normalizeParameterSymbolKey(value: string | null | undefined) {
+  return normalizeParameterText(value)
+    .replace(/[^a-z0-9%+-]+/g, "")
+    .trim();
+}
+
+/** True when a custom row is the same nutrient as an official catalog parameter. */
+function isCustomParameterCoveredByOfficial(
+  custom: Pick<Parameter, "parameter_name" | "display_name" | "symbol">,
+  official: Array<Pick<Parameter, "parameter_name" | "display_name" | "symbol" | "aliases">>
+) {
+  const customSymbol = normalizeParameterSymbolKey(custom.symbol);
+  const customName = normalizeForMatching(
+    `${custom.parameter_name} ${custom.display_name}`
+  );
+  const customLooksLikeSodium =
+    (customSymbol === "na" ||
+      /\b(sodium|sodio|sodyom)\b/.test(customName) ||
+      /^na$/.test(customName)) &&
+    !/\b(nitrato|nitrate|nitrogen|nitrogeno|azote)\b/.test(customName);
+
+  for (const parameter of official) {
+    const officialSymbol = normalizeParameterSymbolKey(parameter.symbol);
+    if (customSymbol && officialSymbol && customSymbol === officialSymbol) {
+      return true;
+    }
+
+    if (!customLooksLikeSodium) continue;
+
+    const officialName = normalizeForMatching(
+      `${parameter.parameter_name} ${parameter.display_name} ${(parameter.aliases || []).join(" ")}`
+    );
+    const officialLooksLikeSodium =
+      officialSymbol === "na" ||
+      /\b(sodium|sodio|sodyom)\b/.test(officialName) ||
+      /^na$/.test(officialName);
+
+    if (officialLooksLikeSodium) return true;
+  }
+
+  return false;
 }
 
 /** Exchangeable bases + related: searching "bases" should surface Ca, Mg, K, Na. */
@@ -1011,7 +1074,7 @@ function translateCountryRegion(
 
 function translateAdvice(
   result: InterpretationResult,
-  t: (typeof translations)[Language],
+  _t: (typeof translations)[Language],
   sampleType: "soil" | "foliar" | "water" = "soil"
 ) {
   const customAdvice = result.interpretation_note?.trim();
@@ -1020,66 +1083,18 @@ function translateAdvice(
     return customAdvice;
   }
 
-  const name = result.parameter_name.toLowerCase();
-  const level = result.level_code.toLowerCase();
-
-  if (sampleType === "foliar") {
-    if (level === "low" || level === "very_low") {
-      return (
-        t.adviceFoliarLow ||
-        "Tissue level is below the sufficiency range. Consider foliar nutrition or adjusting the fertility program for this crop stage."
-      );
-    }
-    if (level === "high" || level === "very_high") {
-      return (
-        t.adviceFoliarHigh ||
-        "Tissue level is above the sufficiency range. Review recent applications and possible antagonisms before adding more of this nutrient."
-      );
-    }
-    return (
-      t.adviceFoliarNormal ||
-      "Tissue level is within the current sufficiency range."
-    );
-  }
-
-  if (name.includes("bulk density") || name.includes("densidad aparente")) {
-    if (level === "very_high") return t.adviceBulkDensityVeryHigh;
-    if (level === "high") return t.adviceBulkDensityHigh;
-    return t.adviceBulkDensityOk;
-  }
-
-  if (name === "ph" || name.includes("soil ph")) {
-    if (level === "low") return t.advicePhLow;
-    if (level === "high") return t.advicePhHigh;
-    return t.advicePhOk;
-  }
-
-  if (
-    name.includes("electrical conductivity") ||
-    name === "ec" ||
-    name.includes("conductividad")
-  ) {
-    if (level === "very_high") return t.adviceEcVeryHigh;
-    if (level === "high") return t.adviceEcHigh;
-    return t.adviceEcOk;
-  }
-
-  if (name === "na" || name.includes("sodium") || name.includes("sodio")) {
-    if (level === "very_high") return t.adviceSodiumVeryHigh;
-    if (level === "high") return t.adviceSodiumHigh;
-    if (level === "moderate") return t.adviceSodiumModerate;
-    return t.adviceSodiumOk;
-  }
-
-  if (name === "al" || name.includes("aluminum") || name.includes("aluminio")) {
-    if (level === "high") return t.adviceAluminumHigh;
-    return t.adviceAluminumOk;
-  }
-
-  if (level === "low") return t.adviceLow;
-  if (level === "high") return t.adviceHigh;
-  if (level === "very_high") return t.adviceVeryHigh;
-  return t.adviceNormal;
+  // Parameter-specific recommendations (N, P, K, micros, water indices, …).
+  // Prefer these over the old generic “below/above reference” strings.
+  return getSimpleAdvice(
+    {
+      parameter_id: result.parameter_id || 0,
+      parameter_name: result.parameter_name,
+      value: result.value,
+      min: result.min,
+      max: result.max,
+    },
+    sampleType
+  );
 }
 
 const appSteps = new Set<AppStep>([
@@ -1334,15 +1349,110 @@ export default function HomePage() {
     updateSetting("general", "language", nextLanguage);
   }
 
+  function toggleTheme() {
+    setTheme((currentTheme) => {
+      if (currentTheme === "light") {
+        updateSetting("general", "theme", "dark");
+        return "dark";
+      }
+      updateSetting("general", "theme", "light");
+      return "light";
+    });
+  }
+
   useEffect(() => {
     if (!session?.user || guestMode) {
       setPlanningUserId(null);
       return;
     }
     void hydratePlanningFromCloud(session.user.id).then(() => {
+      pruneFarFutureNotifications();
+      syncCalendarDueNotifications();
       setNotificationTick((n) => n + 1);
     });
   }, [session?.user?.id, guestMode]);
+
+  useEffect(() => {
+    pruneFarFutureNotifications();
+    syncCalendarDueNotifications();
+    return startDeviceNotificationWatch(() => {
+      setNotificationTick((n) => n + 1);
+    });
+  }, []);
+
+  useEffect(() => {
+    function openFromDeepLink(detail: {
+      step?: string | null;
+      relatedId?: string | null;
+      notifId?: string | null;
+    }) {
+      const step = detail.step as AppStep | undefined;
+      if (
+        step === "calendar" ||
+        step === "notes" ||
+        step === "notifications" ||
+        step === "farms" ||
+        step === "history" ||
+        step === "setup" ||
+        step === "calculators" ||
+        step === "inventory"
+      ) {
+        if (detail.notifId) markNotificationRead(detail.notifId);
+        setNotificationTick((n) => n + 1);
+        setCurrentStep(step === "inventory" ? "farms" : step);
+      }
+    }
+
+    function consumeUrlStep() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const step = params.get("step");
+        if (!step) return;
+        openFromDeepLink({
+          step,
+          relatedId: params.get("related"),
+          notifId: params.get("notif"),
+        });
+        params.delete("step");
+        params.delete("related");
+        params.delete("notif");
+        const next = `${window.location.pathname}${
+          params.toString() ? `?${params}` : ""
+        }${window.location.hash}`;
+        window.history.replaceState(window.history.state, "", next);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    consumeUrlStep();
+
+    function onCustom(event: Event) {
+      const custom = event as CustomEvent<{
+        step?: string | null;
+        relatedId?: string | null;
+        notifId?: string | null;
+      }>;
+      openFromDeepLink(custom.detail || {});
+    }
+
+    function onSwMessage(event: MessageEvent) {
+      const data = event.data;
+      if (!data || data.type !== "CULTOSOL_OPEN_STEP") return;
+      openFromDeepLink(data);
+    }
+
+    window.addEventListener("cultosol:open-step", onCustom);
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", onSwMessage);
+    }
+    return () => {
+      window.removeEventListener("cultosol:open-step", onCustom);
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.removeEventListener("message", onSwMessage);
+      }
+    };
+  }, []);
 
   function completeOnboardingTour() {
     markOnboardingTourComplete(session?.user?.id);
@@ -1629,10 +1739,14 @@ export default function HomePage() {
   async function loadParameters() {
     const column = sampleType;
 
-    const { data, error } = await supabase
-      .from("parameters")
-      .select(
-        `
+    let officialRows: OfficialParameterRow[] = [];
+    let usedLocalWaterCatalog = false;
+
+    if (sampleType === "water") {
+      const { data, error } = await supabase
+        .from("parameters")
+        .select(
+          `
         parameter_id,
         parameter_name,
         symbol,
@@ -1643,24 +1757,78 @@ export default function HomePage() {
           unit_symbol
         )
       `
-      )
-      .eq(column, true)
-      .order("category")
-      .order("parameter_name");
+        )
+        .eq("water", true)
+        .order("category")
+        .order("parameter_name");
 
-    if (error) {
-      setMessage(error.message);
-      return;
+      if (error && isWaterColumnMissingError(error.message)) {
+        usedLocalWaterCatalog = true;
+        officialRows = listLocalWaterParameters("irrigation")
+          .concat(listLocalWaterParameters("hydroponic"))
+          .map((p) => ({
+            parameter_id: p.parameter_id,
+            parameter_name: p.parameter_name,
+            symbol: p.symbol,
+            category: p.category,
+            default_unit_id: p.unit_id,
+            units: { unit_id: p.unit_id, unit_symbol: p.unit_symbol },
+          }));
+        setMessage("");
+      } else if (error) {
+        setMessage(error.message);
+        return;
+      } else {
+        officialRows = (data || []) as OfficialParameterRow[];
+        if (officialRows.length === 0) {
+          usedLocalWaterCatalog = true;
+          officialRows = listLocalWaterParameters("irrigation")
+            .concat(listLocalWaterParameters("hydroponic"))
+            .map((p) => ({
+              parameter_id: p.parameter_id,
+              parameter_name: p.parameter_name,
+              symbol: p.symbol,
+              category: p.category,
+              default_unit_id: p.unit_id,
+              units: { unit_id: p.unit_id, unit_symbol: p.unit_symbol },
+            }));
+        }
+      }
+    } else {
+      const { data, error } = await supabase
+        .from("parameters")
+        .select(
+          `
+        parameter_id,
+        parameter_name,
+        symbol,
+        category,
+        default_unit_id,
+        units (
+          unit_id,
+          unit_symbol
+        )
+      `
+        )
+        .eq(column, true)
+        .order("category")
+        .order("parameter_name");
+
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+
+      officialRows = (data || []) as OfficialParameterRow[];
     }
 
-    const officialRows = (data || []) as OfficialParameterRow[];
+    void usedLocalWaterCatalog;
 
     const officialParameterIds = officialRows.map(
       (parameter) => parameter.parameter_id
     );
 
-    const officialUnitIds = officialRows
-      .map((row) => {
+    const officialUnitIds = officialRows.map((row) => {
         const unitData = Array.isArray(row.units) ? row.units[0] : row.units;
         return unitData?.unit_id ?? row.default_unit_id;
       })
@@ -1691,11 +1859,16 @@ export default function HomePage() {
         .order("parameter_name");
 
       if (customError) {
-        setMessage(customError.message);
-        return;
+        // Water sample type may not be allowed on custom tables until migrations run.
+        if (sampleType === "water") {
+          customRows = [];
+        } else {
+          setMessage(customError.message);
+          return;
+        }
+      } else {
+        customRows = (customData || []) as CustomParameterRow[];
       }
-
-      customRows = (customData || []) as CustomParameterRow[];
     }
 
     const customUnitIds = customRows
@@ -1890,6 +2063,9 @@ export default function HomePage() {
       const preferredUnit = findUnitBySymbol(allUnits, preferredDisplaySymbol);
       const unitId = preferredUnit?.unit_id ?? databaseUnitId;
       const unitSymbol = preferredUnit?.unit_symbol ?? databaseUnitSymbol;
+      const localMeta = LOCAL_WATER_PARAMETERS.find(
+        (p) => p.parameter_id === row.parameter_id
+      );
 
       return {
         parameter_key: `p-${row.parameter_id}`,
@@ -1897,27 +2073,36 @@ export default function HomePage() {
         custom_parameter_id: null,
         parameter_name: row.parameter_name,
         display_name:
-          parameterAliasOptionsMap.get(row.parameter_id)?.[0] || row.parameter_name,
-        aliases: parameterAliasOptionsMap.get(row.parameter_id) || [],
+          parameterAliasOptionsMap.get(row.parameter_id)?.[0] ||
+          row.parameter_name,
+        aliases:
+          parameterAliasOptionsMap.get(row.parameter_id) ||
+          localMeta?.aliases ||
+          [],
         symbol: row.symbol,
         category: row.category,
         unit_id: unitId,
-        unit_symbol: unitSymbol,
-        preferred_display_symbol: preferredDisplaySymbol,
+        unit_symbol: unitSymbol || databaseUnitSymbol || "—",
+        preferred_display_symbol:
+          preferredDisplaySymbol ||
+          getFriendlyUnitSymbol(unitSymbol || databaseUnitSymbol || "—"),
         is_custom: false,
         available_units: buildExpandedUnitOptions(
           databaseUnitId,
-          databaseUnitSymbol,
+          databaseUnitSymbol || unitSymbol || "—",
           unitAliasOptionsMap.get(databaseUnitId) || [
             {
               unit_id: databaseUnitId,
-              unit_symbol: databaseUnitSymbol,
-              display_symbol: getFriendlyUnitSymbol(databaseUnitSymbol),
+              unit_symbol: databaseUnitSymbol || unitSymbol || "—",
+              display_symbol: getFriendlyUnitSymbol(
+                databaseUnitSymbol || unitSymbol || "—"
+              ),
             },
           ],
           unitId,
-          unitSymbol,
-          preferredDisplaySymbol
+          unitSymbol || databaseUnitSymbol || "—",
+          preferredDisplaySymbol ||
+            getFriendlyUnitSymbol(unitSymbol || databaseUnitSymbol || "—")
         ),
       };
     });
@@ -1935,7 +2120,9 @@ export default function HomePage() {
       const preferredUnit = findUnitBySymbol(allUnits, preferredDisplaySymbol);
       const unitId = preferredUnit?.unit_id ?? databaseUnitId;
       const unitSymbol = preferredUnit?.unit_symbol ?? databaseUnitSymbol;
-      const displayUnitSymbol = getFriendlyUnitSymbol(unitSymbol);
+      const displayUnitSymbol = getFriendlyUnitSymbol(
+        preferredDisplaySymbol || unitSymbol || databaseUnitSymbol || "—"
+      );
 
       return {
         parameter_key: `c-${row.custom_parameter_id}`,
@@ -1967,7 +2154,13 @@ export default function HomePage() {
       };
     });
 
-    const formattedParameters = [...officialParameters, ...customParameters];
+    // Official Sodium (and other catalog params) supersede older custom duplicates
+    // that share the same symbol/name — otherwise symbols-only mode shows two "Na" rows.
+    const customParametersUnique = customParameters.filter(
+      (custom) => !isCustomParameterCoveredByOfficial(custom, officialParameters)
+    );
+
+    const formattedParameters = [...officialParameters, ...customParametersUnique];
 
     setParameters(formattedParameters);
     setParametersSampleType(column);
@@ -2048,12 +2241,14 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
       if (keepValues) {
         setSampleType(nextSampleType);
+        if (nextSampleType === "water") setCropId(999);
         setMessage("Values were kept. Review units and ranges for the new sample type.");
         return;
       }
     }
 
     setSampleType(nextSampleType);
+    if (nextSampleType === "water") setCropId(999);
     setValues({});
     setLabReportRanges({});
     setSelectedUnits({});
@@ -2631,6 +2826,28 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           input_sample_type: sampleType,
           input_parameter_id: resolved.parameter_id,
         });
+
+        // Local general water ranges when RPC / DB water ranges are unavailable.
+        if (
+          sampleType === "water" &&
+          (error || !data || data.length === 0)
+        ) {
+          const local = getLocalWaterRange(resolved.parameter_id);
+          if (local) {
+            return {
+              item,
+              data: [
+                localWaterRangeAsMatch(
+                  local,
+                  item.parameter_name || item.display_name
+                ),
+              ],
+              error: null,
+              resolved,
+              parameterLike,
+            };
+          }
+        }
 
         return { item, data, error, resolved, parameterLike };
       })
@@ -3466,10 +3683,6 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       setCurrentStep("settings");
     },
     settingsActive: currentStep === "settings",
-    onOpenBilling: () => {
-      billingReturnStepRef.current = currentStepRef.current;
-      setCurrentStep("billing");
-    },
     onOpenRecycleBin: () => setCurrentStep("recycle"),
     onOpenCustomData: () => setCurrentStep("custom-data"),
     onOpenAbout: () => setCurrentStep("about"),
@@ -3483,17 +3696,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     })(),
     theme,
     isAdmin,
-    planTier: appSettings.billing.planTier,
     jackoContext,
-    onToggleTheme: () =>
-      setTheme((currentTheme) => {
-        if (currentTheme === "light") {
-          updateSetting("general", "theme", "dark");
-          return "dark";
-        }
-        updateSetting("general", "theme", "light");
-        return "light";
-      }),
+    onToggleTheme: toggleTheme,
   };
 
   if (sessionRestoring) {
@@ -3510,6 +3714,14 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       <main className="app-main-gradient auth-page flex flex-col">
         <div className="app-main-backdrop" aria-hidden="true" />
         <header className="auth-top-bar">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={t.themeToggleDesc}
+            className="app-header__icon-btn touch-target h-9 w-9 grid place-items-center rounded-xl active:scale-95 transition-all"
+          >
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           <LanguageSwitcher
             language={language}
             onChange={changeLanguage}
@@ -3946,6 +4158,9 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             selectedCountry={finalCountry || null}
             reportDate={reportDate.trim() || samplingDate.trim() || null}
             showCalculatorFormulas={effectiveShowCalculatorFormulas(appSettings)}
+            defaultCalculatorHubLanding={
+              appSettings.analysis.defaultCalculatorHubLanding
+            }
             userId={session?.user && !guestMode ? session.user.id : null}
             farmName={farmName}
             initialActiveKey={calculatorFocusKey}
@@ -4477,17 +4692,19 @@ function SetupScreen({
             </SetupInlineField>
           ) : null}
 
-          <SetupInlineField label={t.crop}>
-            <AppSelect
-              value={cropId}
-              placeholder={t.generalCropOther}
-              compact
-              floatingMenu
-              icon={<Sprout size={18} />}
-              options={cropOptions}
-              onChange={setCropId}
-            />
-          </SetupInlineField>
+          {sampleType !== "water" ? (
+            <SetupInlineField label={t.crop}>
+              <AppSelect
+                value={cropId}
+                placeholder={t.generalCropOther}
+                compact
+                floatingMenu
+                icon={<Sprout size={18} />}
+                options={cropOptions}
+                onChange={setCropId}
+              />
+            </SetupInlineField>
+          ) : null}
         </div>
 
         {sampleType === "soil" ? (
@@ -4503,11 +4720,13 @@ function SetupScreen({
           </SetupInlineField>
         ) : null}
 
-        <div className="setup-skip-row">
-          <button type="button" onClick={handleSkipCrop} className="setup-skip-btn">
-            {t.skip}
-          </button>
-        </div>
+        {sampleType !== "water" ? (
+          <div className="setup-skip-row">
+            <button type="button" onClick={handleSkipCrop} className="setup-skip-btn">
+              {t.skip}
+            </button>
+          </div>
+        ) : null}
 
         {cropsLoading && (
           <p className="px-0 py-2 text-sm text-[#6c6c70]">{t.loadingCrops}</p>
@@ -4698,7 +4917,7 @@ function ValuesScreen({
     farmName.trim(),
     lotName.trim(),
   ].filter(Boolean);
-  const useSymbolsOnly = showParameterSymbolsOnly || isCompactViewport;
+  const useSymbolsOnly = showParameterSymbolsOnly;
   const missingKeySet = useMemo(
     () => new Set(missingResults.map((item) => item.parameter_key)),
     [missingResults]
@@ -6320,6 +6539,108 @@ function ExtractionMethodChips({
   );
 }
 
+function severityLabel(
+  severity: Severity | null,
+  t: (typeof translations)[Language]
+) {
+  if (!severity) return null;
+  if (severity === "none") return t.waterSeverityNone;
+  if (severity === "moderate") return t.waterSeverityModerate;
+  return t.waterSeverityHigh;
+}
+
+function WaterQualityIndicesPanel({
+  results,
+  t,
+}: {
+  results: InterpretationResult[];
+  t: (typeof translations)[Language];
+}) {
+  const summary = useMemo(
+    () =>
+      summaryFromInterpretationRows(
+        results.map((r) => ({
+          value: r.value,
+          parameter_name: r.parameter_name,
+          display_parameter_name: r.display_parameter_name,
+        }))
+      ),
+    [results]
+  );
+
+  const hasAny =
+    summary.saltGL != null ||
+    summary.ras != null ||
+    summary.hardnessF != null ||
+    summary.kellyPct != null ||
+    summary.salinityClass != null;
+
+  if (!hasAny) return null;
+
+  const fmt = (n: number | null, digits = 2) =>
+    n == null || !Number.isFinite(n) ? "—" : n.toFixed(digits);
+
+  const classLabel =
+    summary.salinityClass && summary.sodicityClass
+      ? `${summary.salinityClass}${summary.sodicityClass}`
+      : summary.salinityClass || summary.sodicityClass || null;
+
+  return (
+    <div className="results-flat-texture mb-4" data-pdf-report="water-indices">
+      <p className="font-bold">{t.waterQualityTitle}</p>
+      <p className="mt-1 text-sm text-slate-600">{t.waterQualityDesc}</p>
+      <div className="results-flat-texture-stats mt-3">
+        {summary.saltGL != null ? (
+          <span>
+            {t.waterSaltConc}: {fmt(summary.saltGL)} g/L
+            {summary.ecSeverity
+              ? ` · ${t.waterSeverity}: ${severityLabel(summary.ecSeverity, t)}`
+              : ""}
+          </span>
+        ) : null}
+        {summary.ras != null ? (
+          <span>
+            {t.waterRas}: {fmt(summary.ras)}
+            {summary.rasSeverity
+              ? ` · ${severityLabel(summary.rasSeverity, t)}`
+              : ""}
+          </span>
+        ) : null}
+        {summary.hardnessF != null ? (
+          <span>
+            {t.waterHardness}: {fmt(summary.hardnessF)} °f
+            {summary.hardnessClass
+              ? ` · ${HARDNESS_CLASS_LABELS[summary.hardnessClass]}`
+              : ""}
+          </span>
+        ) : null}
+        {summary.kellyPct != null ? (
+          <span>
+            {t.waterKelly}: {fmt(summary.kellyPct, 1)}%
+            {summary.kellyOk != null
+              ? summary.kellyOk
+                ? " · >35%"
+                : " · ≤35%"
+              : ""}
+          </span>
+        ) : null}
+        {classLabel ? (
+          <span>
+            {t.waterClassCS}: {classLabel}
+          </span>
+        ) : null}
+      </div>
+      {summary.notes.length > 0 ? (
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
+          {summary.notes.slice(0, 4).map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function ResultsSection({
   results,
   groupedResults,
@@ -6518,6 +6839,10 @@ function ResultsSection({
             </div>
           </div>
         )}
+
+        {sampleType === "water" ? (
+          <WaterQualityIndicesPanel results={results} t={t} />
+        ) : null}
 
         {showHorizontalGraphs ? (
           <ResultsHorizontalGraphs results={visibleResults} t={t} />

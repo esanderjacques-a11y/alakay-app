@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import {
+  listAllBodegaItems,
   listBodegaItems,
   upsertBodegaItem,
   type BodegaItem,
@@ -59,6 +60,39 @@ export type LowStockItem = {
   unit: string;
 };
 
+/** True when remote inventory_* tables are not in the schema cache yet. */
+export function isInventorySchemaMissingError(
+  message: string | null | undefined
+) {
+  const text = String(message || "").toLowerCase();
+  const mentionsTable =
+    text.includes("inventory_movements") ||
+    text.includes("inventory_products") ||
+    text.includes("inventory_batches") ||
+    text.includes("inventory_");
+  const missing =
+    text.includes("schema cache") ||
+    text.includes("does not exist") ||
+    text.includes("could not find the table") ||
+    text.includes("could not find the relationship");
+  return mentionsTable && missing;
+}
+
+let inventorySchemaMissing: boolean | null = null;
+
+export function inventoryUsesBodegaFallback() {
+  return inventorySchemaMissing === true;
+}
+
+/** Allow a fresh probe after migrations (sticky miss must not last forever). */
+export function resetInventorySchemaProbe() {
+  inventorySchemaMissing = null;
+}
+
+function markInventorySchemaMissing() {
+  inventorySchemaMissing = true;
+}
+
 function mapProduct(row: Record<string, unknown>): InventoryProduct {
   return {
     id: String(row.id),
@@ -114,6 +148,54 @@ function mapMovement(row: Record<string, unknown>): InventoryMovement {
   };
 }
 
+function bodegaProductId(item: BodegaItem) {
+  return `bodega:${item.id}`;
+}
+
+function parseBodegaProductId(productId: string): string | null {
+  if (!productId.startsWith("bodega:")) return null;
+  const id = productId.slice("bodega:".length).trim();
+  return id || null;
+}
+
+function productFromBodega(item: BodegaItem): InventoryProduct {
+  return {
+    id: bodegaProductId(item),
+    name: item.product_name,
+    product_key: item.product_key,
+    default_unit: item.unit || "kg",
+    min_stock: 0,
+    unit_cost: null,
+    notes: item.notes,
+    active: true,
+    created_at: item.created_at,
+    updated_at: item.updated_at,
+  };
+}
+
+async function listProductsFromBodega(
+  userId: string,
+  farmId?: number
+): Promise<InventoryProduct[]> {
+  const items = farmId
+    ? await listBodegaItems(userId, farmId)
+    : await listAllBodegaItems(userId);
+  const byKey = new Map<string, InventoryProduct>();
+  for (const item of items) {
+    const product = productFromBodega(item);
+    const key =
+      product.product_key ||
+      product.name.trim().toLocaleLowerCase() ||
+      product.id;
+    if (!byKey.has(key) || farmId == null || item.farm_id === farmId) {
+      byKey.set(key, product);
+    }
+  }
+  return [...byKey.values()].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+}
+
 async function syncBodegaBalance(args: {
   userId: string;
   farmId: number;
@@ -122,14 +204,17 @@ async function syncBodegaBalance(args: {
   unit: string;
 }) {
   const items = await listBodegaItems(args.userId, args.farmId);
+  const bodegaId = parseBodegaProductId(args.product.id);
   const match =
+    items.find((item) => bodegaId != null && item.id === bodegaId) ||
     items.find(
       (item) =>
         (args.product.product_key &&
           item.product_key === args.product.product_key) ||
         item.product_name.trim().toLocaleLowerCase() ===
           args.product.name.trim().toLocaleLowerCase()
-    ) || null;
+    ) ||
+    null;
   const nextQty = Math.max(0, (match?.quantity || 0) + args.delta);
   await upsertBodegaItem({
     userId: args.userId,
@@ -159,14 +244,52 @@ async function maybeLowStockNotify(args: {
   });
 }
 
-export async function listProducts(userId: string): Promise<InventoryProduct[]> {
+function syntheticMovement(args: {
+  productId: string;
+  farmId: number;
+  type: InventoryMovementType;
+  quantity: number;
+  unit: string;
+  unitCost?: number | null;
+  relatedFarmId?: number | null;
+  note?: string | null;
+}): InventoryMovement {
+  return {
+    id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    product_id: args.productId,
+    farm_id: args.farmId,
+    batch_id: null,
+    movement_type: args.type,
+    quantity: args.quantity,
+    unit: args.unit,
+    unit_cost: args.unitCost ?? null,
+    related_farm_id: args.relatedFarmId ?? null,
+    note: args.note || null,
+    created_at: new Date().toISOString(),
+  };
+}
+
+export async function listProducts(
+  userId: string,
+  farmId?: number
+): Promise<InventoryProduct[]> {
+  if (inventorySchemaMissing) {
+    return listProductsFromBodega(userId, farmId);
+  }
   const { data, error } = await supabase
     .from("inventory_products")
     .select("*")
     .eq("user_id", userId)
     .eq("active", true)
     .order("name");
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isInventorySchemaMissingError(error.message)) {
+      markInventorySchemaMissing();
+      return listProductsFromBodega(userId, farmId);
+    }
+    throw new Error(error.message);
+  }
+  inventorySchemaMissing = false;
   return (data || []).map((row) => mapProduct(row as Record<string, unknown>));
 }
 
@@ -180,7 +303,41 @@ export async function upsertProduct(args: {
   unitCost?: number | null;
   notes?: string | null;
   active?: boolean;
+  farmId?: number;
 }): Promise<InventoryProduct> {
+  if (inventorySchemaMissing || (args.id && parseBodegaProductId(args.id))) {
+    markInventorySchemaMissing();
+    if (args.farmId == null) {
+      throw new Error(
+        "Inventory tables are not installed yet. Open inventory from a farm to manage bodega stock."
+      );
+    }
+    const items = await listBodegaItems(args.userId, args.farmId);
+    const bodegaId = args.id ? parseBodegaProductId(args.id) : null;
+    const match =
+      (bodegaId != null
+        ? items.find((item) => item.id === bodegaId)
+        : null) ||
+      items.find(
+        (item) =>
+          (args.productKey && item.product_key === args.productKey) ||
+          item.product_name.trim().toLocaleLowerCase() ===
+            args.name.trim().toLocaleLowerCase()
+      ) ||
+      null;
+    const saved = await upsertBodegaItem({
+      userId: args.userId,
+      farmId: args.farmId,
+      productName: args.name.trim(),
+      productKey: args.productKey || null,
+      quantity: match?.quantity ?? 0,
+      unit: args.defaultUnit || match?.unit || "kg",
+      notes: args.notes ?? match?.notes ?? undefined,
+      id: match?.id,
+    });
+    return productFromBodega(saved);
+  }
+
   const payload = {
     id: args.id,
     user_id: args.userId,
@@ -189,16 +346,22 @@ export async function upsertProduct(args: {
     default_unit: args.defaultUnit || "kg",
     min_stock: args.minStock ?? 0,
     unit_cost: args.unitCost ?? null,
-    notes: args.notes || null,
-    active: args.active ?? true,
+    notes: args.notes ?? null,
+    active: args.active !== false,
     updated_at: new Date().toISOString(),
   };
   const { data, error } = await supabase
     .from("inventory_products")
-    .upsert(payload, { onConflict: "id" })
+    .upsert(payload)
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isInventorySchemaMissingError(error.message)) {
+      markInventorySchemaMissing();
+      return upsertProduct({ ...args });
+    }
+    throw new Error(error.message);
+  }
   return mapProduct(data as Record<string, unknown>);
 }
 
@@ -207,6 +370,7 @@ export async function listBatches(
   farmId: number,
   productId?: string
 ): Promise<InventoryBatch[]> {
+  if (inventorySchemaMissing) return [];
   let query = supabase
     .from("inventory_batches")
     .select("*")
@@ -215,7 +379,13 @@ export async function listBatches(
     .order("received_at", { ascending: false });
   if (productId) query = query.eq("product_id", productId);
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isInventorySchemaMissingError(error.message)) {
+      markInventorySchemaMissing();
+      return [];
+    }
+    throw new Error(error.message);
+  }
   return (data || []).map((row) => mapBatch(row as Record<string, unknown>));
 }
 
@@ -223,6 +393,7 @@ export async function listMovements(
   userId: string,
   farmId: number
 ): Promise<InventoryMovement[]> {
+  if (inventorySchemaMissing) return [];
   const { data, error } = await supabase
     .from("inventory_movements")
     .select("*")
@@ -230,7 +401,13 @@ export async function listMovements(
     .eq("farm_id", farmId)
     .order("created_at", { ascending: false })
     .limit(100);
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isInventorySchemaMissingError(error.message)) {
+      markInventorySchemaMissing();
+      return [];
+    }
+    throw new Error(error.message);
+  }
   return (data || []).map((row) => mapMovement(row as Record<string, unknown>));
 }
 
@@ -246,6 +423,10 @@ async function insertMovement(args: {
   relatedFarmId?: number | null;
   note?: string | null;
 }): Promise<InventoryMovement> {
+  if (inventorySchemaMissing || parseBodegaProductId(args.productId)) {
+    markInventorySchemaMissing();
+    return syntheticMovement(args);
+  }
   const { data, error } = await supabase
     .from("inventory_movements")
     .insert({
@@ -262,7 +443,13 @@ async function insertMovement(args: {
     })
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isInventorySchemaMissingError(error.message)) {
+      markInventorySchemaMissing();
+      return syntheticMovement(args);
+    }
+    throw new Error(error.message);
+  }
   return mapMovement(data as Record<string, unknown>);
 }
 
@@ -278,9 +465,46 @@ export async function receiveStock(args: {
   note?: string | null;
 }): Promise<{ batch: InventoryBatch; movement: InventoryMovement }> {
   const products = await listProducts(args.userId);
-  const product = products.find((p) => p.id === args.productId);
+  let product = products.find((p) => p.id === args.productId);
+  if (!product && inventorySchemaMissing) {
+    const farmProducts = await listProductsFromBodega(args.userId, args.farmId);
+    product = farmProducts.find((p) => p.id === args.productId);
+  }
   if (!product) throw new Error("Product not found");
   const unit = args.unit || product.default_unit;
+
+  if (inventorySchemaMissing || parseBodegaProductId(product.id)) {
+    markInventorySchemaMissing();
+    await syncBodegaBalance({
+      userId: args.userId,
+      farmId: args.farmId,
+      product,
+      delta: args.quantity,
+      unit,
+    });
+    const movement = syntheticMovement({
+      productId: product.id,
+      farmId: args.farmId,
+      type: "receive",
+      quantity: args.quantity,
+      unit,
+      unitCost: args.unitCost ?? product.unit_cost,
+      note: args.note,
+    });
+    const batch: InventoryBatch = {
+      id: `bodega-batch-${Date.now()}`,
+      product_id: product.id,
+      farm_id: args.farmId,
+      lot_code: args.lotCode || null,
+      quantity: args.quantity,
+      unit,
+      unit_cost: args.unitCost ?? product.unit_cost,
+      expires_on: args.expiresOn || null,
+      received_at: new Date().toISOString(),
+    };
+    return { batch, movement };
+  }
+
   const { data, error } = await supabase
     .from("inventory_batches")
     .insert({
@@ -295,7 +519,13 @@ export async function receiveStock(args: {
     })
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isInventorySchemaMissingError(error.message)) {
+      markInventorySchemaMissing();
+      return receiveStock(args);
+    }
+    throw new Error(error.message);
+  }
   const batch = mapBatch(data as Record<string, unknown>);
   const movement = await insertMovement({
     userId: args.userId,
@@ -326,6 +556,7 @@ export async function receiveStock(args: {
       minStock: product.min_stock,
       unitCost: args.unitCost,
       notes: product.notes,
+      farmId: args.farmId,
     });
   }
   return { batch, movement };
@@ -341,29 +572,45 @@ export async function useStock(args: {
   note?: string | null;
 }): Promise<InventoryMovement> {
   const products = await listProducts(args.userId);
-  const product = products.find((p) => p.id === args.productId);
+  let product = products.find((p) => p.id === args.productId);
+  if (!product) {
+    const farmProducts = await listProductsFromBodega(args.userId, args.farmId);
+    product = farmProducts.find((p) => p.id === args.productId);
+  }
   if (!product) throw new Error("Product not found");
   const unit = args.unit || product.default_unit;
-  if (args.batchId) {
+
+  if (
+    !inventorySchemaMissing &&
+    !parseBodegaProductId(product.id) &&
+    args.batchId
+  ) {
     const { data: batchRow, error } = await supabase
       .from("inventory_batches")
       .select("*")
       .eq("user_id", args.userId)
       .eq("id", args.batchId)
       .single();
-    if (error) throw new Error(error.message);
-    const batch = mapBatch(batchRow as Record<string, unknown>);
-    const next = Math.max(0, batch.quantity - args.quantity);
-    const { error: updError } = await supabase
-      .from("inventory_batches")
-      .update({ quantity: next, updated_at: new Date().toISOString() })
-      .eq("id", args.batchId)
-      .eq("user_id", args.userId);
-    if (updError) throw new Error(updError.message);
+    if (error) {
+      if (!isInventorySchemaMissingError(error.message)) {
+        throw new Error(error.message);
+      }
+      markInventorySchemaMissing();
+    } else {
+      const batch = mapBatch(batchRow as Record<string, unknown>);
+      const next = Math.max(0, batch.quantity - args.quantity);
+      const { error: updError } = await supabase
+        .from("inventory_batches")
+        .update({ quantity: next, updated_at: new Date().toISOString() })
+        .eq("id", args.batchId)
+        .eq("user_id", args.userId);
+      if (updError) throw new Error(updError.message);
+    }
   }
+
   const movement = await insertMovement({
     userId: args.userId,
-    productId: args.productId,
+    productId: product.id,
     farmId: args.farmId,
     batchId: args.batchId,
     type: "use",
@@ -391,12 +638,16 @@ export async function adjustStock(args: {
   note?: string | null;
 }): Promise<InventoryMovement> {
   const products = await listProducts(args.userId);
-  const product = products.find((p) => p.id === args.productId);
+  let product = products.find((p) => p.id === args.productId);
+  if (!product) {
+    const farmProducts = await listProductsFromBodega(args.userId, args.farmId);
+    product = farmProducts.find((p) => p.id === args.productId);
+  }
   if (!product) throw new Error("Product not found");
   const unit = args.unit || product.default_unit;
   const movement = await insertMovement({
     userId: args.userId,
-    productId: args.productId,
+    productId: product.id,
     farmId: args.farmId,
     type: "adjust",
     quantity: args.quantityDelta,
@@ -424,12 +675,19 @@ export async function transferStock(args: {
   note?: string | null;
 }): Promise<{ out: InventoryMovement; in: InventoryMovement }> {
   const products = await listProducts(args.userId);
-  const product = products.find((p) => p.id === args.productId);
+  let product = products.find((p) => p.id === args.productId);
+  if (!product) {
+    const farmProducts = await listProductsFromBodega(
+      args.userId,
+      args.fromFarmId
+    );
+    product = farmProducts.find((p) => p.id === args.productId);
+  }
   if (!product) throw new Error("Product not found");
   const unit = args.unit || product.default_unit;
   const out = await insertMovement({
     userId: args.userId,
-    productId: args.productId,
+    productId: product.id,
     farmId: args.fromFarmId,
     type: "transfer_out",
     quantity: args.quantity,
@@ -439,7 +697,7 @@ export async function transferStock(args: {
   });
   const inn = await insertMovement({
     userId: args.userId,
-    productId: args.productId,
+    productId: product.id,
     farmId: args.toFarmId,
     type: "transfer_in",
     quantity: args.quantity,
@@ -457,7 +715,11 @@ export async function transferStock(args: {
   await syncBodegaBalance({
     userId: args.userId,
     farmId: args.toFarmId,
-    product,
+    product: {
+      ...product,
+      // Match by name/key on destination farm (id may be farm-specific).
+      id: `bodega-dest:${args.toFarmId}:${product.product_key || product.name}`,
+    },
     delta: args.quantity,
     unit,
   });
@@ -471,16 +733,15 @@ export async function listLowStock(
   const products = await listProducts(userId);
   const items: BodegaItem[] = farmId
     ? await listBodegaItems(userId, farmId)
-    : await (
-        await import("@/lib/farmRepository")
-      ).listAllBodegaItems(userId);
+    : await listAllBodegaItems(userId);
   const low: LowStockItem[] = [];
   for (const product of products) {
     const matches = items.filter(
       (item) =>
         (product.product_key && item.product_key === product.product_key) ||
         item.product_name.trim().toLocaleLowerCase() ===
-          product.name.trim().toLocaleLowerCase()
+          product.name.trim().toLocaleLowerCase() ||
+        bodegaProductId(item) === product.id
     );
     for (const match of matches) {
       if (match.quantity <= product.min_stock) {
@@ -510,7 +771,8 @@ export async function farmStockValuation(
       (p) =>
         (p.product_key && p.product_key === item.product_key) ||
         p.name.trim().toLocaleLowerCase() ===
-          item.product_name.trim().toLocaleLowerCase()
+          item.product_name.trim().toLocaleLowerCase() ||
+        bodegaProductId(item) === p.id
     );
     const cost = product?.unit_cost ?? 0;
     total += item.quantity * cost;
@@ -524,9 +786,7 @@ export async function getStockProductKeys(
 ): Promise<string[]> {
   const items = farmId
     ? await listBodegaItems(userId, farmId)
-    : await (
-        await import("@/lib/farmRepository")
-      ).listAllBodegaItems(userId);
+    : await listAllBodegaItems(userId);
   return items
     .filter((item) => item.quantity > 0)
     .map((item) => item.product_key)
@@ -537,7 +797,12 @@ export async function getStockProductKeys(
 export async function consumeStockForProducts(args: {
   userId: string;
   farmId: number;
-  lines: Array<{ productKey?: string | null; productName?: string; quantity: number; unit?: string }>;
+  lines: Array<{
+    productKey?: string | null;
+    productName?: string;
+    quantity: number;
+    unit?: string;
+  }>;
 }): Promise<void> {
   const products = await listProducts(args.userId);
   for (const line of args.lines) {

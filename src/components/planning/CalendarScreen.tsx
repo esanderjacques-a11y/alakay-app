@@ -563,9 +563,6 @@ export default function CalendarScreen({
             <h1 className="text-xl font-bold text-[#1c1c1e] dark-text-primary">
               {p.savedCalendarsTitle}
             </h1>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              {p.savedCalendarsDesc}
-            </p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -657,9 +654,6 @@ export default function CalendarScreen({
           <h1 className="text-xl font-bold text-[#1c1c1e] dark-text-primary">
             {calendarNameDraft || p.calendarTitle}
           </h1>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            {p.calendarDesc}
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button

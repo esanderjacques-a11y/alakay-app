@@ -638,7 +638,7 @@
   aboutOurStoryEyebrow: "Depuis le début",
   aboutOurStoryTitle: "Notre histoire",
   aboutOurStoryBody:
-    "Cultosol est né dans une salle de classe, d’un souhait simple : rendre l’apprentissage plus clair. Ce qui a commencé comme une aide aux devoirs est devenu quelque chose de plus profond : une façon de transformer des chiffres de laboratoire denses en conseils que les producteurs pouvaient vraiment utiliser au champ. Aujourd’hui, c’est une plateforme multifonctionnelle, façonnée par des producteurs à travers sols et frontières, avec le même cœur qu’au premier jour. Chaque analyse, chaque région atteinte, chaque décision plus claire fait partie d’une histoire que nous continuons d’écrire ensemble.",
+    "Cultosol est né dans un cours de science du sol, quand il fallait un outil plus intelligent pour gagner du temps. Peu à peu, il est devenu clair que beaucoup de personnes, surtout de petits producteurs, perdent la chance de produire de façon plus efficace et durable. Certains n’ont aucun outil qu’ils puissent comprendre dans leur langue. D’autres n’ont tout simplement pas accès à ce genre de soutien. L’application n’est pas encore largement utilisée, mais c’est l’objectif : qu’elle soit comprise et utilisée par chacun, quel que soit son parcours éducatif ou son statut.",
   aboutPillarsLabel: "Mission, vision et valeurs",
   aboutPillarsEyebrow: "Qui nous sommes",
   aboutPillarsTitle: "Mission · Vision · Valeurs",

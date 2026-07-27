@@ -612,7 +612,7 @@
   aboutOurStoryEyebrow: "From the beginning",
   aboutOurStoryTitle: "Our story",
   aboutOurStoryBody:
-    "Cultosol began in a classroom, born from a simple wish to make learning clearer. What started as a homework helper slowly became something deeper: a way to turn dense lab numbers into guidance real producers could trust in the field. Today it is a multifunctional platform, shaped by growers across soils and borders, still carrying that same heart. Every analysis completed, every region reached, every clearer decision is part of a story we keep writing together.",
+    "Cultosol began in a soil science class, when a smarter tool was needed to save time. Along the way it became clear that many people, especially small producers, are missing the chance to farm more efficiently and sustainably. Some have no tool they can understand in their own language. Others simply cannot reach this kind of support. The app is not widely used yet, but that is the goal: to be understood and used by anyone, no matter their educational background or status.",
   aboutPillarsLabel: "Mission, vision, and values",
   aboutPillarsEyebrow: "Who we are",
   aboutPillarsTitle: "Mission · Vision · Values",

@@ -175,24 +175,25 @@ export default function AboutScreen({
             </div>
 
             <header className="about-hero about-hero--stage">
-              <div className="about-hero__aura" aria-hidden />
-              {!photoError ? (
-                <img
-                  src={CREATOR_PHOTO}
-                  alt={t.aboutCreatorFullName}
-                  className="about-hero-photo"
-                  onError={() => setPhotoError(true)}
-                />
-              ) : (
-                <img
-                  src="/app-icon.png"
-                  alt={t.appName}
-                  className="about-hero-photo about-hero-photo--logo"
-                />
-              )}
-              <div className="about-hero__copy">
-                <p className="about-brand">{t.appName}</p>
-                <p className="about-tagline">{t.aboutTagline}</p>
+              <div className="about-hero__inner">
+                {!photoError ? (
+                  <img
+                    src={CREATOR_PHOTO}
+                    alt={t.aboutCreatorFullName}
+                    className="about-hero-photo"
+                    onError={() => setPhotoError(true)}
+                  />
+                ) : (
+                  <img
+                    src="/app-icon.png"
+                    alt={t.appName}
+                    className="about-hero-photo about-hero-photo--logo"
+                  />
+                )}
+                <div className="about-hero__copy">
+                  <p className="about-brand">{t.appName}</p>
+                  <p className="about-tagline">{t.aboutTagline}</p>
+                </div>
               </div>
             </header>
           </div>

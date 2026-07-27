@@ -4,6 +4,8 @@ export type BillingText = {
   menu: string;
   title: string;
   intro: string;
+  comingSoon: string;
+  comingSoonDesc: string;
   verificationTitle: string;
   adminTitle: string;
   tabs: {
@@ -104,6 +106,9 @@ const en: BillingText = {
   menu: "Billing",
   title: "Billing",
   intro: "Manage your license, AI subscription, and payment history.",
+  comingSoon: "Coming soon",
+  comingSoonDesc:
+    "Billing, licenses, and payments are still being finished. Check back soon.",
   verificationTitle: "Verification",
   adminTitle: "Billing Admin",
   tabs: {
@@ -228,6 +233,9 @@ const es: BillingText = {
   menu: "Facturación",
   title: "Facturación",
   intro: "Administra tu licencia, suscripción de IA e historial de pagos.",
+  comingSoon: "Próximamente",
+  comingSoonDesc:
+    "La facturación, las licencias y los pagos aún se están terminando. Vuelve pronto.",
   verificationTitle: "Verificación",
   adminTitle: "Admin Facturación",
   tabs: {

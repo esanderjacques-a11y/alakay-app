@@ -625,7 +625,7 @@
   aboutOurStoryEyebrow: "Depi nan kòmansman",
   aboutOurStoryTitle: "Istwa nou",
   aboutOurStoryBody:
-    "Cultosol te kòmanse nan yon sal klas, soti nan yon senp dezi pou fè aprantisaj la pi klè. Sa ki te kòmanse kòm yon èd pou devwa yo te vin yon bagay pi fon: yon fason pou tounen chif laboratwa yo an konsèy pwodiktè yo ka fè konfyans nan jaden an. Jodi a se yon platfòm miltifonksyonèl, ki fòme pa kiltivatè atravè tè ak fwontyè, ak menm kè a toujou. Chak analiz, chak rejyon yo rive, chak desizyon ki pi klè fè pati yon istwa n ap kontinye ekri ansanm.",
+    "Cultosol te kòmanse nan yon klas syans tè, lè yo te bezwen yon zouti pi entelijan pou ekonomize tan. Sou wout la, li vin klè ke anpil moun, sitou ti pwodiktè, ap pèdi chans pou pwodui yon fason ki pi efikas ak dirab. Genyen ki pa gen yon zouti yo ka konprann nan lang pa yo. Genyen lòt ki jis pa gen aksè a kalite sipò sa a. Aplikasyon an poko itilize anpil, men se objektif la: pou nenpòt moun ka konprann li epi itilize li, kèlkeswa nivo edikasyon oswa sitiyasyon yo.",
   aboutPillarsLabel: "Misyon, vizyon ak valè",
   aboutPillarsEyebrow: "Ki moun nou ye",
   aboutPillarsTitle: "Misyon · Vizyon · Valè",

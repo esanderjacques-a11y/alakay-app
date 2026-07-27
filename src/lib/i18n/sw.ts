@@ -392,7 +392,7 @@ const sw = {
   aboutOurStoryEyebrow: "Tangu mwanzo",
   aboutOurStoryTitle: "Hadithi yetu",
   aboutOurStoryBody:
-    "Cultosol ilianza darasani, kutokana na hamu rahisi ya kufanya kujifunza kuwa wazi zaidi. Kilichoanza kama msaada wa kazi za nyumbani kiligeuka kuwa kitu chenye kina: njia ya kugeuza nambari nzito za maabara kuwa mwongozo ambao wazalishaji wanaweza kuamini shambani. Leo ni jukwaa lenye kazi nyingi, limetengenezwa na wakulima katika udongo na mipaka tofauti, bado likiwa na moyo uleule. Kila uchambuzi, kila eneo lililofikiwa, kila uamuzi wazi zaidi ni sehemu ya hadithi tunayoendelea kuiandika pamoja.",
+    "Cultosol ilianza katika darasa la sayansi ya udongo, wakati kulihitajika zana mahiri zaidi ili kuokoa muda. Baadaye ikawa wazi kwamba watu wengi, hasa wazalishaji wadogo, wanapoteza nafasi ya kuzalisha kwa ufanisi na uendelevu zaidi. Wengine hawana zana wanayoweza kuelewa kwa lugha yao. Wengine hawana hata ufikiaji wa msaada wa aina hii. Programu bado haitumiwi kwa wingi, lakini hilo ndilo lengo: ieleweke na itumiwe na mtu yeyote, bila kujali elimu yake au hali yake.",
   aboutPillarsLabel: "Dhamira, maono na maadili",
   aboutPillarsEyebrow: "Sisi ni nani",
   aboutPillarsTitle: "Dhamira · Maono · Maadili",

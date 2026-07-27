@@ -403,7 +403,7 @@ const pt = {
   aboutOurStoryEyebrow: "Desde o começo",
   aboutOurStoryTitle: "Nossa história",
   aboutOurStoryBody:
-    "O Cultosol nasceu numa sala de aula, de um desejo simples: tornar o aprendizado mais claro. O que começou como uma ajuda para os trabalhos de casa passou a ser algo mais profundo: uma forma de transformar números densos de laboratório em orientação em que produtores possam confiar no campo. Hoje é uma plataforma multifuncional, moldada por produtores em solos e fronteiras diferentes, com o mesmo coração de sempre. Cada análise, cada região alcançada, cada decisão mais clara faz parte de uma história que seguimos escrevendo juntos.",
+    "O Cultosol nasceu numa aula de ciência do solo, quando era preciso uma ferramenta mais inteligente para poupar tempo. Com o tempo ficou claro que muitas pessoas, sobretudo pequenos produtores, estão a perder a oportunidade de produzir de forma mais eficiente e sustentável. Alguns não têm uma ferramenta que consigam entender na sua língua. Outros simplesmente não têm acesso a este tipo de apoio. A app ainda não é amplamente usada, mas esse é o objetivo: ser compreendida e usada por qualquer pessoa, independentemente da formação ou da condição.",
   aboutPillarsLabel: "Missão, visão e valores",
   aboutPillarsEyebrow: "Quem somos",
   aboutPillarsTitle: "Missão · Visão · Valores",

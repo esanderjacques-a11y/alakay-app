@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Send, Star } from "lucide-react";
+import { MessageCircleHeart, Send, Star } from "lucide-react";
 import type { Translation } from "@/lib/translations";
 
 type PublicComment = {
@@ -90,42 +90,61 @@ export default function FeedbackSection({ t, language, session, country }: Props
   }
 
   return (
-    <div className="about-flow">
-      <p className="about-lede">{t.feedbackDesc}</p>
+    <div className="feedback-flow">
+      <header className="feedback-hero">
+        <span className="feedback-hero__icon" aria-hidden>
+          <MessageCircleHeart size={20} />
+        </span>
+        <div className="feedback-hero__copy">
+          <h2 className="feedback-hero__title">{t.feedbackTab}</h2>
+          <p className="feedback-hero__desc">{t.feedbackDesc}</p>
+        </div>
+      </header>
 
-      <form className="about-form" onSubmit={handleSubmit}>
-        <label className="about-field">
-          <span>{t.featureRequestName}</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
+      <form className="feedback-card" onSubmit={handleSubmit}>
+        <div className="feedback-card__grid">
+          <label className="feedback-field">
+            <span>{t.featureRequestName}</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+            />
+          </label>
 
-        <label className="about-field">
-          <span>{t.featureRequestEmail}</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
+          <label className="feedback-field">
+            <span>{t.featureRequestEmail}</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+          </label>
+        </div>
 
-        <div className="about-field about-field--rating">
-          <span>{t.feedbackRating}</span>
-          <div className="about-rating">
+        <div className="feedback-field feedback-field--rating">
+          <div className="feedback-rating__head">
+            <span>{t.feedbackRating}</span>
+            <em aria-live="polite">{rating}/5</em>
+          </div>
+          <div className="feedback-rating" role="group" aria-label={t.feedbackRating}>
             {[1, 2, 3, 4, 5].map((value) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setRating(value)}
-                className={`about-rating-star ${rating >= value ? "is-active" : ""}`}
+                className={`feedback-rating__star${rating >= value ? " is-active" : ""}`}
                 aria-label={`${value}`}
+                aria-pressed={rating >= value}
               >
-                <Star size={15} fill={rating >= value ? "currentColor" : "none"} />
+                <Star size={18} fill={rating >= value ? "currentColor" : "none"} />
               </button>
             ))}
           </div>
         </div>
 
-        <label className="about-field">
+        <label className="feedback-field">
           <span>{t.feedbackMessage}</span>
           <textarea
             required
@@ -137,29 +156,45 @@ export default function FeedbackSection({ t, language, session, country }: Props
         </label>
 
         {status === "success" ? (
-          <p className="about-status about-status--ok">{t.feedbackSuccess}</p>
+          <p className="feedback-status feedback-status--ok">{t.feedbackSuccess}</p>
         ) : null}
         {status === "error" ? (
-          <p className="about-status about-status--err">{errorMessage}</p>
+          <p className="feedback-status feedback-status--err">{errorMessage}</p>
         ) : null}
 
-        <button type="submit" disabled={status === "sending"} className="about-action">
-          <Send size={15} />
+        <button
+          type="submit"
+          disabled={status === "sending"}
+          className="feedback-submit"
+        >
+          <Send size={15} aria-hidden />
           {status === "sending" ? t.feedbackSending : t.feedbackSubmit}
         </button>
       </form>
 
       {comments.length > 0 ? (
-        <section className="about-passage">
-          <h3 className="about-kicker">{t.feedbackRecent}</h3>
-          <ul className="about-comments">
+        <section className="feedback-recent" aria-label={t.feedbackRecent}>
+          <h3 className="feedback-recent__title">{t.feedbackRecent}</h3>
+          <ul className="feedback-comments">
             {comments.map((comment) => (
-              <li key={comment.id}>
-                <p className="about-comment-meta">
-                  {comment.name || t.feedbackAnonymous}
-                  {comment.country ? ` · ${comment.country}` : ""}
-                </p>
-                <p className="about-comment-body">{comment.message}</p>
+              <li key={comment.id} className="feedback-comment">
+                <div className="feedback-comment__meta">
+                  <strong>{comment.name || t.feedbackAnonymous}</strong>
+                  {comment.country ? <span>{comment.country}</span> : null}
+                  {typeof comment.rating === "number" && comment.rating > 0 ? (
+                    <span className="feedback-comment__stars" aria-label={`${comment.rating}/5`}>
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <Star
+                          key={i}
+                          size={11}
+                          fill={i < comment.rating! ? "currentColor" : "none"}
+                          aria-hidden
+                        />
+                      ))}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="feedback-comment__body">{comment.message}</p>
               </li>
             ))}
           </ul>

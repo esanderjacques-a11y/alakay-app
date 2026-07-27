@@ -218,7 +218,7 @@ type Props = {
     >
   ) => void;
   onEnterImportReview?: () => void;
-  onDetectedSampleType?: (sampleType: "soil" | "foliar") => void;
+  onDetectedSampleType?: (sampleType: "soil" | "foliar" | "water") => void;
   presentation?: "overlay" | "page";
 };
 

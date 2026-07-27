@@ -8,6 +8,21 @@ export type CalendarEventLine = {
   method?: string;
 };
 
+export type SavedCalendar = {
+  id: string;
+  name: string;
+  farmName: string;
+  lotName?: string;
+  cropName?: string;
+  startDate?: string;
+  endDate?: string;
+  purpose?: string;
+  cycleMode?: string;
+  responsible?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CalendarEvent = {
   id: string;
   title: string;
@@ -27,6 +42,8 @@ export type CalendarEvent = {
   stageLabel?: string;
   /** Groups events from one generated schedule. */
   planId?: string;
+  /** Named saved calendar this event belongs to. */
+  calendarId?: string;
   lines?: CalendarEventLine[];
 };
 
@@ -47,6 +64,7 @@ export type AppNotificationKind =
   | "calendar"
   | "location"
   | "cost"
+  | "inventory"
   | "general";
 
 export type AppNotification = {
@@ -64,7 +82,8 @@ export type AppNotification = {
     | "calculators"
     | "notifications"
     | "farms"
-    | "history";
+    | "history"
+    | "inventory";
   relatedId?: string;
   /** When to surface (ISO); if missing, immediate. */
   dueAt?: string | null;

@@ -27,6 +27,11 @@ import {
   type FavoriteCalculatorKey,
 } from "@/lib/calculatorFavorites";
 import {
+  readCalculatorHubSession,
+  writeCalculatorHubSession,
+  type CalculatorHubMode,
+} from "@/lib/calculatorHubSession";
+import {
   calculateCNRatio,
   calculateDop,
   calculateGypsumRequirementByPsi,
@@ -118,7 +123,7 @@ type Props = {
   parameters: ParameterLite[];
   values: Record<string, string>;
   results: ResultLite[];
-  sampleType: "soil" | "foliar";
+  sampleType: "soil" | "foliar" | "water";
   selectedCropName?: string | null;
   selectedCountry?: string | null;
   /** Report / sampling date for chart PNG watermarks. */
@@ -182,27 +187,30 @@ const tabs: Array<{ key: CalculatorKey; icon: ReactNode }> = [
   { key: "graphs", icon: <BarChart3 size={17} /> },
 ];
 
-function visibleCalculatorTabs(sampleType: "soil" | "foliar") {
+function visibleCalculatorTabs(sampleType: "soil" | "foliar" | "water") {
   return tabs.filter(({ key }) => {
     // Foliar-only tools
     if (key === "dop") return sampleType === "foliar";
-    // Soil-only tools (lime, CIC, fertilizer plan/cost/formulation, salinity)
+    // Soil-only tools (lime, CIC, fertilizer plan/cost/formulation)
     if (
       key === "cic" ||
       key === "amendment" ||
-      key === "salinity" ||
       key === "fertilizer" ||
       key === "fertilizerCost" ||
       key === "fertilizerFormulation"
     ) {
       return sampleType === "soil";
     }
+    // Salinity for soil and irrigation water
+    if (key === "salinity") {
+      return sampleType === "soil" || sampleType === "water";
+    }
     // Shared: Recommended, Favorites, absorption curve, nutrient graphs
     return true;
   });
 }
 
-function favoriteableTabs(sampleType: "soil" | "foliar") {
+function favoriteableTabs(sampleType: "soil" | "foliar" | "water") {
   return visibleCalculatorTabs(sampleType).filter(
     (tab): tab is { key: FavoriteCalculatorKey; icon: ReactNode } =>
       isFavoriteCalculatorKey(tab.key)
@@ -210,12 +218,20 @@ function favoriteableTabs(sampleType: "soil" | "foliar") {
 }
 
 /** "Guided" mode: recommended calculation order, one calculator screen at a time. */
-type HubMode = "guided" | "explorer";
+type HubMode = CalculatorHubMode;
 
-const GUIDED_STEPS: Record<"soil" | "foliar", CalculatorKey[]> = {
+const GUIDED_STEPS: Record<"soil" | "foliar" | "water", CalculatorKey[]> = {
   soil: ["cic", "amendment", "fertilizer", "fertilizerCost"],
   foliar: ["dop", "uptake"],
+  water: ["salinity"],
 };
+
+function hasEnteredLabValues(lab: Map<string, { value: number }>) {
+  for (const item of lab.values()) {
+    if (Number.isFinite(item.value)) return true;
+  }
+  return false;
+}
 
 function hasActiveFertilizerDoses(doses: FertilityDoseResult[]) {
   return doses.some(
@@ -258,6 +274,7 @@ export default function CalculatorHub({
     [parameters, values, results, parameterUnits]
   );
   const hasLabData = labHasUsefulSoilData(lab);
+  const hasValues = hasEnteredLabValues(lab);
   const suggestions = getSuggestions(lab, results, t, sampleType);
 
   return (
@@ -272,6 +289,7 @@ export default function CalculatorHub({
         selectedCountry={selectedCountry}
         reportDate={reportDate}
         hasLabData={hasLabData}
+        hasValues={hasValues}
         suggestions={suggestions}
         goToValues={goToValues}
         onOpenCalendar={onOpenCalendar}
@@ -303,6 +321,7 @@ function CalculatorHubBody({
   selectedCountry,
   reportDate = null,
   hasLabData,
+  hasValues,
   suggestions,
   goToValues,
   onOpenCalendar,
@@ -324,11 +343,12 @@ function CalculatorHubBody({
   language: Language;
   lab: Map<string, CalculatorValue>;
   results: ResultLite[];
-  sampleType: "soil" | "foliar";
+  sampleType: "soil" | "foliar" | "water";
   selectedCropName?: string | null;
   selectedCountry?: string | null;
   reportDate?: string | null;
   hasLabData: boolean;
+  hasValues: boolean;
   suggestions: Array<{ key: CalculatorKey; title: string; desc: string }>;
   goToValues?: () => void;
   onOpenCalendar?: () => void;
@@ -357,8 +377,6 @@ function CalculatorHubBody({
     [lab, sharedCations]
   );
   const [importMessage, setImportMessage] = useState("");
-  // Explore is always the landing mode; Guided is opt-in via the toggle (soil only).
-  const [hubMode, setHubMode] = useState<HubMode>("explorer");
   const calculatorTabs = useMemo(
     () => visibleCalculatorTabs(sampleType),
     [sampleType]
@@ -368,14 +386,94 @@ function CalculatorHubBody({
     return GUIDED_STEPS[sampleType].filter((key) => visibleKeys.has(key));
   }, [sampleType, calculatorTabs]);
   const showHubModeToggle = sampleType === "soil";
+
+  const sessionBoot = useMemo(() => {
+    const saved = readCalculatorHubSession(userId, sampleType);
+    const preferredMode: HubMode =
+      showHubModeToggle && hasValues && guidedSteps.length > 0
+        ? "guided"
+        : "explorer";
+    let hubMode: HubMode = preferredMode;
+    let modeLockedByUser = false;
+    if (saved) {
+      modeLockedByUser = Boolean(saved.modeLockedByUser);
+      if (modeLockedByUser && showHubModeToggle) {
+        hubMode = saved.hubMode === "guided" && guidedSteps.length > 0 ? "guided" : "explorer";
+      } else {
+        hubMode = preferredMode;
+      }
+    }
+    if (!showHubModeToggle) hubMode = "explorer";
+
+    let active: CalculatorKey = defaultCalculatorFilter;
+    let guidedIndex = 0;
+    if (saved) {
+      const savedKey = saved.activeCalculator as CalculatorKey;
+      if (calculatorTabs.some((tab) => tab.key === savedKey)) {
+        active = savedKey;
+      }
+      guidedIndex = Math.min(
+        Math.max(0, saved.guidedIndex),
+        Math.max(0, guidedSteps.length - 1)
+      );
+    }
+    if (hubMode === "guided" && guidedSteps.length > 0) {
+      if (!guidedSteps.includes(active)) {
+        active = guidedSteps[guidedIndex] || guidedSteps[0];
+      } else {
+        guidedIndex = Math.max(0, guidedSteps.indexOf(active));
+      }
+    }
+    return { hubMode, active, guidedIndex, modeLockedByUser };
+    // Mount-only seed; hasValues/session updates handled in effects below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [hubMode, setHubMode] = useState<HubMode>(sessionBoot.hubMode);
+  const [modeLockedByUser, setModeLockedByUser] = useState(sessionBoot.modeLockedByUser);
+  const [active, setActive] = useState<CalculatorKey>(sessionBoot.active);
+  const [guidedIndex, setGuidedIndex] = useState(sessionBoot.guidedIndex);
   const effectiveHubMode: HubMode = showHubModeToggle ? hubMode : "explorer";
+  const prevHasValuesRef = useRef(hasValues);
 
   useEffect(() => {
     if (sampleType === "foliar" && hubMode !== "explorer") {
       setHubMode("explorer");
+      setModeLockedByUser(false);
     }
   }, [sampleType, hubMode]);
-  const [active, setActive] = useState<CalculatorKey>(defaultCalculatorFilter);
+
+  // Auto Explorar / Guiado from values presence (unless user locked mode).
+  useEffect(() => {
+    const valuesFlipped = prevHasValuesRef.current !== hasValues;
+    prevHasValuesRef.current = hasValues;
+    if (valuesFlipped) setModeLockedByUser(false);
+    if (modeLockedByUser && !valuesFlipped) return;
+    if (!showHubModeToggle) {
+      if (hubMode !== "explorer") setHubMode("explorer");
+      return;
+    }
+    const next: HubMode =
+      hasValues && guidedSteps.length > 0 ? "guided" : "explorer";
+    if (next === hubMode) return;
+    setHubMode(next);
+    if (next === "guided") {
+      setGuidedIndex(0);
+      setActive(guidedSteps[0]);
+    } else if (!calculatorTabs.some((tab) => tab.key === active)) {
+      setActive(defaultCalculatorFilter);
+    }
+  }, [
+    hasValues,
+    showHubModeToggle,
+    guidedSteps,
+    modeLockedByUser,
+    hubMode,
+    active,
+    calculatorTabs,
+    defaultCalculatorFilter,
+  ]);
+
   const [favorites, setFavorites] = useState<FavoriteCalculatorKey[]>([]);
   const [browseLayout, setBrowseLayout] = useViewLayoutPreference("calculator-hub");
   const fieldsLayout = browseLayout;
@@ -406,12 +504,22 @@ function CalculatorHubBody({
       onInitialActiveKeyConsumed?.();
       return;
     }
+    setModeLockedByUser(true);
     setHubMode("explorer");
     setActive(key);
     onInitialActiveKeyConsumed?.();
   }, [initialActiveKey, calculatorTabs, onInitialActiveKeyConsumed]);
 
-  const [guidedIndex, setGuidedIndex] = useState(0);
+  // Persist hub session across dock unmounts.
+  useEffect(() => {
+    writeCalculatorHubSession(userId, sampleType, {
+      activeCalculator: active,
+      hubMode: effectiveHubMode,
+      guidedIndex,
+      modeLockedByUser,
+    });
+  }, [userId, sampleType, active, effectiveHubMode, guidedIndex, modeLockedByUser]);
+
   const [fertilizerPlan, setFertilizerPlan] = useState<FertilizerPlanSnapshot>({
     doses: [],
     areaHa: 0,
@@ -437,6 +545,7 @@ function CalculatorHubBody({
   );
 
   function switchHubMode(mode: HubMode) {
+    setModeLockedByUser(true);
     setHubMode(mode);
     if (mode === "guided" && guidedSteps.length > 0) {
       setGuidedIndex(0);
@@ -690,6 +799,18 @@ function CalculatorHubBody({
                   <span className="calculator-hub-action__dot" aria-hidden />
                 ) : null}
               </button>
+              {onOpenCalendar ? (
+                <button
+                  type="button"
+                  onClick={onOpenCalendar}
+                  className="calculator-hub-action calculator-hub-action--secondary inline-flex items-center gap-1"
+                  title={t.hubModeGoCalendar || "Calendar"}
+                  aria-label={t.hubModeGoCalendar || "Calendar"}
+                >
+                  <CalendarDays size={14} aria-hidden />
+                  <span className="hidden sm:inline">{t.hubModeGoCalendar || "Calendar"}</span>
+                </button>
+              ) : null}
               {!hasLabData && goToValues ? (
                 <button
                   type="button"
@@ -1107,7 +1228,7 @@ function FavoritesCalculators({
   setActive,
 }: {
   t: Record<string, string>;
-  sampleType: "soil" | "foliar";
+  sampleType: "soil" | "foliar" | "water";
   favorites: FavoriteCalculatorKey[];
   setActive: (key: CalculatorKey) => void;
 }) {
@@ -1161,7 +1282,7 @@ function CicCalculator({
 }: {
   t: Record<string, string>;
   lab: Map<string, CalculatorValue>;
-  sampleType: "soil" | "foliar";
+  sampleType: "soil" | "foliar" | "water";
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
 }) {
   const { reference } = useSoilFertilityReference();
@@ -2751,7 +2872,7 @@ function getSuggestions(
   lab: Map<string, CalculatorValue>,
   results: ResultLite[],
   t: Record<string, string>,
-  sampleType: "soil" | "foliar"
+  sampleType: "soil" | "foliar" | "water"
 ) {
   const suggestions: Array<{ key: CalculatorKey; title: string; desc: string }> = [];
   const visible = new Set(visibleCalculatorTabs(sampleType).map((tab) => tab.key));

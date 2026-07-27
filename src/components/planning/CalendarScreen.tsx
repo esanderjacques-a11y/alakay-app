@@ -13,11 +13,16 @@ import {
 import {
   acceptSuggestedEvents,
   deleteCalendarEvent,
+  deleteSavedCalendar,
+  getSavedCalendar,
+  listSavedCalendars,
   loadPlanningState,
+  renameSavedCalendar,
   saveCalendarEvent,
   suggestEventsFromPlan,
   toggleCalendarEventCompleted,
   updateCalendarEventDate,
+  upsertSavedCalendar,
 } from "@/lib/planningStore";
 import { exportFertilizationPlanPdf } from "@/lib/fertilizationPlanPdf";
 import ExportPdfIconButton from "@/components/ExportPdfIconButton";
@@ -46,6 +51,11 @@ type Props = {
   planDoses?: DoseHint[];
   /** Prefill for PDF “responsible” field. */
   responsibleName?: string;
+  /** Open directly into this saved calendar (from Farms). */
+  initialCalendarId?: string | null;
+  /** When set, list is filtered to this farm. */
+  farmFilter?: string;
+  onActiveCalendarChange?: (calendarId: string | null) => void;
 };
 
 function stageLabelsFromI18n(
@@ -107,9 +117,17 @@ export default function CalendarScreen({
   onLotNameChange,
   planDoses = [],
   responsibleName = "",
+  initialCalendarId = null,
+  farmFilter,
+  onActiveCalendarChange,
 }: Props) {
   const p = t.planning;
   const [tick, setTick] = useState(0);
+  const [activeCalendarId, setActiveCalendarId] = useState<string | null>(
+    initialCalendarId || null
+  );
+  const [calendarNameDraft, setCalendarNameDraft] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
   const [localFarm, setLocalFarm] = useState(farmName);
   const [localLot, setLocalLot] = useState(lotName);
   const [responsible, setResponsible] = useState(responsibleName);
@@ -139,8 +157,131 @@ export default function CalendarScreen({
     if (responsibleName) setResponsible(responsibleName);
   }, [responsibleName]);
 
+  useEffect(() => {
+    if (initialCalendarId) {
+      setActiveCalendarId(initialCalendarId);
+    }
+  }, [initialCalendarId]);
+
+  useEffect(() => {
+    if (!activeCalendarId) return;
+    const saved = getSavedCalendar(activeCalendarId);
+    if (!saved) return;
+    setCalendarNameDraft(saved.name);
+    if (saved.farmName) setFarm(saved.farmName);
+    if (saved.lotName) setLot(saved.lotName);
+    if (saved.startDate) setStartDate(saved.startDate);
+    if (saved.endDate) {
+      setEndDate(saved.endDate);
+      setEndDateTouched(true);
+    }
+    if (saved.purpose) setPurpose(saved.purpose as SchedulePurpose);
+    if (saved.responsible) setResponsible(saved.responsible);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once when calendar opens
+  }, [activeCalendarId]);
+
   const effectiveFarm = (onFarmNameChange ? farmName : localFarm).trim();
   const effectiveLot = (onLotNameChange ? lotName : localLot).trim();
+
+  const savedCalendars = useMemo(() => {
+    void tick;
+    return listSavedCalendars(farmFilter || undefined);
+  }, [tick, farmFilter]);
+
+  function openCalendar(id: string) {
+    setActiveCalendarId(id);
+    onActiveCalendarChange?.(id);
+    setStatusMessage("");
+    setError("");
+  }
+
+  function closeToList() {
+    setActiveCalendarId(null);
+    onActiveCalendarChange?.(null);
+    setStatusMessage("");
+    setError("");
+    refresh();
+  }
+
+  function handleNewCalendar() {
+    const autoName = effectiveFarm
+      ? `${effectiveFarm} · ${startDate}`
+      : `${p.newCalendar} · ${startDate}`;
+    const name =
+      typeof window !== "undefined"
+        ? window.prompt(p.calendarName, autoName)?.trim() || autoName
+        : autoName;
+    const created = upsertSavedCalendar({
+      name,
+      farmName: effectiveFarm || farmFilter || "",
+      lotName: effectiveLot || undefined,
+      cropName: cropName || undefined,
+      startDate,
+      endDate,
+      purpose,
+      cycleMode: cycleMode,
+      responsible: responsible || undefined,
+    });
+    openCalendar(created.id);
+    refresh();
+  }
+
+  function handleSaveCalendar(asNew = false) {
+    setError("");
+    if (!effectiveFarm) {
+      setError(p.farmRequired);
+      return;
+    }
+    const autoName = `${effectiveFarm} · ${startDate}`;
+    let name = calendarNameDraft.trim();
+    if (asNew || !name) {
+      name =
+        (typeof window !== "undefined"
+          ? window.prompt(p.calendarName, name || autoName)?.trim()
+          : null) ||
+        name ||
+        autoName;
+    }
+    const saved = upsertSavedCalendar({
+      id: asNew ? undefined : activeCalendarId || undefined,
+      name,
+      farmName: effectiveFarm,
+      lotName: effectiveLot || undefined,
+      cropName: cropName || undefined,
+      startDate,
+      endDate,
+      purpose,
+      cycleMode,
+      responsible: responsible || undefined,
+    });
+    setCalendarNameDraft(saved.name);
+    openCalendar(saved.id);
+    setStatusMessage(p.calendarSaved);
+    refresh();
+  }
+
+  function handleRenameCalendar(id: string) {
+    const current = getSavedCalendar(id);
+    if (!current) return;
+    const next =
+      typeof window !== "undefined"
+        ? window.prompt(p.calendarName, current.name)?.trim()
+        : null;
+    if (!next) return;
+    renameSavedCalendar(id, next);
+    if (id === activeCalendarId) setCalendarNameDraft(next);
+    refresh();
+  }
+
+  function handleDeleteCalendar(id: string) {
+    const ok =
+      typeof window === "undefined" ||
+      window.confirm(p.confirmDeleteCalendar);
+    if (!ok) return;
+    deleteSavedCalendar(id);
+    if (activeCalendarId === id) closeToList();
+    else refresh();
+  }
 
   const cycleMode = useMemo(
     () => resolveScheduleCycleMode(cropName, language),
@@ -215,6 +356,15 @@ export default function CalendarScreen({
   const events = useMemo(() => {
     void tick;
     const all = loadPlanningState().events;
+    if (activeCalendarId) {
+      return all
+        .filter((e) => e.calendarId === activeCalendarId)
+        .sort((a, b) => {
+          const seq = (a.sequence || 99) - (b.sequence || 99);
+          if (seq !== 0) return seq;
+          return a.date.localeCompare(b.date);
+        });
+    }
     const farm = effectiveFarm.toLocaleLowerCase();
     const filtered = farm
       ? all.filter(
@@ -226,7 +376,7 @@ export default function CalendarScreen({
       if (seq !== 0) return seq;
       return a.date.localeCompare(b.date);
     });
-  }, [tick, effectiveFarm]);
+  }, [tick, effectiveFarm, activeCalendarId]);
 
   const exportEvents = events;
 
@@ -297,9 +447,45 @@ export default function CalendarScreen({
       setError(p.needPlanHint);
       return;
     }
-    // Apply immediately so the timeline matches the selected purpose
-    // (preview-then-save left the old full-cycle sequence visible below).
-    acceptSuggestedEvents(next, { replaceFarmPlan: true });
+    let calendarId = activeCalendarId;
+    if (!calendarId) {
+      const autoName = `${effectiveFarm} · ${startDate}`;
+      const name =
+        (typeof window !== "undefined"
+          ? window.prompt(p.calendarName, autoName)?.trim()
+          : null) || autoName;
+      const created = upsertSavedCalendar({
+        name,
+        farmName: effectiveFarm,
+        lotName: effectiveLot || undefined,
+        cropName: cropName || undefined,
+        startDate,
+        endDate,
+        purpose,
+        cycleMode,
+        responsible: responsible || undefined,
+      });
+      calendarId = created.id;
+      setCalendarNameDraft(created.name);
+      openCalendar(created.id);
+    } else {
+      upsertSavedCalendar({
+        id: calendarId,
+        name: calendarNameDraft.trim() || `${effectiveFarm} · ${startDate}`,
+        farmName: effectiveFarm,
+        lotName: effectiveLot || undefined,
+        cropName: cropName || undefined,
+        startDate,
+        endDate,
+        purpose,
+        cycleMode,
+        responsible: responsible || undefined,
+      });
+    }
+    acceptSuggestedEvents(next, {
+      replaceFarmPlan: true,
+      calendarId,
+    });
     setScheduleStale(false);
     refresh();
   }
@@ -322,6 +508,7 @@ export default function CalendarScreen({
       placeNote: cropName || undefined,
       source: "manual",
       sequence: events.length + 1,
+      calendarId: activeCalendarId || undefined,
     });
     setTitle("");
     setRate("");
@@ -368,18 +555,127 @@ export default function CalendarScreen({
     }
   }
 
+  if (!activeCalendarId) {
+    return (
+      <section className="animate-slide-up space-y-4 px-0 pb-8 pt-2">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="max-w-xl">
+            <h1 className="text-xl font-bold text-[#1c1c1e] dark-text-primary">
+              {p.savedCalendarsTitle}
+            </h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              {p.savedCalendarsDesc}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="calc-guided-stepper__nav-btn calc-guided-stepper__nav-btn--primary text-sm"
+              onClick={handleNewCalendar}
+            >
+              {p.newCalendar}
+            </button>
+            <button
+              type="button"
+              className="calc-guided-stepper__nav-btn text-sm"
+              onClick={onBack}
+            >
+              {p.back}
+            </button>
+          </div>
+        </div>
+        {savedCalendars.length === 0 ? (
+          <p className="text-sm text-slate-500">{p.noSavedCalendars}</p>
+        ) : (
+          <ul className="space-y-2">
+            {savedCalendars.map((calendar) => (
+              <li
+                key={calendar.id}
+                className="calc-surface flex flex-wrap items-center justify-between gap-2 px-3 py-2.5"
+              >
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => openCalendar(calendar.id)}
+                >
+                  <span className="block font-semibold dark-text-primary">
+                    {calendar.name}
+                  </span>
+                  <span className="block text-xs text-slate-500">
+                    {[calendar.farmName, calendar.lotName]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    {calendar.startDate
+                      ? ` · ${calendar.startDate}${
+                          calendar.endDate ? ` → ${calendar.endDate}` : ""
+                        }`
+                      : ""}
+                  </span>
+                </button>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    className="plan-timeline-card__action"
+                    onClick={() => openCalendar(calendar.id)}
+                  >
+                    {p.openSavedCalendar}
+                  </button>
+                  <button
+                    type="button"
+                    className="plan-timeline-card__action"
+                    onClick={() => handleRenameCalendar(calendar.id)}
+                  >
+                    {p.renameCalendar}
+                  </button>
+                  <button
+                    type="button"
+                    className="plan-timeline-card__action"
+                    onClick={() => handleDeleteCalendar(calendar.id)}
+                  >
+                    {p.deleteCalendar}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="animate-slide-up space-y-4 px-0 pb-8 pt-2">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="max-w-xl">
+          <button
+            type="button"
+            className="mb-1 text-xs font-semibold text-slate-500 hover:underline"
+            onClick={closeToList}
+          >
+            ← {p.backToCalendars}
+          </button>
           <h1 className="text-xl font-bold text-[#1c1c1e] dark-text-primary">
-            {p.calendarTitle}
+            {calendarNameDraft || p.calendarTitle}
           </h1>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
             {p.calendarDesc}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="calc-guided-stepper__nav-btn text-sm"
+            onClick={() => handleSaveCalendar(false)}
+          >
+            {p.saveCalendar}
+          </button>
+          <button
+            type="button"
+            className="calc-guided-stepper__nav-btn text-sm"
+            onClick={() => handleSaveCalendar(true)}
+          >
+            {p.saveCalendarAs}
+          </button>
           <ExportPdfIconButton
             onClick={() => void handleExportPdf()}
             busy={exportingPdf}
@@ -395,6 +691,23 @@ export default function CalendarScreen({
           </button>
         </div>
       </div>
+      {statusMessage ? (
+        <p
+          className="text-sm font-medium text-emerald-700 dark:text-emerald-300"
+          role="status"
+        >
+          {statusMessage}
+        </p>
+      ) : null}
+      <label className="block text-sm">
+        <span className="font-semibold dark-text-primary">{p.calendarName}</span>
+        <input
+          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+          value={calendarNameDraft}
+          onChange={(e) => setCalendarNameDraft(e.target.value)}
+          placeholder={p.calendarNamePlaceholder}
+        />
+      </label>
 
       <div className="calc-surface calendar-how-card">
         <h2 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">

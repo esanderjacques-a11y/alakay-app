@@ -3,6 +3,7 @@ import type {
   AppNotification,
   CalendarEvent,
   CalendarEventLine,
+  SavedCalendar,
   UserNote,
 } from "@/lib/planningTypes";
 
@@ -10,6 +11,7 @@ type PlanningBundle = {
   events: CalendarEvent[];
   notes: UserNote[];
   notifications: AppNotification[];
+  calendars: SavedCalendar[];
 };
 
 function asLines(value: unknown): CalendarEventLine[] | undefined {
@@ -35,6 +37,7 @@ export function eventToRow(userId: string, event: CalendarEvent) {
     stage_key: event.stageKey || null,
     stage_label: event.stageLabel || null,
     plan_id: event.planId || null,
+    calendar_id: event.calendarId || null,
     lines: event.lines || [],
     created_at: event.createdAt,
     updated_at: new Date().toISOString(),
@@ -59,7 +62,47 @@ export function rowToEvent(row: Record<string, unknown>): CalendarEvent {
     stageKey: (row.stage_key as string | null) || undefined,
     stageLabel: (row.stage_label as string | null) || undefined,
     planId: (row.plan_id as string | null) || undefined,
+    calendarId: (row.calendar_id as string | null) || undefined,
     lines: asLines(row.lines),
+  };
+}
+
+export function calendarToRow(userId: string, calendar: SavedCalendar) {
+  return {
+    id: calendar.id,
+    user_id: userId,
+    name: calendar.name,
+    farm_name: calendar.farmName || "",
+    lot_name: calendar.lotName || null,
+    crop_name: calendar.cropName || null,
+    start_date: calendar.startDate || null,
+    end_date: calendar.endDate || null,
+    purpose: calendar.purpose || null,
+    cycle_mode: calendar.cycleMode || null,
+    responsible: calendar.responsible || null,
+    created_at: calendar.createdAt,
+    updated_at: calendar.updatedAt,
+  };
+}
+
+export function rowToCalendar(row: Record<string, unknown>): SavedCalendar {
+  return {
+    id: String(row.id),
+    name: String(row.name || ""),
+    farmName: String(row.farm_name || ""),
+    lotName: (row.lot_name as string | null) || undefined,
+    cropName: (row.crop_name as string | null) || undefined,
+    startDate: row.start_date
+      ? String(row.start_date).slice(0, 10)
+      : undefined,
+    endDate: row.end_date ? String(row.end_date).slice(0, 10) : undefined,
+    purpose: (row.purpose as string | null) || undefined,
+    cycleMode: (row.cycle_mode as string | null) || undefined,
+    responsible: (row.responsible as string | null) || undefined,
+    createdAt: String(row.created_at || new Date().toISOString()),
+    updatedAt: String(
+      row.updated_at || row.created_at || new Date().toISOString()
+    ),
   };
 }
 
@@ -88,7 +131,9 @@ export function rowToNote(row: Record<string, unknown>): UserNote {
     remindAt: (row.remind_at as string | null) || null,
     source: row.source === "recommended" ? "recommended" : "manual",
     createdAt: String(row.created_at || new Date().toISOString()),
-    updatedAt: String(row.updated_at || row.created_at || new Date().toISOString()),
+    updatedAt: String(
+      row.updated_at || row.created_at || new Date().toISOString()
+    ),
   };
 }
 
@@ -124,27 +169,38 @@ export function rowToNotification(row: Record<string, unknown>): AppNotification
 export async function fetchPlanningBundle(
   userId: string
 ): Promise<PlanningBundle> {
-  const [eventsRes, notesRes, notificationsRes] = await Promise.all([
-    supabase
-      .from("calendar_events")
-      .select("*")
-      .eq("user_id", userId)
-      .order("event_date", { ascending: true }),
-    supabase
-      .from("user_notes")
-      .select("*")
-      .eq("user_id", userId)
-      .order("updated_at", { ascending: false }),
-    supabase
-      .from("app_notifications")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false }),
-  ]);
+  const [eventsRes, notesRes, notificationsRes, calendarsRes] =
+    await Promise.all([
+      supabase
+        .from("calendar_events")
+        .select("*")
+        .eq("user_id", userId)
+        .order("event_date", { ascending: true }),
+      supabase
+        .from("user_notes")
+        .select("*")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("app_notifications")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("saved_calendars")
+        .select("*")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false }),
+    ]);
 
   if (eventsRes.error) throw new Error(eventsRes.error.message);
   if (notesRes.error) throw new Error(notesRes.error.message);
   if (notificationsRes.error) throw new Error(notificationsRes.error.message);
+  const calendars = calendarsRes.error
+    ? []
+    : (calendarsRes.data || []).map((row) =>
+        rowToCalendar(row as Record<string, unknown>)
+      );
 
   return {
     events: (eventsRes.data || []).map((row) =>
@@ -156,6 +212,7 @@ export async function fetchPlanningBundle(
     notifications: (notificationsRes.data || []).map((row) =>
       rowToNotification(row as Record<string, unknown>)
     ),
+    calendars,
   };
 }
 
@@ -172,6 +229,25 @@ export async function upsertCalendarEventRemote(
 export async function deleteCalendarEventRemote(userId: string, id: string) {
   const { error } = await supabase
     .from("calendar_events")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function upsertSavedCalendarRemote(
+  userId: string,
+  calendar: SavedCalendar
+) {
+  const { error } = await supabase
+    .from("saved_calendars")
+    .upsert(calendarToRow(userId, calendar), { onConflict: "id" });
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteSavedCalendarRemote(userId: string, id: string) {
+  const { error } = await supabase
+    .from("saved_calendars")
     .delete()
     .eq("user_id", userId)
     .eq("id", id);
@@ -222,6 +298,15 @@ export async function pushPlanningBundle(
   userId: string,
   bundle: PlanningBundle
 ) {
+  if (bundle.calendars.length > 0) {
+    const { error } = await supabase
+      .from("saved_calendars")
+      .upsert(
+        bundle.calendars.map((calendar) => calendarToRow(userId, calendar)),
+        { onConflict: "id" }
+      );
+    if (error) throw new Error(error.message);
+  }
   if (bundle.events.length > 0) {
     const { error } = await supabase
       .from("calendar_events")
@@ -254,12 +339,13 @@ export async function pushPlanningBundle(
 export async function replaceRecommendedEventsRemote(
   userId: string,
   farmName: string,
-  keepPlanId?: string
+  keepPlanId?: string,
+  calendarId?: string
 ) {
   const farm = farmName.trim().toLocaleLowerCase();
   const { data, error } = await supabase
     .from("calendar_events")
-    .select("id, farm_name, source, plan_id")
+    .select("id, farm_name, source, plan_id, calendar_id")
     .eq("user_id", userId)
     .eq("source", "recommended");
   if (error) throw new Error(error.message);
@@ -270,6 +356,9 @@ export async function replaceRecommendedEventsRemote(
         .trim()
         .toLocaleLowerCase();
       if (name !== farm) return false;
+      if (calendarId && String(row.calendar_id || "") !== calendarId) {
+        return false;
+      }
       if (keepPlanId && row.plan_id && row.plan_id !== keepPlanId) return false;
       return true;
     })

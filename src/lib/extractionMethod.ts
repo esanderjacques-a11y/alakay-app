@@ -284,10 +284,10 @@ export function convertTable1RangeToDisplayUnit(
 
 export function getDefaultExtractionMethod(input: {
   isGeneralCrop: boolean;
-  sampleType: "soil" | "foliar";
+  sampleType: "soil" | "foliar" | "water";
 }): ExtractionMethod {
-  // Foliar has no soil extractant; interpretation uses crop sufficiency ranges.
-  if (input.sampleType === "foliar") return "general";
+  // Foliar/water have no soil extractant; interpretation uses crop sufficiency ranges.
+  if (input.sampleType === "foliar" || input.sampleType === "water") return "general";
   if (input.isGeneralCrop) return "olsen";
   return "general";
 }
@@ -393,9 +393,9 @@ export function extractionMethodUsesGeneralFallback(
 export function shouldApplyTable1Range(input: {
   extractionMethod: ExtractionMethod;
   parameter: ParameterLike;
-  sampleType?: "soil" | "foliar";
+  sampleType?: "soil" | "foliar" | "water";
 }): boolean {
-  if (input.sampleType === "foliar") return false;
+  if (input.sampleType === "foliar" || input.sampleType === "water") return false;
   return table1SufficientRange(input.extractionMethod, input.parameter) != null;
 }
 
@@ -403,7 +403,7 @@ export function shouldApplyTable1Range(input: {
 export function shouldApplyTable1PhosphorusRange(input: {
   extractionMethod: ExtractionMethod;
   parameter: ParameterLike;
-  sampleType?: "soil" | "foliar";
+  sampleType?: "soil" | "foliar" | "water";
   isGeneralCrop?: boolean;
   resolved?: ParameterLike;
 }) {

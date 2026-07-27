@@ -61,7 +61,7 @@ type CustomRange = {
   parameter_id: number | null;
   custom_parameter_id: number | null;
   crop_id: number | null;
-  sample_type: "soil" | "foliar";
+  sample_type: "soil" | "foliar" | "water";
   unit_id: number | null;
   min_value: number | null;
   max_value: number | null;
@@ -113,7 +113,7 @@ type Props = {
   onChanged: () => void;
   session: Session | null;
   language: Language;
-  sampleType: "soil" | "foliar";
+  sampleType: "soil" | "foliar" | "water";
   currentCropId: number | "";
   /** Render inline (no modal) for the custom-data portal. */
   embedded?: boolean;

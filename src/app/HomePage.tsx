@@ -26,6 +26,10 @@ import {
 import AppHeader from "@/components/AppHeader";
 import AuthPanel from "@/components/AuthPanel";
 import type { EditableAnalysisPayload } from "@/components/AnalysisHistory";
+import {
+  detectSampleTypeFromLabel,
+  type SampleTypeCode,
+} from "@/lib/sampleType";
 import CustomParameterModal from "@/components/CustomParameterModal";
 import CustomParameterManager from "@/components/CustomParameterManager";
 import CustomRangeManager from "@/components/CustomRangeManager";
@@ -204,7 +208,7 @@ type CustomParameterRow = {
   parameter_name: string;
   symbol: string | null;
   category: string | null;
-  sample_type: "soil" | "foliar";
+  sample_type: "soil" | "foliar" | "water";
   default_unit_id: number;
   units: SupabaseUnitRelation;
 };
@@ -492,7 +496,7 @@ function resolvePreferredDisplaySymbol(
     symbol: string | null;
     category: string | null;
   },
-  sampleType: "soil" | "foliar",
+  sampleType: "soil" | "foliar" | "water",
   fallbackUnitSymbol: string
 ) {
   const preferred =
@@ -1008,7 +1012,7 @@ function translateCountryRegion(
 function translateAdvice(
   result: InterpretationResult,
   t: (typeof translations)[Language],
-  sampleType: "soil" | "foliar" = "soil"
+  sampleType: "soil" | "foliar" | "water" = "soil"
 ) {
   const customAdvice = result.interpretation_note?.trim();
 
@@ -1136,11 +1140,15 @@ export default function HomePage() {
 
   const [parameters, setParameters] = useState<Parameter[]>([]);
   const [parametersSampleType, setParametersSampleType] = useState<
-    "soil" | "foliar"
+    "soil" | "foliar" | "water"
   >("soil");
 
   const [cropId, setCropId] = useState<number | "">(999);
-  const [sampleType, setSampleType] = useState<"soil" | "foliar">("soil");
+  const [sampleType, setSampleType] = useState<"soil" | "foliar" | "water">("soil");
+  /** Water subtype: irrigation quality vs hydroponic nutrient solution. */
+  const [waterMode, setWaterMode] = useState<"irrigation" | "hydroponic">(
+    "irrigation"
+  );
   const [extractionMethod, setExtractionMethod] = useState<ExtractionMethod>("olsen");
   const [values, setValues] = useState<Record<string, string>>({});
   const [labReportRanges, setLabReportRanges] = useState<
@@ -1214,6 +1222,7 @@ export default function HomePage() {
   const [analysisName, setAnalysisName] = useState("");
   const [farmName, setFarmName] = useState("");
   const [openFarmId, setOpenFarmId] = useState<number | null>(null);
+  const [activeCalendarId, setActiveCalendarId] = useState<string | null>(null);
   const [historyFocusAnalysisId, setHistoryFocusAnalysisId] = useState<
     number | null
   >(null);
@@ -1297,7 +1306,15 @@ export default function HomePage() {
   useLayoutEffect(() => {
     setLanguage(readStoredLanguage());
     setTheme(readStoredTheme());
-    setAppSettings(getSettings());
+    const settings = getSettings();
+    setAppSettings(settings);
+    const def = settings.general.defaultSampleType;
+    if (def === "foliar" || def === "water") {
+      setSampleType(def);
+    } else {
+      // soil | both → start on soil
+      setSampleType("soil");
+    }
   }, []);
 
   useEffect(() => {
@@ -2020,7 +2037,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setMessage("");
   }
 
-  function resetSampleTypeState(nextSampleType: "soil" | "foliar") {
+  function resetSampleTypeState(nextSampleType: "soil" | "foliar" | "water") {
     if (nextSampleType === sampleType) return;
 
     const hasValues = Object.values(values).some((value) => value?.trim());
@@ -2192,7 +2209,10 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     if (!metadata) return;
 
     const detectedType = String(metadata.analysisType || "").toLowerCase();
-    if (detectedType.includes("foliar") || detectedType.includes("leaf")) {
+    const fromLabel = detectSampleTypeFromLabel(detectedType);
+    if (fromLabel) {
+      setSampleType(fromLabel);
+    } else if (detectedType.includes("foliar") || detectedType.includes("leaf")) {
       setSampleType("foliar");
     } else if (detectedType.includes("soil") || detectedType.includes("suelo")) {
       setSampleType("soil");
@@ -2979,6 +2999,22 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
     let list = [...parameters];
 
+    if (sampleType === "water") {
+      list = list.filter((parameter) => {
+        const category = String(parameter.category || "").toLowerCase();
+        const isHydro =
+          category.includes("hydroponic") ||
+          String(parameter.symbol || "").endsWith("-H") ||
+          String(parameter.parameter_name || "")
+            .toLowerCase()
+            .includes("hydroponic") ||
+          String(parameter.parameter_name || "")
+            .toLowerCase()
+            .includes("solution");
+        return waterMode === "hydroponic" ? isHydro : !isHydro;
+      });
+    }
+
     if (!showAllParameters && selectedCategory !== "All") {
       list = list.filter(
         (parameter) => getParameterFilterGroup(parameter) === selectedCategory
@@ -3030,6 +3066,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     showAllParameters,
     parameterSearch,
     sortMode,
+    sampleType,
+    waterMode,
   ]);
 
   const selectedCrop = crops.find((crop) => crop.crop_id === cropId);
@@ -3101,7 +3139,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     return {
       title:
         analysisName.trim() ||
-        `${sampleType === "soil" ? t.soil : t.foliar} ${t.analysisSummary}`,
+        `${sampleType === "soil" ? t.soil : sampleType === "water" ? t.water : t.foliar} ${t.analysisSummary}`,
       analysisName: analysisName.trim() || undefined,
       generatedBy: displayName || undefined,
       farm: farmName.trim() || undefined,
@@ -3110,12 +3148,12 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       date: dateValue || undefined,
       place: place || undefined,
       crop: selectedCrop?.display_name || undefined,
-      sampleType: sampleType === "soil" ? t.soil : t.foliar,
+      sampleType: sampleType === "soil" ? t.soil : sampleType === "water" ? t.water : t.foliar,
       extractionMethod: methodLabel,
       extractionNote,
       details: [
         selectedCrop ? `${t.crop}: ${selectedCrop.display_name}` : "",
-        `${t.sampleType}: ${sampleType === "soil" ? t.soil : t.foliar}`,
+        `${t.sampleType}: ${sampleType === "soil" ? t.soil : sampleType === "water" ? t.water : t.foliar}`,
         `${t.extractionMethodLabel}: ${methodLabel}`,
         farmName.trim() ? `${t.farmName}: ${farmName.trim()}` : "",
         lotName.trim() ? `${t.lotName}: ${lotName.trim()}` : "",
@@ -3703,6 +3741,8 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             loadCrops={loadCrops}
             sampleType={sampleType}
             setSampleType={resetSampleTypeState}
+            waterMode={waterMode}
+            setWaterMode={setWaterMode}
             isGeneralCrop={isGeneralCrop}
             extractionMethod={extractionMethod}
             setExtractionMethod={setExtractionMethod}
@@ -3949,9 +3989,10 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
               setOpenFarmId(null);
               setCurrentStep("home");
             }}
-            onOpenCalendar={(name, lot) => {
+            onOpenCalendar={(name, lot, calendarId) => {
               setFarmName(name);
               if (lot) setLotName(lot);
+              setActiveCalendarId(calendarId || null);
               setCurrentStep("calendar");
             }}
             onOpenNotes={(name) => {
@@ -3979,7 +4020,10 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           <CalendarScreen
             t={t}
             language={language}
-            onBack={() => setCurrentStep("home")}
+            onBack={() => {
+              setActiveCalendarId(null);
+              setCurrentStep("home");
+            }}
             onOpenSetup={() => setCurrentStep("setup")}
             onOpenCalculators={() => setCurrentStep("calculators")}
             cropName={selectedCrop?.crop_name || selectedCrop?.display_name}
@@ -3989,6 +4033,9 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             onLotNameChange={setLotName}
             planDoses={fertilizerPlanSnapshot?.doses}
             responsibleName={displayName}
+            initialCalendarId={activeCalendarId}
+            farmFilter={farmName || undefined}
+            onActiveCalendarChange={setActiveCalendarId}
           />
         ) : currentStep === "notes" ? (
           <NotesScreen
@@ -4003,7 +4050,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             onBack={() => setCurrentStep("home")}
             onNavigate={(step) => {
               setNotificationTick((n) => n + 1);
-              setCurrentStep(step);
+              setCurrentStep(step === "inventory" ? "farms" : step);
             }}
           />
         ) : currentStep === "settings" ? (
@@ -4241,6 +4288,8 @@ function SetupScreen({
   loadCrops,
   sampleType,
   setSampleType,
+  waterMode,
+  setWaterMode,
   isGeneralCrop,
   extractionMethod,
   setExtractionMethod,
@@ -4273,8 +4322,10 @@ function SetupScreen({
   crops: Crop[];
   cropsLoading: boolean;
   loadCrops: () => void;
-  sampleType: "soil" | "foliar";
-  setSampleType: (value: "soil" | "foliar") => void;
+  sampleType: "soil" | "foliar" | "water";
+  setSampleType: (value: "soil" | "foliar" | "water") => void;
+  waterMode: "irrigation" | "hydroponic";
+  setWaterMode: (value: "irrigation" | "hydroponic") => void;
   isGeneralCrop: boolean;
   extractionMethod: ExtractionMethod;
   setExtractionMethod: (value: ExtractionMethod) => void;
@@ -4385,8 +4436,46 @@ function SetupScreen({
               >
                 {t.foliar}
               </button>
+              <button
+                type="button"
+                onClick={() => setSampleType("water")}
+                className={`app-segmented-control__btn ${
+                  sampleType === "water" ? "app-segmented-control__btn--active" : ""
+                }`}
+              >
+                {t.water}
+              </button>
             </div>
           </SetupInlineField>
+
+          {sampleType === "water" ? (
+            <SetupInlineField label="Water mode">
+              <div className="setup-segmented-inline app-segmented-control">
+                <button
+                  type="button"
+                  onClick={() => setWaterMode("irrigation")}
+                  className={`app-segmented-control__btn ${
+                    waterMode === "irrigation"
+                      ? "app-segmented-control__btn--active"
+                      : ""
+                  }`}
+                >
+                  Irrigation
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWaterMode("hydroponic")}
+                  className={`app-segmented-control__btn ${
+                    waterMode === "hydroponic"
+                      ? "app-segmented-control__btn--active"
+                      : ""
+                  }`}
+                >
+                  Nutrient solution
+                </button>
+              </div>
+            </SetupInlineField>
+          ) : null}
 
           <SetupInlineField label={t.crop}>
             <AppSelect
@@ -4538,7 +4627,7 @@ function ValuesScreen({
   t: (typeof translations)[Language];
   language: Language;
   selectedCrop: Crop | undefined;
-  sampleType: "soil" | "foliar";
+  sampleType: "soil" | "foliar" | "water";
   isGeneralCrop: boolean;
   extractionMethod: ExtractionMethod;
   setExtractionMethod: (value: ExtractionMethod) => void;
@@ -4789,7 +4878,7 @@ function ValuesScreen({
           <h2 className="values-page-title">{t.enterValues}</h2>
           {selectedCrop && (
             <p className="values-page-subtitle">
-              {selectedCrop.display_name} · {sampleType === "soil" ? t.soil : t.foliar}
+              {selectedCrop.display_name} · {sampleType === "soil" ? t.soil : sampleType === "water" ? t.water : t.foliar}
             </p>
           )}
         </div>
@@ -6276,7 +6365,7 @@ function ResultsSection({
   needsUpdate: boolean;
   pendingOfflineSaves: number;
   isGeneralCrop: boolean;
-  sampleType: "soil" | "foliar";
+  sampleType: "soil" | "foliar" | "water";
   extractionMethod: ExtractionMethod;
   interpreting: boolean;
   onExtractionMethodChange: (method: ExtractionMethod) => void;

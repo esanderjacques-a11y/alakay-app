@@ -22,7 +22,7 @@ export type AccentColor =
   | "orange"
   | "brown"
   | "fuchsia";
-export type DefaultSampleType = "soil" | "foliar" | "both";
+export type DefaultSampleType = "soil" | "foliar" | "water" | "both";
 export type DefaultCrop =
   | "banana"
   | "coffee"
@@ -92,6 +92,10 @@ export type AppSettings = {
     showParameterDetails: boolean;
     showParameterSymbolsOnly: boolean;
   };
+  inventory: {
+    /** When true, applying a fertilizer cost scenario decrements stock. Default off. */
+    consumeStockOnPlanApply: boolean;
+  };
 };
 
 export const defaultAppSettings: AppSettings = {
@@ -141,6 +145,9 @@ export const defaultAppSettings: AppSettings = {
     permanentDeleteDays: 30,
     showParameterDetails: false,
     showParameterSymbolsOnly: false,
+  },
+  inventory: {
+    consumeStockOnPlanApply: false,
   },
 };
 
@@ -199,6 +206,10 @@ function mergeSettings(settings: Partial<AppSettings>): AppSettings {
     },
     reports: { ...defaultAppSettings.reports, ...settings.reports },
     data: { ...defaultAppSettings.data, ...settings.data },
+    inventory: {
+      ...defaultAppSettings.inventory,
+      ...settings.inventory,
+    },
   };
 
   merged.data.permanentDeleteDays = Math.min(

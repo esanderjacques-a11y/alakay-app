@@ -26,7 +26,7 @@ type CustomParameter = {
   parameter_name: string;
   symbol: string | null;
   category: string | null;
-  sample_type: "soil" | "foliar";
+  sample_type: "soil" | "foliar" | "water";
   default_unit_id: number | null;
   created_at: string;
   updated_at: string | null;
@@ -50,7 +50,7 @@ type Props = {
   onChanged: () => void;
   session: Session | null;
   language: Language;
-  sampleType: "soil" | "foliar";
+  sampleType: "soil" | "foliar" | "water";
   /** Render inline (no modal) for the custom-data portal. */
   embedded?: boolean;
 };

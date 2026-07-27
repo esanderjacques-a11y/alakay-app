@@ -38,21 +38,26 @@ import {
   loadEditableAnalysisById,
   softDeleteAnalysis,
 } from "@/lib/loadEditableAnalysis";
-import { loadPlanningState } from "@/lib/planningStore";
+import { listSavedCalendars, loadPlanningState } from "@/lib/planningStore";
 import { detectLocation } from "@/lib/geolocation";
 import {
   listAllFertilizers,
   matchCatalogProductKey,
 } from "@/lib/fertilizerCatalog";
 import MenuSelect from "@/components/ui/MenuSelect";
+import InventoryScreen from "@/components/planning/InventoryScreen";
 
-type View = "list" | "detail" | "bodega";
+type View = "list" | "detail" | "bodega" | "inventory";
 
 type Props = {
   t: Translation;
   userId?: string | null;
   onBack: () => void;
-  onOpenCalendar: (farmName: string, lotName?: string) => void;
+  onOpenCalendar: (
+    farmName: string,
+    lotName?: string,
+    calendarId?: string
+  ) => void;
   onOpenNotes: (farmName: string) => void;
   onOpenHistory: (farmName?: string) => void;
   onOpenAnalysis?: (analysisId: number, farmName?: string) => void;
@@ -104,7 +109,7 @@ export default function FarmsScreen({
 
   const planningForFarm = useMemo(() => {
     void tick;
-    if (!selected) return { events: [], notes: [] };
+    if (!selected) return { events: [], notes: [], calendars: [] };
     const state = loadPlanningState();
     const key = selected.farm_name.trim().toLocaleLowerCase();
     return {
@@ -114,6 +119,7 @@ export default function FarmsScreen({
       notes: state.notes.filter(
         (n) => (n.farmName || "").trim().toLocaleLowerCase() === key
       ),
+      calendars: listSavedCalendars(selected.farm_name),
     };
   }, [selected, tick]);
 
@@ -357,6 +363,22 @@ export default function FarmsScreen({
           {p.farmsSignInRequired}
         </div>
       </section>
+    );
+  }
+
+  if (view === "inventory" && selected) {
+    return (
+      <InventoryScreen
+        userId={userId}
+        farmId={selected.farm_id}
+        farmName={selected.farm_name}
+        onBack={() => setView("detail")}
+        labels={{
+          title: p.bodegaTitle,
+          back: p.back,
+          empty: p.bodegaEmpty,
+        }}
+      />
     );
   }
 
@@ -609,7 +631,7 @@ export default function FarmsScreen({
               <button
                 type="button"
                 className="plan-timeline-card__action"
-                onClick={() => setView("bodega")}
+                onClick={() => setView("inventory")}
               >
                 {p.openBodega}
               </button>
@@ -619,6 +641,13 @@ export default function FarmsScreen({
                 ? p.bodegaEmpty
                 : p.bodegaCount.replace("{count}", String(bodega.length))}
             </p>
+            <button
+              type="button"
+              className="mt-2 plan-timeline-card__action"
+              onClick={() => setView("inventory")}
+            >
+              Inventory
+            </button>
           </section>
 
           <section className="farm-detail-block">
@@ -635,14 +664,31 @@ export default function FarmsScreen({
                 {p.openCalendar}
               </button>
             </div>
-            {planningForFarm.events.length === 0 ? (
-              <p className="text-sm text-slate-500">{p.noCalendarYet}</p>
+            {planningForFarm.calendars.length === 0 ? (
+              <p className="text-sm text-slate-500">{p.noSavedCalendars}</p>
             ) : (
               <ul className="space-y-1.5">
-                {planningForFarm.events.slice(0, 5).map((event) => (
-                  <li key={event.id} className="farm-detail-row">
-                    <span className="font-medium dark-text-primary">{event.title}</span>
-                    <span className="text-xs text-slate-500">{event.date}</span>
+                {planningForFarm.calendars.slice(0, 5).map((calendar) => (
+                  <li key={calendar.id} className="farm-detail-row farm-detail-row--actions">
+                    <button
+                      type="button"
+                      className="farm-detail-row__main"
+                      onClick={() =>
+                        onOpenCalendar(
+                          selected.farm_name,
+                          calendar.lotName,
+                          calendar.id
+                        )
+                      }
+                    >
+                      <span className="font-medium dark-text-primary">
+                        {calendar.name}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {calendar.startDate || ""}
+                        {calendar.endDate ? ` → ${calendar.endDate}` : ""}
+                      </span>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -772,7 +818,7 @@ export default function FarmsScreen({
           <button
             type="button"
             className="plan-btn-secondary"
-            onClick={() => setView("bodega")}
+            onClick={() => setView("inventory")}
           >
             <span className="inline-flex items-center gap-1">
               <Package size={14} />

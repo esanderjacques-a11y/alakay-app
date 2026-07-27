@@ -2,6 +2,7 @@ import type {
   AppNotification,
   CalendarEvent,
   PlanningSource,
+  SavedCalendar,
   UserNote,
 } from "@/lib/planningTypes";
 import {
@@ -12,12 +13,14 @@ import type { Language } from "@/lib/i18n";
 import {
   deleteCalendarEventRemote,
   deleteNotificationsRemote,
+  deleteSavedCalendarRemote,
   deleteUserNoteRemote,
   fetchPlanningBundle,
   pushPlanningBundle,
   replaceRecommendedEventsRemote,
   upsertCalendarEventRemote,
   upsertNotificationRemote,
+  upsertSavedCalendarRemote,
   upsertUserNoteRemote,
 } from "@/lib/planningRepository";
 
@@ -27,12 +30,14 @@ type PlanningState = {
   events: CalendarEvent[];
   notes: UserNote[];
   notifications: AppNotification[];
+  calendars: SavedCalendar[];
 };
 
 const EMPTY: PlanningState = {
   events: [],
   notes: [],
   notifications: [],
+  calendars: [],
 };
 
 let activeUserId: string | null = null;
@@ -57,6 +62,7 @@ function readState(): PlanningState {
       notifications: Array.isArray(parsed.notifications)
         ? parsed.notifications
         : [],
+      calendars: Array.isArray(parsed.calendars) ? parsed.calendars : [],
     };
   } catch {
     return { ...EMPTY };
@@ -120,6 +126,7 @@ export async function hydratePlanningFromCloud(userId: string): Promise<void> {
       events: mergeById(local.events, remote.events),
       notes: mergeById(local.notes, remote.notes, true),
       notifications: mergeById(local.notifications, remote.notifications),
+      calendars: mergeById(local.calendars, remote.calendars, true),
     };
     writeState(merged);
 
@@ -127,6 +134,7 @@ export async function hydratePlanningFromCloud(userId: string): Promise<void> {
       events: new Set(remote.events.map((e) => e.id)),
       notes: new Set(remote.notes.map((n) => n.id)),
       notifications: new Set(remote.notifications.map((n) => n.id)),
+      calendars: new Set(remote.calendars.map((c) => c.id)),
     };
     const onlyLocal: PlanningState = {
       events: merged.events.filter((e) => !remoteIds.events.has(e.id)),
@@ -134,11 +142,13 @@ export async function hydratePlanningFromCloud(userId: string): Promise<void> {
       notifications: merged.notifications.filter(
         (n) => !remoteIds.notifications.has(n.id)
       ),
+      calendars: merged.calendars.filter((c) => !remoteIds.calendars.has(c.id)),
     };
     if (
       onlyLocal.events.length ||
       onlyLocal.notes.length ||
-      onlyLocal.notifications.length
+      onlyLocal.notifications.length ||
+      onlyLocal.calendars.length
     ) {
       await pushPlanningBundle(userId, onlyLocal);
     }
@@ -154,6 +164,88 @@ export async function hydratePlanningFromCloud(userId: string): Promise<void> {
 
 export function loadPlanningState(): PlanningState {
   return readState();
+}
+
+export function listSavedCalendars(farmName?: string): SavedCalendar[] {
+  const state = readState();
+  const farm = (farmName || "").trim().toLocaleLowerCase();
+  const list = [...state.calendars].sort(
+    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
+  );
+  if (!farm) return list;
+  return list.filter(
+    (c) => (c.farmName || "").trim().toLocaleLowerCase() === farm
+  );
+}
+
+export function getSavedCalendar(id: string): SavedCalendar | null {
+  return readState().calendars.find((c) => c.id === id) || null;
+}
+
+export function eventsForCalendar(calendarId: string): CalendarEvent[] {
+  return readState().events.filter((e) => e.calendarId === calendarId);
+}
+
+export function upsertSavedCalendar(
+  input: Omit<SavedCalendar, "id" | "createdAt" | "updatedAt"> & {
+    id?: string;
+  }
+): SavedCalendar {
+  const state = readState();
+  const now = new Date().toISOString();
+  if (input.id) {
+    const index = state.calendars.findIndex((c) => c.id === input.id);
+    const next: SavedCalendar = {
+      ...(index >= 0
+        ? state.calendars[index]
+        : { createdAt: now, updatedAt: now }),
+      ...input,
+      id: input.id,
+      name: input.name.trim() || input.farmName.trim() || "Calendar",
+      farmName: input.farmName.trim(),
+      createdAt: index >= 0 ? state.calendars[index].createdAt : now,
+      updatedAt: now,
+    };
+    if (index >= 0) state.calendars[index] = next;
+    else state.calendars.unshift(next);
+    writeState(state);
+    queueRemote(() => upsertSavedCalendarRemote(activeUserId!, next));
+    return next;
+  }
+  const created: SavedCalendar = {
+    ...input,
+    id: uid(),
+    name: input.name.trim() || input.farmName.trim() || "Calendar",
+    farmName: input.farmName.trim(),
+    createdAt: now,
+    updatedAt: now,
+  };
+  state.calendars.unshift(created);
+  writeState(state);
+  queueRemote(() => upsertSavedCalendarRemote(activeUserId!, created));
+  return created;
+}
+
+export function renameSavedCalendar(id: string, name: string): SavedCalendar | null {
+  const existing = getSavedCalendar(id);
+  if (!existing) return null;
+  return upsertSavedCalendar({ ...existing, name: name.trim() || existing.name });
+}
+
+export function deleteSavedCalendar(id: string) {
+  const state = readState();
+  const removedEvents = state.events.filter((e) => e.calendarId === id);
+  state.calendars = state.calendars.filter((c) => c.id !== id);
+  state.events = state.events.filter((e) => e.calendarId !== id);
+  writeState(state);
+  queueRemote(async () => {
+    await deleteSavedCalendarRemote(activeUserId!, id);
+    await Promise.all(
+      removedEvents.map((event) =>
+        deleteCalendarEventRemote(activeUserId!, event.id)
+      )
+    );
+  });
 }
 
 export function saveCalendarEvent(
@@ -203,19 +295,29 @@ export function toggleCalendarEventCompleted(id: string) {
 }
 
 /** Remove previous recommended schedule for a farm (keeps manual events). */
-export function clearRecommendedPlanForFarm(farmName: string, planId?: string) {
+export function clearRecommendedPlanForFarm(
+  farmName: string,
+  planId?: string,
+  calendarId?: string
+) {
   const state = readState();
   const farm = farmName.trim().toLocaleLowerCase();
   const removed = state.events.filter((event) => {
     if (event.source !== "recommended") return false;
     if ((event.farmName || "").trim().toLocaleLowerCase() !== farm) return false;
+    if (calendarId && event.calendarId !== calendarId) return false;
     if (planId && event.planId && event.planId !== planId) return false;
     return true;
   });
   state.events = state.events.filter((event) => !removed.includes(event));
   writeState(state);
   queueRemote(async () => {
-    await replaceRecommendedEventsRemote(activeUserId!, farmName, planId);
+    await replaceRecommendedEventsRemote(
+      activeUserId!,
+      farmName,
+      planId,
+      calendarId
+    );
   });
 }
 
@@ -429,12 +531,15 @@ export function suggestEventsFromPlan(args: {
 
 export function acceptSuggestedEvents(
   drafts: CalendarEvent[],
-  options?: { replaceFarmPlan?: boolean }
+  options?: {
+    replaceFarmPlan?: boolean;
+    calendarId?: string;
+  }
 ) {
   if (drafts.length === 0) return;
   const farmName = drafts[0]?.farmName?.trim();
   if (options?.replaceFarmPlan !== false && farmName) {
-    clearRecommendedPlanForFarm(farmName);
+    clearRecommendedPlanForFarm(farmName, undefined, options?.calendarId);
   }
   const state = readState();
   const now = new Date().toISOString();
@@ -446,6 +551,7 @@ export function acceptSuggestedEvents(
       id: uid(),
       source: "recommended",
       createdAt: now,
+      calendarId: options?.calendarId || draft.calendarId,
     };
     const notification: AppNotification = {
       id: uid(),

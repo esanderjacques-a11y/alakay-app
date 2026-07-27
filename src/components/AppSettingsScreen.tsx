@@ -202,6 +202,11 @@ type SettingsText = {
     downloadMethodology: string;
   };
   resourcesDesc: string;
+  inventoryDepotTitle?: string;
+  inventoryDepotDesc?: string;
+  openInventory?: string;
+  consumeStockOnApply?: string;
+  consumeStockOnApplyHint?: string;
   methodologyDesc: string;
   methodologyGenerating: string;
   options: {
@@ -233,6 +238,7 @@ type SettingsText = {
     accentFuchsia: string;
     soil: string;
     foliar: string;
+    water?: string;
     both: string;
     banana: string;
     coffee: string;
@@ -337,6 +343,11 @@ const settingsText: Record<Language, SettingsText> = {
       downloadMethodology: "Download calculator methodology (PDF)",
     },
     resourcesDesc: "Reference material you can download and keep offline.",
+    inventoryDepotTitle: "Inventory / depot",
+    inventoryDepotDesc: "Manage product stock, batches, and low-stock alerts from Farms → Inventory.",
+    openInventory: "Open inventory",
+    consumeStockOnApply: "Consume stock when applying a fertilizer cost plan",
+    consumeStockOnApplyHint: "When enabled, applying a cost scenario decrements on-hand inventory. Off by default.",
     // TODO(depot): Farm product stock / inventory will land here later for cost optimization.
     methodologyDesc:
       "A bilingual (Spanish/English) document with every formula, calculation step, and reference table used across the Calculator module, with citations.",
@@ -370,6 +381,7 @@ const settingsText: Record<Language, SettingsText> = {
       accentFuchsia: "Fuchsia",
       soil: "Soil",
       foliar: "Foliar",
+      water: "Water",
       both: "Both",
       banana: "Banana",
       coffee: "Coffee",
@@ -504,6 +516,7 @@ const settingsText: Record<Language, SettingsText> = {
       accentFuchsia: "Fucsia",
       soil: "Suelo",
       foliar: "Foliar",
+      water: "Agua",
       both: "Ambos",
       banana: "Banano",
       coffee: "Café",
@@ -638,6 +651,7 @@ const settingsText: Record<Language, SettingsText> = {
       accentFuchsia: "Fuchsia",
       soil: "Sol",
       foliar: "Foliaire",
+      water: "Eau",
       both: "Les deux",
       banana: "Banane",
       coffee: "Café",
@@ -772,6 +786,7 @@ const settingsText: Record<Language, SettingsText> = {
       accentFuchsia: "Fichsya",
       soil: "Tè",
       foliar: "Fèy",
+      water: "Dlo",
       both: "Tou de",
       banana: "Bannann",
       coffee: "Kafe",
@@ -906,6 +921,7 @@ const settingsText: Record<Language, SettingsText> = {
       accentFuchsia: "Fúcsia",
       soil: "Solo",
       foliar: "Foliar",
+      water: "Água",
       both: "Ambos",
       banana: "Banana",
       coffee: "Café",
@@ -1040,6 +1056,7 @@ const settingsText: Record<Language, SettingsText> = {
       accentFuchsia: "Fuksia",
       soil: "Udongo",
       foliar: "Majani",
+      water: "Maji",
       both: "Zote mbili",
       banana: "Ndizi",
       coffee: "Kahawa",
@@ -1106,6 +1123,7 @@ const accentOptions = (text: SettingsText): { value: AccentColor; label: string 
 const sampleTypeOptions = (text: SettingsText): { value: DefaultSampleType; label: string }[] => [
   { value: "soil", label: text.options.soil },
   { value: "foliar", label: text.options.foliar },
+  { value: "water", label: text.options.water || "Water" },
   { value: "both", label: text.options.both },
 ];
 
@@ -1853,6 +1871,29 @@ export default function AppSettingsScreen({
             <p className="settings-resources-desc text-xs leading-relaxed">
               {text.resourcesDesc}
             </p>
+            <div className="settings-resource-card mb-3">
+              <p className="font-semibold text-sm dark-text-primary">
+                {text.inventoryDepotTitle || "Inventory / depot"}
+              </p>
+              <p className="settings-resource-card__desc">
+                {text.inventoryDepotDesc ||
+                  "Manage product stock, batches, and low-stock alerts from Farms → Inventory."}
+              </p>
+              <SwitchField
+                label={
+                  text.consumeStockOnApply ||
+                  "Consume stock when applying a fertilizer cost plan"
+                }
+                hint={
+                  text.consumeStockOnApplyHint ||
+                  "When enabled, applying a cost scenario decrements on-hand inventory. Off by default."
+                }
+                checked={Boolean(draftSettings.inventory?.consumeStockOnPlanApply)}
+                onChange={(value: boolean) =>
+                  changeSetting("inventory", "consumeStockOnPlanApply", value)
+                }
+              />
+            </div>
             <div className="settings-resource-card">
               <p className="settings-resource-card__desc">{tourCopy.aboutUserGuideDesc}</p>
               <div className="flex flex-wrap gap-2 mb-2">

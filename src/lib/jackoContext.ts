@@ -74,7 +74,7 @@ export type JackoCalendarHint = {
 
 export type JackoAppContext = {
   screen: JackoScreen;
-  sampleType?: "soil" | "foliar";
+  sampleType?: "soil" | "foliar" | "water";
   crop?: string;
   farmName?: string;
   lotName?: string;

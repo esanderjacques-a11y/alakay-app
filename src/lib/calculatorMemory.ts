@@ -9,7 +9,7 @@
 export const CALCULATOR_MEMORY_KEY = "cultosol-calculator-memory-v1";
 export const SHARED_MEMORY_SECTION = "shared";
 
-export type CalculatorSampleScope = "soil" | "foliar";
+export type CalculatorSampleScope = "soil" | "foliar" | "water";
 
 export type CalculatorMemorySlice = {
   /** Nested: section id → field key → numeric value */

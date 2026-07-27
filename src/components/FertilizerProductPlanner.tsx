@@ -676,7 +676,7 @@ export default function FertilizerProductPlanner({
           setActiveScenarioId(id);
           setApplyNote("");
         }}
-        onApply={({ primaryByDose, snappedFromIrrigation }) => {
+        onApply={({ primaryByDose, snappedFromIrrigation, scenario }) => {
           setSelectedProducts((previous) => ({
             ...previous,
             ...primaryByDose,
@@ -689,6 +689,35 @@ export default function FertilizerProductPlanner({
               : t.fertilizerScenarioApplied ||
                   "Mix applied. Totals now follow My selection with nutrient credits."
           );
+          void (async () => {
+            try {
+              const { getSettings } = await import("@/lib/appSettings");
+              if (!getSettings().inventory.consumeStockOnPlanApply) return;
+              if (!userId || !scenario.plan?.lines?.length) return;
+              const farms = await listUserFarms(userId);
+              const farmToken = (farmName || "").trim().toLocaleLowerCase();
+              const farm =
+                farms.find(
+                  (f) => f.farm_name.trim().toLocaleLowerCase() === farmToken
+                ) || farms[0];
+              if (!farm) return;
+              const { consumeStockForProducts } = await import(
+                "@/lib/inventoryRepository"
+              );
+              await consumeStockForProducts({
+                userId,
+                farmId: farm.farm_id,
+                lines: scenario.plan.lines.map((line) => ({
+                  productKey: line.productKey,
+                  productName: line.label,
+                  quantity: line.kgHa * areaHa,
+                  unit: "kg",
+                })),
+              });
+            } catch (err) {
+              console.warn("inventory consume on apply:", err);
+            }
+          })();
         }}
         areaHa={areaHa}
         currency={displayCurrency}

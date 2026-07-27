@@ -200,10 +200,12 @@ export async function GET() {
   const hourCounts = new Map<string, number>();
   let soilCount = 0;
   let foliarCount = 0;
+  let waterCount = 0;
   let withCountry = 0;
 
   for (const row of rows) {
     if (row.sample_type_id === 2) foliarCount += 1;
+    else if (row.sample_type_id === 3) waterCount += 1;
     else soilCount += 1;
 
     if (row.crop_id != null && row.crop_id !== 999) {
@@ -270,10 +272,11 @@ export async function GET() {
   // Keep months for older clients; same as year view.
   const months = trends.year;
 
-  const typedTotal = soilCount + foliarCount;
+  const typedTotal = soilCount + foliarCount + waterCount;
   const sampleTypes = [
     { name: "soil", count: soilCount },
     { name: "foliar", count: foliarCount },
+    { name: "water", count: waterCount },
   ];
 
   const languageCounts = new Map<string, number>();

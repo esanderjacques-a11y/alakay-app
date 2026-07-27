@@ -25,7 +25,7 @@ type Props = {
   t: Translation;
   language: Language;
   session: Session | null;
-  sampleType: "soil" | "foliar";
+  sampleType: "soil" | "foliar" | "water";
   currentCropId: number | "";
   onBack: () => void;
   onChanged: () => void;

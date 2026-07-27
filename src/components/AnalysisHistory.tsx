@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { sampleTypeFromId, type SampleTypeCode } from "@/lib/sampleType";
 import MenuSelect from "@/components/ui/MenuSelect";
 import {
   backfillMissingDeletedAt,
@@ -53,7 +54,7 @@ export type EditableAnalysisPayload = {
   rootAnalysisId: number;
   nextVersionNumber: number;
   cropId: number | "";
-  sampleType: "soil" | "foliar";
+  sampleType: SampleTypeCode;
   analysisName: string;
   farmName: string;
   lotName: string;
@@ -165,8 +166,17 @@ function getRootAnalysisId(analysis: SavedAnalysis) {
   return analysis.parent_analysis_id || analysis.analysis_id;
 }
 
-function getSampleTypeCode(analysis: SavedAnalysis): "soil" | "foliar" {
-  return analysis.sample_type_id === 2 ? "foliar" : "soil";
+function getSampleTypeCode(analysis: SavedAnalysis): SampleTypeCode {
+  return sampleTypeFromId(analysis.sample_type_id);
+}
+
+function sampleTypeLabel(
+  code: SampleTypeCode,
+  l: { soil: string; foliar: string; water?: string }
+) {
+  if (code === "foliar") return l.foliar;
+  if (code === "water") return l.water || "Water";
+  return l.soil;
 }
 
 function getVersionLabel(analysis: SavedAnalysis, language: Language) {
@@ -668,11 +678,11 @@ export default function AnalysisHistory({
       date: dateValue ? formatDate(dateValue) : undefined,
       crop: getCropName(analysis) || undefined,
       sampleType:
-        getSampleTypeCode(analysis) === "soil" ? l.soil : l.foliar,
+        sampleTypeLabel(getSampleTypeCode(analysis), l),
       details: [
         `${l.crop}: ${getCropName(analysis)}`,
         `${l.sampleType}: ${
-          getSampleTypeCode(analysis) === "soil" ? l.soil : l.foliar
+          sampleTypeLabel(getSampleTypeCode(analysis), l)
         }`,
         `${l.date}: ${formatDate(dateValue)}`,
         place ? `${l.location}: ${place}` : "",
@@ -1015,7 +1025,7 @@ export default function AnalysisHistory({
           const versionCount = group.versions.length;
           const isChecked = selectedIds.has(analysis.analysis_id);
           const sampleLabel =
-            getSampleTypeCode(analysis) === "soil" ? l.soil : l.foliar;
+            sampleTypeLabel(getSampleTypeCode(analysis), l);
           const dateLabel = formatDate(
             analysis.report_date ||
               analysis.sampling_date ||
@@ -1444,7 +1454,7 @@ function ReportPreviewModal({
     { label: l.crop, value: getCropName(analysis) },
     {
       label: l.sampleType,
-      value: getSampleTypeCode(analysis) === "soil" ? l.soil : l.foliar,
+      value: sampleTypeLabel(getSampleTypeCode(analysis), l),
     },
     { label: l.farm, value: getFarmName(analysis) },
     { label: l.lot, value: getLotName(analysis) },
@@ -1469,7 +1479,7 @@ function ReportPreviewModal({
                 {getVersionLabel(analysis, language)}
                 {versionCount > 1 ? ` / ${versionCount}` : ""}
                 {" · "}
-                {getSampleTypeCode(analysis) === "soil" ? l.soil : l.foliar}
+                {sampleTypeLabel(getSampleTypeCode(analysis), l)}
                 {metaItems.length > 0
                   ? ` · ${metaItems
                       .slice(0, 3)

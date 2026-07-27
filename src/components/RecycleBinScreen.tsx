@@ -31,13 +31,13 @@ type DeletedParameter = {
   custom_parameter_id: number;
   parameter_name: string;
   symbol: string | null;
-  sample_type: "soil" | "foliar";
+  sample_type: "soil" | "foliar" | "water";
   deleted_at: string | null;
 };
 
 type DeletedRange = {
   custom_range_id: number;
-  sample_type: "soil" | "foliar";
+  sample_type: "soil" | "foliar" | "water";
   min_value: number | null;
   max_value: number | null;
   deleted_at: string | null;

@@ -1,4 +1,4 @@
-﻿export type AnalysisType = "soil" | "foliar" | "mixed" | "unknown";
+﻿export type AnalysisType = "soil" | "foliar" | "water" | "mixed" | "unknown";
 
 export type LabReportLayoutFamily =
   | "grouped_header_table"
@@ -868,22 +868,28 @@ export function extractMetadata(
 export function detectAnalysisType(tokens: DocToken[]): AnalysisType {
   let soilScore = 0;
   let foliarScore = 0;
+  let waterScore = 0;
 
   for (const token of tokens) {
     const text = token.normalizedText || normalizeForMatching(token.rawText);
-    if (/\b(soil|suelo|terre|tierra|ph|organic matter|materia organica|cec|cic|textura|texture)\b/.test(text)) {
+    if (/\b(soil|suelo|terre|tierra|organic matter|materia organica|cec|cic|textura|texture)\b/.test(text)) {
       soilScore += 2;
     }
     if (/\b(foliar|leaf|hoja|tissue|tejido|feuille)\b/.test(text)) {
       foliarScore += 2;
+    }
+    if (/\b(water|agua|irrigation|riego|hydropon|hidropon|sar|tds|bicarbonate|hco3)\b/.test(text)) {
+      waterScore += 2;
     }
 
     const parameterMatch = normalizeParameterName(token.rawText).normalizedParameter;
     const alias = PARAMETER_ALIASES.find((item) => item.normalizedParameter === parameterMatch);
     if (alias?.analysisTypes.includes("soil") && !alias.analysisTypes.includes("foliar")) soilScore += 1;
     if (alias?.analysisTypes.includes("foliar") && !alias.analysisTypes.includes("soil")) foliarScore += 1;
+    if (alias?.analysisTypes.includes("water")) waterScore += 1;
   }
 
+  if (waterScore >= 2 && waterScore >= soilScore && waterScore >= foliarScore) return "water";
   if (soilScore >= 2 && foliarScore >= 2) return "mixed";
   if (soilScore >= 2) return "soil";
   if (foliarScore >= 2) return "foliar";

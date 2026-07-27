@@ -20,7 +20,7 @@ type Props = {
   onCreated: () => void;
   session: Session | null;
   language: Language;
-  sampleType: "soil" | "foliar";
+  sampleType: "soil" | "foliar" | "water";
   cropId: number | "";
   importDraft?: {
     parameterName?: string;

@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type { EditableAnalysisPayload } from "@/components/AnalysisHistory";
+import { sampleTypeFromId } from "@/lib/sampleType";
 
 type AnalysisRow = {
   analysis_id: number;
@@ -29,8 +30,8 @@ function one<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] || null : value;
 }
 
-function sampleType(analysis: AnalysisRow): "soil" | "foliar" {
-  return analysis.sample_type_id === 2 ? "foliar" : "soil";
+function sampleType(analysis: AnalysisRow) {
+  return sampleTypeFromId(analysis.sample_type_id);
 }
 
 function lotName(analysis: AnalysisRow) {

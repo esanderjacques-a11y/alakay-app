@@ -140,7 +140,7 @@ export function getFinalGroupCode(input: LogicInput) {
 
 export function getSimpleAdvice(
   input: LogicInput,
-  sampleType: "soil" | "foliar" = "soil"
+  sampleType: "soil" | "foliar" | "water" = "soil"
 ) {
   const level = getLevelCode(input);
 

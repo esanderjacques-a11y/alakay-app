@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { parseLotNames } from "@/lib/farmLots";
+import { sampleTypeToId, type SampleTypeCode } from "@/lib/sampleType";
 
 export type AnalysisResultValue = {
   parameter_id: number | null;
@@ -19,7 +20,7 @@ export type AnalysisResultValue = {
 export type SaveAnalysisInput = {
   userId: string;
   cropId: number;
-  sampleType: "soil" | "foliar";
+  sampleType: SampleTypeCode;
   results: AnalysisResultValue[];
   farmName: string;
   lotName: string;
@@ -49,7 +50,7 @@ function getTodayIsoDate() {
 export async function saveAnalysisToSupabase(
   input: SaveAnalysisInput
 ): Promise<SaveAnalysisOutput> {
-  const sampleTypeId = input.sampleType === "soil" ? 1 : 2;
+  const sampleTypeId = sampleTypeToId(input.sampleType);
   const userId = input.userId;
 
   let farmId: number | null = null;

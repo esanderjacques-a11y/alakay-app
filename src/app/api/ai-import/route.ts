@@ -148,7 +148,7 @@ function buildAiImportInstructionsForLanguage(language: string) {
     "Do not mix two parameters in one row. One row must contain one parameter and one numeric value.",
     "If headers include method or unit, carry that method/unit into each row.",
     "Unit header rows often use merged/spanning cells: a unit like % or ppm printed once applies to every following column until a different unit appears. Apply that spanning unit to each of those columns and set rows.unit accordingly (for example % for C, N, P, K, Ca, Mg, S and ppm for Fe, Cu, Zn, Mn, B, Na).",
-    "Detect the analysis type and set metadata.analysisType to foliar or soil: foliar for plant tissue/leaf reports (foliar, foliares, tejido vegetal, leaf), soil for suelo/soil reports. In foliar reports macronutrients (C, N, P, K, Ca, Mg, S) are typically % and micronutrients (Fe, Cu, Zn, Mn, B, Na) are ppm.",
+    "Detect the analysis type and set metadata.analysisType to foliar, soil, or water: foliar for plant tissue/leaf reports (foliar, foliares, tejido vegetal, leaf), soil for suelo/soil reports, water for irrigation water / agua de riego / hydroponic solution reports. In foliar reports macronutrients (C, N, P, K, Ca, Mg, S) are typically % and micronutrients (Fe, Cu, Zn, Mn, B, Na) are ppm.",
     "Do not import dates, phone numbers, page numbers, addresses, invoice/payment numbers, legal text, chart axes, recommendation kg/ha values, rating letters, status words, or reference ranges as results.",
     "Treat Low/Medium/High, Bajo/Medio/Alto, Target, Guide, Optimum, Range, Rango, Reference, and bar/scale numbers as reference information, not result values.",
     "Preserve different methods separately, for example P Olsen, P Bray, P Mehlich, pH H2O, pH KCl, nitrate-N, ammonium-N.",
@@ -440,11 +440,26 @@ function normalizeAiImportPayload(
       : {};
   const warning = typeof record.warning === "string" ? record.warning : "";
   const analysisTypeLower = String(metadata.analysisType || "").toLowerCase();
+  const isWater =
+    analysisTypeLower.includes("water") ||
+    analysisTypeLower.includes("agua") ||
+    analysisTypeLower.includes("irrigation") ||
+    analysisTypeLower.includes("riego") ||
+    analysisTypeLower.includes("hydropon");
   const isFoliar =
-    analysisTypeLower.includes("foliar") ||
-    analysisTypeLower.includes("leaf") ||
-    analysisTypeLower.includes("tejido") ||
-    analysisTypeLower.includes("tissue");
+    !isWater &&
+    (analysisTypeLower.includes("foliar") ||
+      analysisTypeLower.includes("leaf") ||
+      analysisTypeLower.includes("tejido") ||
+      analysisTypeLower.includes("tissue"));
+  if (isWater) metadata.analysisType = "water";
+  else if (isFoliar) metadata.analysisType = "foliar";
+  else if (
+    analysisTypeLower.includes("soil") ||
+    analysisTypeLower.includes("suelo")
+  ) {
+    metadata.analysisType = "soil";
+  }
   const rawRows = Array.isArray(record.rows)
     ? record.rows
     : Array.isArray(record.values)

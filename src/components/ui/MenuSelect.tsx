@@ -11,6 +11,10 @@ import {
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
+import {
+  placeFloatingMenu,
+  subscribeViewportChange,
+} from "@/lib/visualViewport";
 
 export type MenuSelectOption<T extends string = string> = {
   value: T;
@@ -75,6 +79,7 @@ export default function MenuSelect<T extends string>({
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
+  const [menuSheet, setMenuSheet] = useState(false);
   const [canPortal, setCanPortal] = useState(false);
   const normalized = normalizeOptions(options);
   const selected = normalized.find((option) => option.value === value);
@@ -111,68 +116,35 @@ export default function MenuSelect<T extends string>({
       const rect = triggerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      const gap = 8;
-      const padding = 12;
-      const viewportHeight = window.innerHeight;
-      const viewportWidth = window.innerWidth;
+      const chromeHeight =
+        (heading ? 40 : 0) + (searchable ? 56 : 0);
       const estimatedHeight = Math.min(
         360,
-        56 + (searchable ? 52 : 0) + Math.max(visibleOptions.length, 1) * 56
+        56 + chromeHeight + Math.max(visibleOptions.length, 1) * 48
       );
-      const spaceBelow = viewportHeight - rect.bottom - padding;
-      const spaceAbove = rect.top - padding;
-      const openAbove = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
-      const maxHeight = Math.max(
-        140,
-        Math.min(openAbove ? spaceAbove - gap : spaceBelow - gap, 360)
-      );
-
-      // Chip triggers are very narrow (unit symbols). Don't size the menu to match.
-      const minMenuWidth = isChip ? 220 : searchable ? 280 : 180;
-      const preferredWidth = Math.max(rect.width, minMenuWidth);
-      const width = Math.min(preferredWidth, viewportWidth - padding * 2);
-
-      // Prefer right-aligning to the trigger when that keeps the menu on-screen
-      // (unit chips sit in the right column of the values table).
-      let left = isChip ? rect.right - width : rect.left;
-      left = Math.min(
-        Math.max(padding, left),
-        viewportWidth - width - padding
-      );
-
-      setMenuStyle(
-        openAbove
-          ? {
-              position: "fixed",
-              bottom: viewportHeight - rect.top + gap,
-              top: "auto",
-              left,
-              width,
-              maxHeight,
-              zIndex: 19000,
-            }
-          : {
-              position: "fixed",
-              top: rect.bottom + gap,
-              bottom: "auto",
-              left,
-              width,
-              maxHeight,
-              zIndex: 19000,
-            }
-      );
+      const placement = placeFloatingMenu({
+        triggerRect: rect,
+        estimatedHeight,
+        minWidth: isChip ? 220 : searchable ? 280 : 180,
+        chromeHeight,
+        zIndex: 19000,
+      });
+      setMenuSheet(placement.sheet);
+      setMenuStyle({
+        ...placement.style,
+        // Keep list scroll inside the panel.
+        ["--menu-list-max-height" as string]: `${placement.listMaxHeight}px`,
+      });
     }
 
     updateMenuPosition();
     const raf = requestAnimationFrame(updateMenuPosition);
-    window.addEventListener("resize", updateMenuPosition);
-    window.addEventListener("scroll", updateMenuPosition, true);
+    const unsubscribe = subscribeViewportChange(updateMenuPosition);
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("resize", updateMenuPosition);
-      window.removeEventListener("scroll", updateMenuPosition, true);
+      unsubscribe();
     };
-  }, [open, searchable, visibleOptions.length, isChip]);
+  }, [open, searchable, visibleOptions.length, isChip, heading]);
 
   useEffect(() => {
     if (!open) return;
@@ -275,8 +247,8 @@ export default function MenuSelect<T extends string>({
               role="listbox"
               aria-label={heading || label || "Options"}
               className={`add-data-menu app-menu-select-menu app-menu-select-menu--portal ${
-                presence.leaving ? "animate-scale-out" : "animate-scale-in"
-              }`}
+                menuSheet ? "app-menu-select-menu--sheet" : ""
+              } ${presence.leaving ? "animate-scale-out" : "animate-scale-in"}`}
               style={menuStyle}
             >
               {heading ? (
@@ -296,7 +268,10 @@ export default function MenuSelect<T extends string>({
                   />
                 </div>
               ) : null}
-              <div className="app-menu-select-menu__scroll max-h-full overflow-y-auto">
+              <div
+                className="app-menu-select-menu__scroll overflow-y-auto"
+                style={{ maxHeight: "var(--menu-list-max-height, 55vh)" }}
+              >
                 {visibleOptions.length === 0 ? (
                   <p className="px-3 py-3 text-sm text-slate-500">No matches</p>
                 ) : null}

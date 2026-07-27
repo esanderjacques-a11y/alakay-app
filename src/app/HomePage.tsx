@@ -38,6 +38,10 @@ import ParameterUnitPicker from "@/components/ParameterUnitPicker";
 import ResultsDashboard from "@/components/ResultsDashboard";
 import RecycleBinScreen from "@/components/RecycleBinScreen";
 import CustomDataPortalScreen from "@/components/CustomDataPortalScreen";
+import {
+  placeFloatingMenu,
+  subscribeViewportChange,
+} from "@/lib/visualViewport";
 import CalculatorHub from "@/components/CalculatorHub";
 import type { FertilizerPlanSnapshot } from "@/components/CalculatorHub";
 import AppSettingsScreen, {
@@ -5817,6 +5821,7 @@ function AppSelect<T extends string | number>({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
   const [menuOpensAbove, setMenuOpensAbove] = useState(false);
+  const [menuSheet, setMenuSheet] = useState(false);
   const [menuListMaxHeight, setMenuListMaxHeight] = useState("min(20rem, 55vh)");
   const selectedOption = options.find((option) => option.value === value);
   const visibleOptions = searchable
@@ -5851,60 +5856,43 @@ function AppSelect<T extends string | number>({
       const rect = anchor?.getBoundingClientRect();
       if (!rect) return;
 
-      const gap = 8;
-      const viewportPadding = 12;
-      const menuHeight = menuPanelRef.current?.offsetHeight ?? 280;
-      const spaceBelow = window.innerHeight - rect.bottom - gap - viewportPadding;
-      const spaceAbove = rect.top - gap - viewportPadding;
-      const opensAbove =
-        spaceBelow < Math.min(menuHeight, 180) && spaceAbove > spaceBelow;
-      const available = opensAbove ? spaceAbove : spaceBelow;
-      const maxHeight = Math.max(
-        100,
-        Math.min(available, Math.round(window.innerHeight * 0.55))
-      );
-
-      setMenuOpensAbove(opensAbove);
-      setMenuListMaxHeight(`${maxHeight}px`);
-
-      if (!useFloatingMenu || inlineMenu) return;
-
-      const width = Math.max(rect.width, searchable ? 280 : 220);
-      const left = Math.min(
-        Math.max(viewportPadding, rect.left),
-        window.innerWidth - width - viewportPadding
-      );
-
-      if (opensAbove) {
-        setMenuStyle({
-          position: "fixed",
-          bottom: window.innerHeight - rect.top + gap,
-          top: "auto",
-          left,
-          width,
+      if (!useFloatingMenu || inlineMenu) {
+        // Inline menus still need a safe max height within the visual viewport.
+        const placement = placeFloatingMenu({
+          triggerRect: rect,
+          estimatedHeight: 280,
+          chromeHeight: 8,
           zIndex: 16000,
         });
-      } else {
-        setMenuStyle({
-          position: "fixed",
-          top: rect.bottom + gap,
-          bottom: "auto",
-          left,
-          width,
-          zIndex: 16000,
-        });
+        setMenuOpensAbove(false);
+        setMenuListMaxHeight(`${placement.listMaxHeight}px`);
+        return;
       }
+
+      const placement = placeFloatingMenu({
+        triggerRect: rect,
+        estimatedHeight: Math.min(
+          360,
+          48 + Math.max(visibleOptions.length, 1) * 48
+        ),
+        minWidth: searchable ? 280 : 220,
+        chromeHeight: 8,
+        zIndex: 16000,
+      });
+
+      setMenuOpensAbove(false);
+      setMenuListMaxHeight(`${placement.listMaxHeight}px`);
+      setMenuStyle(placement.style);
+      setMenuSheet(placement.sheet);
     }
 
     updateMenuPosition();
     const raf = requestAnimationFrame(updateMenuPosition);
-    window.addEventListener("resize", updateMenuPosition);
-    window.addEventListener("scroll", updateMenuPosition, true);
+    const unsubscribe = subscribeViewportChange(updateMenuPosition);
 
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("resize", updateMenuPosition);
-      window.removeEventListener("scroll", updateMenuPosition, true);
+      unsubscribe();
     };
   }, [
     open,
@@ -5923,9 +5911,11 @@ function AppSelect<T extends string | number>({
         presence.leaving ? "animate-scale-out" : "animate-scale-in"
       } ${
         useFloatingMenu && !inlineMenu
-          ? menuOpensAbove
-            ? "app-menu-select-menu--floating-above"
-            : ""
+          ? menuSheet
+            ? "app-menu-select-menu--sheet"
+            : menuOpensAbove
+              ? "app-menu-select-menu--floating-above"
+              : ""
           : inlineMenu
             ? "relative mt-2"
             : menuOpensAbove

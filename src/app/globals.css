@@ -15763,6 +15763,12 @@ html[data-theme="dark"] .app-header {
     padding: 0.25rem 0 0.5rem;
   }
 
+  .app-menu-select-menu--sheet {
+    border-radius: 1.1rem 1.1rem 0.9rem 0.9rem;
+    box-shadow: 0 -10px 36px rgb(0 0 0 / 0.18);
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  }
+
   .app-menu-select-menu__scroll {
     min-height: 0;
   }

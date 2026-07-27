@@ -117,8 +117,12 @@ function shouldBlockFocusScrollNudge(el: HTMLElement) {
   return window.scrollY < 160 || rect.top < vvHeight * 0.42;
 }
 
-/** Cancel iOS/PWA scroll-into-view nudge while the soft keyboard opens. */
-function pinScrollAgainstKeyboardNudge(anchorY: number) {
+/**
+ * Home-only: cancel iOS/PWA scroll-into-view nudge on the short home screen.
+ * Never use this on long data-entry screens (Values, Calculators) — it fights
+ * the user and snaps scroll back while the soft keyboard is open.
+ */
+function pinHomeScrollAgainstKeyboardNudge(anchorY: number) {
   if (anchorY >= 160) return;
 
   const pin = () => {
@@ -151,10 +155,15 @@ export default function AppDock({
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
   const keyboardOpenRef = useRef(false);
+  const currentStepRef = useRef(currentStep);
   const blurTimer = useRef<number | null>(null);
   const baselineViewportHeight = useRef(0);
 
   const scrollAway = scrollHidden && !keyboardOpen;
+
+  useEffect(() => {
+    currentStepRef.current = currentStep;
+  }, [currentStep]);
 
   useEffect(() => {
     queueMicrotask(() => setCanPortal(true));
@@ -210,8 +219,12 @@ export default function AppDock({
         if (vv && vv.offsetTop > 0) {
           window.scrollTo(0, Math.max(0, window.scrollY));
         }
-        // Home / short screens: snap back if iOS only nudged the page for the input.
-        if (window.scrollY > 0 && window.scrollY < 160) {
+        // Home only: snap back if iOS only nudged the short home screen.
+        if (
+          currentStepRef.current === "home" &&
+          window.scrollY > 0 &&
+          window.scrollY < 160
+        ) {
           window.scrollTo(0, 0);
         }
       };
@@ -237,9 +250,19 @@ export default function AppDock({
         syncDockViewportLift();
         return;
       }
+      const alreadyOpen = keyboardOpenRef.current;
       const anchorY = window.scrollY;
       setKeyboard(true);
-      pinScrollAgainstKeyboardNudge(anchorY);
+      // Only pin on Home, and only when the keyboard is first opening.
+      // Re-pinning while typing/scrolling on Values/Calculators fights the user.
+      if (
+        !alreadyOpen &&
+        currentStepRef.current === "home" &&
+        event.target instanceof HTMLElement &&
+        shouldBlockFocusScrollNudge(event.target)
+      ) {
+        pinHomeScrollAgainstKeyboardNudge(anchorY);
+      }
     }
 
     function onFocusOut() {
@@ -263,21 +286,24 @@ export default function AppDock({
       const el = event.target;
       if (!(el instanceof HTMLElement)) return;
 
+      const alreadyOpen = keyboardOpenRef.current;
       const anchorY = window.scrollY;
       // Instant hide — do this on press, not after focus/keyboard animation.
       setKeyboard(true);
       syncDockViewportLift();
 
-      // PWA only: intercept default focus-scroll when the field is already high
-      // on screen (home search). Lower fields still need native scroll-into-view.
+      // Home PWA only: intercept default focus-scroll when the field is already
+      // high on screen (home search). Data-entry screens keep native scrolling.
       if (
+        !alreadyOpen &&
+        currentStepRef.current === "home" &&
         isStandalonePwa() &&
         document.activeElement !== el &&
         shouldBlockFocusScrollNudge(el)
       ) {
         event.preventDefault();
         el.focus({ preventScroll: true });
-        pinScrollAgainstKeyboardNudge(anchorY);
+        pinHomeScrollAgainstKeyboardNudge(anchorY);
       }
     }
 
@@ -295,10 +321,10 @@ export default function AppDock({
       const shrinkage = baselineViewportHeight.current - vv.height;
       const likelyKeyboard = shrinkage > 120;
       if (likelyKeyboard) {
+        // Detect keyboard open for dock hide — do not re-pin scroll here.
+        // visualViewport fires continuously while the user scrolls with the
+        // keyboard up; pinning would snap them back to the top.
         setKeyboard(true);
-        if (isStandalonePwa()) {
-          pinScrollAgainstKeyboardNudge(window.scrollY < 160 ? 0 : window.scrollY);
-        }
         return;
       }
       // Do not keep the dock hidden just because an input is focused on desktop,

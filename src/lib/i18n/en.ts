@@ -582,11 +582,11 @@
   noInProgressDetail:
     "No in-progress analysis yet. Start a new analysis or import lab values first.",
 
-  about: "About",
-  aboutTitle: "About Cultosol",
+  about: "ABOUT",
+  aboutTitle: "ABOUT",
   aboutTagline: "Soil intelligence for every grower",
   aboutIntro:
-    "Cultosol turns soil and foliar lab reports into clear field guidance—so small producers can act with confidence and know when to call in an expert.",
+    "Started in a classroom as a tool for homework, it evolved into a tool for interpreting soil analysis for producers, and is now a multifunctional platform.",
   aboutStoryLabel: "Cultosol story",
   aboutStoryEyebrow: "Our journey",
   aboutStoryPrev: "Previous story",

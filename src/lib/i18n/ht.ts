@@ -595,11 +595,11 @@
   noInProgressDetail:
     "Pa gen analiz an kou. Kòmanse yon nouvo analiz oswa enpòte valè anvan.",
 
-  about: "Sou",
-  aboutTitle: "Sou Cultosol",
+  about: "SOU",
+  aboutTitle: "SOU",
   aboutTagline: "Entelijans tè pou chak kiltivatè",
   aboutIntro:
-    "Cultosol tounen rapò laboratwa tè ak fèy yo an konsèy klè pou teren an—pou ti pwodiktè yo aji ak konfyans epi konnen lè pou yo chèche yon ekspè.",
+    "Te kòmanse nan yon sal klas kòm yon zouti pou devwa, li evolye nan yon zouti pou entèprete analiz tè pou pwodiktè yo, epi kounye a se yon platfòm miltifonksyonèl.",
   aboutStoryLabel: "Istwa Cultosol",
   aboutStoryEyebrow: "Chemen nou",
   aboutStoryPrev: "Istwa anvan",

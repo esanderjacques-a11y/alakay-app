@@ -13,17 +13,11 @@ import {
   Send,
   Sparkles,
 } from "lucide-react";
-import AboutPillars from "@/components/AboutPillars";
 import AboutStoryCarousel from "@/components/AboutStoryCarousel";
 import FeedbackSection from "@/components/FeedbackSection";
 import ImpactSection from "@/components/ImpactSection";
 import type { Translation } from "@/lib/translations";
 import { prefetchImpactPayload } from "@/lib/impactClient";
-import {
-  exportUserGuidePdf,
-  resolveUserGuideLanguage,
-  type UserGuideLanguage,
-} from "@/lib/userGuidePdf";
 
 const CONTACT_EMAIL = "jesander@earth.ac.cr";
 const PHONE_CR = "+506 8828 7831";
@@ -39,8 +33,6 @@ const PAYPAL_DONATE_URL =
 
 const CREATOR_PHOTO =
   process.env.NEXT_PUBLIC_CREATOR_PHOTO_URL?.trim() || "/creator/esander.jpg";
-
-const USER_GUIDE_LANGS: UserGuideLanguage[] = ["en", "es", "fr", "pt"];
 
 type AboutTab = "about" | "feedback" | "impact";
 
@@ -94,46 +86,35 @@ export default function AboutScreen({
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [photoError, setPhotoError] = useState(false);
-  const [guideLang, setGuideLang] = useState<UserGuideLanguage>(() =>
-    resolveUserGuideLanguage(language)
-  );
-  const [guideBusy, setGuideBusy] = useState(false);
-  const [guideError, setGuideError] = useState("");
 
   useEffect(() => {
     prefetchImpactPayload();
   }, []);
 
   useEffect(() => {
-    setGuideLang(resolveUserGuideLanguage(language));
-  }, [language]);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.05, rootMargin: "0px 0px -20px 0px" }
+    );
+
+    const elements = document.querySelectorAll(".fade-in-section");
+    elements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, [tab]);
 
   const tabs: { id: AboutTab; label: string }[] = [
     { id: "about", label: t.about },
     { id: "feedback", label: t.feedbackTab },
     { id: "impact", label: t.impactTab },
   ];
-
-  const guideLangLabels: Record<UserGuideLanguage, string> = {
-    en: t.aboutUserGuideLangEn,
-    es: t.aboutUserGuideLangEs,
-    fr: t.aboutUserGuideLangFr,
-    pt: t.aboutUserGuideLangPt,
-  };
-
-  async function handleDownloadUserGuide() {
-    if (guideBusy) return;
-    setGuideBusy(true);
-    setGuideError("");
-    try {
-      await exportUserGuidePdf(guideLang);
-    } catch (error) {
-      console.warn("Failed to generate user guide PDF:", error);
-      setGuideError(t.aboutUserGuideError);
-    } finally {
-      setGuideBusy(false);
-    }
-  }
 
   async function handleFeatureRequest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -234,61 +215,13 @@ export default function AboutScreen({
           <div className="about-content">
             {tab === "about" ? (
               <div className="about-flow about-flow--story">
-                <p className="about-lede about-lede--intro">{t.aboutIntro}</p>
+                <p className="about-lede about-lede--intro fade-in-section">{t.aboutIntro}</p>
 
-                <AboutStoryCarousel t={t} language={language} />
+                <div className="fade-in-section">
+                  <AboutStoryCarousel t={t} language={language} />
+                </div>
 
-                <AboutPillars t={t} />
-
-                <section className="about-section about-section--guide">
-                  <h2 className="about-kicker">{t.aboutUserGuide}</h2>
-                  <p className="about-copy">{t.aboutUserGuideDesc}</p>
-                  <div
-                    className="about-guide-langs"
-                    role="group"
-                    aria-label={t.aboutUserGuide}
-                  >
-                    {USER_GUIDE_LANGS.map((code) => (
-                      <button
-                        key={code}
-                        type="button"
-                        className={`about-guide-lang${
-                          guideLang === code ? " is-active" : ""
-                        }`}
-                        aria-pressed={guideLang === code}
-                        onClick={() => setGuideLang(code)}
-                      >
-                        {guideLangLabels[code]}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="about-actions about-actions--guide">
-                    <button
-                      type="button"
-                      onClick={() => void handleDownloadUserGuide()}
-                      disabled={guideBusy}
-                      className="about-action"
-                    >
-                      {guideBusy ? (
-                        <Loader2
-                          size={15}
-                          className="animate-spin"
-                          aria-hidden
-                        />
-                      ) : (
-                        <BookOpen size={15} aria-hidden />
-                      )}
-                      {guideBusy
-                        ? t.aboutUserGuideGenerating
-                        : t.aboutUserGuideDownload}
-                    </button>
-                  </div>
-                  {guideError ? (
-                    <p className="about-status about-status--err">{guideError}</p>
-                  ) : null}
-                </section>
-
-                <section className="about-section about-section--contact">
+                <section className="about-section about-section--contact fade-in-section">
                   <h2 className="about-kicker">{t.aboutContactLabel}</h2>
                   <ul className="about-contact about-contact--flat">
                     <li>
@@ -334,9 +267,9 @@ export default function AboutScreen({
                   </ul>
                 </section>
 
-                <p className="about-note">{t.aboutDisclaimerShort}</p>
+                <p className="about-note fade-in-section">{t.aboutDisclaimerShort}</p>
 
-                <div className="about-actions">
+                <div className="about-actions fade-in-section">
                   <button
                     type="button"
                     onClick={openRequestForm}
@@ -348,7 +281,7 @@ export default function AboutScreen({
                 </div>
 
                 {showRequestForm ? (
-                  <section ref={requestSectionRef} className="about-section">
+                  <section ref={requestSectionRef} className="about-section fade-in-section">
                     <h2 className="about-kicker">{t.featureRequest}</h2>
                     <p className="about-copy">{t.featureRequestDesc}</p>
                     <form

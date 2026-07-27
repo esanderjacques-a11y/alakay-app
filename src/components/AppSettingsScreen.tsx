@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import {
   BarChart3,
+  BookOpen,
   CreditCard,
   Download,
   Globe,
@@ -24,6 +25,11 @@ import {
 } from "lucide-react";
 import MenuSelect from "@/components/ui/MenuSelect";
 import { exportMethodologyPdf } from "@/lib/methodologyReport";
+import {
+  exportUserGuidePdf,
+  resolveUserGuideLanguage,
+  type UserGuideLanguage,
+} from "@/lib/userGuidePdf";
 import { buildAccentScale } from "@/lib/accentPalette";
 import type { Session } from "@supabase/supabase-js";
 import {
@@ -57,6 +63,8 @@ import AccountSettingsSection from "@/components/AccountSettingsSection";
 import BackButton from "@/components/ui/BackButton";
 import type { Language } from "@/lib/translations";
 import { translations } from "@/lib/translations";
+
+const USER_GUIDE_LANGS: UserGuideLanguage[] = ["en", "es", "fr", "pt"];
 
 export type SettingsSectionId = "general" | "account" | "analysisData";
 type SettingsNavId = SettingsSectionId | "billing";
@@ -1167,6 +1175,11 @@ export default function AppSettingsScreen({
   const [savedFlash, setSavedFlash] = useState(false);
   const savedTimeout = useRef<number | null>(null);
   const [downloadingMethodology, setDownloadingMethodology] = useState(false);
+  const [guideLang, setGuideLang] = useState<UserGuideLanguage>(() =>
+    resolveUserGuideLanguage(language)
+  );
+  const [guideBusy, setGuideBusy] = useState(false);
+  const [guideError, setGuideError] = useState("");
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(() =>
     initialSection ?? readStoredSettingsSection()
   );
@@ -1179,6 +1192,27 @@ export default function AppSettingsScreen({
     setActiveSection(section);
     persistSettingsSection(section);
   };
+
+  const guideLangLabels: Record<UserGuideLanguage, string> = {
+    en: tourCopy.aboutUserGuideLangEn,
+    es: tourCopy.aboutUserGuideLangEs,
+    fr: tourCopy.aboutUserGuideLangFr,
+    pt: tourCopy.aboutUserGuideLangPt,
+  };
+
+  async function handleDownloadUserGuide() {
+    if (guideBusy) return;
+    setGuideBusy(true);
+    setGuideError("");
+    try {
+      await exportUserGuidePdf(guideLang);
+    } catch (error) {
+      console.warn("Failed to generate user guide PDF:", error);
+      setGuideError(tourCopy.aboutUserGuideError);
+    } finally {
+      setGuideBusy(false);
+    }
+  }
 
   const navItems = useMemo(() => {
     const items: {
@@ -1819,6 +1853,39 @@ export default function AppSettingsScreen({
             <p className="settings-resources-desc text-xs leading-relaxed">
               {text.resourcesDesc}
             </p>
+            <div className="settings-resource-card">
+              <p className="settings-resource-card__desc">{tourCopy.aboutUserGuideDesc}</p>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {USER_GUIDE_LANGS.map((code) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => setGuideLang(code)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                      guideLang === code
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : "bg-white/50 border-black/10 text-slate-600 hover:bg-white/80 dark:bg-slate-800/50 dark:border-white/10 dark:text-slate-300"
+                    }`}
+                  >
+                    {guideLangLabels[code]}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleDownloadUserGuide()}
+                disabled={guideBusy}
+                className="settings-resource-card__btn"
+              >
+                {guideBusy ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <BookOpen size={15} />
+                )}
+                <span>{guideBusy ? tourCopy.aboutUserGuideGenerating : tourCopy.aboutUserGuideDownload}</span>
+              </button>
+              {guideError && <p className="text-xs text-red-600 mt-2">{guideError}</p>}
+            </div>
             {onRestartTour ? (
               <div className="settings-resource-card">
                 <p className="settings-resource-card__desc">

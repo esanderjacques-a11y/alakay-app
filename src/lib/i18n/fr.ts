@@ -608,11 +608,11 @@
   noInProgressDetail:
     "Aucune analyse en cours. Démarrez une nouvelle analyse ou importez des valeurs.",
 
-  about: "À propos",
-  aboutTitle: "À propos de Cultosol",
+  about: "À PROPOS",
+  aboutTitle: "À PROPOS",
   aboutTagline: "L'intelligence du sol pour chaque producteur",
   aboutIntro:
-    "Cultosol transforme les rapports de laboratoire sol et foliaire en conseils clairs pour le terrain—afin que les petits producteurs agissent avec confiance et sachent quand consulter un expert.",
+    "Commencé dans une salle de classe comme outil pour les devoirs, il a évolué vers un outil d'interprétation des analyses de sol pour les producteurs, et est maintenant une plateforme multifonctionnelle.",
   aboutStoryLabel: "Histoire de Cultosol",
   aboutStoryEyebrow: "Notre parcours",
   aboutStoryPrev: "Histoire précédente",

@@ -67,8 +67,10 @@
   off: "Etenn",
 
   homeSubtitle: "Chwazi kijan ou vlè kòmanse oswa kontinye yon analiz.",
-  homeWelcomeNew: "Byenveni",
+  homeWelcomeNew: "Byenveni, {name}",
   homeWelcomeBack: "Bon retou, {name}",
+  emailVerifiedWelcome:
+    "Imèl verifye. Byenveni nan CULTOSOL — ou pare.",
   homeGoodMorning: "Bonjou, {name}",
   homeGoodAfternoon: "Bonswa, {name}",
   homeGoodNight: "Bòn nwit, {name}",

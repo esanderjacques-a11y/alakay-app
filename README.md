@@ -18,10 +18,16 @@ Create `.env.local` with:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SITE_URL=https://cultosol.vercel.app
 OPENAI_API_KEY=your_openai_api_key
 ```
 
 `OPENAI_API_KEY` powers the AI document import reader.
+
+`NEXT_PUBLIC_SITE_URL` is the stable app URL used in auth confirmation / password-reset emails (your free Vercel link). Also add the same origin in Supabase **Authentication → URL Configuration**:
+
+- **Site URL:** `https://cultosol.vercel.app`
+- **Redirect URLs:** `https://cultosol.vercel.app/**` (and `http://localhost:3000/**` for local testing)
 
 ## Git
 
@@ -56,6 +62,9 @@ With the Vercel CLI installed:
 vercel link
 vercel env add NEXT_PUBLIC_SUPABASE_URL
 vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY
+vercel env add NEXT_PUBLIC_SITE_URL
 vercel env add OPENAI_API_KEY
 vercel --prod
 ```
+
+Use `https://cultosol.vercel.app` (or `https://alakay.vercel.app`) as the value for `NEXT_PUBLIC_SITE_URL`.

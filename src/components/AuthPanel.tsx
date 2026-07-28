@@ -2,16 +2,21 @@
 
 import { useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Eye, EyeOff, Search } from "lucide-react";
+import { Eye, EyeOff, Mail, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { countries } from "@/lib/countries";
 import { normalizeAuthEmail } from "@/lib/email";
-import { Language, Translation } from "@/lib/translations";
+import { Language, Translation, formatMessage } from "@/lib/translations";
 import { authPanelText } from "@/lib/i18n/componentText";
 import { LAST_CHANGE_DATE_ISO } from "@/lib/appBuildInfo";
 import { formatLastUpdate } from "@/lib/dateLocales";
 import MenuSelect from "@/components/ui/MenuSelect";
+import AppModal from "@/components/AppModal";
 import { PROFILE_PROFESSIONS } from "@/lib/profileProfessions";
+import { getAuthEmailRedirectTo, markPendingEmailConfirm } from "@/lib/authRedirect";
+import { classifyAuthError, mapAuthError } from "@/lib/mapAuthError";
+import { ensureUserProfile } from "@/lib/ensureUserProfile";
+import { getLegalDoc, type LegalDocId } from "@/lib/legal/legalDocs";
 
 function getPasswordChecks(password: string) {
   return {
@@ -92,7 +97,7 @@ export default function AuthPanel({
     [text.lastUpdate, language]
   );
 
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "checkEmail">("login");
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -116,6 +121,11 @@ export default function AuthPanel({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [loginFailures, setLoginFailures] = useState(0);
+  const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false);
+  const [pendingConfirmEmail, setPendingConfirmEmail] = useState("");
+  const [legalDocId, setLegalDocId] = useState<LegalDocId | null>(null);
+
+  const legalDoc = legalDocId ? getLegalDoc(language, legalDocId) : null;
 
   const finalCountry = country === "Other" ? customCountry.trim() : country;
 
@@ -123,6 +133,17 @@ export default function AuthPanel({
   const passwordStrength = useMemo(
     () => getPasswordStrength(password, text),
     [password, text]
+  );
+
+  const authErrorLabels = useMemo(
+    () => ({
+      emailNotConfirmed: text.emailNotConfirmed,
+      emailAlreadyRegistered: text.emailAlreadyRegistered,
+      incorrectLogin: text.incorrectLogin,
+      rateLimited: text.rateLimited,
+      smtpFailed: text.smtpFailed,
+    }),
+    [text]
   );
 
   function validateSignup() {
@@ -152,6 +173,7 @@ export default function AuthPanel({
 
   async function handleAuth() {
     setMessage("");
+    setNeedsEmailConfirm(false);
 
     if (mode === "login") {
       const authEmail = normalizeAuthEmail(email);
@@ -172,7 +194,12 @@ export default function AuthPanel({
 
       if (error) {
         setLoginFailures((previous) => previous + 1);
-        setMessage(text.incorrectLogin);
+        const kind = classifyAuthError(error);
+        setMessage(mapAuthError(error, authErrorLabels));
+        if (kind === "email_not_confirmed") {
+          setNeedsEmailConfirm(true);
+          setPendingConfirmEmail(authEmail);
+        }
         return;
       }
 
@@ -180,6 +207,8 @@ export default function AuthPanel({
       onAuthSuccess();
       return;
     }
+
+    if (mode === "checkEmail") return;
 
     const validationError = validateSignup();
 
@@ -190,11 +219,13 @@ export default function AuthPanel({
 
     setLoading(true);
     const authEmail = normalizeAuthEmail(email);
+    const emailRedirectTo = getAuthEmailRedirectTo();
 
     const { data, error } = await supabase.auth.signUp({
       email: authEmail,
       password,
       options: {
+        emailRedirectTo,
         data: {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
@@ -211,56 +242,69 @@ export default function AuthPanel({
 
     if (error) {
       setLoading(false);
-      setMessage(error.message);
+      setMessage(mapAuthError(error, authErrorLabels));
       return;
     }
 
-    const userId = data.user?.id;
+    // Supabase returns a user with empty identities when the email is already
+    // registered and confirmation is required (anti-enumeration).
+    const identities = data.user?.identities;
+    if (data.user && Array.isArray(identities) && identities.length === 0) {
+      setLoading(false);
+      setMessage(text.emailAlreadyRegistered);
+      setMode("login");
+      return;
+    }
 
-    if (userId) {
-      const fullName = `${firstName.trim()} ${
-        middleName.trim() ? `${middleName.trim()} ` : ""
-      }${lastName.trim()}`;
-
-      const { error: profileError } = await supabase.from("profiles").upsert({
-        user_id: userId,
-        full_name: fullName,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        middle_name: middleName.trim() || null,
-        profession,
-        country: finalCountry,
-        province_state: provinceState.trim() || null,
-        location_source: "manual",
-        accepts_policies: acceptPolicies,
-        accepts_emails: acceptEmails,
-        preferred_language: language,
-      });
-
-      if (profileError) {
-        setLoading(false);
-        setMessage(profileError.message);
+    if (data.session?.user) {
+      const profileResult = await ensureUserProfile(data.session.user, language);
+      setLoading(false);
+      if (profileResult.error) {
+        setMessage(profileResult.error);
         return;
       }
-
-      const { error: settingsError } = await supabase
-        .from("user_settings")
-        .insert({
-          user_id: userId,
-          language,
-          theme: "light",
-        });
-
-      if (settingsError) {
-        setLoading(false);
-        setMessage(settingsError.message);
-        return;
-      }
+      setMessage(text.accountCreated);
+      onAuthSuccess();
+      return;
     }
 
     setLoading(false);
-    setMessage(text.accountCreated);
-    onAuthSuccess();
+    setPendingConfirmEmail(authEmail);
+    markPendingEmailConfirm(authEmail);
+    setPassword("");
+    setRepeatPassword("");
+    setMode("checkEmail");
+    setMessage("");
+  }
+
+  async function handleResendConfirmation(targetEmail?: string) {
+    const authEmail = normalizeAuthEmail(targetEmail || pendingConfirmEmail || email);
+    if (!authEmail) {
+      setMessage(text.emailRequired);
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: authEmail,
+      options: {
+        emailRedirectTo: getAuthEmailRedirectTo(),
+      },
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setMessage(mapAuthError(error, authErrorLabels));
+      return;
+    }
+
+    setPendingConfirmEmail(authEmail);
+    markPendingEmailConfirm(authEmail);
+    setMessage(text.resendSent);
   }
 
   async function handlePasswordReset() {
@@ -271,12 +315,17 @@ export default function AuthPanel({
 
     setLoading(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      normalizeAuthEmail(email),
+      {
+        redirectTo: getAuthEmailRedirectTo(),
+      }
+    );
 
     setLoading(false);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(mapAuthError(error, authErrorLabels));
       return;
     }
 
@@ -306,6 +355,70 @@ export default function AuthPanel({
     activeDisplayName || activeSession?.user?.email || t.account
   );
   const passwordsMatch = Boolean(repeatPassword) && password === repeatPassword;
+  const displayConfirmEmail = pendingConfirmEmail || normalizeAuthEmail(email);
+
+  if (mode === "checkEmail") {
+    return (
+      <>
+        <section className="auth-card glass-panel-strong overflow-hidden px-5 py-7 sm:px-7">
+          <div className="auth-card__intro flex flex-col items-center text-center">
+            <img
+              src="/app-icon.png"
+              alt={t.appName}
+              className="app-logo-frame auth-card__logo h-20 w-20 object-contain sm:h-24 sm:w-24"
+            />
+            <div className="auth-check-email mt-5 w-full text-left">
+              <div className="auth-check-email__icon mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl">
+                <Mail size={22} aria-hidden />
+              </div>
+              <h2 className="text-center text-xl font-bold">{text.checkEmailTitle}</h2>
+              <p className="auth-welcome mt-3 text-center text-sm leading-relaxed">
+                {formatMessage(text.checkEmailBody, {
+                  email: displayConfirmEmail || "…",
+                })}
+              </p>
+              <p className="auth-check-email__hint mt-3 text-center text-xs leading-relaxed">
+                {text.checkEmailSpam}
+              </p>
+              <p className="auth-check-email__waiting mt-4 text-center text-sm font-semibold">
+                {text.waitingForVerification}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-7 grid gap-3">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void handleResendConfirmation()}
+              className="auth-primary-btn touch-target rounded-2xl px-5 py-3 font-semibold disabled:opacity-60"
+            >
+              {loading ? text.wait : text.resendEmail}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setMessage("");
+                setNeedsEmailConfirm(false);
+              }}
+              className="auth-toggle auth-link text-sm font-semibold"
+            >
+              {text.backToLogin}
+            </button>
+            {message ? (
+              <div className="auth-message rounded-2xl p-3 text-sm">{message}</div>
+            ) : null}
+          </div>
+        </section>
+
+        <div className="auth-cycle mt-5 h-5 text-center text-[11px] font-semibold">
+          <span>{text.welcomeCycle}</span>
+          <span>{lastUpdateLabel}</span>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -341,6 +454,7 @@ export default function AuthPanel({
             onClick={() => {
               setMode("login");
               setMessage("");
+              setNeedsEmailConfirm(false);
             }}
             className={`auth-mode-tabs__btn touch-target rounded-xl px-4 py-3 text-sm font-semibold ${
               mode === "login" ? "auth-mode-tabs__btn--active" : ""
@@ -353,6 +467,7 @@ export default function AuthPanel({
             onClick={() => {
               setMode("signup");
               setMessage("");
+              setNeedsEmailConfirm(false);
             }}
             className={`auth-mode-tabs__btn touch-target rounded-xl px-4 py-3 text-sm font-semibold ${
               mode === "signup" ? "auth-mode-tabs__btn--active" : ""
@@ -593,17 +708,61 @@ export default function AuthPanel({
                   checked={acceptPolicies}
                   onChange={(e) => setAcceptPolicies(e.target.checked)}
                 />
-                <span>{text.policies}</span>
+                <span className="auth-policy__copy">
+                  {text.policiesAccept}{" "}
+                  <button
+                    type="button"
+                    className="auth-policy__link"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setLegalDocId("terms");
+                    }}
+                  >
+                    {text.policiesTerms}
+                  </button>
+                  {text.policiesJoin}
+                  <button
+                    type="button"
+                    className="auth-policy__link"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setLegalDocId("privacy");
+                    }}
+                  >
+                    {text.policiesPrivacy}
+                  </button>
+                  {text.policiesAnd}
+                  <button
+                    type="button"
+                    className="auth-policy__link"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setLegalDocId("responsible");
+                    }}
+                  >
+                    {text.policiesResponsible}
+                  </button>
+                  .{" "}
+                  <span className="auth-policy__required" aria-hidden="true">
+                    {text.policiesRequiredMark}
+                  </span>
+                </span>
               </label>
 
-              <label className="auth-policy auth-panel-muted flex gap-3 rounded-2xl p-3 text-sm">
+              <label className="auth-policy auth-policy--optional auth-panel-muted flex gap-3 rounded-2xl p-3 text-sm">
                 <input
                   suppressHydrationWarning
                   type="checkbox"
                   checked={acceptEmails}
                   onChange={(e) => setAcceptEmails(e.target.checked)}
                 />
-                <span>{text.emails}</span>
+                <span className="auth-policy__copy">
+                  <span className="auth-policy__optional-badge">
+                    {text.emailsOptional}
+                  </span>
+                  <span className="auth-policy__emails-main">{text.emails}</span>
+                  <span className="auth-policy__emails-hint">{text.emailsHint}</span>
+                </span>
               </label>
             </>
           )}
@@ -620,11 +779,23 @@ export default function AuthPanel({
                 : text.createAccount}
           </button>
 
+          {needsEmailConfirm && mode === "login" ? (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void handleResendConfirmation(pendingConfirmEmail || email)}
+              className="auth-link touch-target text-sm font-semibold underline-offset-4 hover:underline disabled:opacity-60"
+            >
+              {text.resendEmail}
+            </button>
+          ) : null}
+
           <button
             type="button"
             onClick={() => {
               setMode(mode === "login" ? "signup" : "login");
               setMessage("");
+              setNeedsEmailConfirm(false);
               setPassword("");
               setRepeatPassword("");
             }}
@@ -653,6 +824,42 @@ export default function AuthPanel({
         <span>{text.welcomeCycle}</span>
         <span>{lastUpdateLabel}</span>
       </div>
+
+      <AppModal
+        open={legalDoc !== null}
+        onClose={() => setLegalDocId(null)}
+        title={legalDoc?.title || ""}
+        description={
+          legalDoc
+            ? formatMessage(text.legalUpdated, { date: legalDoc.updated })
+            : undefined
+        }
+        size="lg"
+        closeLabel={text.legalClose}
+        className="auth-legal-modal"
+        footer={
+          <button
+            type="button"
+            className="auth-primary-btn touch-target rounded-2xl px-5 py-3 font-semibold"
+            onClick={() => setLegalDocId(null)}
+          >
+            {text.legalClose}
+          </button>
+        }
+      >
+        {legalDoc ? (
+          <div className="auth-legal-doc grid gap-4 text-sm leading-relaxed">
+            {legalDoc.sections.map((section) => (
+              <section key={section.heading} className="auth-legal-doc__section">
+                <h3 className="auth-legal-doc__heading font-semibold">
+                  {section.heading}
+                </h3>
+                <p className="auth-legal-doc__body mt-1">{section.body}</p>
+              </section>
+            ))}
+          </div>
+        ) : null}
+      </AppModal>
     </>
   );
 }

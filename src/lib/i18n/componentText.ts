@@ -36,8 +36,19 @@ export const authPanelText = {
     special: "Special character recommended",
     policies:
       "I accept the terms, privacy policy, and responsible use of the app. *",
+    policiesAccept: "I accept the",
+    policiesTerms: "terms",
+    policiesPrivacy: "privacy policy",
+    policiesResponsible: "responsible use",
+    policiesJoin: ", ",
+    policiesAnd: ", and ",
+    policiesRequiredMark: "*",
     emails:
       "I agree to receive app updates and helpful agricultural information by email.",
+    emailsOptional: "Optional",
+    emailsHint: "You can change this later in account settings.",
+    legalUpdated: "Updated {date}",
+    legalClose: "Close",
     wait: "Please wait...",
     needAccount: "Need an account? Create one",
     alreadyAccount: "Already have an account? Login",
@@ -55,6 +66,20 @@ export const authPanelText = {
       "Password must have at least 8 characters, one uppercase letter, one lowercase letter, and one number.",
     acceptPolicies: "You must accept the policies to create an account.",
     accountCreated: "Account created. You can now log in.",
+    checkEmailTitle: "Check your email",
+    checkEmailBody:
+      "We sent a confirmation link to {email}. Open it to verify your account — this page will open CULTOSOL automatically once you confirm.",
+    checkEmailSpam: "Don’t see it? Check spam or promotions, then tap Resend.",
+    resendEmail: "Resend confirmation email",
+    resendSent: "Confirmation email sent again.",
+    backToLogin: "Back to login",
+    waitingForVerification: "Waiting for email confirmation…",
+    emailNotConfirmed:
+      "Confirm your email before signing in. Check your inbox for the link.",
+    emailAlreadyRegistered: "An account with this email already exists. Sign in instead.",
+    rateLimited: "Too many attempts. Please wait a moment and try again.",
+    smtpFailed:
+      "We could not send the confirmation email. Check Brevo SMTP (authorized IPs must allow Supabase) and try again.",
   },
   es: {
     login: "Iniciar sesión",
@@ -91,8 +116,19 @@ export const authPanelText = {
     special: "Carácter especial recomendado",
     policies:
       "Acepto los términos, la política de privacidad y el uso responsable de la app. *",
+    policiesAccept: "Acepto los",
+    policiesTerms: "términos",
+    policiesPrivacy: "política de privacidad",
+    policiesResponsible: "uso responsable",
+    policiesJoin: ", la ",
+    policiesAnd: " y el ",
+    policiesRequiredMark: "*",
     emails:
       "Acepto recibir actualizaciones de la app e información agrícola útil por correo.",
+    emailsOptional: "Opcional",
+    emailsHint: "Puedes cambiarlo después en la configuración de la cuenta.",
+    legalUpdated: "Actualizado {date}",
+    legalClose: "Cerrar",
     wait: "Espere...",
     needAccount: "¿Necesita una cuenta? Crear una",
     alreadyAccount: "¿Ya tiene cuenta? Iniciar sesión",
@@ -110,6 +146,21 @@ export const authPanelText = {
       "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.",
     acceptPolicies: "Debe aceptar las políticas para crear una cuenta.",
     accountCreated: "Cuenta creada. Ahora puede iniciar sesión.",
+    checkEmailTitle: "Revisa tu correo",
+    checkEmailBody:
+      "Enviamos un enlace de confirmación a {email}. Ábrelo para verificar tu cuenta — esta página cargará CULTOSOL automáticamente cuando confirmes.",
+    checkEmailSpam: "¿No lo ves? Revisa spam o promociones y pulsa Reenviar.",
+    resendEmail: "Reenviar correo de confirmación",
+    resendSent: "Correo de confirmación enviado de nuevo.",
+    backToLogin: "Volver a iniciar sesión",
+    waitingForVerification: "Esperando confirmación del correo…",
+    emailNotConfirmed:
+      "Confirma tu correo antes de iniciar sesión. Revisa tu bandeja por el enlace.",
+    emailAlreadyRegistered:
+      "Ya existe una cuenta con este correo. Inicia sesión en su lugar.",
+    rateLimited: "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
+    smtpFailed:
+      "No se pudo enviar el correo de confirmación. Revisa Brevo SMTP (IPs autorizadas deben permitir a Supabase) e inténtalo de nuevo.",
   },
   fr: {
     login: "Connexion",
@@ -146,8 +197,19 @@ export const authPanelText = {
     special: "Caractère spécial recommandé",
     policies:
       "J'accepte les conditions, la politique de confidentialité et l'utilisation responsable de l'application. *",
+    policiesAccept: "J'accepte les",
+    policiesTerms: "conditions",
+    policiesPrivacy: "politique de confidentialité",
+    policiesResponsible: "utilisation responsable",
+    policiesJoin: ", la ",
+    policiesAnd: " et l'",
+    policiesRequiredMark: "*",
     emails:
       "J'accepte de recevoir des mises à jour et des informations agricoles utiles par email.",
+    emailsOptional: "Facultatif",
+    emailsHint: "Vous pourrez changer cela plus tard dans les paramètres du compte.",
+    legalUpdated: "Mis à jour le {date}",
+    legalClose: "Fermer",
     wait: "Veuillez patienter...",
     needAccount: "Besoin d'un compte ? Créer un compte",
     alreadyAccount: "Vous avez déjà un compte ? Connexion",
@@ -165,6 +227,22 @@ export const authPanelText = {
       "Le mot de passe doit avoir au moins 8 caractères, une majuscule, une minuscule et un chiffre.",
     acceptPolicies: "Vous devez accepter les politiques pour créer un compte.",
     accountCreated: "Compte créé. Vous pouvez maintenant vous connecter.",
+    checkEmailTitle: "Vérifiez votre e-mail",
+    checkEmailBody:
+      "Nous avons envoyé un lien de confirmation à {email}. Ouvrez-le pour vérifier votre compte — cette page ouvrira CULTOSOL automatiquement une fois confirmé.",
+    checkEmailSpam:
+      "Vous ne le voyez pas ? Vérifiez les spams ou promotions, puis appuyez sur Renvoyer.",
+    resendEmail: "Renvoyer l’e-mail de confirmation",
+    resendSent: "E-mail de confirmation renvoyé.",
+    backToLogin: "Retour à la connexion",
+    waitingForVerification: "En attente de la confirmation e-mail…",
+    emailNotConfirmed:
+      "Confirmez votre e-mail avant de vous connecter. Vérifiez votre boîte de réception.",
+    emailAlreadyRegistered:
+      "Un compte avec cet e-mail existe déjà. Connectez-vous plutôt.",
+    rateLimited: "Trop de tentatives. Attendez un moment et réessayez.",
+    smtpFailed:
+      "Impossible d’envoyer l’e-mail de confirmation. Vérifiez Brevo SMTP (IPs autorisées) et réessayez.",
   },
   ht: {
     login: "Konekte",
@@ -201,8 +279,19 @@ export const authPanelText = {
     special: "Karaktè espesyal rekòmande",
     policies:
       "Mwen aksepte kondisyon yo, politik konfidansyalite a, ak itilizasyon responsab app la. *",
+    policiesAccept: "Mwen aksepte",
+    policiesTerms: "kondisyon yo",
+    policiesPrivacy: "politik konfidansyalite a",
+    policiesResponsible: "itilizasyon responsab",
+    policiesJoin: ", ",
+    policiesAnd: ", ak ",
+    policiesRequiredMark: "*",
     emails:
       "Mwen dakò resevwa nouvèl app la ak enfòmasyon agrikòl itil pa imèl.",
+    emailsOptional: "Opsyonèl",
+    emailsHint: "Ou ka chanje sa pita nan paramèt kont lan.",
+    legalUpdated: "Mizajou {date}",
+    legalClose: "Fèmen",
     wait: "Teanpri tann...",
     needAccount: "Ou bezwen yon kont? Kreye youn",
     alreadyAccount: "Ou deja gen kont? Konekte",
@@ -220,6 +309,21 @@ export const authPanelText = {
       "Modpas la dwe gen omwen 8 karaktè, yon majiskil, yon miniskil ak yon nimewo.",
     acceptPolicies: "Ou dwe aksepte politik yo pou kreye kont.",
     accountCreated: "Kont lan kreye. Ou ka konekte kounye a.",
+    checkEmailTitle: "Tcheke imèl ou",
+    checkEmailBody:
+      "Nou voye yon lyen konfimasyon nan {email}. Louvri l pou verifye kont ou — paj sa a ap louvri CULTOSOL otomatikman lè ou konfime.",
+    checkEmailSpam: "Ou pa wè li? Tcheke spam oswa pwomosyon, epi peze Renovoye.",
+    resendEmail: "Renovoye imèl konfimasyon",
+    resendSent: "Imèl konfimasyon voye ankò.",
+    backToLogin: "Retounen nan koneksyon",
+    waitingForVerification: "Ap tann konfimasyon imèl…",
+    emailNotConfirmed:
+      "Konfime imèl ou anvan ou konekte. Tcheke bwat resepsyon ou pou lyen an.",
+    emailAlreadyRegistered:
+      "Gen yon kont deja ak imèl sa a. Konekte olye de sa.",
+    rateLimited: "Twòp tantativ. Tanpri tann yon ti moman epi eseye ankò.",
+    smtpFailed:
+      "Nou pa t kapab voye imèl konfimasyon an. Tcheke Brevo SMTP (IP otorize) epi eseye ankò.",
   },
   pt: {
     login: "Entrar",
@@ -255,7 +359,18 @@ export const authPanelText = {
     number: "Um número",
     special: "Caractere especial recomendado",
     policies: "Aceito os termos, a política de privacidade e o uso responsável do app. *",
+    policiesAccept: "Aceito os",
+    policiesTerms: "termos",
+    policiesPrivacy: "política de privacidade",
+    policiesResponsible: "uso responsável",
+    policiesJoin: ", a ",
+    policiesAnd: " e o ",
+    policiesRequiredMark: "*",
     emails: "Aceito receber atualizações do app e informações agrícolas úteis por e-mail.",
+    emailsOptional: "Opcional",
+    emailsHint: "Você pode alterar isso depois nas configurações da conta.",
+    legalUpdated: "Atualizado em {date}",
+    legalClose: "Fechar",
     wait: "Aguarde...",
     needAccount: "Precisa de uma conta? Criar uma",
     alreadyAccount: "Já tem uma conta? Entrar",
@@ -272,6 +387,22 @@ export const authPanelText = {
     passwordWeak: "A senha deve ter pelo menos 8 caracteres, uma maiúscula, uma minúscula e um número.",
     acceptPolicies: "Você deve aceitar as políticas para criar uma conta.",
     accountCreated: "Conta criada. Agora voce pode entrar.",
+    checkEmailTitle: "Verifique seu e-mail",
+    checkEmailBody:
+      "Enviamos um link de confirmação para {email}. Abra-o para verificar sua conta — esta página abrirá o CULTOSOL automaticamente após a confirmação.",
+    checkEmailSpam:
+      "Não encontrou? Confira spam ou promoções e toque em Reenviar.",
+    resendEmail: "Reenviar e-mail de confirmação",
+    resendSent: "E-mail de confirmação enviado novamente.",
+    backToLogin: "Voltar ao login",
+    waitingForVerification: "Aguardando confirmação do e-mail…",
+    emailNotConfirmed:
+      "Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.",
+    emailAlreadyRegistered:
+      "Já existe uma conta com este e-mail. Entre em vez disso.",
+    rateLimited: "Muitas tentativas. Aguarde um momento e tente de novo.",
+    smtpFailed:
+      "Não foi possível enviar o e-mail de confirmação. Verifique o SMTP da Brevo (IPs autorizados) e tente de novo.",
   },
   sw: {
     login: "Ingia",
@@ -307,7 +438,18 @@ export const authPanelText = {
     number: "Nambari moja",
     special: "Alama maalum inapendekezwa",
     policies: "Nakubali masharti, sera ya faragha na matumizi ya kuwajibika ya app. *",
+    policiesAccept: "Nakubali",
+    policiesTerms: "masharti",
+    policiesPrivacy: "sera ya faragha",
+    policiesResponsible: "matumizi ya kuwajibika",
+    policiesJoin: ", ",
+    policiesAnd: ", na ",
+    policiesRequiredMark: "*",
     emails: "Nakubali kupokea masasisho na taarifa muhimu za kilimo kwa barua pepe.",
+    emailsOptional: "Si lazima",
+    emailsHint: "Unaweza kubadilisha baadaye katika mipangilio ya akaunti.",
+    legalUpdated: "Imesasishwa {date}",
+    legalClose: "Funga",
     wait: "Tafadhali subiri...",
     needAccount: "Unahitaji akaunti? Fungua moja",
     alreadyAccount: "Tayari una akaunti? Ingia",
@@ -324,6 +466,22 @@ export const authPanelText = {
     passwordWeak: "Nenosiri liwe na angalau herufi 8, herufi kubwa, herufi ndogo na nambari.",
     acceptPolicies: "Lazima ukubali sera ili kufungua akaunti.",
     accountCreated: "Akaunti imeundwa. Sasa unaweza kuingia.",
+    checkEmailTitle: "Angalia barua pepe yako",
+    checkEmailBody:
+      "Tumekutumia kiungo cha uthibitisho kwa {email}. Kifungue ili kuthibitisha akaunti yako — ukurasa huu utafungua CULTOSOL kiotomatiki baada ya kuthibitisha.",
+    checkEmailSpam:
+      "Hauioni? Angalia spam au promosheni, kisha gusa Tuma tena.",
+    resendEmail: "Tuma tena barua pepe ya uthibitisho",
+    resendSent: "Barua pepe ya uthibitisho imetumwa tena.",
+    backToLogin: "Rudi kwenye kuingia",
+    waitingForVerification: "Inasubiri uthibitisho wa barua pepe…",
+    emailNotConfirmed:
+      "Thibitisha barua pepe yako kabla ya kuingia. Angalia kikasha chako.",
+    emailAlreadyRegistered:
+      "Akaunti yenye barua pepe hii tayari ipo. Ingia badala yake.",
+    rateLimited: "Jaribio nyingi mno. Subiri kidogo kisha jaribu tena.",
+    smtpFailed:
+      "Hatukuweza kutuma barua pepe ya uthibitisho. Angalia Brevo SMTP (IP zilizoidhinishwa) kisha jaribu tena.",
   }
 } as const;
 

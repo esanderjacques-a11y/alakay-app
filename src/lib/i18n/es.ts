@@ -68,8 +68,10 @@
   off: "Desactivado",
 
   homeSubtitle: "Elija cómo iniciar o continuar un análisis.",
-  homeWelcomeNew: "Bienvenido",
+  homeWelcomeNew: "Bienvenido, {name}",
   homeWelcomeBack: "Bienvenido de nuevo, {name}",
+  emailVerifiedWelcome:
+    "Correo verificado. Bienvenido a CULTOSOL — ya puedes empezar.",
   homeGoodMorning: "Buenos días, {name}",
   homeGoodAfternoon: "Buenas tardes, {name}",
   homeGoodNight: "Buenas noches, {name}",

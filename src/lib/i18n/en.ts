@@ -63,8 +63,10 @@
   off: "Off",
 
   homeSubtitle: "Choose how you want to start or continue an analysis.",
-  homeWelcomeNew: "Welcome",
+  homeWelcomeNew: "Welcome, {name}",
   homeWelcomeBack: "Welcome back, {name}",
+  emailVerifiedWelcome:
+    "Email verified. Welcome to CULTOSOL — you're all set.",
   homeGoodMorning: "Good morning, {name}",
   homeGoodAfternoon: "Good afternoon, {name}",
   homeGoodNight: "Good night, {name}",

@@ -151,8 +151,10 @@ const sw = {
   on: "Washa",
   off: "Zima",
   homeSubtitle: "Chagua jinsi ya kuanza au kuendelea na uchambuzi.",
-  homeWelcomeNew: "Karibu",
+  homeWelcomeNew: "Karibu, {name}",
   homeWelcomeBack: "Karibu tena, {name}",
+  emailVerifiedWelcome:
+    "Barua pepe imethibitishwa. Karibu CULTOSOL — uko tayari.",
   homeGoodMorning: "Habari za asubuhi, {name}",
   homeGoodAfternoon: "Habari za mchana, {name}",
   homeGoodNight: "Usiku mwema, {name}",

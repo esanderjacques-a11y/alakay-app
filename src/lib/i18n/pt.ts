@@ -151,8 +151,10 @@ const pt = {
   on: "Ligado",
   off: "Desligado",
   homeSubtitle: "Escolha como iniciar ou continuar uma análise.",
-  homeWelcomeNew: "Bem-vindo",
+  homeWelcomeNew: "Bem-vindo, {name}",
   homeWelcomeBack: "Bem-vindo de volta, {name}",
+  emailVerifiedWelcome:
+    "E-mail verificado. Bem-vindo ao CULTOSOL — tudo pronto.",
   homeGoodMorning: "Bom dia, {name}",
   homeGoodAfternoon: "Boa tarde, {name}",
   homeGoodNight: "Boa noite, {name}",

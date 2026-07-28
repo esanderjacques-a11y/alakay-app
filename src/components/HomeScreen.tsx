@@ -57,14 +57,14 @@ function resolveHomeWelcomeLine(
   isReturningUser: boolean,
   hour = new Date().getHours()
 ) {
+  if (!isReturningUser) {
+    return formatMessage(t.homeWelcomeNew, { name });
+  }
   if (hour >= 5 && hour < 12) {
     return formatMessage(t.homeGoodMorning, { name });
   }
   if (hour >= 12 && hour < 18) {
-    return formatMessage(
-      isReturningUser ? t.homeWelcomeBack : t.homeGoodAfternoon,
-      { name }
-    );
+    return formatMessage(t.homeWelcomeBack, { name });
   }
   return formatMessage(t.homeGoodNight, { name });
 }

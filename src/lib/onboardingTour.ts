@@ -107,7 +107,7 @@ export function markOnboardingTourComplete(userId?: string | null) {
     window.localStorage.setItem(ONBOARDING_TOUR_STORAGE_KEY, "1");
     if (userId) {
       window.localStorage.setItem(userScopedKey(userId), "1");
-      window.localStorage.setItem(`cultosol-welcome-seen-${userId}`, "1");
+      markWelcomeSeen(userId);
     }
   } catch {
     /* private mode / quota */
@@ -120,7 +120,31 @@ export function resetOnboardingTour(userId?: string | null) {
     window.localStorage.removeItem(ONBOARDING_TOUR_STORAGE_KEY);
     if (userId) {
       window.localStorage.removeItem(userScopedKey(userId));
+      window.localStorage.removeItem(welcomeSeenKey(userId));
     }
+  } catch {
+    /* ignore */
+  }
+}
+
+function welcomeSeenKey(userId: string) {
+  return `cultosol-welcome-seen-${userId}`;
+}
+
+/** True after the user has completed first-run welcome / tour. */
+export function hasSeenWelcome(userId?: string | null): boolean {
+  if (typeof window === "undefined" || !userId) return true;
+  try {
+    return window.localStorage.getItem(welcomeSeenKey(userId)) === "1";
+  } catch {
+    return true;
+  }
+}
+
+export function markWelcomeSeen(userId?: string | null) {
+  if (typeof window === "undefined" || !userId) return;
+  try {
+    window.localStorage.setItem(welcomeSeenKey(userId), "1");
   } catch {
     /* ignore */
   }

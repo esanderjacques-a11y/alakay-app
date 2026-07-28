@@ -99,9 +99,15 @@ import { ViewLayoutToggle } from "@/components/ui/ViewLayoutToggle";
 import { AppStep } from "@/lib/appSteps";
 import {
   hasCompletedOnboardingTour,
+  hasSeenWelcome,
   markOnboardingTourComplete,
   resetOnboardingTour,
 } from "@/lib/onboardingTour";
+import {
+  clearAuthParamsFromUrl,
+  consumeJustVerifiedFlag,
+} from "@/lib/authRedirect";
+import { ensureUserProfile } from "@/lib/ensureUserProfile";
 import { isAdminEmail } from "@/lib/admin";
 import {
   buildExportRecommendations,
@@ -760,10 +766,13 @@ function getPreferredSoilUnitSymbol(parameter: {
     /\b(cec|cic|cice|cation exchange|intercambio cationico|capacidad de intercambio)\b/.test(
       name
     ) ||
-    /\b(exchangeable acidity|acidez intercambiable|acidite echangeable|h\+al)\b/.test(
+    /\b(exchangeable acidity|extractable acidity|acidez intercambiable|acidez extractable|acidite echangeable|h\+al)\b/.test(
       name
     ) ||
-    ["k", "ca", "mg", "na"].includes(symbol)
+    /\b(extractable aluminum|exchangeable aluminum|aluminio extractable|aluminio intercambiable|aluminium extractable)\b/.test(
+      name
+    ) ||
+    ["k", "ca", "mg", "na", "al"].includes(symbol)
   ) {
     return "cmol(+)/kg";
   }
@@ -771,10 +780,12 @@ function getPreferredSoilUnitSymbol(parameter: {
   if (
     category.includes("micro") ||
     category.includes("toxic") ||
-    /\b(phosphorus|fosforo|phosphore|phosphate|fosfato|nitrate|nitrato|nitrogen|nitrogeno|ammonium|amonio|sulfur|sulphur|azufre|soufre|zinc|iron|hierro|manganese|manganeso|copper|cobre|boron|boro|aluminum|aluminium|aluminio|molybdenum|molibdeno|chloride|cloruro)\b/.test(
+    /\b(phosphorus|fosforo|phosphore|phosphate|fosfato|nitrate|nitrato|nitrogen|nitrogeno|ammonium|amonio|sulfur|sulphur|azufre|soufre|zinc|iron|hierro|manganese|manganeso|copper|cobre|boron|boro|molybdenum|molibdeno|chloride|cloruro)\b/.test(
       name
     ) ||
-    ["p", "s", "n", "no3", "nh4", "b", "cu", "fe", "mn", "zn", "mo", "cl", "al"].includes(
+    (/\b(aluminum|aluminium|aluminio)\b/.test(name) &&
+      !/\b(extractable|exchangeable|intercambiable|extractable)\b/.test(name)) ||
+    ["p", "s", "n", "no3", "nh4", "b", "cu", "fe", "mn", "zn", "mo", "cl"].includes(
       symbol
     )
   ) {
@@ -1197,6 +1208,7 @@ export default function HomePage() {
     useState(false);
   const [showCustomRangeManager, setShowCustomRangeManager] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
+  const [verifiedWelcomePending, setVerifiedWelcomePending] = useState(false);
   const [labValueImporterMode, setLabValueImporterMode] = useState<
     "scan" | "import"
   >("import");
@@ -1588,14 +1600,56 @@ export default function HomePage() {
   useEffect(() => {
     loadSession();
 
-    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
+
+      if (
+        !newSession?.user ||
+        (event !== "SIGNED_IN" && event !== "INITIAL_SESSION")
+      ) {
+        if (event === "SIGNED_OUT") {
+          setShowAuthScreen(false);
+          setGuestMode(false);
+        }
+        return;
+      }
+
+      const justVerified = consumeJustVerifiedFlag();
+      clearAuthParamsFromUrl();
+
+      void ensureUserProfile(newSession.user, language).then((result) => {
+        if (result.error) {
+          console.error("ensureUserProfile:", result.error);
+        }
+      });
+
+      if (event === "SIGNED_IN" || justVerified) {
+        setShowAuthScreen(false);
+        setGuestMode(false);
+        setCurrentStep("home");
+      }
+
+      if (justVerified) {
+        setVerifiedWelcomePending(true);
+      }
     });
 
     return () => {
       data.subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!verifiedWelcomePending) return;
+    setMessage(t.emailVerifiedWelcome);
+    setVerifiedWelcomePending(false);
+  }, [verifiedWelcomePending, t.emailVerifiedWelcome]);
+
+  useEffect(() => {
+    if (!session?.user || guestMode) return;
+    void ensureUserProfile(session.user, language);
+  }, [session?.user?.id, guestMode, language]);
 
   useEffect(() => {
     loadCrops();
@@ -1678,6 +1732,9 @@ export default function HomePage() {
       }
 
       setSession(data.session);
+      if (data.session?.user) {
+        clearAuthParamsFromUrl();
+      }
     } catch (error) {
       console.error("loadSession:", error);
       setSession(null);
@@ -3854,13 +3911,34 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           />
         ) : currentStep === "home" ? (
           <section className="home-screen-wrap">
+            {message ? (
+              <div
+                className="auth-verified-banner mx-auto mb-3 max-w-3xl rounded-2xl px-4 py-3 text-sm"
+                role="status"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p>{message}</p>
+                  <button
+                    type="button"
+                    aria-label={t.close || "Close"}
+                    className="auth-verified-banner__close shrink-0 rounded-lg px-2 py-1 text-xs font-semibold"
+                    onClick={() => setMessage("")}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <HomeScreen
               t={t}
               language={language}
               session={session}
               guestMode={guestMode}
               displayName={displayName}
-              isReturningUser={Boolean(session?.user && !guestMode)}
+              isReturningUser={
+                Boolean(session?.user && !guestMode) &&
+                hasSeenWelcome(session?.user?.id)
+              }
               startNewAnalysis={resetAnalysis}
               onImportCamera={openImportCamera}
               onImportFile={openImportFilePage}

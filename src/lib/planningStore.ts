@@ -534,7 +534,7 @@ export function syncCalendarDueNotifications(now = new Date()): number {
     const notification: AppNotification = {
       id: uid(),
       title: event.title,
-      body: `${event.date}${event.rate ? ` · ${event.rate}` : ""}`,
+      body: event.rate?.trim() || event.placeNote?.trim() || "",
       kind: "calendar",
       hrefStep: "calendar",
       relatedId: event.id,

@@ -40,6 +40,12 @@ import {
 } from "@/lib/import/importUnitContext";
 import type { Language } from "@/lib/translations";
 import { canConvertLabUnit, convertLabUnit } from "@/lib/unitConversions";
+import {
+  applyImportUnitConversionOffers,
+  collectImportUnitConversionOffers,
+  type ImportUnitConversionOffer,
+} from "@/lib/import/importUnitConversionOffer";
+import AppModal from "@/components/AppModal";
 import MenuSelect from "@/components/ui/MenuSelect";
 import {
   getImportCache,
@@ -62,6 +68,7 @@ type ParameterForImport = {
   category: string | null;
   unit_id: number;
   unit_symbol: string;
+  preferred_display_symbol?: string;
   is_custom: boolean;
   available_units: {
     unit_id: number;
@@ -1851,6 +1858,10 @@ export default function LabValueImporter({
   const capturedBlobRef = useRef<Blob | null>(null);
   const cameraStartingRef = useRef(false);
   const [loadingStartedAt, setLoadingStartedAt] = useState<number | null>(null);
+  const [unitConversionOffers, setUnitConversionOffers] = useState<
+    ImportUnitConversionOffer[]
+  >([]);
+  const unitConversionAskedRef = useRef(false);
 
   const parameterByKey = useMemo(() => {
     const map = new Map<string, ParameterForImport>();
@@ -2079,10 +2090,41 @@ export default function LabValueImporter({
     setCacheSourceLabel("Import");
     setCacheSourceKind("file");
     setCameraError("");
+    setUnitConversionOffers([]);
+    unitConversionAskedRef.current = false;
     resetScanFlow();
 
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (photoInputRef.current) photoInputRef.current.value = "";
+  }
+
+  function promptUnitConversionOffers(rows: ImportPreviewRow[]) {
+    if (unitConversionAskedRef.current) return;
+    const offers = collectImportUnitConversionOffers(rows, parameterByKey);
+    unitConversionAskedRef.current = true;
+    setUnitConversionOffers(offers);
+  }
+
+  function acceptUnitConversionOffers() {
+    if (unitConversionOffers.length === 0) return;
+    setPreviewRows((previous) =>
+      applyImportUnitConversionOffers(
+        previous,
+        unitConversionOffers,
+        parameterByKey,
+        getUnitOptionKey
+      )
+    );
+    setUnitConversionOffers([]);
+    setMessage(
+      language === "es"
+        ? "Unidades convertidas. Revisa los valores antes de importar."
+        : "Units converted. Review the values before importing."
+    );
+  }
+
+  function declineUnitConversionOffers() {
+    setUnitConversionOffers([]);
   }
 
   function loadImportFromCache(entry: CachedImportEntry) {
@@ -2095,6 +2137,8 @@ export default function LabValueImporter({
     setPreviewRows(entry.rows);
     setDocumentText("");
     setShowTextReview(false);
+    unitConversionAskedRef.current = false;
+    promptUnitConversionOffers(entry.rows);
 
     const matched = entry.rows.filter((row) => row.status === "matched").length;
     const failed = entry.rows.length - matched;
@@ -2292,6 +2336,8 @@ export default function LabValueImporter({
     });
 
     setPreviewRows(preview);
+    unitConversionAskedRef.current = false;
+    promptUnitConversionOffers(preview);
 
     const matched = preview.filter((row) => row.status === "matched").length;
     const failed = preview.length - matched;
@@ -3551,6 +3597,58 @@ export default function LabValueImporter({
           </button>
         </footer>
       ) : null}
+
+      <AppModal
+        open={unitConversionOffers.length > 0}
+        onClose={declineUnitConversionOffers}
+        title={
+          language === "es" ? "Convertir unidades" : "Convert units"
+        }
+        description={
+          unitConversionOffers.some((offer) => offer.kind === "base_to_cmol")
+            ? language === "es"
+              ? "Bases (K, Ca, Mg, Na), acidez extractable y/o Al están en ppm o mg/kg. La app lee mejor cmol(+)/kg. ¿Convertir?"
+              : "Bases (K, Ca, Mg, Na), extractable acidity and/or Al are in ppm or mg/kg. The app reads cmol(+)/kg best. Convert?"
+            : language === "es"
+              ? "Algunos nutrientes están en una unidad distinta a la que la app espera. ¿Deseas convertirlos?"
+              : "Some nutrients are in a different unit than the app expects. Convert them?"
+        }
+        className="lab-import-unit-modal"
+        closeLabel={language === "es" ? "Cerrar" : "Close"}
+        footer={
+          <>
+            <button
+              type="button"
+              className="app-modal-btn app-modal-btn--secondary"
+              onClick={declineUnitConversionOffers}
+            >
+              {language === "es" ? "Mantener original" : "Keep original"}
+            </button>
+            <button
+              type="button"
+              className="app-modal-btn app-modal-btn--primary"
+              onClick={acceptUnitConversionOffers}
+            >
+              {language === "es" ? "Convertir" : "Convert"}
+            </button>
+          </>
+        }
+      >
+        <ul className="lab-import-unit-modal__list">
+          {unitConversionOffers.map((offer) => (
+            <li key={offer.rowId} className="lab-import-unit-modal__item">
+              <span className="lab-import-unit-modal__name">
+                {offer.parameterLabel}
+              </span>
+              <span className="lab-import-unit-modal__change">
+                {offer.fromValue} {offer.fromUnit}
+                {" → "}
+                {offer.toValue} {offer.toUnit}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </AppModal>
     </section>
   );
 }

@@ -102,6 +102,15 @@ function formatNotificationTime(item: AppNotification) {
   });
 }
 
+/** Drop leading ISO date from body — meta already shows a friendly timestamp. */
+function formatNotificationBody(item: AppNotification) {
+  const body = String(item.body || "").trim();
+  if (!body) return "";
+  const match = body.match(/^(\d{4}-\d{2}-\d{2})(?:\s*[·•\-–—]\s*(.*))?$/);
+  if (match) return String(match[2] || "").trim();
+  return body;
+}
+
 /** Soft rubber-band past the max swipe distance. */
 function rubberBand(offset: number, max = SWIPE_MAX_PX) {
   if (offset <= 0) return 0;
@@ -233,12 +242,17 @@ function SwipeDeleteRow({
       : `transform 0.42s ${SPRING_EASE}`,
   };
 
+  const revealing = offset > 0.5 || exiting;
+  const bodyText = formatNotificationBody(item);
+
   return (
     <li
       ref={rowRef}
       className={`notifications-item notifications-item--swipe${
         exiting ? " is-exiting" : ""
-      }${due && !item.read ? " is-unread" : ""}`}
+      }${revealing ? " is-revealing" : ""}${
+        due && !item.read ? " is-unread" : ""
+      }`}
       style={
         {
           ...exitStyle,
@@ -274,7 +288,9 @@ function SwipeDeleteRow({
         >
           <span className="notifications-item__copy">
             <span className="notifications-item__title">{item.title}</span>
-            <span className="notifications-item__body">{item.body}</span>
+            {bodyText ? (
+              <span className="notifications-item__body">{bodyText}</span>
+            ) : null}
             <span className="notifications-item__meta">
               {formatNotificationTime(item)}
               {!due && !item.read ? ` · ${soonLabel}` : ""}

@@ -921,31 +921,41 @@ export default function FertilizerProductPlanner({
                   />
                 </label>
               ))}
-              <label className="calc-field-label grid gap-1">
-                {t.area || "Area"}
-                <input
-                  className="calc-field-input"
-                  inputMode="decimal"
-                  value={plotArea || ""}
-                  onChange={(event) => updatePlotArea(event.target.value)}
-                  placeholder="1"
-                />
-              </label>
-              <MenuSelect
-                label={t.areaUnit || t.unit || "Unit"}
-                value={plotAreaUnit}
-                options={AREA_UNITS.map(
-                  (unit) =>
-                    [
-                      unit,
-                      t[`areaUnit_${unit}`] || areaUnitLabel(unit),
-                    ] as [AreaUnit, string]
-                )}
-                onChange={updatePlotAreaUnit}
-                compact
-                variant="field"
-                fullWidth
-              />
+              <div className="fertilizer-cost-doses__area-unit">
+                <label className="fertilizer-cost-doses__area-field">
+                  <span className="fertilizer-cost-doses__area-label">
+                    {t.area || "Area"}
+                  </span>
+                  <input
+                    className="calc-field-input fertilizer-cost-doses__area-input"
+                    inputMode="decimal"
+                    value={plotArea || ""}
+                    onChange={(event) => updatePlotArea(event.target.value)}
+                    placeholder="1"
+                    aria-label={t.area || "Area"}
+                  />
+                </label>
+                <div className="fertilizer-cost-doses__unit-field">
+                  <span className="fertilizer-cost-doses__area-label">
+                    {t.areaUnit || t.unit || "Unit"}
+                  </span>
+                  <MenuSelect
+                    label=""
+                    value={plotAreaUnit}
+                    options={AREA_UNITS.map(
+                      (unit) =>
+                        [
+                          unit,
+                          t[`areaUnit_${unit}`] || areaUnitLabel(unit),
+                        ] as [AreaUnit, string]
+                    )}
+                    onChange={updatePlotAreaUnit}
+                    compact
+                    variant="field"
+                    className="fertilizer-cost-doses__unit-select"
+                  />
+                </div>
+              </div>
             </div>
           </details>
 

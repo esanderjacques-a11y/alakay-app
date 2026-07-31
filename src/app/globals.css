@@ -2319,6 +2319,71 @@ html[data-theme="dark"] .app-header {
     min-width: 0;
   }
 
+  .fertilizer-cost-doses__area-unit {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .fertilizer-cost-doses__area-field,
+  .fertilizer-cost-doses__unit-field {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .fertilizer-cost-doses__area-field {
+    flex: 1 1 auto;
+  }
+
+  .fertilizer-cost-doses__unit-field {
+    flex: 0 1 8.5rem;
+  }
+
+  .fertilizer-cost-doses__area-label {
+    flex: 0 0 auto;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-subtle, #64748b);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .fertilizer-cost-doses__area-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto !important;
+    max-width: 6.5rem;
+  }
+
+  .fertilizer-cost-doses__unit-select.calc-field-label,
+  .fertilizer-cost-doses__unit-select {
+    display: flex !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    gap: 0;
+  }
+
+  .fertilizer-cost-doses__unit-select > .relative {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .fertilizer-cost-doses__unit-select .app-menu-select-trigger,
+  .fertilizer-cost-doses__unit-select button {
+    min-height: 2.5rem !important;
+    height: 2.5rem;
+    width: 100%;
+  }
+
   .fertilizer-cost-doses__fields .calc-field-input,
   html:not([data-theme="dark"]) .calculator-hub-panel .fertilizer-cost-doses__fields .calc-field-input,
   html:not([data-theme="dark"]) .calc-page .fertilizer-cost-doses__fields .calc-field-input {

@@ -651,16 +651,18 @@ export default function FertilizerPlanCalculator({
                 onChange={(value) => setManualDoseFromDisplay("ca", value)}
                 preserveCase
               />
-              <NumberField label={t.area || "Area"} value={area} onChange={setArea} />
-              <SelectField
-                label={t.areaUnit || t.unit || "Unit"}
-                value={areaUnit}
-                onChange={(value) => setAreaUnit(value as AreaUnit)}
-                options={AREA_UNITS.map((unit) => [
-                  unit,
-                  t[`areaUnit_${unit}`] || areaUnitLabel(unit),
-                ])}
-              />
+              <div className="col-span-full grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+                <NumberField label={t.area || "Area"} value={area} onChange={setArea} />
+                <SelectField
+                  label={t.areaUnit || t.unit || "Unit"}
+                  value={areaUnit}
+                  onChange={(value) => setAreaUnit(value as AreaUnit)}
+                  options={AREA_UNITS.map((unit) => [
+                    unit,
+                    t[`areaUnit_${unit}`] || areaUnitLabel(unit),
+                  ])}
+                />
+              </div>
             </div>
           </PlanSection>
         ) : null}
@@ -752,7 +754,7 @@ export default function FertilizerPlanCalculator({
                 onChange={setCustomMinerCoefPercent}
               />
             ) : null}
-            <div className="col-span-full grid gap-3 sm:grid-cols-[1fr_auto]">
+            <div className="col-span-full grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
               <NumberField label={t.area || "Area"} value={area} onChange={setArea} />
               <SelectField
                 label={t.areaUnit || "Unit"}
@@ -979,25 +981,6 @@ export default function FertilizerPlanCalculator({
               )
             ) : null}
           </div>
-
-          <details className="fertilizer-plan__interpretation calc-surface">
-            <summary className="fertilizer-plan__recommendations-summary">
-              {t.fertilizerPlanViewRecommendations || "View recommendations"}
-            </summary>
-            <div className="fertilizer-plan__recommendations-body space-y-2 px-4 pb-4 pt-1">
-              <ul className="space-y-2">
-                {planRecommendations.map((line) => (
-                  <li key={line} className="text-sm leading-relaxed text-slate-700 dark:text-slate-200">
-                    {line}
-                  </li>
-                ))}
-              </ul>
-              <p className="fertilizer-plan__agronomist-note" role="note">
-                {t.fertilizerPlanAgronomistNote ||
-                  "If you have any doubts, contact a certified agronomist."}
-              </p>
-            </div>
-          </details>
 
           {hasActiveDoses && onOpenCostPage ? (
             <button

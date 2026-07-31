@@ -19,6 +19,8 @@ import {
 export type MenuSelectOption<T extends string = string> = {
   value: T;
   label: string;
+  /** Shown on compact/narrow triggers when `shortTrigger` is enabled. */
+  shortLabel?: string;
   description?: string;
   icon?: ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
   disabled?: boolean;
@@ -42,6 +44,8 @@ type Props<T extends string> = {
   disabled?: boolean;
   searchable?: boolean;
   searchPlaceholder?: string;
+  /** Prefer `shortLabel` on the closed trigger at narrow widths. */
+  shortTrigger?: boolean;
 };
 
 function normalizeOptions<T extends string>(
@@ -70,6 +74,7 @@ export default function MenuSelect<T extends string>({
   disabled = false,
   searchable = false,
   searchPlaceholder = "Search…",
+  shortTrigger = false,
 }: Props<T>) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -216,9 +221,20 @@ export default function MenuSelect<T extends string>({
               selected
                 ? "settings-menu-trigger__label--value"
                 : "settings-menu-trigger__label--placeholder"
-            }`}
+            }${shortTrigger && selected?.shortLabel ? " menu-select-label--dual" : ""}`}
           >
-            {selected?.label || placeholder || ""}
+            {shortTrigger && selected?.shortLabel ? (
+              <>
+                <span className="menu-select-label__full">
+                  {selected.label}
+                </span>
+                <span className="menu-select-label__short">
+                  {selected.shortLabel}
+                </span>
+              </>
+            ) : (
+              selected?.label || placeholder || ""
+            )}
           </span>
           <ChevronDown
             size={18}

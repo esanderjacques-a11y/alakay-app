@@ -732,12 +732,12 @@ textarea {
 
   html[data-glass-ui="false"] .mobile-menu-panel {
     background: var(--surface, #ffffff);
-    border-left-color: rgb(0 0 0 / 0.08);
+    border-left-color: var(--glass-border);
   }
 
   html[data-theme="dark"][data-glass-ui="false"] .mobile-menu-panel {
     background: var(--surface, #1e1e1e);
-    border-left-color: rgb(255 255 255 / 0.08);
+    border-left-color: var(--glass-border);
   }
 
   .jacko-overlay {
@@ -1366,11 +1366,12 @@ html[data-theme="dark"] .app-header {
 
   html[data-glass-ui="false"] {
     --glass-chrome-surface: var(--surface, #ffffff);
-    --glass-chrome-border: rgb(0 0 0 / 0.07);
+    --glass-chrome-border: rgb(0 0 0 / 0.14);
     --glass-surface: var(--surface, #ffffff);
     --glass-surface-strong: var(--surface, #ffffff);
     --glass-surface-muted: var(--surface-variant, #f7f7f7);
-    --glass-border: rgb(0 0 0 / 0.07);
+    /* Solid UI needs a clearer edge than glass frosted strokes. */
+    --glass-border: rgb(0 0 0 / 0.14);
     --app-blur: 0;
     --app-main-gradient: var(--background);
     --sticky-page-occlude-bg: var(--background);
@@ -1380,11 +1381,11 @@ html[data-theme="dark"] .app-header {
 
   html[data-theme="dark"][data-glass-ui="false"] {
     --glass-chrome-surface: var(--surface, #1e1e1e);
-    --glass-chrome-border: rgb(255 255 255 / 0.08);
+    --glass-chrome-border: rgb(255 255 255 / 0.18);
     --glass-surface: var(--surface, #1e1e1e);
     --glass-surface-strong: var(--surface, #1e1e1e);
     --glass-surface-muted: var(--surface-variant, #242424);
-    --glass-border: rgb(255 255 255 / 0.08);
+    --glass-border: rgb(255 255 255 / 0.18);
   }
 
   /* Solid page shell — no gradient or accent orbs when glass is off */
@@ -1457,7 +1458,7 @@ html[data-theme="dark"] .app-header {
   html[data-glass-ui="false"] .app-modal-section,
   html[data-glass-ui="false"] .app-modal-list-item {
     background: var(--surface, #ffffff);
-    border-color: rgb(0 0 0 / 0.07);
+    border-color: var(--glass-border);
   }
 
   html[data-glass-ui="false"] .app-modal-section,
@@ -1477,7 +1478,7 @@ html[data-theme="dark"] .app-header {
   html[data-theme="dark"][data-glass-ui="false"] .app-modal-section,
   html[data-theme="dark"][data-glass-ui="false"] .app-modal-list-item {
     background: var(--surface, #1e1e1e);
-    border-color: rgb(255 255 255 / 0.08);
+    border-color: var(--glass-border);
   }
 
   html[data-theme="dark"][data-glass-ui="false"] .app-modal-section,
@@ -1487,7 +1488,7 @@ html[data-theme="dark"] .app-header {
 
   html[data-glass-ui="false"] .home-action-tile:not(.home-action-tile--primary) {
     background: var(--surface, #ffffff);
-    border-color: rgb(0 0 0 / 0.07);
+    border-color: var(--glass-border);
     box-shadow: var(--card-shadow);
   }
 
@@ -1497,7 +1498,7 @@ html[data-theme="dark"] .app-header {
   html[data-glass-ui="false"] .home-farms-panel,
   html[data-glass-ui="false"] .home-dash-panel {
     background: var(--surface, #ffffff);
-    border-color: rgb(0 0 0 / 0.07);
+    border-color: var(--glass-border);
     box-shadow: var(--card-shadow);
   }
 
@@ -1508,13 +1509,13 @@ html[data-theme="dark"] .app-header {
   html[data-glass-ui="false"] .farm-chip,
   html[data-glass-ui="false"] .plan-btn-secondary {
     background: var(--surface-variant, #f7f7f7);
-    border-color: rgb(0 0 0 / 0.06);
+    border-color: var(--glass-border);
   }
 
   html[data-theme="dark"][data-glass-ui="false"] .calculator-action-card,
   html[data-theme="dark"][data-glass-ui="false"] .home-action-tile:not(.home-action-tile--primary) {
     background: var(--surface, #1e1e1e);
-    border-color: rgb(255 255 255 / 0.08);
+    border-color: var(--glass-border);
   }
 
   html[data-theme="dark"][data-glass-ui="false"] .plan-timeline-card,
@@ -1523,7 +1524,7 @@ html[data-theme="dark"] .app-header {
   html[data-theme="dark"][data-glass-ui="false"] .home-farms-panel,
   html[data-theme="dark"][data-glass-ui="false"] .home-dash-panel {
     background: var(--surface, #1e1e1e);
-    border-color: rgb(255 255 255 / 0.08);
+    border-color: var(--glass-border);
   }
 
   html[data-theme="dark"][data-glass-ui="false"] .plan-timeline-line,
@@ -1533,7 +1534,82 @@ html[data-theme="dark"] .app-header {
   html[data-theme="dark"][data-glass-ui="false"] .farm-chip,
   html[data-theme="dark"][data-glass-ui="false"] .plan-btn-secondary {
     background: var(--surface-variant, #242424);
-    border-color: rgb(255 255 255 / 0.08);
+    border-color: var(--glass-border);
+  }
+
+  /* Solid theme: keep form surfaces and inputs edged. */
+  html[data-glass-ui="false"] .calc-surface,
+  html[data-glass-ui="false"] .calc-surface-muted,
+  html[data-glass-ui="false"] .calc-surface-inner,
+  html[data-glass-ui="false"] .calc-stage-card,
+  html[data-glass-ui="false"] .calculator-action-card,
+  html[data-glass-ui="false"] .values-screen-panel,
+  html[data-glass-ui="false"] .history-report-card,
+  html[data-glass-ui="false"] .auth-card,
+  html[data-glass-ui="false"] .settings-section-flat,
+  html[data-glass-ui="false"] .settings-account-summary,
+  html[data-glass-ui="false"] .settings-account-panel {
+    border: 1px solid var(--glass-border);
+    background: var(--surface, #ffffff);
+  }
+
+  html[data-glass-ui="false"] .calc-surface-muted,
+  html[data-glass-ui="false"] .calc-surface-inner,
+  html[data-glass-ui="false"] .calc-stage-card {
+    background: var(--surface-variant, #f7f7f7);
+  }
+
+  html[data-glass-ui="false"] .calc-field-input,
+  html[data-glass-ui="false"] select.calc-field-input,
+  html[data-glass-ui="false"] textarea.calc-field-input,
+  html[data-glass-ui="false"] .app-native-select {
+    border: 1px solid var(--glass-border);
+    background: var(--surface-variant, #f7f7f7);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  html[data-glass-ui="false"] .calc-field-input:focus-visible,
+  html[data-glass-ui="false"] select.calc-field-input:focus-visible,
+  html[data-glass-ui="false"] textarea.calc-field-input:focus-visible {
+    border-color: rgb(var(--accent-600-rgb, 22 163 74) / 0.55);
+    background: var(--surface, #ffffff);
+  }
+
+  html[data-theme="dark"][data-glass-ui="false"] .calc-surface,
+  html[data-theme="dark"][data-glass-ui="false"] .calc-surface-muted,
+  html[data-theme="dark"][data-glass-ui="false"] .calc-surface-inner,
+  html[data-theme="dark"][data-glass-ui="false"] .calc-stage-card,
+  html[data-theme="dark"][data-glass-ui="false"] .calculator-action-card,
+  html[data-theme="dark"][data-glass-ui="false"] .values-screen-panel,
+  html[data-theme="dark"][data-glass-ui="false"] .history-report-card,
+  html[data-theme="dark"][data-glass-ui="false"] .auth-card,
+  html[data-theme="dark"][data-glass-ui="false"] .settings-section-flat,
+  html[data-theme="dark"][data-glass-ui="false"] .settings-account-summary,
+  html[data-theme="dark"][data-glass-ui="false"] .settings-account-panel {
+    border-color: var(--glass-border);
+    background: var(--surface, #1e1e1e);
+  }
+
+  html[data-theme="dark"][data-glass-ui="false"] .calc-surface-muted,
+  html[data-theme="dark"][data-glass-ui="false"] .calc-surface-inner,
+  html[data-theme="dark"][data-glass-ui="false"] .calc-stage-card {
+    background: var(--surface-variant, #242424);
+  }
+
+  html[data-theme="dark"][data-glass-ui="false"] .calc-field-input,
+  html[data-theme="dark"][data-glass-ui="false"] select.calc-field-input,
+  html[data-theme="dark"][data-glass-ui="false"] textarea.calc-field-input,
+  html[data-theme="dark"][data-glass-ui="false"] .app-native-select {
+    border-color: var(--glass-border);
+    background: var(--surface-variant, #242424);
+  }
+
+  html[data-theme="dark"][data-glass-ui="false"] .calc-field-input:focus-visible,
+  html[data-theme="dark"][data-glass-ui="false"] select.calc-field-input:focus-visible,
+  html[data-theme="dark"][data-glass-ui="false"] textarea.calc-field-input:focus-visible {
+    border-color: rgb(var(--accent-400-rgb, 74 222 128) / 0.55);
+    background: var(--surface, #1e1e1e);
   }
 
   /* ── Segmented control (Soil/Foliar etc) ── */
@@ -1961,6 +2037,523 @@ html[data-theme="dark"] .app-header {
     background-color: rgb(120 53 15 / 0.35);
     border: 1px solid rgb(251 191 36 / 0.28);
     color: #fde68a;
+  }
+
+  .fertilizer-cost-toolbar {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .fertilizer-view-mode {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .fertilizer-view-mode__label {
+    margin: 0;
+    font-size: var(--calc-text-label);
+    font-weight: 700;
+    color: var(--foreground);
+    line-height: 1.2;
+  }
+
+  .fertilizer-view-mode__control {
+    width: 100%;
+    padding: 2px;
+    border-radius: 0.75rem;
+  }
+
+  .fertilizer-view-mode__control .app-segmented-control__btn {
+    min-height: 2rem;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.75rem;
+    border-radius: 0.55rem;
+  }
+
+  html[data-theme="dark"] .fertilizer-view-mode__label {
+    color: rgba(232, 232, 232, 0.65);
+  }
+
+  .fertilizer-setup-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .fertilizer-setup-field {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    width: auto;
+    flex: 0 1 auto;
+  }
+
+  .fertilizer-setup-field--currency {
+    margin-left: auto;
+  }
+
+  .fertilizer-setup-field__label,
+  .fertilizer-setup-currency.calc-field-label,
+  .fertilizer-bag-weight__unit {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-subtle, #64748b);
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+
+  .fertilizer-setup-field__label {
+    flex: 0 0 auto;
+  }
+
+  .fertilizer-setup-currency.calc-field-label {
+    display: inline-flex !important;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+    width: auto;
+    min-width: 0;
+  }
+
+  .fertilizer-setup-currency.calc-field-label > .relative {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  .fertilizer-bag-weight {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    width: 2.6rem;
+    padding: 0 0 0.12rem;
+    border: 0;
+    border-bottom: 1.5px solid rgb(var(--accent-900-rgb, 6 78 59) / 0.32);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    transition: border-color 0.15s ease;
+  }
+
+  .fertilizer-bag-weight:focus-within {
+    border-bottom-color: var(--accent-700, #15803d);
+  }
+
+  .fertilizer-bag-weight__input {
+    width: 100%;
+    min-width: 0;
+    min-height: 0 !important;
+    height: 1.35rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    text-align: center;
+    padding: 0 !important;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--foreground);
+  }
+
+  html:not([data-theme="dark"]) .calculator-hub-panel .fertilizer-bag-weight__input.calc-field-input,
+  html:not([data-theme="dark"]) .calc-page .fertilizer-bag-weight__input.calc-field-input,
+  html:not([data-theme="dark"]) .calculator-hub-panel .fertilizer-bag-weight__input.calc-field-input:focus-visible,
+  html:not([data-theme="dark"]) .calc-page .fertilizer-bag-weight__input.calc-field-input:focus-visible {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .fertilizer-bag-weight__unit {
+    flex: 0 0 auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .fertilizer-setup-currency .settings-menu-trigger,
+  .fertilizer-setup-currency .settings-menu-trigger--compact,
+  .fertilizer-setup-currency .app-menu-select-trigger,
+  .fertilizer-setup-currency button {
+    min-height: 0 !important;
+    height: auto !important;
+    width: auto !important;
+    min-width: 3.25rem;
+    border: 0 !important;
+    border-bottom: 1.5px solid rgb(var(--accent-900-rgb, 6 78 59) / 0.32) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 0.1rem 0.12rem !important;
+    font-size: 0.95rem !important;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--foreground);
+    transition: border-color 0.15s ease;
+  }
+
+  .fertilizer-setup-currency .settings-menu-trigger:hover,
+  .fertilizer-setup-currency .settings-menu-trigger--compact:hover,
+  .fertilizer-setup-currency .app-menu-select-trigger:hover,
+  .fertilizer-setup-currency button:hover,
+  .fertilizer-setup-currency .settings-menu-trigger[aria-expanded="true"],
+  .fertilizer-setup-currency .app-menu-select-trigger[aria-expanded="true"],
+  .fertilizer-setup-currency .settings-menu-trigger:focus-visible,
+  .fertilizer-setup-currency .app-menu-select-trigger:focus-visible,
+  .fertilizer-setup-currency button:focus-visible {
+    background: transparent !important;
+    border-color: transparent !important;
+    border-bottom-color: var(--accent-700, #15803d) !important;
+    box-shadow: none !important;
+  }
+
+  .fertilizer-setup-currency .settings-menu-trigger svg,
+  .fertilizer-setup-currency .app-menu-select-trigger svg {
+    width: 0.85rem;
+    height: 0.85rem;
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+
+  html[data-theme="dark"] .fertilizer-bag-weight {
+    background: transparent;
+    border-bottom-color: rgb(255 255 255 / 0.28);
+  }
+
+  html[data-theme="dark"] .fertilizer-bag-weight:focus-within {
+    border-bottom-color: rgb(var(--accent-100-rgb, 220 252 231) / 0.85);
+  }
+
+  html[data-theme="dark"] .fertilizer-bag-weight__unit,
+  html[data-theme="dark"] .fertilizer-setup-field__label,
+  html[data-theme="dark"] .fertilizer-setup-currency.calc-field-label {
+    color: rgb(255 255 255 / 0.58);
+  }
+
+  html[data-theme="dark"] .fertilizer-setup-currency .settings-menu-trigger,
+  html[data-theme="dark"] .fertilizer-setup-currency .settings-menu-trigger--compact,
+  html[data-theme="dark"] .fertilizer-setup-currency .app-menu-select-trigger,
+  html[data-theme="dark"] .fertilizer-setup-currency button {
+    border-bottom-color: rgb(255 255 255 / 0.28) !important;
+    color: inherit;
+  }
+
+  html[data-theme="dark"] .fertilizer-setup-currency .settings-menu-trigger:hover,
+  html[data-theme="dark"] .fertilizer-setup-currency .app-menu-select-trigger:hover,
+  html[data-theme="dark"] .fertilizer-setup-currency .settings-menu-trigger[aria-expanded="true"],
+  html[data-theme="dark"] .fertilizer-setup-currency .app-menu-select-trigger[aria-expanded="true"],
+  html[data-theme="dark"] .fertilizer-setup-currency .settings-menu-trigger:focus-visible,
+  html[data-theme="dark"] .fertilizer-setup-currency .app-menu-select-trigger:focus-visible {
+    border-bottom-color: rgb(var(--accent-100-rgb, 220 252 231) / 0.85) !important;
+  }
+
+  .fertilizer-cost-doses {
+    border-radius: 0.65rem;
+    border: 1px solid rgb(var(--accent-900-rgb, 6 78 59) / 0.12);
+    background: rgb(255 255 255 / 0.35);
+    padding: 0.45rem 0.65rem;
+  }
+
+  .fertilizer-cost-doses > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--accent-800, #166534);
+  }
+
+  .fertilizer-cost-doses > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .fertilizer-cost-doses__label {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .fertilizer-cost-doses__summary {
+    margin-left: 0.35rem;
+    font-weight: 650;
+    color: #64748b;
+  }
+
+  .fertilizer-cost-doses__chevron {
+    flex: 0 0 auto;
+    width: 0.45rem;
+    height: 0.45rem;
+    margin-right: 0.1rem;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 0.18s ease;
+    opacity: 0.85;
+  }
+
+  .fertilizer-cost-doses[open] > summary .fertilizer-cost-doses__chevron {
+    transform: rotate(-135deg);
+    margin-top: 0.2rem;
+  }
+
+  .fertilizer-cost-doses__fields {
+    margin-top: 0.65rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .fertilizer-cost-doses__fields .calc-field-label {
+    min-width: 0;
+  }
+
+  .fertilizer-cost-doses__fields .calc-field-input,
+  html:not([data-theme="dark"]) .calculator-hub-panel .fertilizer-cost-doses__fields .calc-field-input,
+  html:not([data-theme="dark"]) .calc-page .fertilizer-cost-doses__fields .calc-field-input {
+    background: rgb(255 255 255 / 0.42);
+  }
+
+  .fertilizer-cost-doses__fields .calc-field-input:focus-visible,
+  html:not([data-theme="dark"]) .calculator-hub-panel .fertilizer-cost-doses__fields .calc-field-input:focus-visible,
+  html:not([data-theme="dark"]) .calc-page .fertilizer-cost-doses__fields .calc-field-input:focus-visible {
+    background: rgb(255 255 255 / 0.62);
+  }
+
+  html[data-theme="dark"] .fertilizer-cost-doses__fields .calc-field-input {
+    background: rgb(255 255 255 / 0.06);
+  }
+
+  html[data-theme="dark"] .fertilizer-cost-doses__fields .calc-field-input:focus-visible {
+    background: rgb(255 255 255 / 0.1);
+  }
+
+  .fertilizer-pick-list {
+    display: grid;
+    gap: 0;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(var(--accent-900-rgb, 6 78 59) / 0.12);
+    background: rgb(255 255 255 / 0.45);
+    overflow: hidden;
+  }
+
+  .fertilizer-pick-extras {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .fertilizer-pick-extras__note {
+    margin: 0.15rem 0 0;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--text-subtle, #64748b);
+  }
+
+  html[data-theme="dark"] .fertilizer-pick-extras__note {
+    color: rgb(255 255 255 / 0.55);
+  }
+
+  .fertilizer-pick-list--extras {
+    border-style: dashed;
+  }
+
+  .fertilizer-pick-extras__name {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--foreground);
+    line-height: 1.25;
+  }
+
+  .fertilizer-pick-extras__analysis {
+    font-weight: 600;
+    color: var(--text-subtle, #64748b);
+  }
+
+  .fertilizer-pick-row {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr) 5rem 3.75rem;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.55rem;
+    border-top: 1px solid rgb(var(--accent-900-rgb, 6 78 59) / 0.08);
+  }
+
+  .fertilizer-pick-row:first-child {
+    border-top: 0;
+  }
+
+  .fertilizer-pick-row--head {
+    padding-top: 0.35rem;
+    padding-bottom: 0.25rem;
+    border-top: 0;
+    color: var(--text-subtle, #64748b);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: none;
+  }
+
+  .fertilizer-pick-row--head .fertilizer-pick-row__product,
+  .fertilizer-pick-row--head .fertilizer-pick-row__price,
+  .fertilizer-pick-row--head .fertilizer-pick-row__metric {
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+    min-width: 0;
+    line-height: 1.2;
+  }
+
+  .fertilizer-pick-row--head .fertilizer-pick-row__product {
+    text-align: left;
+  }
+
+  .fertilizer-pick-row--head .fertilizer-pick-row__price {
+    text-align: left;
+    justify-self: start;
+  }
+
+  .fertilizer-pick-row--head .fertilizer-pick-row__metric {
+    min-width: 3.5rem;
+    text-align: right;
+    justify-self: end;
+  }
+
+  .fertilizer-pick-row__metric-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.45rem;
+    padding: 0.12rem 0.45rem;
+    border-radius: 999px;
+    border: 1px solid rgb(var(--accent-900-rgb, 6 78 59) / 0.22);
+    background: rgb(var(--accent-100-rgb, 220 252 231) / 0.75);
+    color: var(--accent-800, #166534);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .fertilizer-pick-row__metric-toggle:hover {
+    background: rgb(var(--accent-200-rgb, 187 247 208) / 0.9);
+    border-color: rgb(var(--accent-700-rgb, 21 128 61) / 0.4);
+  }
+
+  .fertilizer-pick-row__metric-toggle:focus-visible {
+    outline: 2px solid var(--accent-500, #22c55e);
+    outline-offset: 2px;
+  }
+
+  html[data-theme="dark"] .fertilizer-pick-row__metric-toggle {
+    border-color: rgb(74 222 128 / 0.35);
+    background: rgb(74 222 128 / 0.14);
+    color: #bbf7d0;
+  }
+
+  html[data-theme="dark"] .fertilizer-pick-row__metric-toggle:hover {
+    background: rgb(74 222 128 / 0.22);
+    border-color: rgb(74 222 128 / 0.5);
+  }
+
+  .fertilizer-pick-row__price {
+    display: flex;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .fertilizer-pick-row--head + .fertilizer-pick-row {
+    border-top: 1px solid rgb(var(--accent-900-rgb, 6 78 59) / 0.08);
+  }
+
+  html[data-theme="dark"] .fertilizer-pick-row--head {
+    color: rgb(255 255 255 / 0.55);
+  }
+
+  .fertilizer-pick-row__nutrient {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--accent-800, #166534);
+    letter-spacing: 0.01em;
+  }
+
+  .fertilizer-pick-row__product {
+    min-width: 0;
+  }
+
+  .fertilizer-pick-row__product .calc-field-label {
+    gap: 0;
+  }
+
+  .menu-select-label__short {
+    display: none;
+  }
+
+  @media (max-width: 640px) {
+    .fertilizer-pick-row .menu-select-label--dual .menu-select-label__full {
+      display: none;
+    }
+
+    .fertilizer-pick-row .menu-select-label--dual .menu-select-label__short {
+      display: inline;
+    }
+  }
+
+  .fertilizer-pick-row__price .calc-field-input {
+    width: 100%;
+    min-height: 2rem;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.75rem;
+    text-align: left;
+  }
+
+  .fertilizer-pick-row__metric {
+    min-width: 3.5rem;
+    text-align: right;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #14532d;
+    white-space: nowrap;
+  }
+
+  html[data-theme="dark"] .fertilizer-cost-doses,
+  html[data-theme="dark"] .fertilizer-pick-list {
+    border-color: rgb(255 255 255 / 0.12);
+    background: rgb(255 255 255 / 0.05);
+  }
+
+  html[data-theme="dark"] .fertilizer-cost-doses > summary {
+    color: rgb(var(--accent-200-rgb, 187 247 208) / 0.95);
+  }
+
+  html[data-theme="dark"] .fertilizer-pick-row {
+    border-top-color: rgb(255 255 255 / 0.08);
+  }
+
+  html[data-theme="dark"] .fertilizer-cost-doses__summary,
+  html[data-theme="dark"] .fertilizer-pick-row__metric {
+    color: rgb(226 232 240 / 0.88);
+  }
+
+  html[data-theme="dark"] .fertilizer-pick-row__nutrient {
+    color: rgb(var(--accent-200-rgb, 187 247 208) / 0.95);
   }
 
   /* Formulation empty-state hint — keep readable on frosted cards / phones. */
@@ -3620,13 +4213,13 @@ html[data-theme="dark"] .app-header {
   html[data-glass-ui="false"] .app-modal-hint,
   html[data-glass-ui="false"] .app-modal-message {
     background: var(--surface-variant, #f7f7f7);
-    border-color: rgb(0 0 0 / 0.07);
+    border-color: var(--glass-border);
   }
 
   html[data-theme="dark"][data-glass-ui="false"] .app-modal-hint,
   html[data-theme="dark"][data-glass-ui="false"] .app-modal-message {
     background: var(--surface-variant, #242424);
-    border-color: rgb(255 255 255 / 0.08);
+    border-color: var(--glass-border);
   }
 
   html[data-glass-ui="false"] .app-modal-body .calc-field-input,
@@ -3634,13 +4227,15 @@ html[data-theme="dark"] .app-header {
   html[data-glass-ui="false"] .app-modal-body textarea.calc-field-input {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    border: 1px solid var(--glass-border);
     background: var(--surface-variant, #f7f7f7);
   }
 
   html[data-theme="dark"][data-glass-ui="false"] .app-modal-body .calc-field-input,
   html[data-theme="dark"][data-glass-ui="false"] .app-modal-body .app-native-select,
   html[data-theme="dark"][data-glass-ui="false"] .app-modal-body textarea.calc-field-input {
-    background: rgb(255 255 255 / 0.06);
+    border-color: var(--glass-border);
+    background: var(--surface-variant, #242424);
   }
 
   /* Shared glass controls — consistent across light/dark and glass-ui on/off */
@@ -6617,6 +7212,140 @@ html[data-theme="dark"] .app-header {
     opacity: 0.72;
   }
 
+  .ph-amend-gate {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+    border-radius: 1rem;
+    border: 1px solid rgb(245 158 11 / 0.38);
+    background:
+      linear-gradient(135deg, rgb(254 243 199 / 0.72) 0%, rgb(255 251 235 / 0.55) 100%);
+    padding: 0.9rem 1rem;
+    box-shadow: inset 3px 0 0 #f59e0b;
+  }
+
+  .ph-amend-gate__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 0.7rem;
+    background: rgb(245 158 11 / 0.18);
+    color: #b45309;
+    flex-shrink: 0;
+  }
+
+  .ph-amend-gate__body {
+    display: grid;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .ph-amend-gate__title {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #92400e;
+    line-height: 1.25;
+  }
+
+  .ph-amend-gate__text {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #78350f;
+  }
+
+  .ph-amend-gate__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0.2rem;
+  }
+
+  .ph-amend-gate__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.15rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.7rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .ph-amend-gate__btn--primary {
+    border: 1px solid rgb(var(--accent-700-rgb, 21 128 61) / 0.45);
+    background: var(--accent-700, #15803d);
+    color: #ffffff;
+  }
+
+  .ph-amend-gate__btn--primary:hover {
+    background: var(--accent-800, #166534);
+  }
+
+  .ph-amend-gate__btn--ghost {
+    border: 1px solid rgb(120 53 15 / 0.28);
+    background: rgb(255 255 255 / 0.55);
+    color: #92400e;
+  }
+
+  .ph-amend-gate__btn--ghost:hover {
+    background: rgb(255 255 255 / 0.82);
+  }
+
+  html[data-theme="dark"] .ph-amend-gate {
+    border-color: rgb(251 191 36 / 0.4);
+    background: linear-gradient(
+      135deg,
+      rgb(245 158 11 / 0.22) 0%,
+      rgb(255 255 255 / 0.04) 100%
+    );
+    box-shadow: inset 3px 0 0 #fbbf24;
+  }
+
+  html[data-theme="dark"] .ph-amend-gate__icon {
+    background: rgb(251 191 36 / 0.2);
+    color: #fcd34d;
+  }
+
+  html[data-theme="dark"] .ph-amend-gate__title {
+    color: #fde68a;
+  }
+
+  html[data-theme="dark"] .ph-amend-gate__text {
+    color: rgb(255 255 255 / 0.9);
+  }
+
+  html[data-theme="dark"] .ph-amend-gate__btn--ghost {
+    border-color: rgb(251 191 36 / 0.35);
+    background: rgb(255 255 255 / 0.06);
+    color: #fde68a;
+  }
+
+  html[data-theme="dark"] .ph-amend-gate__btn--ghost:hover {
+    background: rgb(255 255 255 / 0.1);
+  }
+
+  html[data-glass-ui="false"] .ph-amend-gate {
+    background: #fffbeb;
+    border-color: rgb(245 158 11 / 0.45);
+  }
+
+  html[data-theme="dark"][data-glass-ui="false"] .ph-amend-gate {
+    background: rgb(120 53 15 / 0.35);
+    border-color: rgb(251 191 36 / 0.4);
+  }
+
   .calculator-favorites-list {
     display: flex;
     flex-direction: column;
@@ -7280,6 +8009,25 @@ html[data-theme="dark"] .app-header {
     color: var(--foreground);
   }
 
+  .fertilizer-cost-credit-note {
+    display: grid;
+    gap: 0.2rem;
+    margin: 0;
+    padding: 0.15rem 0 0.1rem;
+  }
+
+  .fertilizer-cost-credit-note__line {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--text-subtle, #64748b);
+  }
+
+  html[data-theme="dark"] .fertilizer-cost-credit-note__line {
+    color: rgb(255 255 255 / 0.62);
+  }
+
   .fertilizer-plan__dose-grid {
     margin-top: 0;
   }
@@ -7707,52 +8455,73 @@ html[data-theme="dark"] .app-header {
   }
 
   /*
-   * Severity stays on the shared glass surface. Cue intensity with a left rail
-   * only — no flooded yellow/red fills that fight the green Cultosol shell.
+   * Severity: soft tint + vivid rail. Readable at a glance, still on glass.
    */
   .calc-cic-result--sev-mild.calc-cic-result--low {
-    box-shadow: inset 3px 0 0 rgb(185 70 70 / 0.55);
+    background: rgb(254 226 226 / 0.55);
+    border-color: rgb(248 113 113 / 0.38);
+    box-shadow: inset 4px 0 0 #ef4444;
   }
 
   .calc-cic-result--sev-strong.calc-cic-result--low {
-    box-shadow: inset 3px 0 0 rgb(170 55 55 / 0.78);
+    background: rgb(254 202 202 / 0.62);
+    border-color: rgb(239 68 68 / 0.45);
+    box-shadow: inset 4px 0 0 #dc2626;
   }
 
   .calc-cic-result--sev-critical.calc-cic-result--low {
-    box-shadow: inset 3px 0 0 rgb(150 45 45 / 0.95);
+    background: rgb(252 165 165 / 0.55);
+    border-color: rgb(220 38 38 / 0.5);
+    box-shadow: inset 4px 0 0 #b91c1c;
   }
 
   .calc-cic-result--sev-mild.calc-cic-result--high {
-    box-shadow: inset 3px 0 0 rgb(140 120 70 / 0.5);
+    background: rgb(254 243 199 / 0.58);
+    border-color: rgb(251 191 36 / 0.42);
+    box-shadow: inset 4px 0 0 #f59e0b;
   }
 
   .calc-cic-result--sev-strong.calc-cic-result--high {
-    box-shadow: inset 3px 0 0 rgb(130 110 55 / 0.72);
+    background: rgb(253 230 138 / 0.58);
+    border-color: rgb(245 158 11 / 0.48);
+    box-shadow: inset 4px 0 0 #d97706;
   }
 
   .calc-cic-result--sev-critical.calc-cic-result--high {
-    box-shadow: inset 3px 0 0 rgb(120 95 45 / 0.92);
+    background: rgb(252 211 77 / 0.55);
+    border-color: rgb(217 119 6 / 0.52);
+    box-shadow: inset 4px 0 0 #b45309;
   }
 
   .calc-cic-result--sev-ok.calc-cic-result--optimal,
   .calc-cic-result--sev-ok.calc-cic-result--adequate {
-    box-shadow: inset 3px 0 0 rgb(var(--accent-600-rgb, 22 163 74) / 0.9);
+    background: rgb(var(--accent-100-rgb, 220 252 231) / 0.72);
+    border-color: rgb(var(--accent-500-rgb, 34 197 94) / 0.4);
+    box-shadow: inset 4px 0 0 #16a34a;
   }
 
   .calc-cic-result--sev-unknown {
-    box-shadow: inset 3px 0 0 rgb(148 163 184 / 0.75);
+    background: rgb(241 245 249 / 0.65);
+    border-color: rgb(148 163 184 / 0.35);
+    box-shadow: inset 4px 0 0 #94a3b8;
   }
 
   .calc-cic-ratio-highlight--low {
-    box-shadow: inset 3px 0 0 rgb(170 55 55 / 0.78);
+    background: rgb(254 202 202 / 0.58);
+    border-color: rgb(239 68 68 / 0.42);
+    box-shadow: inset 4px 0 0 #dc2626;
   }
 
   .calc-cic-ratio-highlight--optimal {
-    box-shadow: inset 3px 0 0 rgb(var(--accent-600-rgb, 22 163 74) / 0.9);
+    background: rgb(var(--accent-100-rgb, 220 252 231) / 0.72);
+    border-color: rgb(var(--accent-500-rgb, 34 197 94) / 0.4);
+    box-shadow: inset 4px 0 0 #16a34a;
   }
 
   .calc-cic-ratio-highlight--high {
-    box-shadow: inset 3px 0 0 rgb(130 110 55 / 0.72);
+    background: rgb(253 230 138 / 0.58);
+    border-color: rgb(245 158 11 / 0.45);
+    box-shadow: inset 4px 0 0 #d97706;
   }
 
   .calc-cic-ratio-highlight {
@@ -7784,6 +8553,28 @@ html[data-theme="dark"] .app-header {
     font-weight: 800;
     line-height: 1.2;
     color: var(--accent-900, #14532d);
+  }
+
+  .calc-cic-result--sev-ok .calc-cic-result__value {
+    color: #15803d;
+  }
+
+  .calc-cic-result--low .calc-cic-result__value {
+    color: #dc2626;
+  }
+
+  .calc-cic-result--sev-strong.calc-cic-result--low .calc-cic-result__value,
+  .calc-cic-result--sev-critical.calc-cic-result--low .calc-cic-result__value {
+    color: #b91c1c;
+  }
+
+  .calc-cic-result--high .calc-cic-result__value {
+    color: #d97706;
+  }
+
+  .calc-cic-result--sev-strong.calc-cic-result--high .calc-cic-result__value,
+  .calc-cic-result--sev-critical.calc-cic-result--high .calc-cic-result__value {
+    color: #b45309;
   }
 
   .calc-cic-result__unit {
@@ -7829,39 +8620,39 @@ html[data-theme="dark"] .app-header {
   .calc-cic-band--adequate,
   .calc-cic-band--sev-ok.calc-cic-band--optimal,
   .calc-cic-band--sev-ok.calc-cic-band--adequate {
-    background: rgb(var(--accent-100-rgb, 220 252 231) / 0.9);
-    color: var(--accent-800, #166534);
+    background: rgb(187 247 208 / 0.95);
+    color: #166534;
   }
 
   .calc-cic-band--low,
   .calc-cic-band--sev-mild.calc-cic-band--low,
   .calc-cic-band--sev-strong.calc-cic-band--low,
   .calc-cic-band--sev-critical.calc-cic-band--low {
-    background: rgb(15 23 42 / 0.06);
-    color: #7f1d1d;
+    background: rgb(254 202 202 / 0.95);
+    color: #b91c1c;
   }
 
   .calc-cic-band--high,
   .calc-cic-band--sev-mild.calc-cic-band--high,
   .calc-cic-band--sev-strong.calc-cic-band--high,
   .calc-cic-band--sev-critical.calc-cic-band--high {
-    background: rgb(15 23 42 / 0.06);
-    color: #57534e;
+    background: rgb(253 230 138 / 0.95);
+    color: #b45309;
   }
 
   .calc-cic-band--sev-critical.calc-cic-band--low {
-    background: rgb(127 29 29 / 0.1);
+    background: rgb(248 113 113 / 0.95);
     color: #7f1d1d;
   }
 
   .calc-cic-band--sev-critical.calc-cic-band--high {
-    background: rgb(68 64 60 / 0.1);
-    color: #44403c;
+    background: rgb(251 191 36 / 0.95);
+    color: #92400e;
   }
 
   .calc-cic-band--unknown {
-    background: rgb(15 23 42 / 0.05);
-    color: #64748b;
+    background: rgb(226 232 240 / 0.95);
+    color: #475569;
   }
 
   .calc-cic-diagnosis-panel__head {
@@ -8010,41 +8801,59 @@ html[data-theme="dark"] .app-header {
   html[data-theme="dark"] .calc-cic-diagnosis--high,
   html[data-theme="dark"] .calc-cic-diagnosis--optimal,
   html[data-theme="dark"] .calc-cic-diagnosis--unknown {
-    background: rgb(255 255 255 / 0.05);
-    border-color: rgb(255 255 255 / 0.1);
-    color: rgb(203 213 225 / 0.92);
+    color: rgb(226 232 240 / 0.92);
   }
 
   html[data-theme="dark"] .calc-cic-diagnosis--low {
-    box-shadow: inset 3px 0 0 rgb(248 113 113 / 0.78);
+    background: linear-gradient(
+      105deg,
+      rgb(248 113 113 / 0.3) 0%,
+      rgb(248 113 113 / 0.12) 100%
+    );
+    border-color: rgb(248 113 113 / 0.5);
+    box-shadow: inset 4px 0 0 #f87171;
   }
 
   html[data-theme="dark"] .calc-cic-diagnosis--high {
-    box-shadow: inset 3px 0 0 rgb(212 180 100 / 0.72);
+    background: linear-gradient(
+      105deg,
+      rgb(251 191 36 / 0.3) 0%,
+      rgb(251 191 36 / 0.12) 100%
+    );
+    border-color: rgb(251 191 36 / 0.5);
+    box-shadow: inset 4px 0 0 #fbbf24;
   }
 
   html[data-theme="dark"] .calc-cic-diagnosis--optimal {
-    box-shadow: inset 3px 0 0 rgb(74 222 128 / 0.9);
-    color: rgb(var(--accent-100-rgb, 220 252 231) / 0.95);
+    background: linear-gradient(
+      105deg,
+      rgb(74 222 128 / 0.28) 0%,
+      rgb(74 222 128 / 0.1) 100%
+    );
+    border-color: rgb(74 222 128 / 0.45);
+    box-shadow: inset 4px 0 0 #4ade80;
+    color: #bbf7d0;
   }
 
   html[data-theme="dark"] .calc-cic-diagnosis--unknown {
-    box-shadow: inset 3px 0 0 rgb(148 163 184 / 0.75);
+    background: rgb(148 163 184 / 0.12);
+    border-color: rgb(148 163 184 / 0.35);
+    box-shadow: inset 4px 0 0 #94a3b8;
   }
 
   html[data-theme="dark"] .calc-cic-diagnosis__badge--low {
-    background: rgb(255 255 255 / 0.08);
-    color: rgb(254 202 202 / 0.95);
+    background: rgb(239 68 68 / 0.55);
+    color: #fee2e2;
   }
 
   html[data-theme="dark"] .calc-cic-diagnosis__badge--high {
-    background: rgb(255 255 255 / 0.08);
-    color: rgb(226 220 200 / 0.95);
+    background: rgb(245 158 11 / 0.55);
+    color: #fef3c7;
   }
 
   html[data-theme="dark"] .calc-cic-diagnosis__badge--optimal {
-    background: rgb(var(--accent-900-rgb, 20 83 45) / 0.45);
-    color: rgb(var(--accent-100-rgb, 220 252 231) / 0.95);
+    background: rgb(34 197 94 / 0.55);
+    color: #dcfce7;
   }
 
   html[data-theme="dark"] .calc-relation-chip {
@@ -8066,87 +8875,223 @@ html[data-theme="dark"] .app-header {
   }
 
   html[data-theme="dark"] .calc-cic-result--sev-mild.calc-cic-result--low {
-    box-shadow: inset 3px 0 0 rgb(248 113 113 / 0.55);
+    background: linear-gradient(
+      105deg,
+      rgb(248 113 113 / 0.28) 0%,
+      rgb(248 113 113 / 0.12) 55%,
+      rgb(255 255 255 / 0.04) 100%
+    );
+    border-color: rgb(248 113 113 / 0.55);
+    box-shadow:
+      inset 4px 0 0 #f87171,
+      inset 0 0 24px rgb(248 113 113 / 0.08);
   }
 
   html[data-theme="dark"] .calc-cic-result--sev-strong.calc-cic-result--low {
-    box-shadow: inset 3px 0 0 rgb(248 113 113 / 0.78);
+    background: linear-gradient(
+      105deg,
+      rgb(239 68 68 / 0.34) 0%,
+      rgb(248 113 113 / 0.16) 55%,
+      rgb(255 255 255 / 0.04) 100%
+    );
+    border-color: rgb(248 113 113 / 0.62);
+    box-shadow:
+      inset 4px 0 0 #fb7185,
+      inset 0 0 28px rgb(239 68 68 / 0.12);
   }
 
   html[data-theme="dark"] .calc-cic-result--sev-critical.calc-cic-result--low {
-    box-shadow: inset 3px 0 0 rgb(252 165 165 / 0.95);
+    background: linear-gradient(
+      105deg,
+      rgb(239 68 68 / 0.42) 0%,
+      rgb(248 113 113 / 0.2) 55%,
+      rgb(255 255 255 / 0.05) 100%
+    );
+    border-color: rgb(252 165 165 / 0.55);
+    box-shadow:
+      inset 4px 0 0 #fca5a5,
+      inset 0 0 32px rgb(239 68 68 / 0.16);
   }
 
   html[data-theme="dark"] .calc-cic-result--sev-mild.calc-cic-result--high {
-    box-shadow: inset 3px 0 0 rgb(212 180 100 / 0.5);
+    background: linear-gradient(
+      105deg,
+      rgb(251 191 36 / 0.28) 0%,
+      rgb(251 191 36 / 0.12) 55%,
+      rgb(255 255 255 / 0.04) 100%
+    );
+    border-color: rgb(251 191 36 / 0.55);
+    box-shadow:
+      inset 4px 0 0 #fbbf24,
+      inset 0 0 24px rgb(251 191 36 / 0.08);
   }
 
   html[data-theme="dark"] .calc-cic-result--sev-strong.calc-cic-result--high {
-    box-shadow: inset 3px 0 0 rgb(212 180 100 / 0.72);
+    background: linear-gradient(
+      105deg,
+      rgb(245 158 11 / 0.34) 0%,
+      rgb(251 191 36 / 0.16) 55%,
+      rgb(255 255 255 / 0.04) 100%
+    );
+    border-color: rgb(251 191 36 / 0.62);
+    box-shadow:
+      inset 4px 0 0 #fbbf24,
+      inset 0 0 28px rgb(245 158 11 / 0.12);
   }
 
   html[data-theme="dark"] .calc-cic-result--sev-critical.calc-cic-result--high {
-    box-shadow: inset 3px 0 0 rgb(234 200 120 / 0.9);
+    background: linear-gradient(
+      105deg,
+      rgb(245 158 11 / 0.42) 0%,
+      rgb(251 191 36 / 0.2) 55%,
+      rgb(255 255 255 / 0.05) 100%
+    );
+    border-color: rgb(252 211 77 / 0.55);
+    box-shadow:
+      inset 4px 0 0 #fcd34d,
+      inset 0 0 32px rgb(245 158 11 / 0.16);
   }
 
   html[data-theme="dark"] .calc-cic-result--sev-ok.calc-cic-result--optimal,
   html[data-theme="dark"] .calc-cic-result--sev-ok.calc-cic-result--adequate {
-    box-shadow: inset 3px 0 0 rgb(74 222 128 / 0.9);
+    background: linear-gradient(
+      105deg,
+      rgb(74 222 128 / 0.28) 0%,
+      rgb(74 222 128 / 0.12) 55%,
+      rgb(255 255 255 / 0.04) 100%
+    );
+    border-color: rgb(74 222 128 / 0.5);
+    box-shadow:
+      inset 4px 0 0 #4ade80,
+      inset 0 0 24px rgb(74 222 128 / 0.1);
+  }
+
+  html[data-theme="dark"] .calc-cic-result--sev-unknown {
+    background: linear-gradient(
+      105deg,
+      rgb(148 163 184 / 0.22) 0%,
+      rgb(148 163 184 / 0.1) 55%,
+      rgb(255 255 255 / 0.04) 100%
+    );
+    border-color: rgb(148 163 184 / 0.4);
+    box-shadow: inset 4px 0 0 #94a3b8;
   }
 
   html[data-theme="dark"] .calc-cic-ratio-highlight--low {
-    box-shadow: inset 3px 0 0 rgb(248 113 113 / 0.78);
+    background: linear-gradient(
+      105deg,
+      rgb(248 113 113 / 0.32) 0%,
+      rgb(248 113 113 / 0.14) 55%,
+      rgb(255 255 255 / 0.04) 100%
+    );
+    border-color: rgb(248 113 113 / 0.55);
+    box-shadow:
+      inset 4px 0 0 #f87171,
+      inset 0 0 28px rgb(248 113 113 / 0.12);
   }
 
   html[data-theme="dark"] .calc-cic-ratio-highlight--optimal {
-    box-shadow: inset 3px 0 0 rgb(74 222 128 / 0.9);
+    background: linear-gradient(
+      105deg,
+      rgb(74 222 128 / 0.28) 0%,
+      rgb(74 222 128 / 0.12) 55%,
+      rgb(255 255 255 / 0.04) 100%
+    );
+    border-color: rgb(74 222 128 / 0.5);
+    box-shadow:
+      inset 4px 0 0 #4ade80,
+      inset 0 0 24px rgb(74 222 128 / 0.1);
   }
 
   html[data-theme="dark"] .calc-cic-ratio-highlight--high {
-    box-shadow: inset 3px 0 0 rgb(212 180 100 / 0.72);
+    background: linear-gradient(
+      105deg,
+      rgb(251 191 36 / 0.32) 0%,
+      rgb(251 191 36 / 0.14) 55%,
+      rgb(255 255 255 / 0.04) 100%
+    );
+    border-color: rgb(251 191 36 / 0.55);
+    box-shadow:
+      inset 4px 0 0 #fbbf24,
+      inset 0 0 28px rgb(251 191 36 / 0.12);
   }
 
   html[data-theme="dark"] .calc-cic-band--optimal,
   html[data-theme="dark"] .calc-cic-band--adequate,
   html[data-theme="dark"] .calc-cic-band--sev-ok.calc-cic-band--optimal,
   html[data-theme="dark"] .calc-cic-band--sev-ok.calc-cic-band--adequate {
-    background: rgb(var(--accent-900-rgb, 20 83 45) / 0.45);
-    color: rgb(var(--accent-100-rgb, 220 252 231) / 0.95);
+    background: rgb(34 197 94 / 0.55);
+    color: #ffffff;
   }
 
   html[data-theme="dark"] .calc-cic-band--low,
   html[data-theme="dark"] .calc-cic-band--sev-mild.calc-cic-band--low,
   html[data-theme="dark"] .calc-cic-band--sev-strong.calc-cic-band--low,
   html[data-theme="dark"] .calc-cic-band--sev-critical.calc-cic-band--low {
-    background: rgb(255 255 255 / 0.08);
-    color: rgb(254 202 202 / 0.95);
+    background: rgb(239 68 68 / 0.55);
+    color: #ffffff;
+  }
+
+  html[data-theme="dark"] .calc-cic-band--sev-critical.calc-cic-band--low {
+    background: rgb(248 113 113 / 0.7);
+    color: #ffffff;
   }
 
   html[data-theme="dark"] .calc-cic-band--high,
   html[data-theme="dark"] .calc-cic-band--sev-mild.calc-cic-band--high,
   html[data-theme="dark"] .calc-cic-band--sev-strong.calc-cic-band--high,
   html[data-theme="dark"] .calc-cic-band--sev-critical.calc-cic-band--high {
-    background: rgb(255 255 255 / 0.08);
-    color: rgb(226 220 200 / 0.95);
+    background: rgb(245 158 11 / 0.55);
+    color: #ffffff;
+  }
+
+  html[data-theme="dark"] .calc-cic-band--sev-critical.calc-cic-band--high {
+    background: rgb(251 191 36 / 0.7);
+    color: #ffffff;
   }
 
   html[data-theme="dark"] .calc-cic-band--unknown {
-    background: rgb(255 255 255 / 0.06);
-    color: rgb(148 163 184 / 0.95);
+    background: rgb(148 163 184 / 0.35);
+    color: #ffffff;
   }
 
-  html[data-theme="dark"] .calc-cic-result__label,
+  html[data-theme="dark"] .calc-cic-result__label {
+    color: #ffffff;
+  }
+
   html[data-theme="dark"] .calc-cic-result__unit,
   html[data-theme="dark"] .calc-cic-result__range {
-    color: rgb(148 163 184 / 0.92);
+    color: rgb(255 255 255 / 0.72);
   }
 
   html[data-theme="dark"] .calc-cic-result__value {
-    color: rgb(var(--accent-100-rgb, 220 252 231) / 0.96);
+    color: #f8fafc;
+  }
+
+  html[data-theme="dark"] .calc-cic-result--sev-ok .calc-cic-result__value {
+    color: #4ade80;
+  }
+
+  html[data-theme="dark"] .calc-cic-result--low .calc-cic-result__value {
+    color: #f87171;
+  }
+
+  html[data-theme="dark"] .calc-cic-result--sev-strong.calc-cic-result--low .calc-cic-result__value,
+  html[data-theme="dark"] .calc-cic-result--sev-critical.calc-cic-result--low .calc-cic-result__value {
+    color: #fb7185;
+  }
+
+  html[data-theme="dark"] .calc-cic-result--high .calc-cic-result__value {
+    color: #fbbf24;
+  }
+
+  html[data-theme="dark"] .calc-cic-result--sev-strong.calc-cic-result--high .calc-cic-result__value,
+  html[data-theme="dark"] .calc-cic-result--sev-critical.calc-cic-result--high .calc-cic-result__value {
+    color: #fcd34d;
   }
 
   html[data-theme="dark"] .calc-cic-result__interpretation {
-    color: rgb(203 213 225 / 0.92);
+    color: #ffffff;
   }
 
   html[data-theme="dark"] .preview-filter-chip-idle {
@@ -13480,7 +14425,7 @@ html[data-theme="dark"] .app-header {
   html[data-glass-ui="false"] .app-menu-select-trigger,
   html[data-glass-ui="false"] .settings-menu-select-trigger,
   html[data-glass-ui="false"] .settings-menu-trigger--compact {
-    border: none;
+    border: 1px solid var(--glass-border);
     background: var(--surface-variant, #f2f2f2);
   }
 
@@ -13490,20 +14435,22 @@ html[data-theme="dark"] .app-header {
   html[data-glass-ui="false"] .settings-menu-select-trigger[aria-expanded="true"],
   html[data-glass-ui="false"] .settings-menu-trigger--compact:hover,
   html[data-glass-ui="false"] .settings-menu-trigger--compact[aria-expanded="true"] {
+    border-color: rgb(0 0 0 / 0.2);
     background: var(--surface, #ffffff);
   }
 
   html[data-glass-ui="false"] .setup-inline-input {
-    border: none;
+    border: 1px solid var(--glass-border);
     background: var(--surface-variant, #f2f2f2);
   }
 
   html[data-glass-ui="false"] .setup-inline-input:focus-visible {
+    border-color: rgb(var(--accent-600-rgb, 22 163 74) / 0.55);
     background: var(--surface, #ffffff);
   }
 
   html[data-glass-ui="false"] .app-segmented-control {
-    border: none;
+    border: 1px solid var(--glass-border);
     background: var(--surface-container, #efefef);
   }
 
@@ -13526,7 +14473,8 @@ html[data-theme="dark"] .app-header {
   html[data-theme="dark"][data-glass-ui="false"] .app-menu-select-trigger,
   html[data-theme="dark"][data-glass-ui="false"] .settings-menu-select-trigger,
   html[data-theme="dark"][data-glass-ui="false"] .settings-menu-trigger--compact {
-    background: rgb(255 255 255 / 0.08);
+    border-color: var(--glass-border);
+    background: var(--surface-variant, #242424);
   }
 
   html[data-theme="dark"][data-glass-ui="false"] .app-menu-select-trigger:hover,
@@ -13535,16 +14483,23 @@ html[data-theme="dark"] .app-header {
   html[data-theme="dark"][data-glass-ui="false"] .settings-menu-select-trigger[aria-expanded="true"],
   html[data-theme="dark"][data-glass-ui="false"] .settings-menu-trigger--compact:hover,
   html[data-theme="dark"][data-glass-ui="false"] .settings-menu-trigger--compact[aria-expanded="true"] {
+    border-color: rgb(255 255 255 / 0.28);
     background: var(--surface, #1e1e1e);
   }
 
   html[data-theme="dark"][data-glass-ui="false"] .setup-inline-input,
   html[data-theme="dark"][data-glass-ui="false"] .setup-inline-input:focus-visible {
+    border-color: var(--glass-border);
     background: var(--surface-variant, #2c2c2c);
   }
 
+  html[data-theme="dark"][data-glass-ui="false"] .setup-inline-input:focus-visible {
+    border-color: rgb(var(--accent-400-rgb, 74 222 128) / 0.55);
+  }
+
   html[data-theme="dark"][data-glass-ui="false"] .app-segmented-control {
-    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--glass-border);
+    background: var(--surface-variant, #242424);
   }
 
   html[data-theme="dark"][data-glass-ui="false"] .app-segmented-control__btn--active {
@@ -16364,6 +17319,20 @@ html[data-theme="dark"] .app-header {
     width: 100%;
     cursor: pointer;
     text-align: left;
+    border: 1px solid var(--glass-border);
+  }
+
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .app-menu-select-trigger.calc-field-input {
+    border-color: rgb(var(--accent-900-rgb, 6 78 59) / 0.22);
+  }
+
+  html[data-theme="dark"][data-glass-ui="true"] .app-menu-select-trigger.calc-field-input {
+    border-color: rgb(255 255 255 / 0.28);
+  }
+
+  html[data-theme="dark"][data-glass-ui="true"] .app-menu-select-trigger.calc-field-input:hover,
+  html[data-theme="dark"][data-glass-ui="true"] .app-menu-select-trigger.calc-field-input[aria-expanded="true"] {
+    border-color: rgb(255 255 255 / 0.4);
   }
 
   .app-menu-select-trigger--chip {

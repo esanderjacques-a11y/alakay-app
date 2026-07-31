@@ -1186,7 +1186,16 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     cic: "CIC & bases",
     amendment: "pH / amendment",
     fertilizer: "Nutrition",
-    fertilizerCost: "Cost",
+    fertilizerCost: "Fertilizers & cost",
+    fertilizerCostPageDesc:
+      "Set bag size, pick a mix strategy, then review fertilizer amounts and cost.",
+    fertilizerCostDosesToggle: "Tap to add or review doses",
+    fertilizerCostDosesHint:
+      "Enter known nutrient rates to see fertilizer quantities without opening the nutritional plan.",
+    fertilizerCostSetupLabel: "Bag & currency",
+    fertilizerCostNeedDoses:
+      "Enter doses above to choose fertilizers and see quantities.",
+    fertilizerScenarioChooseProducts: "Choose fertilizers",
     fertilizerFormulation: "Formulation",
     fertilizerFormulationDesc:
       "Build a custom grade from raw materials. Auto-pick the best mix, or choose what you have available.",
@@ -1538,7 +1547,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanYieldRange: "Typical range: {min}–{max} t/ha",
     fertilizerPlanResultUnit: "Result unit",
     fertilizerPlanNeedYield: "Enter a target yield greater than zero to calculate doses.",
-    fertilizerProductsTitle: "Products & bag prices",
+    fertilizerProductsTitle: "Fertilizers & prices",
     fertilizerCostMixTitle: "Recommended mixes",
     fertilizerProductsBlendHint:
       "Edit products and bag prices for My selection. The mix uses the fewest of your picks that still meet nutrient targets (multi-nutrient credits included).",
@@ -1547,7 +1556,16 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPriceBasisBag:
       "Enter the price per bag (saco). Online placeholders are benchmarks converted from tonne prices.",
     fertilizerBagKg: "Bag weight (kg)",
+    fertilizerBagKgShort: "Bag size",
     fertilizerPricePerBag: "Price / bag (saco)",
+    fertilizerPickColProduct: "Products",
+    fertilizerPickColPrice: "Price/bag",
+    fertilizerPickColQty: "kg",
+    fertilizerPickColBags: "bags",
+    fertilizerPickColCost: "Cost",
+    fertilizerPickColUnitToggle: "Switch quantity unit",
+    fertilizerExtraInMix:
+      "Also in this mix (covers another nutrient as a credit)",
     fertilizerPricePerKg: "Price / kg",
     fertilizerPricePerTonne: "Price / ton",
     fertilizerPricePerLb: "Price / lb",
@@ -1574,7 +1592,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Pick a mix. Multi-nutrient products credit all nutrients they supply — totals match what you apply.",
     fertilizerScenarioBestValue: "Best value",
     fertilizerScenarioFewest: "Fewest products",
-    fertilizerScenarioStockFirst: "Use bodega stock first",
+    fertilizerScenarioStockFirst: "Stock first",
     fertilizerScenarioCompounds: "Compounds first",
     fertilizerScenarioSingles: "Singles only",
     fertilizerScenarioCurrent: "My selection",
@@ -1601,7 +1619,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioAppliedIrrig:
       "Mix applied to your current plan doses. Compare-by-irrigation rates stay for comparison only.",
     fertilizerScenarioVsCurrentDose: "doses rebuilt for this irrigation",
-    fertilizerViewLabel: "Show",
+    fertilizerViewLabel: "View as",
     fertilizerViewPrices: "Prices",
     fertilizerViewQuantity: "Quantity",
     fertilizerQuantityPlot: "Plot quantity",
@@ -1679,6 +1697,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Lime is not needed: CICe cation distribution and base saturation are within sufficient ranges, or there is no liming signal (high H+Al or pH below target).",
     phAmendModeCalciumNeedData:
       "Not enough CICe / base-saturation data yet to confirm liming. Enter Ca, CIC or bases, and acidity in Values.",
+    phAmendModeBlockedTitle: "Not the recommended path",
+    phAmendModeBlockedFallback: "Soil chemistry points to a different amendment.",
+    phAmendModeUseRecommended: "Use {mode}",
+    phAmendModeProceedAnyway: "Calculate anyway",
     phAmendMaterialCalcitic: "Agricultural lime (CaCO₃)",
     phAmendMaterialDolomitic: "Dolomitic lime (CaMg(CO₃)₂)",
     phAmendMaterialCao: "Calcium oxide (CaO)",
@@ -1942,7 +1964,16 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     cic: "CIC y bases",
     amendment: "pH y/o enmienda",
     fertilizer: "Nutrición",
-    fertilizerCost: "Costo",
+    fertilizerCost: "Fertilizantes y costo",
+    fertilizerCostPageDesc:
+      "Defina el saco, elija una estrategia de mezcla y revise cantidades y costo.",
+    fertilizerCostDosesToggle: "Clic para agregar o revisar dosis",
+    fertilizerCostDosesHint:
+      "Ingrese dosis conocidas para ver cantidades de fertilizante sin abrir el plan nutricional.",
+    fertilizerCostSetupLabel: "Saco y moneda",
+    fertilizerCostNeedDoses:
+      "Ingrese dosis arriba para elegir fertilizantes y ver cantidades.",
+    fertilizerScenarioChooseProducts: "Elegir fertilizantes",
     fertilizerFormulation: "Formulación",
     fertilizerFormulationDesc:
       "Cree un grado a medida con materias primas. Elija la mejor mezcla o los productos que tiene.",
@@ -2293,7 +2324,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanYieldRange: "Rango típico: {min}–{max} t/ha",
     fertilizerPlanResultUnit: "Unidad del resultado",
     fertilizerPlanNeedYield: "Ingrese un rendimiento objetivo mayor que cero para calcular dosis.",
-    fertilizerProductsTitle: "Productos y precios por saco",
+    fertilizerProductsTitle: "Fertilizantes y precios",
     fertilizerCostMixTitle: "Mezclas recomendadas",
     fertilizerProductsBlendHint:
       "Edite productos y precios para Mi selección. La mezcla usa el menor número de sus productos que aún cubre los nutrientes (créditos multi-nutriente incluidos).",
@@ -2302,7 +2333,16 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPriceBasisBag:
       "Ingrese el precio por saco. Los valores en línea son referencias convertidas desde precio por tonelada.",
     fertilizerBagKg: "Peso del saco (kg)",
+    fertilizerBagKgShort: "Peso saco",
     fertilizerPricePerBag: "Precio / saco",
+    fertilizerPickColProduct: "Productos",
+    fertilizerPickColPrice: "Precio/saco",
+    fertilizerPickColQty: "kg",
+    fertilizerPickColBags: "sacos",
+    fertilizerPickColCost: "Costo",
+    fertilizerPickColUnitToggle: "Cambiar unidad de cantidad",
+    fertilizerExtraInMix:
+      "También en esta mezcla (cubre otro nutriente como crédito)",
     fertilizerPricePerKg: "Precio / kg",
     fertilizerPricePerTonne: "Precio / ton",
     fertilizerPricePerLb: "Precio / lb",
@@ -2329,7 +2369,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Elija una mezcla. Los productos multinutriente acreditan todos los nutrientes que aportan.",
     fertilizerScenarioBestValue: "Mejor valor",
     fertilizerScenarioFewest: "Menos productos",
-    fertilizerScenarioStockFirst: "Usar stock de bodega primero",
+    fertilizerScenarioStockFirst: "Stock primero",
     fertilizerScenarioCompounds: "Compuestos primero",
     fertilizerScenarioSingles: "Solo simples",
     fertilizerScenarioCurrent: "Mi selección",
@@ -2356,7 +2396,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioAppliedIrrig:
       "Mezcla aplicada a las dosis actuales. Las tasas por riego son solo para comparar.",
     fertilizerScenarioVsCurrentDose: "dosis recalculadas para este riego",
-    fertilizerViewLabel: "Mostrar",
+    fertilizerViewLabel: "Ver como",
     fertilizerViewPrices: "Precios",
     fertilizerViewQuantity: "Cantidad",
     fertilizerQuantityPlot: "Cantidad parcela",
@@ -2434,6 +2474,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "No se necesita cal: la CICe está en rangos suficientes, o no hay señal de encalado (H+Al alto o pH bajo la meta).",
     phAmendModeCalciumNeedData:
       "Faltan datos de CICe / saturación de bases para confirmar encalado. Ingrese Ca, CIC o bases, y acidez en Valores.",
+    phAmendModeBlockedTitle: "No es la vía recomendada",
+    phAmendModeBlockedFallback: "La química del suelo apunta a otra enmienda.",
+    phAmendModeUseRecommended: "Usar {mode}",
+    phAmendModeProceedAnyway: "Calcular de todos modos",
     phAmendMaterialCalcitic: "Cal agrícola (CaCO₃)",
     phAmendMaterialDolomitic: "Cal dolomítica (CaMg(CO₃)₂)",
     phAmendMaterialCao: "Óxido de calcio (CaO)",
@@ -2701,7 +2745,16 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     cic: "CIC et bases",
     amendment: "pH et/ou amendement",
     fertilizer: "Nutrition",
-    fertilizerCost: "Coût",
+    fertilizerCost: "Engrais et coût",
+    fertilizerCostPageDesc:
+      "Définissez le sac, choisissez une stratégie, puis vérifiez quantités et coût.",
+    fertilizerCostDosesToggle: "Appuyez pour ajouter ou revoir les doses",
+    fertilizerCostDosesHint:
+      "Saisissez des doses connues pour voir les quantités d’engrais sans ouvrir le plan nutritionnel.",
+    fertilizerCostSetupLabel: "Sac et devise",
+    fertilizerCostNeedDoses:
+      "Saisissez des doses ci-dessus pour choisir les engrais et voir les quantités.",
+    fertilizerScenarioChooseProducts: "Choisir les engrais",
     fertilizerFormulation: "Formulation",
     fertilizerFormulationDesc:
       "Créez un grade personnalisé à partir de matières premières. Meilleur mélange auto ou produits disponibles.",
@@ -3047,7 +3100,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanYieldRange: "Plage typique : {min}–{max} t/ha",
     fertilizerPlanResultUnit: "Unité du résultat",
     fertilizerPlanNeedYield: "Saisissez un rendement cible supérieur à zéro pour calculer les doses.",
-    fertilizerProductsTitle: "Produits et prix au sac",
+    fertilizerProductsTitle: "Engrais et prix",
     fertilizerCostMixTitle: "Melanges recommandes",
     fertilizerProductsBlendHint:
       "Modifiez produits et prix pour Ma sélection. Le mélange utilise le moins de vos produits qui couvrent encore les besoins (crédits multi-nutriments inclus).",
@@ -3056,7 +3109,16 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPriceBasisBag:
       "Saisissez le prix par sac. Les valeurs en ligne sont des références converties depuis le prix à la tonne.",
     fertilizerBagKg: "Poids du sac (kg)",
+    fertilizerBagKgShort: "Poids sac",
     fertilizerPricePerBag: "Prix / sac",
+    fertilizerPickColProduct: "Produits",
+    fertilizerPickColPrice: "Prix/sac",
+    fertilizerPickColQty: "kg",
+    fertilizerPickColBags: "sacs",
+    fertilizerPickColCost: "Coût",
+    fertilizerPickColUnitToggle: "Changer l’unité de quantité",
+    fertilizerExtraInMix:
+      "Aussi dans ce mélange (couvre un autre nutriment en crédit)",
     fertilizerBags: "sacs",
     fertilizerBag: "sac",
     fertilizerPerPlot: "par parcelle",
@@ -3080,7 +3142,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Choisissez un melange. Les engrais multi-nutriments creditent tous les apports.",
     fertilizerScenarioBestValue: "Meilleur rapport",
     fertilizerScenarioFewest: "Moins de produits",
-    fertilizerScenarioStockFirst: "Prioriser le stock farm",
+    fertilizerScenarioStockFirst: "Stock d’abord",
     fertilizerScenarioCompounds: "Composés d’abord",
     fertilizerScenarioSingles: "Simples seulement",
     fertilizerScenarioCurrent: "Ma sélection",
@@ -3107,7 +3169,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioAppliedIrrig:
       "Melange applique aux doses actuelles. Les taux irrigation restent pour comparaison.",
     fertilizerScenarioVsCurrentDose: "doses recalculees pour cette irrigation",
-    fertilizerViewLabel: "Afficher",
+    fertilizerViewLabel: "Voir en",
     fertilizerViewPrices: "Prix",
     fertilizerViewQuantity: "Quantité",
     fertilizerQuantityPlot: "Quantité parcelle",
@@ -3176,6 +3238,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Chaux non nécessaire : CICe suffisante, ou pas de signal de chaulage (H+Al élevé ou pH sous cible).",
     phAmendModeCalciumNeedData:
       "Données CICe / saturation insuffisantes pour confirmer le chaulage.",
+    phAmendModeBlockedTitle: "Ce n'est pas la voie recommandée",
+    phAmendModeBlockedFallback: "La chimie du sol oriente vers un autre amendement.",
+    phAmendModeUseRecommended: "Utiliser {mode}",
+    phAmendModeProceedAnyway: "Calculer quand même",
     phAmendMaterialCalcitic: "Chaux agricole (CaCO₃)",
     phAmendMaterialDolomitic: "Chaux dolomitique (CaMg(CO₃)₂)",
     phAmendMaterialCao: "Oxyde de calcium (CaO)",
@@ -3443,7 +3509,16 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     cic: "CIC ak baz",
     amendment: "pH ak/oswa amandman",
     fertilizer: "Nitrisyon",
-    fertilizerCost: "Pri",
+    fertilizerCost: "Angrè ak pri",
+    fertilizerCostPageDesc:
+      "Mete gwosè sak, chwazi yon estrateji, epi verifye kantite ak pri.",
+    fertilizerCostDosesToggle: "Klike pou ajoute oswa revize dòz",
+    fertilizerCostDosesHint:
+      "Antre dòz ou konnen pou wè kantite angrè san ouvri plan nitrisyonèl la.",
+    fertilizerCostSetupLabel: "Sak ak lajan",
+    fertilizerCostNeedDoses:
+      "Antre dòz anwo a pou chwazi angrè epi wè kantite yo.",
+    fertilizerScenarioChooseProducts: "Chwazi angrè",
     fertilizerFormulation: "Fòmilasyon",
     fertilizerFormulationDesc:
       "Kreye yon gradyan pèsonalize ak matyè premyè. Pi bon melanj oto oswa pwodui ou genyen.",
@@ -3789,7 +3864,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanYieldRange: "Ranje tipik: {min}–{max} t/ha",
     fertilizerPlanResultUnit: "Inite rezilta",
     fertilizerPlanNeedYield: "Antre yon pwodiksyon objektif pi gran pase zewo pou kalkile dòz yo.",
-    fertilizerProductsTitle: "Pwodui ak pri sak",
+    fertilizerProductsTitle: "Angrè ak pri",
     fertilizerCostMixTitle: "Melanj rekòmande",
     fertilizerProductsBlendHint:
       "Modifye pwodui ak pri pou Seleksyon mwen. Melanj lan itilize pi piti kantite pwodui ou chwazi ki toujou kouvri bezwen yo (kredi plizyè nitiman enkli).",
@@ -3798,7 +3873,16 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPriceBasisBag:
       "Antre pri pou chak sak. Valè sou entènèt yo se referans ki soti nan pri pou tòn.",
     fertilizerBagKg: "Pwa sak (kg)",
+    fertilizerBagKgShort: "Pwa sak",
     fertilizerPricePerBag: "Pri / sak",
+    fertilizerPickColProduct: "Pwodui",
+    fertilizerPickColPrice: "Pri/sak",
+    fertilizerPickColQty: "kg",
+    fertilizerPickColBags: "sak",
+    fertilizerPickColCost: "Pri total",
+    fertilizerPickColUnitToggle: "Chanje inite kantite",
+    fertilizerExtraInMix:
+      "Tou nan melanj sa a (kouvri yon lòt nitiman kòm kredi)",
     fertilizerBags: "sak",
     fertilizerBag: "sak",
     fertilizerPerPlot: "pou pakèl la",
@@ -3822,7 +3906,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Chwazi yon melanj. Pwodui milti-nitiman yo kredite tout nitiman yo bay.",
     fertilizerScenarioBestValue: "Pi bon valè",
     fertilizerScenarioFewest: "Mwens pwodui",
-    fertilizerScenarioStockFirst: "Itilize stock bodega an premye",
+    fertilizerScenarioStockFirst: "Stock premye",
     fertilizerScenarioCompounds: "Konpoze an premye",
     fertilizerScenarioSingles: "Sèlman senp",
     fertilizerScenarioCurrent: "Seleksyon mwen",
@@ -3849,7 +3933,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioAppliedIrrig:
       "Melanj aplike sou dòz aktyèl yo. Taux irigasyon yo rete pou konparezon.",
     fertilizerScenarioVsCurrentDose: "dòz rekalkile pou irigasyon sa a",
-    fertilizerViewLabel: "Montre",
+    fertilizerViewLabel: "Gade kòm",
     fertilizerViewPrices: "Pri",
     fertilizerViewQuantity: "Kantite",
     fertilizerQuantityPlot: "Kantite pasèl",
@@ -3917,6 +4001,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Pa bezwen chò: CICe sifizan, oswa pa gen siyal choulaj (H+Al wo oswa pH anba objektif).",
     phAmendModeCalciumNeedData:
       "Done CICe / saturasyon pa ase pou konfime choulaj.",
+    phAmendModeBlockedTitle: "Sa pa se chemen rekòmande a",
+    phAmendModeBlockedFallback: "Chimi tè a montre yon lòt amandman.",
+    phAmendModeUseRecommended: "Itilize {mode}",
+    phAmendModeProceedAnyway: "Kalkile kanmenm",
     phAmendMaterialCalcitic: "Chò agrikòl (CaCO₃)",
     phAmendMaterialDolomitic: "Chò dolomitik (CaMg(CO₃)₂)",
     phAmendMaterialCao: "Oksid kalsyòm (CaO)",
@@ -4182,7 +4270,16 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     cic: "CIC e bases",
     amendment: "pH e/ou corretivo",
     fertilizer: "Nutrição",
-    fertilizerCost: "Custo",
+    fertilizerCost: "Fertilizantes e custo",
+    fertilizerCostPageDesc:
+      "Defina o saco, escolha uma estratégia e revise quantidades e custo.",
+    fertilizerCostDosesToggle: "Toque para adicionar ou revisar doses",
+    fertilizerCostDosesHint:
+      "Insira doses conhecidas para ver quantidades de fertilizante sem abrir o plano nutricional.",
+    fertilizerCostSetupLabel: "Saco e moeda",
+    fertilizerCostNeedDoses:
+      "Insira doses acima para escolher fertilizantes e ver quantidades.",
+    fertilizerScenarioChooseProducts: "Escolher fertilizantes",
     fertilizerFormulation: "Formulação",
     fertilizerFormulationDesc:
       "Crie um grau sob medida com matérias-primas. Melhor mistura automática ou produtos disponíveis.",
@@ -4528,7 +4625,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanYieldRange: "Faixa típica: {min}–{max} t/ha",
     fertilizerPlanResultUnit: "Unidade do resultado",
     fertilizerPlanNeedYield: "Informe um rendimento-alvo maior que zero para calcular as doses.",
-    fertilizerProductsTitle: "Produtos e preços por saco",
+    fertilizerProductsTitle: "Fertilizantes e preços",
     fertilizerCostMixTitle: "Misturas recomendadas",
     fertilizerProductsBlendHint:
       "Edite produtos e preços para Minha seleção. A mistura usa o menor número dos seus produtos que ainda cobre os nutrientes (créditos multi-nutriente incluídos).",
@@ -4537,7 +4634,16 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPriceBasisBag:
       "Informe o preço por saco. Os valores online são referências convertidas do preço por tonelada.",
     fertilizerBagKg: "Peso do saco (kg)",
+    fertilizerBagKgShort: "Peso saco",
     fertilizerPricePerBag: "Preço / saco",
+    fertilizerPickColProduct: "Produtos",
+    fertilizerPickColPrice: "Preço/saco",
+    fertilizerPickColQty: "kg",
+    fertilizerPickColBags: "sacos",
+    fertilizerPickColCost: "Custo",
+    fertilizerPickColUnitToggle: "Alternar unidade de quantidade",
+    fertilizerExtraInMix:
+      "Também nesta mistura (cobre outro nutriente como crédito)",
     fertilizerBags: "sacos",
     fertilizerBag: "saco",
     fertilizerPerPlot: "por parcela",
@@ -4561,7 +4667,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Escolha uma mistura. Produtos multinutrientes creditam todos os aportes.",
     fertilizerScenarioBestValue: "Melhor valor",
     fertilizerScenarioFewest: "Menos produtos",
-    fertilizerScenarioStockFirst: "Usar stock do armazém primeiro",
+    fertilizerScenarioStockFirst: "Stock primeiro",
     fertilizerScenarioCompounds: "Compostos primeiro",
     fertilizerScenarioSingles: "Apenas simples",
     fertilizerScenarioCurrent: "Minha seleção",
@@ -4588,7 +4694,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioAppliedIrrig:
       "Mistura aplicada às doses atuais. Taxas de irrigação ficam só para comparação.",
     fertilizerScenarioVsCurrentDose: "doses recalculadas para esta irrigação",
-    fertilizerViewLabel: "Mostrar",
+    fertilizerViewLabel: "Ver como",
     fertilizerViewPrices: "Preços",
     fertilizerViewQuantity: "Quantidade",
     fertilizerQuantityPlot: "Quantidade parcela",
@@ -4657,6 +4763,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Cal não necessária: CICe suficiente, ou sem sinal de calagem (H+Al alto ou pH abaixo da meta).",
     phAmendModeCalciumNeedData:
       "Dados de CICe / saturação insuficientes para confirmar calagem.",
+    phAmendModeBlockedTitle: "Não é a via recomendada",
+    phAmendModeBlockedFallback: "A química do solo aponta para outra emenda.",
+    phAmendModeUseRecommended: "Usar {mode}",
+    phAmendModeProceedAnyway: "Calcular mesmo assim",
     phAmendMaterialCalcitic: "Calcário agrícola (CaCO₃)",
     phAmendMaterialDolomitic: "Calcário dolomítico (CaMg(CO₃)₂)",
     phAmendMaterialCao: "Óxido de cálcio (CaO)",
@@ -4923,7 +5033,16 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     cic: "CIC na besi",
     amendment: "pH na/au marekebisho",
     fertilizer: "Lishe",
-    fertilizerCost: "Gharama",
+    fertilizerCost: "Mbolea na gharama",
+    fertilizerCostPageDesc:
+      "Weka uzito wa mfuko, chagua mkakati, kisha angalia kiasi na gharama.",
+    fertilizerCostDosesToggle: "Gusa kuongeza au kukagua dozi",
+    fertilizerCostDosesHint:
+      "Ingiza dozi unazojua ili kuona kiasi cha mbolea bila kufungua mpango wa lishe.",
+    fertilizerCostSetupLabel: "Mfuko na sarafu",
+    fertilizerCostNeedDoses:
+      "Ingiza dozi hapo juu ili kuchagua mbolea na kuona kiasi.",
+    fertilizerScenarioChooseProducts: "Chagua mbolea",
     fertilizerFormulation: "Uundaji",
     fertilizerFormulationDesc:
       "Tengeneza daraja maalum kutoka malighafi. Mchanganyiko bora kiotomatiki au bidhaa ulizonazo.",
@@ -5269,7 +5388,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPlanYieldRange: "Kiwango cha kawaida: {min}–{max} t/ha",
     fertilizerPlanResultUnit: "Kitengo cha matokeo",
     fertilizerPlanNeedYield: "Weka mavuno lengwa zaidi ya sifuri ili kuhesabu vipimo.",
-    fertilizerProductsTitle: "Bidhaa na bei za gunia",
+    fertilizerProductsTitle: "Mbolea na bei",
     fertilizerCostMixTitle: "Mchanganyiko uliopendekezwa",
     fertilizerProductsBlendHint:
       "Hariri bidhaa na bei kwa Uchaguzi wangu. Mchanganyiko hutumia bidhaa chache zaidi kati ya ulizochagua zinazotosha mahitaji (mikopo ya virutubisho mingi ikijumuishwa).",
@@ -5278,7 +5397,16 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerPriceBasisBag:
       "Weka bei kwa gunia. Bei za mtandaoni ni kulinganishwa kutoka bei ya tani.",
     fertilizerBagKg: "Uzito wa gunia (kg)",
+    fertilizerBagKgShort: "Uzito gunia",
     fertilizerPricePerBag: "Bei / gunia",
+    fertilizerPickColProduct: "Bidhaa",
+    fertilizerPickColPrice: "Bei/gunia",
+    fertilizerPickColQty: "kg",
+    fertilizerPickColBags: "magunia",
+    fertilizerPickColCost: "Gharama",
+    fertilizerPickColUnitToggle: "Badilisha kipimo cha kiasi",
+    fertilizerExtraInMix:
+      "Pia katika mchanganyiko huu (inafunika lishe nyingine kama mkopo)",
     fertilizerBags: "magunia",
     fertilizerBag: "gunia",
     fertilizerPerPlot: "kwa shamba",
@@ -5302,7 +5430,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Chagua mchanganyiko. Bidhaa zenye virutubishi mingi huhesabu vyote.",
     fertilizerScenarioBestValue: "Thamani bora",
     fertilizerScenarioFewest: "Bidhaa chache",
-    fertilizerScenarioStockFirst: "Tumia stock ya ghala kwanza",
+    fertilizerScenarioStockFirst: "Stock kwanza",
     fertilizerScenarioCompounds: "Mchanganyiko kwanza",
     fertilizerScenarioSingles: "Rahisi pekee",
     fertilizerScenarioCurrent: "Chaguo langu",
@@ -5329,7 +5457,7 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     fertilizerScenarioAppliedIrrig:
       "Mchanganyiko umetumika kwenye vipimo vya sasa. Viwango vya umwagiliaji ni kwa kulinganisha.",
     fertilizerScenarioVsCurrentDose: "vipimo vimehesabiwa upya kwa umwagiliaji huu",
-    fertilizerViewLabel: "Onyesha",
+    fertilizerViewLabel: "Onyesha kama",
     fertilizerViewPrices: "Bei",
     fertilizerViewQuantity: "Kiasi",
     fertilizerQuantityPlot: "Kiasi cha shamba",
@@ -5397,6 +5525,10 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
       "Chokaa haitajiwi: CICe inatosha, au hakuna ishara ya chokaa (H+Al juu au pH chini ya lengwa).",
     phAmendModeCalciumNeedData:
       "Data ya CICe / kueneza haitoshi kuthibitisha chokaa.",
+    phAmendModeBlockedTitle: "Si njia inayopendekezwa",
+    phAmendModeBlockedFallback: "Kemia ya udongo inaonyesha marekebisho tofauti.",
+    phAmendModeUseRecommended: "Tumia {mode}",
+    phAmendModeProceedAnyway: "Hesabu hata hivyo",
     phAmendMaterialCalcitic: "Chokaa cha kilimo (CaCO₃)",
     phAmendMaterialDolomitic: "Chokaa cha dolomiti (CaMg(CO₃)₂)",
     phAmendMaterialCao: "Oksidi ya kalsiamu (CaO)",

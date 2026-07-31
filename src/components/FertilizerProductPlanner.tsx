@@ -8,10 +8,12 @@ import MenuSelect from "@/components/ui/MenuSelect";
 import {
   DEFAULT_FERTILIZER_BAG_KG,
   FERTILIZER_CURRENCIES,
+  fertilizerShortLabel,
   fertilizersForNutrient,
   listAllFertilizers,
   matchCatalogProductKey,
   pricePerBagFromTonne,
+  roundBagsForPurchase,
   type FertilizerNutrient,
 } from "@/lib/fertilizerCatalog";
 import AddCustomFertilizerForm from "@/components/AddCustomFertilizerForm";
@@ -25,20 +27,28 @@ import {
   listBodegaItems,
   listUserFarms,
 } from "@/lib/farmRepository";
-import type { CalculationOutput } from "@/lib/agronomicCalculators";
+import {
+  areaUnitLabel,
+  convertAreaToHa,
+  type AreaUnit,
+  type CalculationOutput,
+} from "@/lib/agronomicCalculators";
 import {
   pickScenarioForReport,
   scenarioToReportPayload,
   type PdfFertilizerProduct,
 } from "@/lib/fertilizerReportPayload";
-import type {
-  DoseNutrientKey,
-  FertilityDoseResult,
+import {
+  buildManualDosePlan,
+  type DoseNutrientKey,
+  type FertilityDoseResult,
 } from "@/lib/soilFertilityPlan";
 import type {
   IrrigationEfficiencyTable,
   IrrigationSystem,
 } from "@/lib/soilFertilityTables";
+
+const AREA_UNITS: AreaUnit[] = ["ha", "acre", "carreau", "m2"];
 
 type PriceRow = {
   key: string;
@@ -58,6 +68,14 @@ type PriceResponse = {
   error?: string;
 };
 
+type DoseDraft = {
+  n: number;
+  p: number;
+  k: number;
+  mg: number;
+  ca: number;
+};
+
 type Props = {
   doses: FertilityDoseResult[];
   areaHa: number;
@@ -69,6 +87,7 @@ type Props = {
   showAsPage?: boolean;
   userId?: string | null;
   farmName?: string | null;
+  onDosesChange?: (doses: FertilityDoseResult[], areaHa: number) => void;
   onReportData?: (payload: {
     products: PdfFertilizerProduct[];
     outputs: CalculationOutput[];
@@ -92,6 +111,18 @@ const defaultProductByDose: Partial<Record<DoseNutrientKey, string>> = {
   ca: "calcium_nitrate",
 };
 
+const DOSE_FIELDS: Array<{
+  key: keyof DoseDraft;
+  doseKey: DoseNutrientKey;
+  label: string;
+}> = [
+  { key: "n", doseKey: "n", label: "N" },
+  { key: "p", doseKey: "p", label: "P₂O₅" },
+  { key: "k", doseKey: "k", label: "K₂O" },
+  { key: "mg", doseKey: "mg", label: "MgO" },
+  { key: "ca", doseKey: "ca", label: "CaO" },
+];
+
 const FERTILIZER_PLANNER_STORAGE_KEY = "cultosol_fertilizer_products_v2";
 
 function formatMoney(value: number, currency: string) {
@@ -100,6 +131,30 @@ function formatMoney(value: number, currency: string) {
     currency,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function doseDraftFromDoses(doses: FertilityDoseResult[]): DoseDraft {
+  const read = (key: DoseNutrientKey) => {
+    const dose = doses.find((row) => row.key === key);
+    if (!dose || dose.notRequired || dose.viaEncalado) return 0;
+    return Math.max(0, dose.dosisOxideKgHa ?? 0);
+  };
+  return {
+    n: read("n"),
+    p: read("p"),
+    k: read("k"),
+    mg: read("mg"),
+    ca: read("ca"),
+  };
+}
+
+function dosesSignature(doses: FertilityDoseResult[]) {
+  return doses
+    .map(
+      (dose) =>
+        `${dose.key}:${dose.dosisOxideKgHa ?? 0}:${dose.notRequired ? 1 : 0}:${dose.viaEncalado ? 1 : 0}`
+    )
+    .join("|");
 }
 
 export default function FertilizerProductPlanner({
@@ -112,12 +167,13 @@ export default function FertilizerProductPlanner({
   showAsPage = false,
   userId = null,
   farmName = null,
+  onDosesChange,
   onReportData,
 }: Props) {
   const [currency, setCurrency] = useState("");
   const [prices, setPrices] = useState<PriceResponse | null>(null);
   const [priceError, setPriceError] = useState("");
-  const [loadingPrices, setLoadingPrices] = useState(false);
+  const [, setLoadingPrices] = useState(false);
   const [bagKg, setBagKg] = useState(DEFAULT_FERTILIZER_BAG_KG);
   const [selectedProducts, setSelectedProducts] = useState<
     Partial<Record<DoseNutrientKey, string>>
@@ -125,11 +181,32 @@ export default function FertilizerProductPlanner({
   const [manualPrices, setManualPrices] = useState<Record<string, string>>({});
   const [storageReady, setStorageReady] = useState(false);
   const [activeScenarioId, setActiveScenarioId] = useState("recommended");
-  const [viewMode, setViewMode] = useState<FertilizerCostViewMode>("prices");
+  const [viewMode, setViewMode] = useState<FertilizerCostViewMode>("quantity");
+  const [quantityUnit, setQuantityUnit] = useState<"kg" | "bags">("kg");
   const [applyNote, setApplyNote] = useState("");
   const [stockProductKeys, setStockProductKeys] = useState<string[]>([]);
   const [catalogVersion, setCatalogVersion] = useState(0);
   const [showAddFertilizer, setShowAddFertilizer] = useState(false);
+  const [doseDraft, setDoseDraft] = useState<DoseDraft>(() =>
+    doseDraftFromDoses(doses)
+  );
+  const [doseSyncKey, setDoseSyncKey] = useState(() => dosesSignature(doses));
+  const [dosesEdited, setDosesEdited] = useState(false);
+  const [plotArea, setPlotArea] = useState(() => (areaHa > 0 ? areaHa : 1));
+  const [plotAreaUnit, setPlotAreaUnit] = useState<AreaUnit>("ha");
+
+  useEffect(() => {
+    const nextKey = dosesSignature(doses);
+    if (nextKey === doseSyncKey) return;
+    setDoseDraft(doseDraftFromDoses(doses));
+    setDoseSyncKey(nextKey);
+    setDosesEdited(false);
+  }, [doses, doseSyncKey]);
+
+  useEffect(() => {
+    if (dosesEdited || plotAreaUnit !== "ha" || !(areaHa > 0)) return;
+    setPlotArea(areaHa);
+  }, [areaHa, dosesEdited, plotAreaUnit]);
 
   useEffect(() => {
     try {
@@ -234,16 +311,37 @@ export default function FertilizerProductPlanner({
     return () => controller.abort();
   }, [country, currency]);
 
+  const effectiveAreaHa = useMemo(() => {
+    if (!showAsPage) return areaHa > 0 ? areaHa : 1;
+    const area = plotArea > 0 ? plotArea : 1;
+    const ha = convertAreaToHa(area, plotAreaUnit);
+    return ha > 0 ? ha : 1;
+  }, [areaHa, plotArea, plotAreaUnit, showAsPage]);
+
+  const effectiveDoses = useMemo(() => {
+    if (!showAsPage) return doses;
+    if (!dosesEdited && doses.length > 0) return doses;
+    return buildManualDosePlan({
+      nOxideKgHa: doseDraft.n,
+      p2o5KgHa: doseDraft.p,
+      k2oKgHa: doseDraft.k,
+      mgoKgHa: doseDraft.mg,
+      caoKgHa: doseDraft.ca,
+      area: plotArea > 0 ? plotArea : 1,
+      areaUnit: plotAreaUnit,
+    }).doses;
+  }, [doseDraft, doses, dosesEdited, plotArea, plotAreaUnit, showAsPage]);
+
   const activeRows = useMemo(
     () =>
-      doses.filter(
+      effectiveDoses.filter(
         (dose) =>
           Boolean(nutrientByDose[dose.key]) &&
           !dose.notRequired &&
           !dose.viaEncalado &&
           (dose.dosisOxideKgHa || 0) > 0
       ),
-    [doses]
+    [effectiveDoses]
   );
 
   const displayCurrency = prices?.currency || currency || "USD";
@@ -279,7 +377,7 @@ export default function FertilizerProductPlanner({
   const scenarios = useMemo(
     () =>
       buildCostScenarios({
-        doses,
+        doses: effectiveDoses,
         prices: productPrices,
         bagKg: effectiveBagKg,
         selectedProducts,
@@ -288,7 +386,7 @@ export default function FertilizerProductPlanner({
         stockProductKeys,
       }),
     [
-      doses,
+      effectiveDoses,
       productPrices,
       effectiveBagKg,
       selectedProducts,
@@ -305,6 +403,7 @@ export default function FertilizerProductPlanner({
     null;
 
   const activePlan = activeScenario?.plan || null;
+  const isMySelection = activeScenarioId === "current_selection";
 
   useEffect(() => {
     if (!scenarios.some((s) => s.id === activeScenarioId)) {
@@ -338,7 +437,43 @@ export default function FertilizerProductPlanner({
     t,
   ]);
 
-  if (activeRows.length === 0) return null;
+  function commitDoseDraft(
+    next: DoseDraft,
+    nextArea = plotArea,
+    nextUnit = plotAreaUnit
+  ) {
+    setDosesEdited(true);
+    setDoseDraft(next);
+    setPlotArea(nextArea);
+    setPlotAreaUnit(nextUnit);
+    const plan = buildManualDosePlan({
+      nOxideKgHa: next.n,
+      p2o5KgHa: next.p,
+      k2oKgHa: next.k,
+      mgoKgHa: next.mg,
+      caoKgHa: next.ca,
+      area: nextArea > 0 ? nextArea : 1,
+      areaUnit: nextUnit,
+    });
+    setDoseSyncKey(dosesSignature(plan.doses));
+    onDosesChange?.(plan.doses, plan.areaHa);
+  }
+
+  function updateDoseField(key: keyof DoseDraft, raw: string) {
+    const parsed = Number(String(raw).replace(",", "."));
+    const value = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    commitDoseDraft({ ...doseDraft, [key]: value });
+  }
+
+  function updatePlotArea(raw: string) {
+    const parsed = Number(String(raw).replace(",", "."));
+    const value = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    commitDoseDraft(doseDraft, value, plotAreaUnit);
+  }
+
+  function updatePlotAreaUnit(unit: AreaUnit) {
+    commitDoseDraft(doseDraft, plotArea, unit);
+  }
 
   const plannedRows = activeRows.map((dose) => {
     const nutrient = nutrientByDose[dose.key]!;
@@ -378,61 +513,266 @@ export default function FertilizerProductPlanner({
     };
   });
 
-  const productsBody = (
-    <div className={`grid gap-4 ${showAsPage ? "" : "px-0 pb-4 pt-2"}`.trim()}>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-green-950 dark-text-primary">
-            {country ||
-              t.fertilizerPriceNoCountry ||
-              "Select a country in the report details for local currency."}
-          </p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {t.fertilizerProductsBlendHint ||
-              "Edit products and bag prices for My selection. Amounts follow the active mix above (nutrient credits included)."}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="calc-field-label grid gap-1">
-            {t.fertilizerBagKg || "Bag weight (kg)"}
-            <input
-              className="calc-field-input w-24"
-              inputMode="decimal"
-              value={bagKg || ""}
-              onChange={(event) => {
-                const next = Number(String(event.target.value).replace(",", "."));
-                setBagKg(Number.isFinite(next) && next > 0 ? next : 0);
-              }}
-              placeholder={String(DEFAULT_FERTILIZER_BAG_KG)}
-            />
-          </label>
-          <MenuSelect
-            label={t.currency || "Currency"}
-            value={displayCurrency}
-            options={currencyOptions}
-            onChange={setCurrency}
-            compact
-            variant="field"
+  const setupControls = (
+    <div className="fertilizer-setup-row">
+      <label className="fertilizer-setup-field fertilizer-setup-field--bag">
+        <span className="fertilizer-setup-field__label">
+          {t.fertilizerBagKgShort || t.fertilizerBagKg || "Bag size"}
+        </span>
+        <span className="fertilizer-bag-weight">
+          <input
+            className="calc-field-input fertilizer-bag-weight__input"
+            inputMode="decimal"
+            value={bagKg || ""}
+            onChange={(event) => {
+              const next = Number(String(event.target.value).replace(",", "."));
+              setBagKg(Number.isFinite(next) && next > 0 ? next : 0);
+            }}
+            placeholder={String(DEFAULT_FERTILIZER_BAG_KG)}
+            aria-label={t.fertilizerBagKg || "Bag weight (kg)"}
           />
-        </div>
+        </span>
+        <span className="fertilizer-bag-weight__unit" aria-hidden>
+          kg
+        </span>
+      </label>
+      <div className="fertilizer-setup-field fertilizer-setup-field--currency">
+        <MenuSelect
+          label={t.currency || "Currency"}
+          value={displayCurrency}
+          options={currencyOptions}
+          onChange={setCurrency}
+          compact
+          variant="field"
+          className="fertilizer-setup-currency"
+        />
       </div>
+    </div>
+  );
 
-      {priceError ? (
-        <p className="fertilizer-cost-alert rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
-          {priceError}.{" "}
-          {t.fertilizerManualFallback ||
-            "Enter a known supplier price manually below."}
-        </p>
-      ) : null}
-
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {t.fertilizerSearchHint ||
-            "Search in each product list, or add a missing fertilizer."}
-        </p>
+  const viewModeRow = (
+    <div className="fertilizer-view-mode">
+      <p className="fertilizer-view-mode__label">
+        {t.fertilizerViewLabel || "View as"}
+      </p>
+      <div
+        className="app-segmented-control fertilizer-view-mode__control"
+        role="group"
+        aria-label={t.fertilizerViewLabel || "View as"}
+      >
         <button
           type="button"
-          className="rounded-xl bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-900"
+          onClick={() => setViewMode("quantity")}
+          aria-pressed={viewMode === "quantity"}
+          className={`app-segmented-control__btn${
+            viewMode === "quantity" ? " app-segmented-control__btn--active" : ""
+          }`}
+        >
+          {t.fertilizerViewQuantity || "Quantity"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode("prices")}
+          aria-pressed={viewMode === "prices"}
+          className={`app-segmented-control__btn${
+            viewMode === "prices" ? " app-segmented-control__btn--active" : ""
+          }`}
+        >
+          {t.fertilizerViewPrices || "Prices"}
+        </button>
+      </div>
+    </div>
+  );
+
+  const productCards = (
+    <div className="fertilizer-pick-list" key={catalogVersion}>
+      <div className="fertilizer-pick-row fertilizer-pick-row--head">
+        <span className="fertilizer-pick-row__nutrient" aria-hidden />
+        <span className="fertilizer-pick-row__product">
+          {t.fertilizerPickColProduct || "Products"}
+        </span>
+        <span className="fertilizer-pick-row__price">
+          {t.fertilizerPickColPrice || "Price"}
+        </span>
+        {viewMode === "quantity" ? (
+          <button
+            type="button"
+            className="fertilizer-pick-row__metric fertilizer-pick-row__metric-toggle"
+            aria-label={t.fertilizerPickColUnitToggle || "Switch quantity unit"}
+            title={t.fertilizerPickColUnitToggle || "Switch quantity unit"}
+            onClick={() =>
+              setQuantityUnit((previous) => (previous === "kg" ? "bags" : "kg"))
+            }
+          >
+            {quantityUnit === "kg"
+              ? t.fertilizerPickColQty || "kg"
+              : t.fertilizerPickColBags || t.fertilizerBags || "bags"}
+          </button>
+        ) : (
+          <span className="fertilizer-pick-row__metric">
+            {t.fertilizerPickColCost || t.fertilizerViewPrices || "Cost"}
+          </span>
+        )}
+      </div>
+      {plannedRows.map((row) => {
+        if (!row.product) return null;
+        const productOptions = row.availableProducts.map((product) => ({
+          value: product.key,
+          label: `${product.label}${
+            product.custom ? ` · ${t.fertilizerCustomTag || "custom"}` : ""
+          }`,
+          shortLabel: fertilizerShortLabel(product),
+        }));
+        const metric = !row.blendLine
+          ? "—"
+          : viewMode === "quantity"
+            ? quantityUnit === "bags"
+              ? String(
+                  roundBagsForPurchase(row.blendLine.bagsHa * effectiveAreaHa)
+                )
+              : (row.blendLine.kgHa * effectiveAreaHa).toFixed(1)
+            : formatMoney(
+                row.blendLine.costHa * effectiveAreaHa,
+                displayCurrency
+              );
+        return (
+          <div key={row.dose.key} className="fertilizer-pick-row">
+            <span className="fertilizer-pick-row__nutrient">
+              {row.dose.nutrientOxide}
+            </span>
+            <div className="fertilizer-pick-row__product">
+              <MenuSelect
+                label=""
+                value={row.product.key}
+                options={productOptions}
+                onChange={(value) => {
+                  setSelectedProducts((previous) => ({
+                    ...previous,
+                    [row.dose.key]: value,
+                  }));
+                  setActiveScenarioId("current_selection");
+                  setApplyNote("");
+                }}
+                fullWidth
+                variant="field"
+                compact
+                shortTrigger
+                searchable
+                searchPlaceholder={
+                  t.fertilizerSearchPlaceholderShort ||
+                  t.fertilizerSearchPlaceholder ||
+                  "Search…"
+                }
+              />
+            </div>
+            <label className="fertilizer-pick-row__price">
+              <span className="sr-only">
+                {t.fertilizerPricePerBag || "Price / bag"}
+              </span>
+              <input
+                className="calc-field-input"
+                inputMode="decimal"
+                value={manualPrices[row.manualKey] || ""}
+                onChange={(event) =>
+                  setManualPrices((previous) => ({
+                    ...previous,
+                    [row.manualKey]: event.target.value,
+                  }))
+                }
+                placeholder={
+                  row.onlinePricePerBag != null
+                    ? String(row.onlinePricePerBag)
+                    : displayCurrency
+                }
+              />
+            </label>
+            <span className="fertilizer-pick-row__metric">{metric}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const orphanBlendLines = activePlan
+    ? activePlan.lines.filter(
+        (line) =>
+          !plannedRows.some((row) => row.product?.key === line.productKey)
+      )
+    : [];
+
+  /** Products in the mix that aren't assigned to a nutrient row — only show when pricing them matters. */
+  const extraBlendPriceEditors =
+    orphanBlendLines.length > 0 ? (
+      <div className="fertilizer-pick-extras">
+        <p className="fertilizer-pick-extras__note">
+          {t.fertilizerExtraInMix ||
+            "Also in this mix (covers another nutrient as a credit)"}
+        </p>
+        <div className="fertilizer-pick-list fertilizer-pick-list--extras">
+          {orphanBlendLines.map((line) => {
+            const manualKey = `saco:${effectiveBagKg}:${displayCurrency}:${line.productKey}`;
+            const onlineRow = prices?.products.find(
+              (item) => item.key === line.productKey
+            );
+            const onlinePricePerBag = pricePerBagFromTonne(
+              onlineRow?.pricePerMetricTonne || 0,
+              effectiveBagKg
+            );
+            const metric =
+              viewMode === "quantity"
+                ? quantityUnit === "bags"
+                  ? String(roundBagsForPurchase(line.bagsHa * effectiveAreaHa))
+                  : (line.kgHa * effectiveAreaHa).toFixed(1)
+                : formatMoney(line.costHa * effectiveAreaHa, displayCurrency);
+            return (
+              <div key={line.productKey} className="fertilizer-pick-row">
+                <span className="fertilizer-pick-row__nutrient" aria-hidden>
+                  +
+                </span>
+                <div className="fertilizer-pick-row__product">
+                  <p className="fertilizer-pick-extras__name">
+                    {line.label}
+                    <span className="fertilizer-pick-extras__analysis">
+                      {" "}
+                      · {line.analysis}
+                    </span>
+                  </p>
+                </div>
+                <label className="fertilizer-pick-row__price">
+                  <span className="sr-only">
+                    {t.fertilizerPricePerBag || "Price / bag"}
+                  </span>
+                  <input
+                    className="calc-field-input"
+                    inputMode="decimal"
+                    value={manualPrices[manualKey] || ""}
+                    onChange={(event) =>
+                      setManualPrices((previous) => ({
+                        ...previous,
+                        [manualKey]: event.target.value,
+                      }))
+                    }
+                    placeholder={
+                      onlinePricePerBag > 0
+                        ? String(onlinePricePerBag)
+                        : displayCurrency
+                    }
+                  />
+                </label>
+                <span className="fertilizer-pick-row__metric">{metric}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    ) : null;
+
+  const addFertilizerControls = (
+    <>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          className="text-xs font-semibold text-emerald-800 underline"
           onClick={() => setShowAddFertilizer((open) => !open)}
         >
           {showAddFertilizer
@@ -443,224 +783,33 @@ export default function FertilizerProductPlanner({
       {showAddFertilizer ? (
         <AddCustomFertilizerForm
           t={t}
-          onSaved={(product) => {
+          onSaved={() => {
             setCatalogVersion((version) => version + 1);
             setShowAddFertilizer(false);
             setApplyNote(
               t.fertilizerAddProductSaved ||
                 "Fertilizer added to your lists."
             );
-            void product;
           }}
           onCancel={() => setShowAddFertilizer(false)}
         />
       ) : null}
-
-      <div className="grid gap-3" key={catalogVersion}>
-        {plannedRows.map((row) => {
-          if (!row.product) return null;
-          const productOptions = row.availableProducts.map(
-            (product) =>
-              [
-                `${product.key}`,
-                `${product.label} · ${product.analysis}${
-                  product.custom
-                    ? ` · ${t.fertilizerCustomTag || "custom"}`
-                    : ""
-                }`,
-              ] as [string, string]
-          );
-          return (
-            <article
-              key={row.dose.key}
-              className="rounded-2xl border border-emerald-900/10 bg-white/60 p-3 dark:border-white/10 dark:bg-white/5"
-            >
-              <div className="grid gap-3 sm:grid-cols-2">
-                <MenuSelect
-                  label={row.dose.nutrientOxide}
-                  value={row.product.key}
-                  options={productOptions}
-                  onChange={(value) => {
-                    setSelectedProducts((previous) => ({
-                      ...previous,
-                      [row.dose.key]: value,
-                    }));
-                    setActiveScenarioId("current_selection");
-                    setApplyNote("");
-                  }}
-                  fullWidth
-                  variant="field"
-                  searchable
-                  searchPlaceholder={
-                    t.fertilizerSearchPlaceholder || "Search fertilizers…"
-                  }
-                />
-                <label className="calc-field-label grid gap-1">
-                  {`${t.fertilizerPricePerBag || "Price / bag (saco)"} (${displayCurrency})`}
-                  <input
-                    className="calc-field-input"
-                    inputMode="decimal"
-                    value={manualPrices[row.manualKey] || ""}
-                    onChange={(event) =>
-                      setManualPrices((previous) => ({
-                        ...previous,
-                        [row.manualKey]: event.target.value,
-                      }))
-                    }
-                    placeholder={
-                      row.onlinePricePerBag != null
-                        ? String(row.onlinePricePerBag)
-                        : t.fertilizerManualPrice || "Manual price"
-                    }
-                  />
-                </label>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
-                {viewMode === "quantity" ? (
-                  <>
-                    <Metric
-                      label={t.fertilizerProductAmountHa || "Product / ha"}
-                      value={
-                        row.blendLine
-                          ? `${row.blendLine.kgHa.toFixed(1)} kg · ${row.blendLine.bagsHa.toFixed(1)} ${t.fertilizerBags || "bags"}`
-                          : t.fertilizerBlendCovered ||
-                            "Covered in mix / not primary"
-                      }
-                    />
-                    <Metric
-                      label={t.fertilizerProductAmountPlot || "Product / plot"}
-                      value={
-                        row.blendLine
-                          ? `${(row.blendLine.kgHa * areaHa).toFixed(1)} kg · ${(row.blendLine.bagsHa * areaHa).toFixed(1)} ${t.fertilizerBags || "bags"}`
-                          : "—"
-                      }
-                    />
-                    <Metric
-                      label={t.fertilizerQuantityPlot || "Plot quantity"}
-                      value={
-                        row.blendLine
-                          ? `${(row.blendLine.kgHa * areaHa).toFixed(1)} kg`
-                          : "—"
-                      }
-                    />
-                  </>
-                ) : (
-                  <>
-                    <Metric
-                      label={t.fertilizerCostHa || "Cost / ha"}
-                      value={
-                        row.blendLine
-                          ? formatMoney(row.blendLine.costHa, displayCurrency)
-                          : t.fertilizerBlendCovered ||
-                            "Covered in mix / not primary"
-                      }
-                    />
-                    <Metric
-                      label={t.fertilizerCostPlot || "Plot cost"}
-                      value={
-                        row.blendLine
-                          ? formatMoney(
-                              row.blendLine.costHa * areaHa,
-                              displayCurrency
-                            )
-                          : "—"
-                      }
-                    />
-                    <Metric
-                      label={t.fertilizerPricePerBag || "Price / bag (saco)"}
-                      value={
-                        row.pricePerBag != null
-                          ? formatMoney(row.pricePerBag, displayCurrency)
-                          : "—"
-                      }
-                    />
-                  </>
-                )}
-              </div>
-              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                {row.manual
-                  ? t.fertilizerManualPrice || "Manual supplier price"
-                  : row.onlineRow?.proxy
-                    ? `${t.fertilizerProxyPrice || "Online proxy"}: DAP`
-                    : row.pricePerBag != null
-                      ? `${t.fertilizerOnlinePrice || "Online benchmark"} · ${prices?.period || ""} · ${effectiveBagKg} kg/${t.fertilizerBag || "bag"}`
-                      : t.fertilizerManualRequired ||
-                        "No public benchmark is available; enter a supplier price."}
-              </p>
-            </article>
-          );
-        })}
-      </div>
-
-      {/* Price editors for blend products not tied to a dose picker */}
-      {activePlan
-        ? activePlan.lines
-            .filter(
-              (line) =>
-                !plannedRows.some((row) => row.product?.key === line.productKey)
-            )
-            .map((line) => {
-              const manualKey = `saco:${effectiveBagKg}:${displayCurrency}:${line.productKey}`;
-              const onlineRow = prices?.products.find(
-                (item) => item.key === line.productKey
-              );
-              const onlinePricePerBag = pricePerBagFromTonne(
-                onlineRow?.pricePerMetricTonne || 0,
-                effectiveBagKg
-              );
-              return (
-                <article
-                  key={line.productKey}
-                  className="rounded-2xl border border-dashed border-emerald-900/15 bg-emerald-50/40 p-3 dark:border-white/15 dark:bg-white/5"
-                >
-                  <p className="text-sm font-semibold text-green-950 dark-text-primary">
-                    {line.label} · {line.analysis}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {viewMode === "quantity"
-                      ? `${(line.kgHa * areaHa).toFixed(1)} kg ${t.fertilizerPerPlot || "per plot"} · ${line.kgHa.toFixed(1)} kg/ha · ${(line.bagsHa * areaHa).toFixed(1)} ${t.fertilizerBags || "bags"}`
-                      : `${formatMoney(line.costHa * areaHa, displayCurrency)} ${t.fertilizerCostPlot || "plot"} · ${line.kgHa.toFixed(1)} kg/ha`}
-                  </p>
-                  <label className="calc-field-label mt-2 grid gap-1">
-                    {`${t.fertilizerPricePerBag || "Price / bag (saco)"} (${displayCurrency})`}
-                    <input
-                      className="calc-field-input"
-                      inputMode="decimal"
-                      value={manualPrices[manualKey] || ""}
-                      onChange={(event) =>
-                        setManualPrices((previous) => ({
-                          ...previous,
-                          [manualKey]: event.target.value,
-                        }))
-                      }
-                      placeholder={
-                        onlinePricePerBag != null
-                          ? String(onlinePricePerBag)
-                          : t.fertilizerManualPrice || "Manual price"
-                      }
-                    />
-                  </label>
-                </article>
-              );
-            })
-        : null}
-
-      {prices ? (
-        <p className="text-[11px] text-slate-500 dark:text-slate-400">
-          {loadingPrices ? `${t.loading || "Loading"}… ` : ""}
-          <a
-            href={prices.sourceUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold underline"
-          >
-            {prices.source}
-          </a>
-          {prices.updatedAt ? ` · ${prices.updatedAt}` : ""}
-        </p>
-      ) : null}
-    </div>
+    </>
   );
+
+  const selectionPanel =
+    activeRows.length === 0 ? (
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        {t.fertilizerCostNeedDoses ||
+          "Enter doses above to choose fertilizers."}
+      </p>
+    ) : (
+      <div className="grid gap-2">
+        {addFertilizerControls}
+        {productCards}
+        {extraBlendPriceEditors}
+      </div>
+    );
 
   const scenariosBody = (
     <div className={showAsPage ? undefined : "px-0 pb-4 pt-2"}>
@@ -710,7 +859,7 @@ export default function FertilizerProductPlanner({
                 lines: scenario.plan.lines.map((line) => ({
                   productKey: line.productKey,
                   productName: line.label,
-                  quantity: line.kgHa * areaHa,
+                  quantity: line.kgHa * effectiveAreaHa,
                   unit: "kg",
                 })),
               });
@@ -719,60 +868,151 @@ export default function FertilizerProductPlanner({
             }
           })();
         }}
-        areaHa={areaHa}
+        areaHa={effectiveAreaHa}
         currency={displayCurrency}
         missingPrices={missingPrices}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        selectionPanel={selectionPanel}
+        showViewMode={!showAsPage}
+        showIrrigationCompare={!showAsPage}
         t={t}
       />
     </div>
   );
 
+  const doseSummary = DOSE_FIELDS.filter((field) => doseDraft[field.key] > 0)
+    .map((field) => `${field.label} ${doseDraft[field.key]}`)
+    .join(" · ");
+
+  if (showAsPage) {
+    return (
+      <div className="grid gap-3">
+        <section className="calc-surface space-y-3 p-4">
+          <h2 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
+            {t.fertilizerCost || "Fertilizers & cost"}
+          </h2>
+
+          <details className="fertilizer-cost-doses">
+            <summary>
+              <span className="fertilizer-cost-doses__label">
+                {t.fertilizerCostDosesToggle ||
+                  "Tap to add or review doses"}
+                {doseSummary ? (
+                  <span className="fertilizer-cost-doses__summary">
+                    · {doseSummary}
+                  </span>
+                ) : null}
+              </span>
+              <span className="fertilizer-cost-doses__chevron" aria-hidden />
+            </summary>
+            <div className="fertilizer-cost-doses__fields calc-form-fields calc-form-fields--grid grid grid-cols-3 gap-3">
+              {DOSE_FIELDS.map((field) => (
+                <label key={field.key} className="calc-field-label grid gap-1">
+                  {`${field.label} (kg/ha)`}
+                  <input
+                    className="calc-field-input"
+                    inputMode="decimal"
+                    value={doseDraft[field.key] || ""}
+                    onChange={(event) =>
+                      updateDoseField(field.key, event.target.value)
+                    }
+                    placeholder="0"
+                  />
+                </label>
+              ))}
+              <label className="calc-field-label grid gap-1">
+                {t.area || "Area"}
+                <input
+                  className="calc-field-input"
+                  inputMode="decimal"
+                  value={plotArea || ""}
+                  onChange={(event) => updatePlotArea(event.target.value)}
+                  placeholder="1"
+                />
+              </label>
+              <MenuSelect
+                label={t.areaUnit || t.unit || "Unit"}
+                value={plotAreaUnit}
+                options={AREA_UNITS.map(
+                  (unit) =>
+                    [
+                      unit,
+                      t[`areaUnit_${unit}`] || areaUnitLabel(unit),
+                    ] as [AreaUnit, string]
+                )}
+                onChange={updatePlotAreaUnit}
+                compact
+                variant="field"
+                fullWidth
+              />
+            </div>
+          </details>
+
+          <div className="fertilizer-cost-toolbar">
+            {setupControls}
+            {viewModeRow}
+          </div>
+
+          {priceError ? (
+            <p className="fertilizer-cost-alert rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+              {priceError}
+            </p>
+          ) : null}
+
+          {scenariosBody}
+
+          {!isMySelection && missingPrices.length > 0 && activeRows.length > 0 ? (
+            <details className="fertilizer-cost-doses">
+              <summary>
+                <span className="fertilizer-cost-doses__label">
+                  {t.fertilizerProductsTitle || "Fertilizers & prices"}
+                </span>
+                <span className="fertilizer-cost-doses__chevron" aria-hidden />
+              </summary>
+              <div className="mt-2 grid gap-2">
+                {addFertilizerControls}
+                {productCards}
+                {extraBlendPriceEditors}
+              </div>
+            </details>
+          ) : null}
+        </section>
+      </div>
+    );
+  }
+
+  const productsBody = (
+    <div className="grid gap-3 px-0 pb-4 pt-2">
+      {setupControls}
+      {priceError ? (
+        <p className="fertilizer-cost-alert rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+          {priceError}
+        </p>
+      ) : null}
+      {addFertilizerControls}
+      {productCards}
+      {extraBlendPriceEditors}
+    </div>
+  );
+
   return (
     <div className="grid gap-4">
-      {showAsPage ? (
-        <section className="calc-surface space-y-3 p-4">
-          <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
-            {t.fertilizerCostMixTitle || "Recommended mixes"}
-          </h3>
-          {scenariosBody}
-        </section>
-      ) : (
-        <details className="fertilizer-plan__interpretation calc-surface" open>
-          <summary className="fertilizer-plan__recommendations-summary">
-            {t.fertilizerCostMixTitle || "Recommended mixes"}
-          </summary>
-          {scenariosBody}
-        </details>
-      )}
+      <details className="fertilizer-plan__interpretation calc-surface" open>
+        <summary className="fertilizer-plan__recommendations-summary">
+          {t.fertilizerCostMixTitle || "Recommended mixes"}
+        </summary>
+        {scenariosBody}
+      </details>
 
-      {showAsPage ? (
-        <section className="calc-surface space-y-4 p-4">
-          <h3 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
-            {t.fertilizerProductsTitle || "Products & bag prices"}
-          </h3>
-          {productsBody}
-        </section>
-      ) : (
+      {!isMySelection ? (
         <details className="fertilizer-plan__interpretation calc-surface">
           <summary className="fertilizer-plan__recommendations-summary">
             {t.fertilizerProductsTitle || "Products & bag prices"}
           </summary>
           {productsBody}
         </details>
-      )}
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="calc-metric p-2">
-      <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
-        {label}
-      </p>
-      <p className="mt-1 font-semibold text-green-950 dark-text-primary">{value}</p>
+      ) : null}
     </div>
   );
 }

@@ -31,6 +31,7 @@ import { useMemoryNumber, useSharedCationInputs, useEmitCalculatorOutputs } from
 import MenuSelect, { type MenuSelectOption } from "@/components/ui/MenuSelect";
 import { getCicAcidityContribution } from "@/lib/baseSaturation";
 import {
+  AlertTriangle,
   Beaker,
   FlaskConical,
   Mountain,
@@ -281,7 +282,7 @@ export default function PhAmendmentCalculator({
 
   const [uiMode, setUiMode] = useState<PhAmendUiMode>("calcium");
   const [uiModeManual, setUiModeManual] = useState(false);
-  const [modeNotice, setModeNotice] = useState<string | null>(null);
+  const [proceedDespiteBlock, setProceedDespiteBlock] = useState(false);
   const [method, setMethod] = useState<PhAmendmentMethod>("ca_saturation");
   const [material, setMaterial] = useState<PhAmendmentMaterial>("calcitic_lime");
   const [materialManual, setMaterialManual] = useState(false);
@@ -439,18 +440,11 @@ export default function PhAmendmentCalculator({
     if (uiModeManual) return;
     setUiMode(recommendedMode);
     setMethod(defaultMethodForUiMode(recommendedMode, resolvedCurrentPh));
-    setModeNotice(null);
+    setProceedDespiteBlock(false);
   }, [recommendedMode, resolvedCurrentPh, uiModeManual]);
 
-  function modeReasonText(reasonKey: string | null) {
-    if (!reasonKey) return null;
-    return t[reasonKey] || reasonKey;
-  }
-
-  function selectUiMode(next: PhAmendUiMode) {
-    setUiModeManual(true);
-    setUiMode(next);
-    const applicability = phAmendUiModeApplicability(next, {
+  const modeGateInput = useMemo(
+    () => ({
       needsGypsum: chemGate.needsGypsum,
       needsLime: chemGate.needsLime,
       limeReason: chemGate.limeReason,
@@ -459,12 +453,46 @@ export default function PhAmendmentCalculator({
       noLimeOrGypsum: chemGate.noLimeOrGypsum,
       insufficientData: chemGate.insufficientData,
       currentPh: resolvedCurrentPh,
-    });
-    if (!applicability.ok) {
-      setModeNotice(modeReasonText(applicability.reasonKey));
-    } else {
-      setModeNotice(null);
-    }
+    }),
+    [
+      chemGate.needsGypsum,
+      chemGate.needsLime,
+      chemGate.limeReason,
+      chemGate.sodic,
+      chemGate.caDeficit,
+      chemGate.noLimeOrGypsum,
+      chemGate.insufficientData,
+      resolvedCurrentPh,
+    ]
+  );
+
+  const currentModeApplicability = useMemo(
+    () => phAmendUiModeApplicability(uiMode, modeGateInput),
+    [uiMode, modeGateInput]
+  );
+
+  const modeBlocked = !currentModeApplicability.ok;
+  const showCalculation = !modeBlocked || proceedDespiteBlock;
+
+  useEffect(() => {
+    if (!modeBlocked) setProceedDespiteBlock(false);
+  }, [modeBlocked]);
+
+  function modeReasonText(reasonKey: string | null) {
+    if (!reasonKey) return null;
+    return t[reasonKey] || reasonKey;
+  }
+
+  function modeChipLabel(mode: PhAmendUiMode) {
+    if (mode === "gypsum") return t.phAmendModeGypsum || "Gypsum";
+    if (mode === "other") return t.phAmendModeOther || "Other";
+    return t.phAmendModeCalciumShort || t.phAmendModeCalcium || "Calcium";
+  }
+
+  function selectUiMode(next: PhAmendUiMode) {
+    setUiModeManual(true);
+    setUiMode(next);
+    setProceedDespiteBlock(false);
     if (next === "other") {
       setMethod((previous) =>
         OTHER_METHOD_OPTIONS.includes(previous)
@@ -480,6 +508,13 @@ export default function PhAmendmentCalculator({
     } else {
       setMethod(defaultMethodForUiMode(next, resolvedCurrentPh));
     }
+  }
+
+  function goToRecommendedMode() {
+    setUiModeManual(false);
+    setProceedDespiteBlock(false);
+    setUiMode(recommendedMode);
+    setMethod(defaultMethodForUiMode(recommendedMode, resolvedCurrentPh));
   }
 
   function toggleLimeMaterial() {
@@ -588,7 +623,7 @@ export default function PhAmendmentCalculator({
     return rows;
   }, [result, method, material, outputUnit, plotArea, plotAreaUnit, resolvedDepthCm, t]);
 
-  useEmitCalculatorOutputs(onOutputsChange, outputs);
+  useEmitCalculatorOutputs(onOutputsChange, showCalculation ? outputs : []);
 
   const showMaterial = methodRaisesPh(method) && chemGate.needsLime;
   const unitLabel = phAmendmentUnitLabel(outputUnit);
@@ -616,16 +651,7 @@ export default function PhAmendmentCalculator({
         aria-label={t.phAmendModeBar || "Amendment mode"}
       >
         {modeChips.map((chip) => {
-          const applicability = phAmendUiModeApplicability(chip.id, {
-            needsGypsum: chemGate.needsGypsum,
-            needsLime: chemGate.needsLime,
-            limeReason: chemGate.limeReason,
-            sodic: chemGate.sodic,
-            caDeficit: chemGate.caDeficit,
-            noLimeOrGypsum: chemGate.noLimeOrGypsum,
-            insufficientData: chemGate.insufficientData,
-            currentPh: resolvedCurrentPh,
-          });
+          const applicability = phAmendUiModeApplicability(chip.id, modeGateInput);
           const recommended = recommendedMode === chip.id;
           return (
             <button
@@ -656,12 +682,46 @@ export default function PhAmendmentCalculator({
         })}
       </div>
 
-      {modeNotice ? (
-        <p className="values-alert values-alert--warning !m-0 text-sm" role="status">
-          {modeNotice}
-        </p>
+      {modeBlocked ? (
+        <aside className="ph-amend-gate" role="status">
+          <div className="ph-amend-gate__icon" aria-hidden>
+            <AlertTriangle size={18} strokeWidth={2.25} />
+          </div>
+          <div className="ph-amend-gate__body">
+            <p className="ph-amend-gate__title">
+              {t.phAmendModeBlockedTitle || "Not the recommended path"}
+            </p>
+            <p className="ph-amend-gate__text">
+              {modeReasonText(currentModeApplicability.reasonKey) ||
+                t.phAmendModeBlockedFallback ||
+                "Soil chemistry points to a different amendment."}
+            </p>
+            <div className="ph-amend-gate__actions">
+              <button
+                type="button"
+                className="ph-amend-gate__btn ph-amend-gate__btn--primary"
+                onClick={goToRecommendedMode}
+              >
+                {fillPhAmendTemplate(
+                  t.phAmendModeUseRecommended || "Use {mode}",
+                  { mode: modeChipLabel(recommendedMode) }
+                )}
+              </button>
+              {!proceedDespiteBlock ? (
+                <button
+                  type="button"
+                  className="ph-amend-gate__btn ph-amend-gate__btn--ghost"
+                  onClick={() => setProceedDespiteBlock(true)}
+                >
+                  {t.phAmendModeProceedAnyway || "Calculate anyway"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </aside>
       ) : null}
 
+      {showCalculation ? (
       <div className="calc-surface p-3 space-y-3">
         {uiMode === "other" || uiMode === "calcium" ? (
           <SelectField
@@ -933,8 +993,9 @@ export default function PhAmendmentCalculator({
             </div>
           </div>
       </div>
+      ) : null}
 
-      {errors.length > 0 ? (
+      {showCalculation && errors.length > 0 ? (
         <div className="calc-surface p-4">
           <ul className="space-y-1 text-sm font-medium text-red-800">
             {errors.map((error) => (
@@ -944,20 +1005,22 @@ export default function PhAmendmentCalculator({
         </div>
       ) : null}
 
-      <PhAmendmentResultsCard
-        t={t}
-        result={result}
-        outputUnit={outputUnit}
-        onOutputUnitChange={setOutputUnit}
-        unitLabel={unitLabel}
-        plotArea={plotArea}
-        plotAreaUnit={plotAreaUnit}
-        depthCm={resolvedDepthCm}
-        showCalculatorFormulas={showCalculatorFormulas}
-        onToggleLimeMaterial={
-          methodRaisesPh(method) ? toggleLimeMaterial : undefined
-        }
-      />
+      {showCalculation ? (
+        <PhAmendmentResultsCard
+          t={t}
+          result={result}
+          outputUnit={outputUnit}
+          onOutputUnitChange={setOutputUnit}
+          unitLabel={unitLabel}
+          plotArea={plotArea}
+          plotAreaUnit={plotAreaUnit}
+          depthCm={resolvedDepthCm}
+          showCalculatorFormulas={showCalculatorFormulas}
+          onToggleLimeMaterial={
+            methodRaisesPh(method) ? toggleLimeMaterial : undefined
+          }
+        />
+      ) : null}
     </div>
   );
 }

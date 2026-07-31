@@ -400,10 +400,46 @@ export function pricePerBagFromTonne(
   return Math.round(pricePerMetricTonne * (bagKg / 1000) * 100) / 100;
 }
 
+/**
+ * Bags you actually buy — whole sacks only.
+ * Any positive need rounds up (ceil); you cannot purchase a fraction of a bag.
+ */
+export function roundBagsForPurchase(bags: number): number {
+  if (!Number.isFinite(bags) || bags <= 0) return 0;
+  // Tiny float leftovers (e.g. 2.0000001) stay at 2; otherwise ceil.
+  const whole = Math.floor(bags + 1e-9);
+  if (bags - whole < 1e-6) return Math.max(0, whole);
+  return Math.max(1, Math.ceil(bags - 1e-9));
+}
+
 export function fertilizersForNutrient(nutrient: FertilizerNutrient) {
   return listAllFertilizers().filter(
     (product) => (product.grade[nutrient] || 0) > 0
   );
+}
+
+/**
+ * Compact label for narrow pickers: prefer trailing parentheses
+ * ("Muriate of potash (MOP/KCl)" → "MOP/KCl"), else short catalog keys.
+ */
+export function fertilizerShortLabel(
+  product: Pick<CommercialFertilizer, "key" | "label">
+): string {
+  const paren = product.label.match(/\(([^)]+)\)\s*$/);
+  if (paren?.[1]) return paren[1].trim();
+
+  const known: Record<string, string> = {
+    urea: "Urea",
+    dap: "DAP",
+    map: "MAP",
+    mop: "MOP/KCl",
+    sop: "SOP",
+    tsp: "TSP",
+  };
+  if (known[product.key]) return known[product.key];
+
+  if (product.label.length <= 14) return product.label;
+  return product.key.replace(/_/g, " ").toUpperCase();
 }
 
 /** Map free-text bodega names to catalog keys when possible. */

@@ -1050,41 +1050,30 @@ function CalculatorHubBody({
                   {t.fertilizerCostBack || "Back to nutritional plan"}
                 </button>
               </div>
-              {hasActiveFertilizerDoses(fertilizerPlan.doses) ? (
-                <div className="fertilizer-cost-page">
-                  <FertilizerProductPlanner
-                    doses={fertilizerPlan.doses}
-                    areaHa={fertilizerPlan.areaHa}
-                    country={selectedCountry}
-                    irrigationSystem={fertilizerPlan.irrigationSystem}
-                    irrigationTable={fertilizerPlan.irrigationTable}
-                    t={t}
-                    showAsPage
-                    userId={userId}
-                    farmName={farmName}
-                    onReportData={handleCostReportData}
-                  />
-                </div>
-              ) : (
-                <div className="calc-surface p-4 space-y-3">
-                  <p className="text-sm text-slate-600 dark-text-primary">
-                    {t.fertilizerCostNeedPlan ||
-                      "Complete the nutritional plan, or switch it to Doses only and enter known rates, to estimate product costs."}
-                  </p>
-                  <p className="text-xs text-slate-500 dark-text-primary">
-                    {t.fertilizerPlanKnownDoseHint ||
-                      "Enter the nutrient rates you already know (kg/ha). Leave unused nutrients at 0."}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setActive("fertilizer")}
-                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800"
-                  >
-                    <Leaf size={14} aria-hidden />
-                    {t.fertilizerCostOpenPlan || "Open nutritional plan"}
-                  </button>
-                </div>
-              )}
+              <div className="fertilizer-cost-page">
+                <FertilizerProductPlanner
+                  doses={fertilizerPlan.doses}
+                  areaHa={fertilizerPlan.areaHa}
+                  country={selectedCountry}
+                  irrigationSystem={fertilizerPlan.irrigationSystem}
+                  irrigationTable={fertilizerPlan.irrigationTable}
+                  t={t}
+                  showAsPage
+                  userId={userId}
+                  farmName={farmName}
+                  onReportData={handleCostReportData}
+                  onDosesChange={(nextDoses, nextAreaHa) => {
+                    handleDosePlanChange({
+                      ...fertilizerPlanRef.current,
+                      doses: nextDoses,
+                      areaHa:
+                        nextAreaHa > 0
+                          ? nextAreaHa
+                          : fertilizerPlanRef.current.areaHa || 1,
+                    });
+                  }}
+                />
+              </div>
             </CalculatorPage>
           ) : (
             <CalculatorPage>
@@ -1627,7 +1616,7 @@ function CicResultsPanel({
         unit="cmol(+)/kg"
         band="optimal"
         severity="ok"
-        bandLabel="Ca+Mg+K+Na"
+        bandLabel=""
         interpretation={t.cicSumBasesNote || "Exchangeable bases contributing to CICe."}
         rangeNote={
           baseResult.acidity > 0

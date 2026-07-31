@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -145,49 +145,94 @@ export default function AppHeader({
     setMobileAccountOpen(false);
   }
 
+  const settingsActiveRef = useRef(settingsActive);
+  settingsActiveRef.current = settingsActive;
+  const headerMenuOpenRef = useRef(false);
+  headerMenuOpenRef.current =
+    mobileMenuOpen || mobileLanguageOpen || mobileAccountOpen || jackoOpen;
+
   useEffect(() => {
     const headerElement = headerRef.current;
     if (!headerElement) return;
     const headerNode: HTMLElement = headerElement;
 
-    const syncHeaderHeight = () => {
-      const heightPx = `${headerNode.offsetHeight}px`;
+    let previousScrollY = Math.max(
+      window.scrollY || document.documentElement.scrollTop || 0,
+      0
+    );
+    const initialHeaderHeight = headerNode.offsetHeight + 8;
+    // If we mount already scrolled, start tucked so we don't wait for a touch.
+    let hiddenOffset = previousScrollY > 8 ? initialHeaderHeight : 0;
+    let animationFrame = 0;
+
+    const applyHeaderOffset = () => {
+      headerNode.style.transform = `translate3d(0, -${hiddenOffset}px, 0)`;
+      const visibleHeight = Math.max(0, headerNode.offsetHeight - hiddenOffset);
       document.documentElement.style.setProperty(
         "--app-header-visible-height",
-        heightPx
+        `${visibleHeight}px`
       );
-      document.documentElement.style.setProperty("--app-header-full-height", heightPx);
+    };
+
+    const syncHeaderHeight = () => {
+      const fullPx = `${headerNode.offsetHeight}px`;
+      document.documentElement.style.setProperty(
+        "--app-header-full-height",
+        fullPx
+      );
+      if (hiddenOffset === 0) {
+        document.documentElement.style.setProperty(
+          "--app-header-visible-height",
+          fullPx
+        );
+      }
     };
 
     syncHeaderHeight();
+    applyHeaderOffset();
     const resizeObserver = new ResizeObserver(syncHeaderHeight);
     resizeObserver.observe(headerNode);
     window.addEventListener("resize", syncHeaderHeight);
 
-    let previousScrollY = Math.max(window.scrollY, 0);
-    let hiddenOffset = 0;
-    let animationFrame = 0;
+    function readScrollY() {
+      return Math.max(
+        window.scrollY || document.documentElement.scrollTop || 0,
+        0
+      );
+    }
 
     function updateHeader() {
       animationFrame = 0;
 
-      const currentScrollY = Math.max(window.scrollY, 0);
+      const currentScrollY = readScrollY();
       const delta = currentScrollY - previousScrollY;
       const headerHeight = headerNode.offsetHeight + 8;
-      const focusedInsideHeader =
-        document.activeElement instanceof Node &&
-        headerNode.contains(document.activeElement);
+      const onSettings = settingsActiveRef.current;
+      // Only pin the header open for an actual open menu/drawer — not because
+      // a toolbar button (e.g. Settings) still has focus after being tapped.
+      const menuOpen = headerMenuOpenRef.current;
 
-      if (currentScrollY <= 8 || focusedInsideHeader) {
+      if (currentScrollY <= 8 || menuOpen) {
         hiddenOffset = 0;
       } else if (delta > 0) {
         hiddenOffset = Math.min(headerHeight, hiddenOffset + delta);
       } else if (delta < 0) {
-        hiddenOffset = Math.max(0, hiddenOffset + delta);
+        // Settings sticky nav owns the top — don't reveal the main header
+        // until the user is back near the page top.
+        if (onSettings && currentScrollY > 56) {
+          hiddenOffset = headerHeight;
+        } else {
+          hiddenOffset = Math.max(0, hiddenOffset + delta);
+        }
       }
 
       previousScrollY = currentScrollY;
-      headerNode.style.transform = `translate3d(0, -${hiddenOffset}px, 0)`;
+      applyHeaderOffset();
+    }
+
+    function requestHeaderUpdate() {
+      if (animationFrame) return;
+      animationFrame = window.requestAnimationFrame(updateHeader);
     }
 
     updateHeader();
@@ -196,12 +241,17 @@ export default function AppHeader({
       capture: true,
       passive: true,
     });
+    window.visualViewport?.addEventListener("scroll", requestHeaderUpdate, {
+      passive: true,
+    });
     window.addEventListener("resize", requestHeaderUpdate);
-
-    function requestHeaderUpdate() {
-      if (animationFrame) return;
-      animationFrame = window.requestAnimationFrame(updateHeader);
-    }
+    // iOS often won't emit scroll until after the first touch; keep in sync.
+    window.addEventListener("touchstart", requestHeaderUpdate, {
+      passive: true,
+    });
+    window.addEventListener("touchmove", requestHeaderUpdate, {
+      passive: true,
+    });
 
     return () => {
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
@@ -211,7 +261,10 @@ export default function AppHeader({
       document.removeEventListener("scroll", requestHeaderUpdate, {
         capture: true,
       });
+      window.visualViewport?.removeEventListener("scroll", requestHeaderUpdate);
       window.removeEventListener("resize", requestHeaderUpdate);
+      window.removeEventListener("touchstart", requestHeaderUpdate);
+      window.removeEventListener("touchmove", requestHeaderUpdate);
     };
   }, []);
 
@@ -282,7 +335,10 @@ export default function AppHeader({
 
           <button
             type="button"
-            onClick={onOpenSettings}
+            onClick={(event) => {
+              (event.currentTarget as HTMLButtonElement).blur();
+              onOpenSettings();
+            }}
             aria-label={t.appSettings}
             aria-pressed={settingsActive}
             title={t.appSettings}

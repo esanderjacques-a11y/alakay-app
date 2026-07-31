@@ -27,7 +27,12 @@ import {
   type SoilTexture,
 } from "@/lib/phAmendmentCalculator";
 import { assessAmendmentChemistry } from "@/lib/amendmentRecommendation";
-import { useMemoryNumber, useSharedCationInputs, useEmitCalculatorOutputs } from "@/hooks/useCalculatorMemory";
+import {
+  useMemoryNumber,
+  useMemoryString,
+  useSharedCationInputs,
+  useEmitCalculatorOutputs,
+} from "@/hooks/useCalculatorMemory";
 import MenuSelect, { type MenuSelectOption } from "@/components/ui/MenuSelect";
 import { getCicAcidityContribution } from "@/lib/baseSaturation";
 import {
@@ -280,18 +285,69 @@ export default function PhAmendmentCalculator({
 }: Props) {
   const cropSuggestedTarget = suggestBaseSaturationTarget(selectedCropName);
 
-  const [uiMode, setUiMode] = useState<PhAmendUiMode>("calcium");
-  const [uiModeManual, setUiModeManual] = useState(false);
+  const [uiModeRaw, setUiModeRaw] = useMemoryString("amendment", "uiMode", "calcium");
+  const uiMode = (
+    uiModeRaw === "gypsum" || uiModeRaw === "other" || uiModeRaw === "calcium"
+      ? uiModeRaw
+      : "calcium"
+  ) as PhAmendUiMode;
+  const setUiMode = (
+    next: PhAmendUiMode,
+    options?: { recordHistory?: boolean }
+  ) => setUiModeRaw(next, options);
+  const [uiModeManualRaw, setUiModeManualRaw] = useMemoryString(
+    "amendment",
+    "uiModeManual",
+    "0"
+  );
+  const uiModeManual = uiModeManualRaw === "1";
+  const setUiModeManual = (next: boolean) => setUiModeManualRaw(next ? "1" : "0");
   const [proceedDespiteBlock, setProceedDespiteBlock] = useState(false);
-  const [method, setMethod] = useState<PhAmendmentMethod>("ca_saturation");
-  const [material, setMaterial] = useState<PhAmendmentMaterial>("calcitic_lime");
-  const [materialManual, setMaterialManual] = useState(false);
+  const [methodRaw, setMethodRaw] = useMemoryString(
+    "amendment",
+    "method",
+    "ca_saturation"
+  );
+  const method = methodRaw as PhAmendmentMethod;
+  const setMethod = (
+    next: PhAmendmentMethod,
+    options?: { recordHistory?: boolean }
+  ) => setMethodRaw(next, options);
+  const [materialRaw, setMaterialRaw] = useMemoryString(
+    "amendment",
+    "material",
+    "calcitic_lime"
+  );
+  const material = materialRaw as PhAmendmentMaterial;
+  const setMaterial = (
+    next: PhAmendmentMaterial,
+    options?: { recordHistory?: boolean }
+  ) => setMaterialRaw(next, options);
+  const [materialManualRaw, setMaterialManualRaw] = useMemoryString(
+    "amendment",
+    "materialManual",
+    "0"
+  );
+  const materialManual = materialManualRaw === "1";
+  const setMaterialManual = (next: boolean) => setMaterialManualRaw(next ? "1" : "0");
   const [ccePercent, setCcePercent] = useMemoryNumber("amendment", "ccePercent", 90);
   const CALCITIC_PRNT = defaultPrntForLimeMaterial("calcitic_lime");
   const DOLOMITIC_PRNT = defaultPrntForLimeMaterial("dolomitic_lime");
-  const [outputUnit, setOutputUnit] = useState<PhAmendmentOutputUnit>("t_ha");
+  const [outputUnitRaw, setOutputUnitRaw] = useMemoryString(
+    "amendment",
+    "outputUnit",
+    "t_ha"
+  );
+  const outputUnit = outputUnitRaw as PhAmendmentOutputUnit;
+  const setOutputUnit = (next: PhAmendmentOutputUnit) => setOutputUnitRaw(next);
   const [plotArea, setPlotArea] = useMemoryNumber("amendment", "plotArea", 0);
-  const [plotAreaUnit, setPlotAreaUnit] = useState<AreaUnit>("ha");
+  const [plotAreaUnitRaw, setPlotAreaUnitRaw] = useMemoryString(
+    "amendment",
+    "plotAreaUnit",
+    "ha"
+  );
+  const plotAreaUnit = plotAreaUnitRaw as AreaUnit;
+  const setPlotAreaUnit = (next: AreaUnit) => setPlotAreaUnitRaw(next);
   const [caSaturationTarget, setCaSaturationTarget] = useMemoryNumber(
     "amendment",
     "caSaturationTarget",
@@ -325,7 +381,9 @@ export default function PhAmendmentCalculator({
     lab.get("ph")?.value || 0
   );
   const [targetPh, setTargetPh] = useMemoryNumber("amendment", "targetPh", 0);
-  const [texture, setTexture] = useState<SoilTexture>("loam");
+  const [textureRaw, setTextureRaw] = useMemoryString("amendment", "texture", "loam");
+  const texture = textureRaw as SoilTexture;
+  const setTexture = (next: SoilTexture) => setTextureRaw(next);
   const [exchangeableAl, setExchangeableAl] = useMemoryNumber(
     "amendment",
     "exchangeableAl",
@@ -409,14 +467,17 @@ export default function PhAmendmentCalculator({
 
   useEffect(() => {
     if (materialManual || !chemGate.needsLime) return;
+    const silent = { recordHistory: false } as const;
     if (chemGate.mgLow) {
-      setMaterial("dolomitic_lime");
-      setCcePercent(DOLOMITIC_PRNT);
+      setMaterial("dolomitic_lime", silent);
+      setCcePercent(DOLOMITIC_PRNT, silent);
     } else {
-      setMaterial("calcitic_lime");
-      setCcePercent(CALCITIC_PRNT);
+      setMaterial("calcitic_lime", silent);
+      setCcePercent(CALCITIC_PRNT, silent);
     }
-  }, [chemGate.needsLime, chemGate.mgLow, materialManual, setCcePercent]);
+    // System defaults — intentional silent sync, not user edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chemGate.needsLime, chemGate.mgLow, materialManual]);
 
   const recommendedMode = useMemo(
     () =>
@@ -438,9 +499,12 @@ export default function PhAmendmentCalculator({
 
   useEffect(() => {
     if (uiModeManual) return;
-    setUiMode(recommendedMode);
-    setMethod(defaultMethodForUiMode(recommendedMode, resolvedCurrentPh));
+    const silent = { recordHistory: false } as const;
+    setUiMode(recommendedMode, silent);
+    setMethod(defaultMethodForUiMode(recommendedMode, resolvedCurrentPh), silent);
     setProceedDespiteBlock(false);
+    // System defaults — intentional silent sync, not user edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recommendedMode, resolvedCurrentPh, uiModeManual]);
 
   const modeGateInput = useMemo(
@@ -494,15 +558,15 @@ export default function PhAmendmentCalculator({
     setUiMode(next);
     setProceedDespiteBlock(false);
     if (next === "other") {
-      setMethod((previous) =>
-        OTHER_METHOD_OPTIONS.includes(previous)
-          ? previous
+      setMethod(
+        OTHER_METHOD_OPTIONS.includes(method)
+          ? method
           : defaultMethodForUiMode("other", resolvedCurrentPh)
       );
     } else if (next === "calcium") {
-      setMethod((previous) =>
-        CALCIUM_METHOD_OPTIONS.includes(previous)
-          ? previous
+      setMethod(
+        CALCIUM_METHOD_OPTIONS.includes(method)
+          ? method
           : defaultMethodForUiMode("calcium", resolvedCurrentPh)
       );
     } else {

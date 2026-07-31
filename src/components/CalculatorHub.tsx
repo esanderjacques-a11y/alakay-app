@@ -19,6 +19,8 @@ import {
   Percent,
   Sprout,
   Star,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import {
   isFavoriteCalculatorKey,
@@ -60,6 +62,7 @@ import {
   enrichLabWithResolvedCations,
 } from "@/lib/resolveCationInputs";
 import { useSoilFertilityReference } from "@/lib/soilFertilityData";
+import type { ViewLayoutMode } from "@/lib/viewLayoutPreference";
 import {
   CalculatorMemoryProvider,
   useCalculatorMemory,
@@ -91,13 +94,10 @@ import {
   type IrrigationEfficiencyTable,
   type IrrigationSystem,
 } from "@/lib/soilFertilityTables";
-import { useViewLayoutPreference } from "@/hooks/useViewLayoutPreference";
-import { ViewLayoutToggle } from "@/components/ui/ViewLayoutToggle";
 import BackButton from "@/components/ui/BackButton";
 import ExportPdfIconButton from "@/components/ExportPdfIconButton";
 import ChartExpandShell from "@/components/ui/ChartExpandShell";
 import { buildCultosolChartWatermark } from "@/lib/chartPngExport";
-import type { ViewLayoutMode } from "@/lib/viewLayoutPreference";
 
 type ParameterLite = {
   parameter_key: string;
@@ -384,7 +384,14 @@ function CalculatorHubBody({
   initialActiveKey?: string | null;
   onInitialActiveKeyConsumed?: () => void;
 }) {
-  const { importFromValues, valuesOutOfSync } = useCalculatorMemory();
+  const {
+    importFromValues,
+    valuesOutOfSync,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+  } = useCalculatorMemory();
   const sharedCations = useSharedCationInputs(lab);
   const effectiveLab = useMemo(
     () => enrichLabWithResolvedCations(lab, sharedCations),
@@ -489,8 +496,7 @@ function CalculatorHubBody({
   ]);
 
   const [favorites, setFavorites] = useState<FavoriteCalculatorKey[]>([]);
-  const [browseLayout, setBrowseLayout] = useViewLayoutPreference("calculator-hub");
-  const fieldsLayout = browseLayout;
+  const fieldsLayout: ViewLayoutMode = "grid";
 
   useEffect(() => {
     setFavorites(readCalculatorFavorites());
@@ -604,8 +610,15 @@ function CalculatorHubBody({
       applyLines: string[];
     }) => {
       costFromPlannerRef.current = payload.products.length > 0;
-      setFertilizerProducts(payload.products);
-      setFertilizerApplyLines(payload.applyLines);
+      setFertilizerProducts((previous) =>
+        sameFertilizerProducts(previous, payload.products) ? previous : payload.products
+      );
+      setFertilizerApplyLines((previous) =>
+        previous.length === payload.applyLines.length &&
+        previous.every((line, i) => line === payload.applyLines[i])
+          ? previous
+          : payload.applyLines
+      );
       setCalculatorOutputs((previous) => {
         const nextOutputs = payload.outputs.filter(Boolean);
         const current = previous.fertilizerCost || [];
@@ -730,10 +743,12 @@ function CalculatorHubBody({
 
   // Keep calculators in sync with the Values page: whenever lab values change,
   // they automatically replace remembered calculator inputs (no manual refresh needed).
+  // Do not record history — otherwise the first Undo jumps to pre-import state and
+  // a follow-up auto-import clears the Redo stack.
   useEffect(() => {
     if (!hasLabData) return;
     if (!valuesOutOfSync) return;
-    importFromValues();
+    importFromValues({ recordHistory: false });
   }, [hasLabData, valuesOutOfSync, importFromValues]);
 
   return (
@@ -766,12 +781,28 @@ function CalculatorHubBody({
                 />
               </span>
             ) : null}
-            <ViewLayoutToggle
-              value={browseLayout}
-              onChange={setBrowseLayout}
-              listLabel={t.viewLayoutList}
-              gridLabel={t.viewLayoutGrid}
-            />
+            <div className="calculator-hub-history inline-flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={undo}
+                disabled={!canUndo}
+                className="calculator-hub-action calculator-hub-action--icon"
+                aria-label={t.undo || "Undo"}
+                title={t.undo || "Undo"}
+              >
+                <Undo2 size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={redo}
+                disabled={!canRedo}
+                className="calculator-hub-action calculator-hub-action--icon"
+                aria-label={t.redo || "Redo"}
+                title={t.redo || "Redo"}
+              >
+                <Redo2 size={15} aria-hidden />
+              </button>
+            </div>
           </div>
           <div className="flex items-center justify-between gap-2">
             {showHubModeToggle ? (
@@ -1383,47 +1414,47 @@ function CicCalculator({
   return (
     <CalculatorPage>
       <div className="calc-page__params calc-surface space-y-3 p-4">
-        <h2 className="text-xs font-bold uppercase tracking-wide text-emerald-800">
+        <h2 className="text-sm font-bold text-[#1c1c1e] dark-text-primary">
           {t.cicRequirementTitle || "CIC, bases & ratios"}
         </h2>
-        <CalculatorFormFields>
+        <CalculatorFormFields className="calc-form-fields--cols-3">
           <NumberField
-            label={t.cicLabel || "CIC / CICe"}
+            label={t.cicLabel || "CIC"}
             value={cec}
             onChange={setCec}
             preserveCase
             placeholder={
               estimatedCec > 0
                 ? `${estimatedCec}${cecIsEstimated ? ` (${t.cicEstimated || "est."})` : ""}`
-                : t.cicAutoPlaceholder || "Auto if blank"
+                : t.cicAutoPlaceholder || "Auto"
             }
           />
           <NumberField
-            label={`${t.cicFieldCa || "Ca"} (${t.current})`}
+            label={t.cicFieldCa || "Ca"}
             value={ca}
             onChange={setCa}
             preserveCase
           />
           <NumberField
-            label={`${t.cicFieldMg || "Mg"} (${t.current})`}
+            label={t.cicFieldMg || "Mg"}
             value={mg}
             onChange={setMg}
             preserveCase
           />
           <NumberField
-            label={`${t.cicFieldK || "K"} (${t.current})`}
+            label={t.cicFieldK || "K"}
             value={k}
             onChange={setK}
             preserveCase
           />
           <NumberField
-            label={t.cicFieldNa || "Sodium (Na)"}
+            label={t.cicFieldNa || "Na"}
             value={na}
             onChange={setNa}
             preserveCase
           />
           <NumberField
-            label={t.cicFieldHal || "Extractable acidity (H+Al)"}
+            label={t.cicFieldHal || "H+Al"}
             value={hAl}
             onChange={setHAl}
             preserveCase
@@ -1434,13 +1465,6 @@ function CicCalculator({
             }
           />
         </CalculatorFormFields>
-        <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-          {cecIsEstimated
-            ? t.cicAutoHelp ||
-              "CIC not reported — CICe is estimated as Ca + Mg + K + Na + (H+Al or extractable Al when reported)."
-            : t.cicHelp ||
-              "Enter exchangeable bases and CIC in consistent units (cmol(+)/kg or meq/100 g). If CIC is blank, it is calculated automatically including extractable acidity or Al when reported."}
-        </p>
       </div>
 
       <div className="overflow-x-auto scrollbar-none">
@@ -1777,7 +1801,7 @@ function DopCalculator({
   reportDate?: string | null;
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
 }) {
-  const [fallbackOptimum, setFallbackOptimum] = useState(1);
+  const [fallbackOptimum, setFallbackOptimum] = useMemoryNumber("dop", "fallbackOptimum", 1);
   const dopRows = useMemo(
     () => buildDopRows(lab, results, fallbackOptimum),
     [lab, results, fallbackOptimum]
@@ -3022,6 +3046,30 @@ function sameOutputs(previous: CalculationOutput[], next: CalculationOutput[]) {
       item.formula === compare.formula &&
       item.notes.join("||") === compare.notes.join("||") &&
       sameAlternatives
+    );
+  });
+}
+
+function sameFertilizerProducts(
+  previous: PdfFertilizerProduct[],
+  next: PdfFertilizerProduct[]
+) {
+  if (previous.length !== next.length) return false;
+  return previous.every((item, index) => {
+    const compare = next[index];
+    if (!compare) return false;
+    return (
+      item.name === compare.name &&
+      item.analysis === compare.analysis &&
+      item.nutrient === compare.nutrient &&
+      item.rateKgHa === compare.rateKgHa &&
+      item.bagsHa === compare.bagsHa &&
+      item.pricePerBag === compare.pricePerBag &&
+      item.pricePerTonne === compare.pricePerTonne &&
+      item.currency === compare.currency &&
+      item.costPerHa === compare.costPerHa &&
+      item.source === compare.source &&
+      item.productKey === compare.productKey
     );
   });
 }

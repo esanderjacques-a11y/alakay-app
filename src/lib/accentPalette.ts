@@ -148,7 +148,9 @@ export function buildAccentCssVariables(
   const primary = isDark ? scale[400] : scale[700];
   const primaryDark = isDark ? scale[300] : scale[800];
   const surface = isDark ? darkBase : scale[50];
-  const foreground = isDark ? "rgb(248 250 252)" : scale[950];
+  const foreground = isDark
+    ? "rgb(248 250 252)"
+    : `color-mix(in srgb, #0a0a0a calc(var(--app-contrast-ink, 0) * 55%), ${scale[950]})`;
 
   const bodyGradient = isDark
     ? `radial-gradient(circle at 16% 10%, ${withAlpha(scale[400], 0.08)}, transparent 40%), radial-gradient(circle at 82% 18%, ${withAlpha(scale[300], 0.05)}, transparent 44%), linear-gradient(145deg, ${darkBase} 0%, ${darkSurface} 50%, ${darkSurfaceRaised} 100%)`
@@ -156,7 +158,7 @@ export function buildAccentCssVariables(
 
   const mainGradient = isDark
     ? `radial-gradient(ellipse 95% 60% at 12% -8%, ${withAlpha(scale[400], 0.14)}, transparent 54%), radial-gradient(ellipse 85% 55% at 92% 18%, ${withAlpha(scale[300], 0.1)}, transparent 52%), linear-gradient(180deg, ${withAlpha(darkSurface, 0.92)} 0%, ${withAlpha(darkBase, 0.96)} 56%, ${withAlpha(darkSurfaceRaised, 0.9)} 100%)`
-    : `radial-gradient(ellipse 110% 75% at 8% -12%, ${withAlpha(scale[200], 0.58)}, transparent 52%), radial-gradient(ellipse 95% 65% at 96% 14%, ${withAlpha(scale[300], 0.42)}, transparent 54%), radial-gradient(ellipse 90% 55% at 50% 108%, ${withAlpha(scale[100], 0.72)}, transparent 50%), linear-gradient(165deg, ${scale[50]} 0%, ${withAlpha(scale[100], 0.88)} 36%, #f8fafc 58%, ${scale[50]} 100%)`;
+    : `radial-gradient(ellipse 110% 75% at 8% -12%, ${withAlpha(scale[200], 0.68)}, transparent 52%), radial-gradient(ellipse 95% 65% at 96% 12%, ${withAlpha(scale[300], 0.52)}, transparent 54%), radial-gradient(ellipse 85% 48% at 48% 108%, ${withAlpha(scale[200], 0.32)}, transparent 56%), linear-gradient(165deg, ${scale[50]} 0%, ${withAlpha(scale[100], 0.94)} 38%, ${scale[50]} 68%, ${withAlpha(scale[100], 0.62)} 100%)`;
 
   const authGradient = mainGradient;
 
@@ -228,13 +230,13 @@ export function buildAccentCssVariables(
       : withAlpha(scale[200], 0.85),
     "--glass-surface": isDark
       ? darkGlassSurface
-      : "rgb(var(--accent-50-rgb) / 0.68)",
+      : "rgb(var(--accent-50-rgb) / calc(0.68 * var(--app-glass-alpha, 1)))",
     "--glass-surface-strong": isDark
       ? darkGlassSurfaceStrong
-      : "rgb(var(--accent-100-rgb) / 0.76)",
+      : "rgb(var(--accent-100-rgb) / calc(0.76 * var(--app-glass-alpha, 1)))",
     "--glass-surface-muted": isDark
       ? darkGlassSurfaceMuted
-      : "rgb(var(--accent-100-rgb) / 0.52)",
+      : "rgb(var(--accent-100-rgb) / calc(0.52 * var(--app-glass-alpha, 1)))",
     "--glass-chrome-surface": "var(--glass-surface)",
     "--glass-chrome-border": "var(--glass-border)",
     "--glass-shadow": isDark

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, FileDown, Search, Shuffle } from "lucide-rea
 import AddCustomFertilizerForm from "@/components/AddCustomFertilizerForm";
 import AppModal from "@/components/AppModal";
 import MenuSelect from "@/components/ui/MenuSelect";
+import { useMemoryString } from "@/hooks/useCalculatorMemory";
 import {
   DEFAULT_FERTILIZER_BAG_KG,
   FERTILIZER_CURRENCIES,
@@ -340,22 +341,30 @@ export default function FertilizerFormulationBuilder({
       ? fillerName(line.productKey, line.label)
       : productName(line.productKey, line.label);
   }
-  const [n, setN] = useState("");
-  const [p2o5, setP2o5] = useState("");
-  const [k2o, setK2o] = useState("");
-  const [mgo, setMgo] = useState("");
-  const [cao, setCao] = useState("");
-  const [s, setS] = useState("");
-  const [zn, setZn] = useState("");
-  const [b, setB] = useState("");
-  const [fe, setFe] = useState("");
-  const [mn, setMn] = useState("");
-  const [cu, setCu] = useState("");
-  const [mo, setMo] = useState("");
+  const [n, setN] = useMemoryString("fertilizerFormulation", "n", "");
+  const [p2o5, setP2o5] = useMemoryString("fertilizerFormulation", "p2o5", "");
+  const [k2o, setK2o] = useMemoryString("fertilizerFormulation", "k2o", "");
+  const [mgo, setMgo] = useMemoryString("fertilizerFormulation", "mgo", "");
+  const [cao, setCao] = useMemoryString("fertilizerFormulation", "cao", "");
+  const [s, setS] = useMemoryString("fertilizerFormulation", "s", "");
+  const [zn, setZn] = useMemoryString("fertilizerFormulation", "zn", "");
+  const [b, setB] = useMemoryString("fertilizerFormulation", "b", "");
+  const [fe, setFe] = useMemoryString("fertilizerFormulation", "fe", "");
+  const [mn, setMn] = useMemoryString("fertilizerFormulation", "mn", "");
+  const [cu, setCu] = useMemoryString("fertilizerFormulation", "cu", "");
+  const [mo, setMo] = useMemoryString("fertilizerFormulation", "mo", "");
   const [showExtras, setShowExtras] = useState(false);
 
-  const [batchSize, setBatchSize] = useState("100");
-  const [unit, setUnit] = useState<FormulationMassUnit>("kg");
+  const [batchSize, setBatchSize] = useMemoryString(
+    "fertilizerFormulation",
+    "batchSize",
+    "100"
+  );
+  const [unitRaw, setUnitRaw] = useMemoryString("fertilizerFormulation", "unit", "kg");
+  const unit = (
+    unitRaw === "lb" || unitRaw === "kg" || unitRaw === "t" ? unitRaw : "kg"
+  ) as FormulationMassUnit;
+  const setUnit = (next: FormulationMassUnit) => setUnitRaw(next);
   const [showBatchOptions, setShowBatchOptions] = useState(false);
   const [showCosts, setShowCosts] = useState(false);
   const [strategy, setStrategy] = useState<StrategyMode>("auto");

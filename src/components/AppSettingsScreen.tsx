@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   useEffect,
@@ -1300,60 +1300,14 @@ export default function AppSettingsScreen({
   );
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
-  const [saveDock, setSaveDock] = useState<"top" | "bottom">("top");
   const [portalReady, setPortalReady] = useState(false);
-  const topDockSentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     queueMicrotask(() => setPortalReady(true));
   }, []);
 
   useEffect(() => {
-    if (!isDirty) {
-      setSaveDock("top");
-      return;
-    }
-
-    function resolveSaveDock(): "top" | "bottom" {
-      const scrollY =
-        window.scrollY || document.documentElement.scrollTop || 0;
-      // Near the page top, keep the bar in-flow under the header.
-      if (scrollY <= 48) return "top";
-      // Once the user has scrolled (typical when editing Appearance), pin
-      // Save to the viewport bottom so it stays visible.
-      const sentinel = topDockSentinelRef.current;
-      if (sentinel) {
-        const rect = sentinel.getBoundingClientRect();
-        const headerBottom =
-          Number.parseFloat(
-            getComputedStyle(document.documentElement).getPropertyValue(
-              "--sticky-viewport-top"
-            )
-          ) || 72;
-        if (rect.bottom > headerBottom + 8 && rect.top < window.innerHeight) {
-          return "top";
-        }
-      }
-      return "bottom";
-    }
-
-    function syncSaveDock() {
-      setSaveDock(resolveSaveDock());
-    }
-
-    syncSaveDock();
-    window.addEventListener("scroll", syncSaveDock, { passive: true });
-    window.addEventListener("resize", syncSaveDock);
-    window.visualViewport?.addEventListener("resize", syncSaveDock);
-    return () => {
-      window.removeEventListener("scroll", syncSaveDock);
-      window.removeEventListener("resize", syncSaveDock);
-      window.visualViewport?.removeEventListener("resize", syncSaveDock);
-    };
-  }, [isDirty]);
-
-  useEffect(() => {
-    if (isDirty && saveDock === "bottom") {
+    if (isDirty) {
       document.documentElement.dataset.settingsSaveDock = "bottom";
     } else {
       delete document.documentElement.dataset.settingsSaveDock;
@@ -1361,7 +1315,7 @@ export default function AppSettingsScreen({
     return () => {
       delete document.documentElement.dataset.settingsSaveDock;
     };
-  }, [isDirty, saveDock]);
+  }, [isDirty]);
 
   useEffect(() => {
     return () => {
@@ -1379,16 +1333,21 @@ export default function AppSettingsScreen({
       onLanguageChange(nextSettings.general.language);
     }
     onThemePreferenceChange(nextSettings.general.theme);
+    applyBrightness(nextSettings.general.brightness);
+    applySaturation(nextSettings.general.saturation);
+    applyContrast(nextSettings.general.contrast);
+    applyGlassUi(nextSettings.general.glassUi, {
+      accent: nextSettings.general.accentColor,
+      theme: resolvedTheme,
+      darkVariant,
+    });
+    // Apply accent after glass so draft previews are not overwritten by saved values.
     applyAccentColor(
       nextSettings.general.accentColor,
       resolvedTheme,
       darkVariant,
       nextSettings.general.glassUi
     );
-    applyBrightness(nextSettings.general.brightness);
-    applySaturation(nextSettings.general.saturation);
-    applyContrast(nextSettings.general.contrast);
-    applyGlassUi(nextSettings.general.glassUi);
     applyAppFont(nextSettings.general.appFont);
     onAccentChange?.(nextSettings.general.accentColor);
     onBrightnessChange?.(nextSettings.general.brightness);
@@ -1495,7 +1454,7 @@ export default function AppSettingsScreen({
 
   const saveActionsBar = isDirty ? (
     <div
-      className={`settings-page__actions-bar settings-page__actions-bar--${saveDock}`}
+      className="settings-page__actions-bar settings-page__actions-bar--bottom"
       role="toolbar"
       aria-label={text.save}
     >
@@ -1529,12 +1488,10 @@ export default function AppSettingsScreen({
   ) : null;
 
   return (
-    <section className="animate-slide-up">
+    <section className="settings-page-shell">
       <div
         className={`settings-page w-full pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))]${
-          isDirty && saveDock === "bottom"
-            ? " settings-page--save-dock-bottom"
-            : ""
+          isDirty ? " settings-page--save-dock-bottom" : ""
         }`}
       >
         <div className="settings-page__header mb-2 flex items-center gap-2 pt-1 pb-0.5">
@@ -1562,17 +1519,10 @@ export default function AppSettingsScreen({
           </div>
         </div>
 
-        {/* Anchor for deciding whether the in-flow Save bar is still on screen. */}
-        <div
-          ref={topDockSentinelRef}
-          className="settings-page__save-sentinel"
-          aria-hidden
-        />
-
         {/* Bottom dock is portaled so slide-up transforms cannot trap fixed positioning. */}
-        {saveDock === "bottom" && portalReady && saveActionsBar
+        {portalReady && saveActionsBar
           ? createPortal(saveActionsBar, document.body)
-          : saveActionsBar}
+          : null}
 
         <div className="settings-layout">
           <nav
@@ -2192,8 +2142,9 @@ function SwitchField({
           onChange={(event) => onChange(event.target.checked)}
           className="settings-toggle__input"
         />
-        <span className="settings-toggle__track" aria-hidden />
-        <span className="settings-toggle__thumb" aria-hidden />
+        <span className="settings-toggle__track" aria-hidden>
+          <span className="settings-toggle__thumb" />
+        </span>
       </span>
     </label>
   );

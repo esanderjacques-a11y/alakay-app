@@ -125,27 +125,53 @@ export function readStoredAccent(): AccentColor {
   return "green";
 }
 
+function clampTonePercent(value: number) {
+  return Math.min(100, Math.max(70, Number(value) || 100));
+}
+
+/**
+ * Map a 70–100 slider % onto a CSS filter multiplier.
+ * Mid-slider (~85) stays near neutral (1); 100% is a vivid boost.
+ */
+function toneMultiplier(percent: number, muted: number, vivid: number) {
+  const pct = clampTonePercent(percent);
+  const t = (pct - 70) / 30;
+  return muted + t * (vivid - muted);
+}
+
+export function brightnessFilterValue(percent: number) {
+  // Keep brightness linear: 70% → 0.7, 100% → 1.
+  return clampTonePercent(percent) / 100;
+}
+
+export function saturationFilterValue(percent: number) {
+  // 70 → 0.72 (soft), ~85 → 1.0 (neutral), 100 → 1.48 (vivid)
+  return toneMultiplier(percent, 0.72, 1.48);
+}
+
+export function contrastFilterValue(percent: number) {
+  // 70 → 0.86, ~85 → 1.0, 100 → 1.28 (punchier contrast)
+  return toneMultiplier(percent, 0.86, 1.28);
+}
+
 export function readStoredBrightness() {
-  const brightness = getSettings().general.brightness;
-  return Math.min(100, Math.max(70, Number(brightness) || 100));
+  return clampTonePercent(getSettings().general.brightness);
 }
 
 export function readStoredSaturation() {
-  const saturation = getSettings().general.saturation;
-  return Math.min(100, Math.max(70, Number(saturation) || 100));
+  return clampTonePercent(getSettings().general.saturation);
 }
 
 export function readStoredContrast() {
-  const contrast = getSettings().general.contrast;
-  return Math.min(100, Math.max(70, Number(contrast) || 100));
+  return clampTonePercent(getSettings().general.contrast);
 }
 
 export function applyBrightness(brightness: number) {
   if (typeof document === "undefined") return;
-  const nextBrightness = Math.min(100, Math.max(70, Number(brightness) || 100));
+  const nextBrightness = clampTonePercent(brightness);
   document.documentElement.style.setProperty(
     "--app-brightness",
-    String(nextBrightness / 100)
+    String(brightnessFilterValue(nextBrightness))
   );
   document.documentElement.dataset.brightness = String(nextBrightness);
   syncVisualToneFilterFlag();
@@ -153,10 +179,10 @@ export function applyBrightness(brightness: number) {
 
 export function applySaturation(saturation: number) {
   if (typeof document === "undefined") return;
-  const nextSaturation = Math.min(100, Math.max(70, Number(saturation) || 100));
+  const nextSaturation = clampTonePercent(saturation);
   document.documentElement.style.setProperty(
     "--app-saturation",
-    String(nextSaturation / 100)
+    String(saturationFilterValue(nextSaturation))
   );
   document.documentElement.dataset.saturation = String(nextSaturation);
   syncVisualToneFilterFlag();
@@ -164,43 +190,90 @@ export function applySaturation(saturation: number) {
 
 export function applyContrast(contrast: number) {
   if (typeof document === "undefined") return;
-  const nextContrast = Math.min(100, Math.max(70, Number(contrast) || 100));
+  const nextContrast = clampTonePercent(contrast);
   document.documentElement.style.setProperty(
     "--app-contrast",
-    String(nextContrast / 100)
+    String(contrastFilterValue(nextContrast))
   );
   document.documentElement.dataset.contrast = String(nextContrast);
+  syncContrastPresentation();
   syncVisualToneFilterFlag();
 }
 
-/** Only enable the page-wide CSS filter when tone sliders leave the defaults.
+/**
+ * Light + glass: CSS contrast() blows pale washes toward white and hurts reading.
+ * Use ink boost + slightly clearer glass instead; keep filter contrast for dark/flat.
+ */
+function syncContrastPresentation() {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  const pct = clampTonePercent(Number(root.dataset.contrast || 100));
+  const filterContrast = contrastFilterValue(pct);
+  const glassOn = root.dataset.glassUi !== "false";
+  const isDark = root.dataset.theme === "dark";
+  // 0 near neutral (~82%), 1 at slider max
+  const ink = Math.max(0, Math.min(1, (pct - 82) / 18));
+
+  root.style.setProperty("--app-contrast-ink", String(ink));
+
+  if (glassOn && !isDark) {
+    root.style.setProperty("--app-contrast-backdrop", "1");
+    // Less milky panels as contrast rises (clearer glass, sharper type).
+    root.style.setProperty("--app-glass-alpha", String(1 - ink * 0.34));
+  } else {
+    root.style.setProperty("--app-contrast-backdrop", String(filterContrast));
+    root.style.setProperty("--app-glass-alpha", "1");
+  }
+}
+
+/** Only enable the page-wide CSS filter when tone multipliers leave neutral (≈1).
  *  A no-op filter still rasterizes the whole UI and softens text on phones. */
 function syncVisualToneFilterFlag() {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
-  const brightness = Number(root.dataset.brightness || 100);
-  const saturation = Number(root.dataset.saturation || 100);
-  const contrast = Number(root.dataset.contrast || 100);
+  const brightness = brightnessFilterValue(Number(root.dataset.brightness || 100));
+  const saturation = saturationFilterValue(Number(root.dataset.saturation || 100));
+  const contrastPct = clampTonePercent(Number(root.dataset.contrast || 100));
+  const contrast = contrastFilterValue(contrastPct);
+  const glassOn = root.dataset.glassUi !== "false";
+  const isDark = root.dataset.theme === "dark";
+  const ink = Math.max(0, Math.min(1, (contrastPct - 82) / 18));
+  // Light glass uses ink/alpha vars (no contrast filter) — still flag custom when boosted.
   const custom =
-    brightness !== 100 || saturation !== 100 || contrast !== 100;
+    Math.abs(brightness - 1) > 0.01 ||
+    Math.abs(saturation - 1) > 0.01 ||
+    Math.abs(contrast - 1) > 0.01 ||
+    (glassOn && !isDark && ink > 0.02);
   if (custom) root.dataset.visualTone = "custom";
   else delete root.dataset.visualTone;
 }
 
-export function applyGlassUi(enabled: boolean) {
+export function applyGlassUi(
+  enabled: boolean,
+  options?: {
+    accent?: AccentColor;
+    theme?: AppTheme;
+    darkVariant?: DarkVariant;
+  }
+) {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.glassUi = enabled ? "true" : "false";
   document.documentElement.style.setProperty(
     "--app-blur",
     enabled ? "1" : "0"
   );
-  /* Refresh glass surface tokens — accent palette owns inline CSS vars. */
+  /* Refresh glass surface tokens — accent palette owns inline CSS vars.
+   * Prefer explicit draft values so live settings preview is not reset to
+   * whatever is last saved. */
   applyAccentPalette(
-    readStoredAccent(),
-    readStoredTheme(),
-    readStoredDarkVariant(),
+    options?.accent ?? readStoredAccent(),
+    options?.theme ?? readStoredTheme(),
+    options?.darkVariant ?? readStoredDarkVariant(),
     enabled
   );
+  /* Tone filter targets differ for glass vs flat — refresh which layer is filtered. */
+  syncContrastPresentation();
+  syncVisualToneFilterFlag();
 }
 
 export function readStoredGlassUi() {

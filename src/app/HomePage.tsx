@@ -1382,13 +1382,24 @@ export default function HomePage() {
   useEffect(() => {
     const darkVariant = resolveDarkVariantPreference(appSettings.general.theme);
     applyTheme(theme, darkVariant);
-    applyAccentColor(readStoredAccent(), theme, darkVariant);
+    applyAccentColor(
+      appSettings.general.accentColor || readStoredAccent(),
+      theme,
+      darkVariant,
+      appSettings.general.glassUi
+    );
     applyVisualTone();
     document.documentElement.style.setProperty(
       "--app-root-font-size",
-      `${16 + getSettings().general.appFontSizeDelta}px`
+      `${16 + (appSettings.general.appFontSizeDelta ?? getSettings().general.appFontSizeDelta)}px`
     );
-  }, [theme, appSettings.general.theme]);
+  }, [
+    theme,
+    appSettings.general.theme,
+    appSettings.general.accentColor,
+    appSettings.general.glassUi,
+    appSettings.general.appFontSizeDelta,
+  ]);
 
   function changeLanguage(nextLanguage: Language) {
     setLanguage(nextLanguage);

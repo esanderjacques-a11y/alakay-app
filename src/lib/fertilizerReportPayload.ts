@@ -5,6 +5,7 @@ import {
 import {
   buildCostScenarios,
   resolveProductPrices,
+  withFallbackBagPrices,
   type BlendLine,
   type BlendPlan,
   type CostScenario,
@@ -245,22 +246,17 @@ export async function buildRecommendedFertilizerReport(args: {
     // Offline / API failure: still try with empty online map if manuals exist.
   }
 
-  // Seed synthetic prices from catalog so a blend is always feasible offline:
-  // use a neutral 1.0 currency unit/bag when no benchmark exists so products
-  // still appear (price shown as null when only synthetic).
+  // Seed synthetic prices from catalog so a blend is always feasible offline.
   const realPrices = resolveProductPrices({
     bagKg,
     currency,
     manualPrices: {},
     onlineByKey,
   });
-  const prices: ProductPriceMap = { ...realPrices };
+  const prices: ProductPriceMap = withFallbackBagPrices(realPrices);
   const usedSynthetic = new Set<string>();
   for (const product of listAllFertilizers()) {
-    if (!(prices[product.key] > 0)) {
-      prices[product.key] = 1;
-      usedSynthetic.add(product.key);
-    }
+    if (!(realPrices[product.key] > 0)) usedSynthetic.add(product.key);
   }
 
   const scenarios = buildCostScenarios({

@@ -2,10 +2,8 @@
  * View layout preference (list vs grid) persisted in localStorage.
  *
  * Usage:
- * - `useViewLayoutPreference('calculator-hub')` in CalculatorHub
- *   (form fields follow the same list/grid mode)
- * - Future: `useViewLayoutPreference('values-entry')` on the Values page
- *   with `<ViewLayoutToggle value={layout} onChange={setLayout} />`
+ * - Values entry (list / grid / pad) via `useViewLayoutPreference('values-entry')`
+ * - Calculator hub is grid-only (no layout toggle)
  *
  * Storage key: `cultosol-view-layout-<scope>`
  */

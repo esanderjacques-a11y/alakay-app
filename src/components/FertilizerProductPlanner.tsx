@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemoryNumber, useMemoryString } from "@/hooks/useCalculatorMemory";
 import FertilizerCostScenarios, {
   type FertilizerCostViewMode,
 } from "@/components/FertilizerCostScenarios";
@@ -21,6 +22,7 @@ import {
   buildCostScenarios,
   missingPreferredPrices,
   resolveProductPrices,
+  withFallbackBagPrices,
 } from "@/lib/fertilizerCostOptimize";
 import {
   listAllBodegaItems,
@@ -187,26 +189,62 @@ export default function FertilizerProductPlanner({
   const [stockProductKeys, setStockProductKeys] = useState<string[]>([]);
   const [catalogVersion, setCatalogVersion] = useState(0);
   const [showAddFertilizer, setShowAddFertilizer] = useState(false);
-  const [doseDraft, setDoseDraft] = useState<DoseDraft>(() =>
-    doseDraftFromDoses(doses)
+  const [selectionEditorOpen, setSelectionEditorOpen] = useState(true);
+  const initialDose = doseDraftFromDoses(doses);
+  const [doseN, setDoseN] = useMemoryNumber("fertilizerCost", "doseN", initialDose.n);
+  const [doseP, setDoseP] = useMemoryNumber("fertilizerCost", "doseP", initialDose.p);
+  const [doseK, setDoseK] = useMemoryNumber("fertilizerCost", "doseK", initialDose.k);
+  const [doseMg, setDoseMg] = useMemoryNumber("fertilizerCost", "doseMg", initialDose.mg);
+  const [doseCa, setDoseCa] = useMemoryNumber("fertilizerCost", "doseCa", initialDose.ca);
+  const doseDraft = useMemo<DoseDraft>(
+    () => ({
+      n: doseN,
+      p: doseP,
+      k: doseK,
+      mg: doseMg,
+      ca: doseCa,
+    }),
+    [doseN, doseP, doseK, doseMg, doseCa]
   );
   const [doseSyncKey, setDoseSyncKey] = useState(() => dosesSignature(doses));
-  const [dosesEdited, setDosesEdited] = useState(false);
-  const [plotArea, setPlotArea] = useState(() => (areaHa > 0 ? areaHa : 1));
-  const [plotAreaUnit, setPlotAreaUnit] = useState<AreaUnit>("ha");
+  const [dosesEditedRaw, setDosesEditedRaw] = useMemoryString(
+    "fertilizerCost",
+    "dosesEdited",
+    "0"
+  );
+  const dosesEdited = dosesEditedRaw === "1";
+  const setDosesEdited = (next: boolean) => setDosesEditedRaw(next ? "1" : "0");
+  const [plotArea, setPlotArea] = useMemoryNumber(
+    "fertilizerCost",
+    "plotArea",
+    areaHa > 0 ? areaHa : 1
+  );
+  const [plotAreaUnitRaw, setPlotAreaUnitRaw] = useMemoryString(
+    "fertilizerCost",
+    "plotAreaUnit",
+    "ha"
+  );
+  const plotAreaUnit = plotAreaUnitRaw as AreaUnit;
+  const setPlotAreaUnit = (next: AreaUnit) => setPlotAreaUnitRaw(next);
 
   useEffect(() => {
     const nextKey = dosesSignature(doses);
     if (nextKey === doseSyncKey) return;
-    setDoseDraft(doseDraftFromDoses(doses));
+    const next = doseDraftFromDoses(doses);
+    const silent = { recordHistory: false } as const;
+    setDoseN(next.n, silent);
+    setDoseP(next.p, silent);
+    setDoseK(next.k, silent);
+    setDoseMg(next.mg, silent);
+    setDoseCa(next.ca, silent);
     setDoseSyncKey(nextKey);
-    setDosesEdited(false);
-  }, [doses, doseSyncKey]);
+    setDosesEditedRaw("0", { recordHistory: false });
+  }, [doses, doseSyncKey, setDoseN, setDoseP, setDoseK, setDoseMg, setDoseCa, setDosesEditedRaw]);
 
   useEffect(() => {
     if (dosesEdited || plotAreaUnit !== "ha" || !(areaHa > 0)) return;
-    setPlotArea(areaHa);
-  }, [areaHa, dosesEdited, plotAreaUnit]);
+    setPlotArea(areaHa, { recordHistory: false });
+  }, [areaHa, dosesEdited, plotAreaUnit, setPlotArea]);
 
   useEffect(() => {
     try {
@@ -374,11 +412,21 @@ export default function FertilizerProductPlanner({
     [productPrices, selectedProducts]
   );
 
+  // Quantity view: always fill missing quotes so mixes/kg still compute.
+  // Prices view: use real + nutrient-estimated quotes only (no neutral dummy).
+  const scenarioPrices = useMemo(
+    () =>
+      viewMode === "quantity"
+        ? withFallbackBagPrices(productPrices)
+        : productPrices,
+    [productPrices, viewMode]
+  );
+
   const scenarios = useMemo(
     () =>
       buildCostScenarios({
         doses: effectiveDoses,
-        prices: productPrices,
+        prices: scenarioPrices,
         bagKg: effectiveBagKg,
         selectedProducts,
         irrigationSystem,
@@ -387,7 +435,7 @@ export default function FertilizerProductPlanner({
       }),
     [
       effectiveDoses,
-      productPrices,
+      scenarioPrices,
       effectiveBagKg,
       selectedProducts,
       irrigationSystem,
@@ -413,10 +461,13 @@ export default function FertilizerProductPlanner({
     }
   }, [activeScenarioId, scenarios]);
 
+  const lastReportSignatureRef = useRef("");
   useEffect(() => {
     if (!onReportData) return;
     const scenario = pickScenarioForReport(scenarios, activeScenarioId);
     if (!scenario) {
+      if (lastReportSignatureRef.current === "empty") return;
+      lastReportSignatureRef.current = "empty";
       onReportData({ products: [], outputs: [], applyLines: [] });
       return;
     }
@@ -426,6 +477,9 @@ export default function FertilizerProductPlanner({
       bagKg: effectiveBagKg,
       t,
     });
+    const signature = JSON.stringify(payload);
+    if (signature === lastReportSignatureRef.current) return;
+    lastReportSignatureRef.current = signature;
     onReportData(payload);
   }, [
     activeScenarioId,
@@ -443,7 +497,11 @@ export default function FertilizerProductPlanner({
     nextUnit = plotAreaUnit
   ) {
     setDosesEdited(true);
-    setDoseDraft(next);
+    setDoseN(next.n);
+    setDoseP(next.p);
+    setDoseK(next.k);
+    setDoseMg(next.mg);
+    setDoseCa(next.ca);
     setPlotArea(nextArea);
     setPlotAreaUnit(nextUnit);
     const plan = buildManualDosePlan({
@@ -591,9 +649,6 @@ export default function FertilizerProductPlanner({
         <span className="fertilizer-pick-row__product">
           {t.fertilizerPickColProduct || "Products"}
         </span>
-        <span className="fertilizer-pick-row__price">
-          {t.fertilizerPickColPrice || "Price"}
-        </span>
         {viewMode === "quantity" ? (
           <button
             type="button"
@@ -613,6 +668,9 @@ export default function FertilizerProductPlanner({
             {t.fertilizerPickColCost || t.fertilizerViewPrices || "Cost"}
           </span>
         )}
+        <span className="fertilizer-pick-row__price">
+          {t.fertilizerPickColPrice || "Price"}
+        </span>
       </div>
       {plannedRows.map((row) => {
         if (!row.product) return null;
@@ -665,6 +723,7 @@ export default function FertilizerProductPlanner({
                 }
               />
             </div>
+            <span className="fertilizer-pick-row__metric">{metric}</span>
             <label className="fertilizer-pick-row__price">
               <span className="sr-only">
                 {t.fertilizerPricePerBag || "Price / bag"}
@@ -686,7 +745,6 @@ export default function FertilizerProductPlanner({
                 }
               />
             </label>
-            <span className="fertilizer-pick-row__metric">{metric}</span>
           </div>
         );
       })}
@@ -738,6 +796,7 @@ export default function FertilizerProductPlanner({
                     </span>
                   </p>
                 </div>
+                <span className="fertilizer-pick-row__metric">{metric}</span>
                 <label className="fertilizer-pick-row__price">
                   <span className="sr-only">
                     {t.fertilizerPricePerBag || "Price / bag"}
@@ -759,7 +818,6 @@ export default function FertilizerProductPlanner({
                     }
                   />
                 </label>
-                <span className="fertilizer-pick-row__metric">{metric}</span>
               </div>
             );
           })}
@@ -797,17 +855,46 @@ export default function FertilizerProductPlanner({
     </>
   );
 
+  const selectionSummary = plannedRows
+    .map((row) =>
+      row.product ? fertilizerShortLabel(row.product) || row.product.label : null
+    )
+    .filter(Boolean)
+    .join(" · ");
+
   const selectionPanel =
     activeRows.length === 0 ? (
       <p className="text-xs text-slate-500 dark:text-slate-400">
         {t.fertilizerCostNeedDoses ||
           "Enter doses above to choose fertilizers."}
       </p>
-    ) : (
+    ) : selectionEditorOpen ? (
       <div className="grid gap-2">
         {addFertilizerControls}
         {productCards}
         {extraBlendPriceEditors}
+        <button
+          type="button"
+          className="fertilizer-selection-ok"
+          onClick={() => setSelectionEditorOpen(false)}
+        >
+          {t.fertilizerFormulationDoneSelecting || t.ok || "OK"}
+        </button>
+      </div>
+    ) : (
+      <div className="fertilizer-selection-collapsed">
+        <p className="fertilizer-selection-collapsed__summary">
+          {selectionSummary ||
+            t.fertilizerScenarioCurrent ||
+            "My selection"}
+        </p>
+        <button
+          type="button"
+          className="fertilizer-selection-collapsed__change"
+          onClick={() => setSelectionEditorOpen(true)}
+        >
+          {t.fertilizerFormulationChangeSelection || "Change"}
+        </button>
       </div>
     );
 
@@ -824,6 +911,7 @@ export default function FertilizerProductPlanner({
         onSelect={(id) => {
           setActiveScenarioId(id);
           setApplyNote("");
+          if (id === "current_selection") setSelectionEditorOpen(true);
         }}
         onApply={({ primaryByDose, snappedFromIrrigation, scenario }) => {
           setSelectedProducts((previous) => ({
@@ -831,6 +919,7 @@ export default function FertilizerProductPlanner({
             ...primaryByDose,
           }));
           setActiveScenarioId("current_selection");
+          setSelectionEditorOpen(false);
           setApplyNote(
             snappedFromIrrigation
               ? t.fertilizerScenarioAppliedIrrig ||

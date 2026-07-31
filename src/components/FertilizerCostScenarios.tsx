@@ -187,10 +187,13 @@ export default function FertilizerCostScenarios({
       {!plan || !active.feasible ? (
         <div className="space-y-2">
           <p className="fertilizer-cost-alert rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
-            {t.fertilizerScenarioNeedPrices ||
-              "Add bag prices for the fertilizers you can buy so the optimizer can build scenarios."}
+            {showPrices
+              ? t.fertilizerScenarioNeedPrices ||
+                "Add bag prices for the fertilizers you can buy so the optimizer can build scenarios."
+              : t.fertilizerScenarioNeedDoses ||
+                "Enter nutrient doses above to see product quantities for this mix."}
           </p>
-          {missingPrices.length > 0 ? (
+          {showPrices && missingPrices.length > 0 ? (
             <p className="text-xs text-slate-600 dark:text-slate-300">
               {t.fertilizerScenarioMissingPrices || "Missing prices for"}:{" "}
               {missingPrices

@@ -874,7 +874,99 @@ export function resolveProductPrices(args: {
       if (bag > 0) map[product.key] = round2(bag);
     }
   }
-  return map;
+  return estimateMissingBagPrices(map, args.bagKg);
+}
+
+/**
+ * Estimate bag prices for catalog products that lack a direct online/manual
+ * quote, using nutrient $/kg implied by urea / DAP|TSP / MOP anchors.
+ */
+export function estimateMissingBagPrices(
+  prices: ProductPriceMap,
+  bagKg: number
+): ProductPriceMap {
+  if (!(bagKg > 0)) return prices;
+  const next = { ...prices };
+
+  const pricePerKgNutrient = (
+    productKey: string,
+    nutrient: OptimizeNutrient
+  ): number | null => {
+    const bag = next[productKey];
+    const product = listAllFertilizers().find((item) => item.key === productKey);
+    const pct = product?.grade[nutrient] || 0;
+    if (!(bag > 0) || !(pct > 0)) return null;
+    return bag / bagKg / (pct / 100);
+  };
+
+  const nUnit =
+    pricePerKgNutrient("urea", "n") ||
+    pricePerKgNutrient("ammonium_nitrate", "n") ||
+    pricePerKgNutrient("ammonium_sulfate", "n");
+  const pUnit =
+    pricePerKgNutrient("tsp", "p2o5") ||
+    pricePerKgNutrient("dap", "p2o5") ||
+    pricePerKgNutrient("map", "p2o5");
+  const kUnit =
+    pricePerKgNutrient("mop", "k2o") || pricePerKgNutrient("sop", "k2o");
+  const mgUnit = pricePerKgNutrient("kieserite", "mgo");
+  const caUnit =
+    pricePerKgNutrient("agricultural_lime", "cao") ||
+    pricePerKgNutrient("gypsum", "cao") ||
+    pricePerKgNutrient("calcium_nitrate", "cao");
+
+  if (nUnit == null && pUnit == null && kUnit == null) return next;
+
+  for (const product of listAllFertilizers()) {
+    if ((next[product.key] || 0) > 0) continue;
+    let perKg = 0;
+    let covered = 0;
+    const nPct = product.grade.n || 0;
+    const pPct = product.grade.p2o5 || 0;
+    const kPct = product.grade.k2o || 0;
+    const mgPct = product.grade.mgo || 0;
+    const caPct = product.grade.cao || 0;
+    if (nPct > 0 && nUnit != null) {
+      perKg += (nPct / 100) * nUnit;
+      covered += nPct;
+    }
+    if (pPct > 0 && pUnit != null) {
+      perKg += (pPct / 100) * pUnit;
+      covered += pPct;
+    }
+    if (kPct > 0 && kUnit != null) {
+      perKg += (kPct / 100) * kUnit;
+      covered += kPct;
+    }
+    if (mgPct > 0 && mgUnit != null) {
+      perKg += (mgPct / 100) * mgUnit;
+      covered += mgPct;
+    }
+    if (caPct > 0 && caUnit != null) {
+      perKg += (caPct / 100) * caUnit;
+      covered += caPct;
+    }
+    if (!(perKg > 0) || covered < 5) continue;
+    // Mild compound premium so estimates sit near retail blends.
+    const bag = perKg * bagKg * (covered >= 30 ? 1.08 : 1.04);
+    if (bag > 0) next[product.key] = round2(bag);
+  }
+  return next;
+}
+
+/**
+ * Neutral bag prices so quantity blends always solve when quotes are missing.
+ * Cost ranking with these values is only useful for relative product mass.
+ */
+export function withFallbackBagPrices(
+  prices: ProductPriceMap,
+  fallback = 1
+): ProductPriceMap {
+  const next = { ...prices };
+  for (const product of listAllFertilizers()) {
+    if (!(next[product.key] > 0)) next[product.key] = fallback;
+  }
+  return next;
 }
 
 export { NUTRIENT_BY_DOSE, DOSE_BY_NUTRIENT, OPTIMIZE_NUTRIENTS };

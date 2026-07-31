@@ -28,26 +28,67 @@ import {
 } from "@/lib/calculatorMemory";
 import { resolveCationInputs } from "@/lib/resolveCationInputs";
 
+type MemoryWriteOptions = {
+  recordHistory?: boolean;
+  coalesceKey?: string;
+};
+
 type MemoryContextValue = {
   sampleType: CalculatorSampleScope;
   importTick: number;
   lastImportFingerprint?: string;
   valuesOutOfSync: boolean;
   getNumber: (section: string, key: string, fallback: number) => number;
-  setNumber: (section: string, key: string, value: number) => void;
+  setNumber: (
+    section: string,
+    key: string,
+    value: number,
+    options?: MemoryWriteOptions
+  ) => void;
   getText: (section: string, key: string, fallback: string) => string;
-  setText: (section: string, key: string, value: string) => void;
-  importFromValues: () => { importedCount: number; fingerprint: string };
+  setText: (
+    section: string,
+    key: string,
+    value: string,
+    options?: MemoryWriteOptions
+  ) => void;
+  importFromValues: (options?: {
+    recordHistory?: boolean;
+  }) => { importedCount: number; fingerprint: string };
+  canUndo: boolean;
+  canRedo: boolean;
+  undo: () => void;
+  redo: () => void;
 };
 
 const CalculatorMemoryContext = createContext<MemoryContextValue | null>(null);
 
 let memoryCache: CalculatorMemoryStore | null = null;
 const listeners = new Set<() => void>();
+const historyListeners = new Set<() => void>();
+const MAX_HISTORY = 60;
+const COALESCE_MS = 700;
+const HISTORY_MUTE_MS = 250;
+
+let past: CalculatorMemoryStore[] = [];
+let future: CalculatorMemoryStore[] = [];
+let historyVersion = 0;
+let historySnapshot = { canUndo: false, canRedo: false, version: 0 };
+let historyMuteUntil = 0;
+let lastCoalesceKey: string | null = null;
+let lastCoalesceAt = 0;
 
 function getStore(): CalculatorMemoryStore {
   if (!memoryCache) memoryCache = readCalculatorMemory();
   return memoryCache;
+}
+
+function cloneStore(store: CalculatorMemoryStore): CalculatorMemoryStore {
+  return JSON.parse(JSON.stringify(store)) as CalculatorMemoryStore;
+}
+
+function storesEqual(a: CalculatorMemoryStore, b: CalculatorMemoryStore) {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 function subscribe(listener: () => void) {
@@ -55,14 +96,96 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
+function subscribeHistory(listener: () => void) {
+  historyListeners.add(listener);
+  return () => historyListeners.delete(listener);
+}
+
 function emit() {
   for (const listener of listeners) listener();
 }
 
-function commit(next: CalculatorMemoryStore) {
+function emitHistory() {
+  historyVersion += 1;
+  historySnapshot = {
+    canUndo: past.length > 0,
+    canRedo: future.length > 0,
+    version: historyVersion,
+  };
+  for (const listener of historyListeners) listener();
+}
+
+function getHistorySnapshot() {
+  return historySnapshot;
+}
+
+function muteHistoryRecording(ms = HISTORY_MUTE_MS) {
+  historyMuteUntil = Math.max(historyMuteUntil, Date.now() + ms);
+}
+
+function commit(
+  next: CalculatorMemoryStore,
+  options?: { recordHistory?: boolean; coalesceKey?: string }
+) {
+  if (storesEqual(getStore(), next)) return;
+
+  const muted = Date.now() < historyMuteUntil;
+  const recordHistory = options?.recordHistory !== false && !muted;
+
+  if (recordHistory) {
+    const coalesceKey = options?.coalesceKey ?? null;
+    const now = Date.now();
+    const coalesce =
+      Boolean(coalesceKey) &&
+      coalesceKey === lastCoalesceKey &&
+      now - lastCoalesceAt < COALESCE_MS &&
+      past.length > 0;
+
+    if (!coalesce) {
+      past.push(cloneStore(getStore()));
+      if (past.length > MAX_HISTORY) past.shift();
+    }
+    lastCoalesceKey = coalesceKey;
+    lastCoalesceAt = now;
+    future = [];
+  } else if (options?.recordHistory !== false) {
+    // Muted system write — keep redo/undo stacks intact.
+    lastCoalesceKey = null;
+  } else {
+    // Explicit non-history write (undo/redo apply, auto-import).
+    lastCoalesceKey = null;
+  }
+
   memoryCache = next;
   writeCalculatorMemory(next);
   emit();
+  emitHistory();
+}
+
+function undoMemory() {
+  if (past.length === 0) return;
+  future.push(cloneStore(getStore()));
+  const previous = past.pop();
+  if (!previous) return;
+  muteHistoryRecording();
+  lastCoalesceKey = null;
+  memoryCache = previous;
+  writeCalculatorMemory(previous);
+  emit();
+  emitHistory();
+}
+
+function redoMemory() {
+  if (future.length === 0) return;
+  past.push(cloneStore(getStore()));
+  const next = future.pop();
+  if (!next) return;
+  muteHistoryRecording();
+  lastCoalesceKey = null;
+  memoryCache = next;
+  writeCalculatorMemory(next);
+  emit();
+  emitHistory();
 }
 
 function labPairsFromMap(lab: Map<string, CalculatorValue>): Array<[string, number | undefined]> {
@@ -168,9 +291,22 @@ export function CalculatorMemoryProvider({
   );
 
   const setNumber = useCallback(
-    (section: string, key: string, value: number) => {
+    (section: string, key: string, value: number, options?: MemoryWriteOptions) => {
       if (!Number.isFinite(value)) return;
-      commit(setMemoryField(getStore(), sampleType, section, key, value));
+      const current = getMemoryField(
+        getMemorySlice(getStore(), sampleType),
+        section,
+        key
+      );
+      if (current !== undefined && current === value) return;
+      commit(setMemoryField(getStore(), sampleType, section, key, value), {
+        recordHistory: options?.recordHistory,
+        coalesceKey:
+          options?.coalesceKey ??
+          (options?.recordHistory === false
+            ? undefined
+            : `${sampleType}:${section}:${key}:n`),
+      });
     },
     [sampleType]
   );
@@ -185,18 +321,50 @@ export function CalculatorMemoryProvider({
   );
 
   const setText = useCallback(
-    (section: string, key: string, value: string) => {
-      commit(setMemoryTextField(getStore(), sampleType, section, key, value));
+    (section: string, key: string, value: string, options?: MemoryWriteOptions) => {
+      const current = getMemoryTextField(
+        getMemorySlice(getStore(), sampleType),
+        section,
+        key
+      );
+      if (current !== undefined && current === value) return;
+      commit(setMemoryTextField(getStore(), sampleType, section, key, value), {
+        recordHistory: options?.recordHistory,
+        coalesceKey:
+          options?.coalesceKey ??
+          (options?.recordHistory === false
+            ? undefined
+            : `${sampleType}:${section}:${key}:t`),
+      });
     },
     [sampleType]
   );
 
-  const importFromValues = useCallback(() => {
-    const result = mapLabIntoMemory(getStore(), sampleType, lab);
-    commit(result.store);
+  const importFromValues = useCallback(
+    (options?: { recordHistory?: boolean }) => {
+      const result = mapLabIntoMemory(getStore(), sampleType, lab);
+      commit(result.store, { recordHistory: options?.recordHistory !== false });
+      setImportTick((tick) => tick + 1);
+      return { importedCount: result.importedCount, fingerprint: result.fingerprint };
+    },
+    [lab, sampleType]
+  );
+
+  const historyFlags = useSyncExternalStore(
+    subscribeHistory,
+    getHistorySnapshot,
+    getHistorySnapshot
+  );
+
+  const undo = useCallback(() => {
+    undoMemory();
     setImportTick((tick) => tick + 1);
-    return { importedCount: result.importedCount, fingerprint: result.fingerprint };
-  }, [lab, sampleType]);
+  }, []);
+
+  const redo = useCallback(() => {
+    redoMemory();
+    setImportTick((tick) => tick + 1);
+  }, []);
 
   const value = useMemo<MemoryContextValue>(
     () => ({
@@ -209,6 +377,10 @@ export function CalculatorMemoryProvider({
       getText,
       setText,
       importFromValues,
+      canUndo: historyFlags.canUndo,
+      canRedo: historyFlags.canRedo,
+      undo,
+      redo,
     }),
     [
       sampleType,
@@ -220,6 +392,10 @@ export function CalculatorMemoryProvider({
       getText,
       setText,
       importFromValues,
+      historyFlags.canUndo,
+      historyFlags.canRedo,
+      undo,
+      redo,
     ]
   );
 
@@ -245,7 +421,7 @@ export function useMemoryNumber(
   section: string,
   key: string,
   labFallback: number
-): [number, (value: number) => void] {
+): [number, (value: number, options?: MemoryWriteOptions) => void] {
   const { setNumber, importTick, sampleType } = useCalculatorMemory();
   const store = useSyncExternalStore(subscribe, getStore, getStore);
   const remembered = getMemoryField(getMemorySlice(store, sampleType), section, key);
@@ -258,9 +434,9 @@ export function useMemoryNumber(
   }, [importTick, section, key, resolved]);
 
   const update = useCallback(
-    (next: number) => {
+    (next: number, options?: MemoryWriteOptions) => {
       setValue(next);
-      setNumber(section, key, next);
+      setNumber(section, key, next, options);
     },
     [section, key, setNumber]
   );
@@ -273,7 +449,7 @@ export function useMemoryString(
   section: string,
   key: string,
   fallback = ""
-): [string, (value: string) => void] {
+): [string, (value: string, options?: MemoryWriteOptions) => void] {
   const { setText, importTick, sampleType } = useCalculatorMemory();
   const store = useSyncExternalStore(subscribe, getStore, getStore);
   const remembered = getMemoryTextField(getMemorySlice(store, sampleType), section, key);
@@ -286,9 +462,9 @@ export function useMemoryString(
   }, [importTick, section, key, resolved]);
 
   const update = useCallback(
-    (next: string) => {
+    (next: string, options?: MemoryWriteOptions) => {
       setValue(next);
-      setText(section, key, next);
+      setText(section, key, next, options);
     },
     [section, key, setText]
   );

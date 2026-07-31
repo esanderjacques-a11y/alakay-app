@@ -753,7 +753,7 @@ export default function FertilizerProductPlanner({
                       }))
                     }
                     placeholder={
-                      onlinePricePerBag > 0
+                      onlinePricePerBag != null && onlinePricePerBag > 0
                         ? String(onlinePricePerBag)
                         : displayCurrency
                     }

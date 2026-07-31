@@ -1118,23 +1118,47 @@ const appSteps = new Set<AppStep>([
   "history",
   "about",
   "recycle",
+  "custom-data",
   "settings",
   "billing",
+  "billing-admin",
   "verification",
   "farms",
   "calendar",
   "notes",
   "notifications",
+  "inventory",
   "lab-scan",
   "lab-import",
 ]);
 
+const LAST_STEP_STORAGE_KEY = "cultosol_last_step";
+
+function isAppStep(value: unknown): value is AppStep {
+  return typeof value === "string" && appSteps.has(value as AppStep);
+}
+
 function readHistoryStep(state: unknown): AppStep | null {
   if (!state || typeof state !== "object") return null;
   const step = (state as { cultosolStep?: unknown }).cultosolStep;
-  return typeof step === "string" && appSteps.has(step as AppStep)
-    ? (step as AppStep)
-    : null;
+  return isAppStep(step) ? step : null;
+}
+
+function readStoredStep(): AppStep | null {
+  try {
+    const step = sessionStorage.getItem(LAST_STEP_STORAGE_KEY);
+    return isAppStep(step) ? step : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistStoredStep(step: AppStep) {
+  try {
+    sessionStorage.setItem(LAST_STEP_STORAGE_KEY, step);
+  } catch {
+    /* sessionStorage may be blocked */
+  }
 }
 
 export default function HomePage() {
@@ -1155,6 +1179,8 @@ export default function HomePage() {
   );
   const historyReadyRef = useRef(false);
   const handlingPopStateRef = useRef(false);
+  /** undefined = auth identity not observed yet; null = signed out */
+  const previousUserIdRef = useRef<string | null | undefined>(undefined);
 
   const [session, setSession] = useState<Session | null>(null);
   const [sessionRestoring, setSessionRestoring] = useState(true);
@@ -1289,10 +1315,19 @@ export default function HomePage() {
 
   useEffect(() => {
     currentStepRef.current = currentStep;
+    persistStoredStep(currentStep);
   }, [currentStep]);
 
   useEffect(() => {
     const currentState = window.history.state;
+    const restoredStep =
+      readHistoryStep(currentState) ?? readStoredStep();
+
+    if (restoredStep && restoredStep !== currentStepRef.current) {
+      currentStepRef.current = restoredStep;
+      setCurrentStep(restoredStep);
+    }
+
     if (!readHistoryStep(currentState)) {
       window.history.replaceState(
         { ...currentState, cultosolStep: currentStepRef.current },
@@ -1601,16 +1636,26 @@ export default function HomePage() {
     loadSession();
 
     const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
+      const nextUserId = newSession?.user?.id ?? null;
+      const previousUserId = previousUserIdRef.current;
+
       setSession(newSession);
+
+      if (event === "SIGNED_OUT") {
+        previousUserIdRef.current = null;
+        setShowAuthScreen(false);
+        setGuestMode(false);
+        return;
+      }
+
+      if (event === "INITIAL_SESSION") {
+        previousUserIdRef.current = nextUserId;
+      }
 
       if (
         !newSession?.user ||
         (event !== "SIGNED_IN" && event !== "INITIAL_SESSION")
       ) {
-        if (event === "SIGNED_OUT") {
-          setShowAuthScreen(false);
-          setGuestMode(false);
-        }
         return;
       }
 
@@ -1623,10 +1668,26 @@ export default function HomePage() {
         }
       });
 
-      if (event === "SIGNED_IN" || justVerified) {
+      // Supabase re-emits SIGNED_IN when recovering the session after the
+      // tab/app becomes visible again. Only navigate home for a real login
+      // (was signed out, switched accounts, or just verified email).
+      // previousUserId === undefined means auth identity is not known yet —
+      // do not treat that as a fresh login or a resume will wipe navigation.
+      const isFreshSignIn =
+        justVerified ||
+        (event === "SIGNED_IN" &&
+          previousUserId !== undefined &&
+          previousUserId !== nextUserId);
+
+      previousUserIdRef.current = nextUserId;
+
+      if (isFreshSignIn) {
         setShowAuthScreen(false);
         setGuestMode(false);
         setCurrentStep("home");
+      } else if (event === "SIGNED_IN") {
+        setShowAuthScreen(false);
+        setGuestMode(false);
       }
 
       if (justVerified) {
@@ -1732,12 +1793,14 @@ export default function HomePage() {
       }
 
       setSession(data.session);
+      previousUserIdRef.current = data.session?.user?.id ?? null;
       if (data.session?.user) {
         clearAuthParamsFromUrl();
       }
     } catch (error) {
       console.error("loadSession:", error);
       setSession(null);
+      previousUserIdRef.current = null;
       setMessage(formatRequestError(error));
     } finally {
       setSessionRestoring(false);
@@ -1747,6 +1810,7 @@ export default function HomePage() {
   async function logout() {
     await supabase.auth.signOut();
     setSession(null);
+    previousUserIdRef.current = null;
     setShowAuthScreen(false);
     setGuestMode(false);
     setCurrentStep("home");

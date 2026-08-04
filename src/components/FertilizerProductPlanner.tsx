@@ -135,16 +135,26 @@ function formatMoney(value: number, currency: string) {
   }).format(value);
 }
 
+function roundDoseValue(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  return Math.round(value * 100) / 100;
+}
+
 function formatNumberInput(value: number) {
-  if (!Number.isFinite(value) || value === 0) return "";
-  return String(value);
+  const rounded = roundDoseValue(value);
+  if (rounded === 0) return "";
+  return String(rounded);
 }
 
 function parseNumberInput(text: string) {
   const cleaned = text.replace(",", ".").trim();
   if (!cleaned) return 0;
   const n = Number(cleaned);
-  return Number.isFinite(n) ? n : 0;
+  return Number.isFinite(n) ? roundDoseValue(n) : 0;
+}
+
+function sameDoseValue(a: number, b: number) {
+  return Math.abs(roundDoseValue(a) - roundDoseValue(b)) < 0.001;
 }
 
 /** Keeps draft text so comma/dot decimals can be typed without being stripped. */
@@ -208,7 +218,7 @@ function doseDraftFromDoses(doses: FertilityDoseResult[]): DoseDraft {
   const read = (key: DoseNutrientKey) => {
     const dose = doses.find((row) => row.key === key);
     if (!dose || dose.notRequired || dose.viaEncalado) return 0;
-    return Math.max(0, dose.dosisOxideKgHa ?? 0);
+    return roundDoseValue(dose.dosisOxideKgHa ?? 0);
   };
   return {
     n: read("n"),
@@ -275,7 +285,11 @@ export default function FertilizerProductPlanner({
     }),
     [doseN, doseP, doseK, doseMg, doseCa]
   );
-  const [doseSyncKey, setDoseSyncKey] = useState(() => dosesSignature(doses));
+  const [dosesSourceKey, setDosesSourceKey] = useMemoryString(
+    "fertilizerCost",
+    "dosesSourceKey",
+    ""
+  );
   const [dosesEditedRaw, setDosesEditedRaw] = useMemoryString(
     "fertilizerCost",
     "dosesEdited",
@@ -297,18 +311,46 @@ export default function FertilizerProductPlanner({
   const setPlotAreaUnit = (next: AreaUnit) => setPlotAreaUnitRaw(next);
 
   useEffect(() => {
-    const nextKey = dosesSignature(doses);
-    if (nextKey === doseSyncKey) return;
     const next = doseDraftFromDoses(doses);
+    const nextKey = dosesSignature(doses);
+    const planChanged = nextKey !== dosesSourceKey;
+    // Keep manual overrides only while the nutrition-plan signature is unchanged.
+    if (dosesEdited && !planChanged) return;
+
+    const draftMatchesPlan =
+      sameDoseValue(doseN, next.n) &&
+      sameDoseValue(doseP, next.p) &&
+      sameDoseValue(doseK, next.k) &&
+      sameDoseValue(doseMg, next.mg) &&
+      sameDoseValue(doseCa, next.ca);
+
+    if (draftMatchesPlan && !planChanged) return;
+
     const silent = { recordHistory: false } as const;
     setDoseN(next.n, silent);
     setDoseP(next.p, silent);
     setDoseK(next.k, silent);
     setDoseMg(next.mg, silent);
     setDoseCa(next.ca, silent);
-    setDoseSyncKey(nextKey);
-    setDosesEditedRaw("0", { recordHistory: false });
-  }, [doses, doseSyncKey, setDoseN, setDoseP, setDoseK, setDoseMg, setDoseCa, setDosesEditedRaw]);
+    setDosesSourceKey(nextKey, silent);
+    setDosesEditedRaw("0", silent);
+  }, [
+    doses,
+    dosesSourceKey,
+    dosesEdited,
+    doseN,
+    doseP,
+    doseK,
+    doseMg,
+    doseCa,
+    setDoseN,
+    setDoseP,
+    setDoseK,
+    setDoseMg,
+    setDoseCa,
+    setDosesSourceKey,
+    setDosesEditedRaw,
+  ]);
 
   useEffect(() => {
     if (dosesEdited || plotAreaUnit !== "ha" || !(areaHa > 0)) return;
@@ -565,29 +607,36 @@ export default function FertilizerProductPlanner({
     nextArea = plotArea,
     nextUnit = plotAreaUnit
   ) {
+    const normalized: DoseDraft = {
+      n: roundDoseValue(next.n),
+      p: roundDoseValue(next.p),
+      k: roundDoseValue(next.k),
+      mg: roundDoseValue(next.mg),
+      ca: roundDoseValue(next.ca),
+    };
     setDosesEdited(true);
-    setDoseN(next.n);
-    setDoseP(next.p);
-    setDoseK(next.k);
-    setDoseMg(next.mg);
-    setDoseCa(next.ca);
+    setDoseN(normalized.n);
+    setDoseP(normalized.p);
+    setDoseK(normalized.k);
+    setDoseMg(normalized.mg);
+    setDoseCa(normalized.ca);
     setPlotArea(nextArea);
     setPlotAreaUnit(nextUnit);
     const plan = buildManualDosePlan({
-      nOxideKgHa: next.n,
-      p2o5KgHa: next.p,
-      k2oKgHa: next.k,
-      mgoKgHa: next.mg,
-      caoKgHa: next.ca,
+      nOxideKgHa: normalized.n,
+      p2o5KgHa: normalized.p,
+      k2oKgHa: normalized.k,
+      mgoKgHa: normalized.mg,
+      caoKgHa: normalized.ca,
       area: nextArea > 0 ? nextArea : 1,
       areaUnit: nextUnit,
     });
-    setDoseSyncKey(dosesSignature(plan.doses));
+    setDosesSourceKey(dosesSignature(plan.doses), { recordHistory: false });
     onDosesChange?.(plan.doses, plan.areaHa);
   }
 
   function updateDoseField(key: keyof DoseDraft, value: number) {
-    commitDoseDraft({ ...doseDraft, [key]: value > 0 ? value : 0 });
+    commitDoseDraft({ ...doseDraft, [key]: roundDoseValue(value) });
   }
 
   function updatePlotArea(value: number) {
@@ -1032,7 +1081,7 @@ export default function FertilizerProductPlanner({
   );
 
   const doseSummary = DOSE_FIELDS.filter((field) => doseDraft[field.key] > 0)
-    .map((field) => `${field.label} ${doseDraft[field.key]}`)
+    .map((field) => `${field.label} ${formatNumberInput(doseDraft[field.key])}`)
     .join(" · ");
 
   if (showAsPage) {

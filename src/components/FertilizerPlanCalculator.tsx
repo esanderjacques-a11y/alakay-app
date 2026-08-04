@@ -35,6 +35,7 @@ import {
   MINERALIZATION_SCENARIOS,
   oxideToElementalExtraction,
   type FertilityCalcStep,
+  type FertilityDemandSource,
   type FertilityDoseResult,
   type MineralizationScenario,
   type NutrientDisplayMode,
@@ -132,6 +133,16 @@ export default function FertilizerPlanCalculator({
   const [calcModeRaw, setCalcModeRaw] = useMemoryString("fertilizer", "calcMode", "full");
   const calcMode: PlanCalcMode = calcModeRaw === "dose" ? "dose" : "full";
   const setCalcMode = (mode: PlanCalcMode) => setCalcModeRaw(mode);
+
+  const [demandSourceRaw, setDemandSourceRaw] = useMemoryString(
+    "fertilizer",
+    "demandSource",
+    "extraction"
+  );
+  const demandSource: FertilityDemandSource =
+    demandSourceRaw === "direct" ? "direct" : "extraction";
+  const setDemandSource = (source: FertilityDemandSource) => setDemandSourceRaw(source);
+  const useDirectDemand = demandSource === "direct";
 
   const [displayModeRaw, setDisplayModeRaw] = useMemoryString(
     "fertilizer",
@@ -266,6 +277,13 @@ export default function FertilizerPlanCalculator({
   const [manualMgOxide, setManualMgOxide] = useMemoryNumber("fertilizer", "manualDoseMg", 0);
   const [manualCaOxide, setManualCaOxide] = useMemoryNumber("fertilizer", "manualDoseCa", 0);
 
+  /** Direct nutritional demand (kg/ha), oxide basis — when extraction coefficients are unknown. */
+  const [demandN, setDemandN] = useMemoryNumber("fertilizer", "demandN", 0);
+  const [demandP2o5, setDemandP2o5] = useMemoryNumber("fertilizer", "demandP2o5", 0);
+  const [demandK2o, setDemandK2o] = useMemoryNumber("fertilizer", "demandK2o", 0);
+  const [demandCao, setDemandCao] = useMemoryNumber("fertilizer", "demandCao", 0);
+  const [demandMgo, setDemandMgo] = useMemoryNumber("fertilizer", "demandMgo", 0);
+
   const extractOxide = useMemo<ExtractionOxide>(
     () => ({
       n: extractN,
@@ -275,6 +293,17 @@ export default function FertilizerPlanCalculator({
       mgo: extractMgo,
     }),
     [extractN, extractP2o5, extractK2o, extractCao, extractMgo]
+  );
+
+  const demandOxide = useMemo<ExtractionOxide>(
+    () => ({
+      n: demandN,
+      p2o5: demandP2o5,
+      k2o: demandK2o,
+      cao: demandCao,
+      mgo: demandMgo,
+    }),
+    [demandN, demandP2o5, demandK2o, demandCao, demandMgo]
   );
 
   useEffect(() => {
@@ -316,6 +345,8 @@ export default function FertilizerPlanCalculator({
 
   const displayExtract =
     displayMode === "elemental" ? oxideToElementalExtraction(extractOxide, factors) : extractOxide;
+  const displayDemand =
+    displayMode === "elemental" ? oxideToElementalExtraction(demandOxide, factors) : demandOxide;
 
   const labels = displayExtractionLabels(displayMode);
 
@@ -327,6 +358,14 @@ export default function FertilizerPlanCalculator({
     setExtractMgo(next.mgo);
   }
 
+  function applyDemandOxide(next: ExtractionOxide) {
+    setDemandN(next.n);
+    setDemandP2o5(next.p2o5);
+    setDemandK2o(next.k2o);
+    setDemandCao(next.cao);
+    setDemandMgo(next.mgo);
+  }
+
   function updateExtractionField(field: keyof ExtractionOxide, displayValue: number) {
     if (displayMode === "elemental") {
       const asElemental = { ...displayExtract, [field]: displayValue };
@@ -334,6 +373,15 @@ export default function FertilizerPlanCalculator({
       return;
     }
     applyExtractionOxide({ ...extractOxide, [field]: displayValue });
+  }
+
+  function updateDemandField(field: keyof ExtractionOxide, displayValue: number) {
+    if (displayMode === "elemental") {
+      const asElemental = { ...displayDemand, [field]: displayValue };
+      applyDemandOxide(elementalToOxideExtraction(asElemental, factors));
+      return;
+    }
+    applyDemandOxide({ ...demandOxide, [field]: displayValue });
   }
 
   const plan = useMemo(() => {
@@ -354,6 +402,8 @@ export default function FertilizerPlanCalculator({
       {
         cultivo: effectiveCropName,
         extraction: extractOxide,
+        demandSource,
+        demand: demandOxide,
         rendimientoObjetivo: yieldTarget,
         profundidadMuestreo_cm: depthCm,
         densidadAparente_g_cm3: bulkDensity,
@@ -389,6 +439,8 @@ export default function FertilizerPlanCalculator({
     manualMgOxide,
     manualCaOxide,
     extractOxide,
+    demandSource,
+    demandOxide,
     yieldTarget,
     depthCm,
     bulkDensity,
@@ -566,6 +618,20 @@ export default function FertilizerPlanCalculator({
                 ["elemental", t.element || t.elemental || "Elemental"],
               ]}
             />
+            {!isDoseOnly ? (
+              <SelectField
+                label={t.fertilizerPlanDemandSource || "Demand source"}
+                value={demandSource}
+                onChange={(value) => setDemandSource(value as FertilityDemandSource)}
+                options={[
+                  [
+                    "extraction",
+                    t.fertilizerPlanDemandFromExtraction || "From extraction (kg/t)",
+                  ],
+                  ["direct", t.fertilizerPlanDemandDirect || "Direct (kg/ha)"],
+                ]}
+              />
+            ) : null}
           </div>
         </div>
 
@@ -630,7 +696,9 @@ export default function FertilizerPlanCalculator({
           title={t.fertilizerPlanCropPlot || t.fertilizerPlanCrop || "Crop & plot"}
           summary={
             cropSummary
-              ? `${cropSummary}${yieldTarget > 0 ? ` · ${yieldTarget} t/ha` : ""}`
+              ? `${cropSummary}${
+                  !useDirectDemand && yieldTarget > 0 ? ` · ${yieldTarget} t/ha` : ""
+                }`
               : undefined
           }
           defaultOpen
@@ -655,7 +723,7 @@ export default function FertilizerPlanCalculator({
             </div>
           ) : null}
 
-          {!matchedCrop && !showCropPicker ? (
+          {!matchedCrop && !showCropPicker && !useDirectDemand ? (
             <p className="fertilizer-plan__hint" role="status">
               {effectiveCropName
                 ? t.fertilizerPlanCropUnknown ||
@@ -666,11 +734,13 @@ export default function FertilizerPlanCalculator({
           ) : null}
 
           <div className="calc-form-fields calc-form-fields--cols-3">
-            <NumberField
-              label={t.fertilizerPlanYield || "Yield (t/ha)"}
-              value={yieldTarget}
-              onChange={setYieldTarget}
-            />
+            {!useDirectDemand ? (
+              <NumberField
+                label={t.fertilizerPlanYield || "Yield (t/ha)"}
+                value={yieldTarget}
+                onChange={setYieldTarget}
+              />
+            ) : null}
             <NumberField label={t.area || "Area"} value={area} onChange={setArea} />
             <SelectField
               label={t.areaUnit || "Unit"}
@@ -721,49 +791,94 @@ export default function FertilizerPlanCalculator({
               />
             ) : null}
           </div>
-          {yieldHint ? (
+          {!useDirectDemand && yieldHint ? (
             <p className="text-xs text-slate-500 dark:text-slate-400">{yieldHint}</p>
           ) : null}
         </PlanSection>
 
-        <PlanSection
-          title={t.fertilizerPlanExtraction || "Extraction (kg/t)"}
-          summary={`${labels.n} ${displayExtract.n} · ${labels.p} ${round3(displayExtract.p2o5)} · ${labels.k} ${round3(displayExtract.k2o)}`}
-          defaultOpen={false}
-        >
-          <div className="calc-form-fields calc-form-fields--cols-3">
-            <NumberField
-              label={labels.n}
-              value={displayExtract.n}
-              onChange={(v) => updateExtractionField("n", v)}
-              preserveCase
-            />
-            <NumberField
-              label={labels.p}
-              value={round3(displayExtract.p2o5)}
-              onChange={(v) => updateExtractionField("p2o5", v)}
-              preserveCase
-            />
-            <NumberField
-              label={labels.k}
-              value={round3(displayExtract.k2o)}
-              onChange={(v) => updateExtractionField("k2o", v)}
-              preserveCase
-            />
-            <NumberField
-              label={labels.ca}
-              value={round3(displayExtract.cao)}
-              onChange={(v) => updateExtractionField("cao", v)}
-              preserveCase
-            />
-            <NumberField
-              label={labels.mg}
-              value={round3(displayExtract.mgo)}
-              onChange={(v) => updateExtractionField("mgo", v)}
-              preserveCase
-            />
-          </div>
-        </PlanSection>
+        {useDirectDemand ? (
+          <PlanSection
+            title={t.fertilizerPlanDemand || "Demand (kg/ha)"}
+            summary={`${labels.n} ${round3(displayDemand.n)} · ${labels.p} ${round3(displayDemand.p2o5)} · ${labels.k} ${round3(displayDemand.k2o)}`}
+            defaultOpen
+          >
+            <p className="fertilizer-plan__hint mb-2" role="note">
+              {t.fertilizerPlanDemandHint ||
+                "Enter crop nutrient demand when you do not have extraction coefficients. Soil supply and irrigation efficiency still apply."}
+            </p>
+            <div className="calc-form-fields calc-form-fields--cols-3">
+              <NumberField
+                label={`${labels.n} (kg/ha)`}
+                value={round3(displayDemand.n)}
+                onChange={(v) => updateDemandField("n", v)}
+                preserveCase
+              />
+              <NumberField
+                label={`${labels.p} (kg/ha)`}
+                value={round3(displayDemand.p2o5)}
+                onChange={(v) => updateDemandField("p2o5", v)}
+                preserveCase
+              />
+              <NumberField
+                label={`${labels.k} (kg/ha)`}
+                value={round3(displayDemand.k2o)}
+                onChange={(v) => updateDemandField("k2o", v)}
+                preserveCase
+              />
+              <NumberField
+                label={`${labels.ca} (kg/ha)`}
+                value={round3(displayDemand.cao)}
+                onChange={(v) => updateDemandField("cao", v)}
+                preserveCase
+              />
+              <NumberField
+                label={`${labels.mg} (kg/ha)`}
+                value={round3(displayDemand.mgo)}
+                onChange={(v) => updateDemandField("mgo", v)}
+                preserveCase
+              />
+            </div>
+          </PlanSection>
+        ) : (
+          <PlanSection
+            title={t.fertilizerPlanExtraction || "Extraction (kg/t)"}
+            summary={`${labels.n} ${displayExtract.n} · ${labels.p} ${round3(displayExtract.p2o5)} · ${labels.k} ${round3(displayExtract.k2o)}`}
+            defaultOpen={false}
+          >
+            <div className="calc-form-fields calc-form-fields--cols-3">
+              <NumberField
+                label={labels.n}
+                value={displayExtract.n}
+                onChange={(v) => updateExtractionField("n", v)}
+                preserveCase
+              />
+              <NumberField
+                label={labels.p}
+                value={round3(displayExtract.p2o5)}
+                onChange={(v) => updateExtractionField("p2o5", v)}
+                preserveCase
+              />
+              <NumberField
+                label={labels.k}
+                value={round3(displayExtract.k2o)}
+                onChange={(v) => updateExtractionField("k2o", v)}
+                preserveCase
+              />
+              <NumberField
+                label={labels.ca}
+                value={round3(displayExtract.cao)}
+                onChange={(v) => updateExtractionField("cao", v)}
+                preserveCase
+              />
+              <NumberField
+                label={labels.mg}
+                value={round3(displayExtract.mgo)}
+                onChange={(v) => updateExtractionField("mgo", v)}
+                preserveCase
+              />
+            </div>
+          </PlanSection>
+        )}
 
         <PlanSection
           title={t.fertilizerPlanLabSupply || "Soil lab"}
@@ -952,8 +1067,11 @@ export default function FertilizerPlanCalculator({
             {isDoseOnly
               ? t.fertilizerPlanNeedKnownDose ||
                 "Enter at least one known nutrient dose greater than zero."
-              : t.fertilizerPlanNeedYield ||
-                "Enter a target yield greater than zero to calculate doses."}
+              : useDirectDemand
+                ? t.fertilizerPlanNeedDemand ||
+                  "Enter at least one nutrient demand greater than zero (kg/ha)."
+                : t.fertilizerPlanNeedYield ||
+                  "Enter a target yield greater than zero to calculate doses."}
           </p>
         </div>
       )}

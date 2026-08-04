@@ -108,10 +108,20 @@ export type ExtractionOxide = {
   mgo: number;
 };
 
+export type FertilityDemandSource = "extraction" | "direct";
+
 export type FertilityPlanDoseInput = {
   cultivo?: string | null;
-  /** Oxide-form extraction (kg/t). Required when crop is unknown or user overrides. */
+  /** Oxide-form extraction (kg/t). Used when demandSource is "extraction". */
   extraction?: Partial<ExtractionOxide> | null;
+  /**
+   * How crop demand (kg/ha) is obtained.
+   * - extraction: demand = extraction (kg/t) × yield (t/ha)
+   * - direct: demand taken from `demand` (kg/ha, oxide basis)
+   */
+  demandSource?: FertilityDemandSource;
+  /** Direct nutrient demand (kg/ha, oxide basis). Used when demandSource is "direct". */
+  demand?: Partial<ExtractionOxide> | null;
   rendimientoObjetivo: number;
   profundidadMuestreo_cm: number;
   densidadAparente_g_cm3: number;
@@ -316,8 +326,11 @@ export function buildNutrientDosePlan(
   };
 
   const cultivoLabel = matched?.label || (input.cultivo?.trim() || "Cultivo (extracción manual)");
+  const demandSource: FertilityDemandSource =
+    input.demandSource === "direct" ? "direct" : "extraction";
+  const useDirectDemand = demandSource === "direct";
 
-  if (!(yieldTarget > 0) || !(massTonsHa > 0)) return null;
+  if ((!useDirectDemand && !(yieldTarget > 0)) || !(massTonsHa > 0)) return null;
 
   const pMgKg = num(input.P);
   const kCmol = num(input.K);
@@ -347,11 +360,28 @@ export function buildNutrientDosePlan(
   const mgConv = cmolToKgHa({ cation: "mg", cmolKg: mgCmol, soilMassKgHa: massKgHa });
   const supplyMgo = mgConv.kgHa * factors.mgToMgo;
 
-  const demandN = extractionUsed.n * yieldTarget;
-  const demandP2o5 = extractionUsed.p2o5 * yieldTarget;
-  const demandK2o = extractionUsed.k2o * yieldTarget;
-  const demandMgo = extractionUsed.mgo * yieldTarget;
-  const demandCao = extractionUsed.cao * yieldTarget;
+  const demandN = useDirectDemand
+    ? Math.max(0, num(input.demand?.n))
+    : extractionUsed.n * yieldTarget;
+  const demandP2o5 = useDirectDemand
+    ? Math.max(0, num(input.demand?.p2o5))
+    : extractionUsed.p2o5 * yieldTarget;
+  const demandK2o = useDirectDemand
+    ? Math.max(0, num(input.demand?.k2o))
+    : extractionUsed.k2o * yieldTarget;
+  const demandMgo = useDirectDemand
+    ? Math.max(0, num(input.demand?.mgo))
+    : extractionUsed.mgo * yieldTarget;
+  const demandCao = useDirectDemand
+    ? Math.max(0, num(input.demand?.cao))
+    : extractionUsed.cao * yieldTarget;
+
+  if (
+    useDirectDemand &&
+    !(demandN > 0 || demandP2o5 > 0 || demandK2o > 0 || demandMgo > 0 || demandCao > 0)
+  ) {
+    return null;
+  }
 
   const caCmol = num(input.Ca);
   const naCmol = num(input.Na);
@@ -410,11 +440,30 @@ export function buildNutrientDosePlan(
     const unitHa = nutrientHaUnit(key, mode);
     const unitPlot = nutrientPlotUnit(key, mode, areaUnit);
 
+    const extractCoef =
+      key === "n"
+        ? extractionUsed.n
+        : key === "p"
+          ? mode === "elemental"
+            ? extractionUsed.p2o5 / factors.pToP2o5
+            : extractionUsed.p2o5
+          : key === "k"
+            ? mode === "elemental"
+              ? extractionUsed.k2o / factors.kToK2o
+              : extractionUsed.k2o
+            : mode === "elemental"
+              ? extractionUsed.mgo / factors.mgToMgo
+              : extractionUsed.mgo;
+
     const steps: FertilityCalcStep[] = [
       {
         label: `Demanda ${nutrientLabel}`,
-        formula: "Demanda = Extracción (kg/t) × Rendimiento (t/ha)",
-        substitution: `${round(key === "n" ? extractionUsed.n : key === "p" ? (mode === "elemental" ? extractionUsed.p2o5 / factors.pToP2o5 : extractionUsed.p2o5) : key === "k" ? (mode === "elemental" ? extractionUsed.k2o / factors.kToK2o : extractionUsed.k2o) : mode === "elemental" ? extractionUsed.mgo / factors.mgToMgo : extractionUsed.mgo, 3)} × ${yieldTarget}`,
+        formula: useDirectDemand
+          ? "Demanda (kg/ha) — valor directo"
+          : "Demanda = Extracción (kg/t) × Rendimiento (t/ha)",
+        substitution: useDirectDemand
+          ? String(round(demandaDisplay, 2))
+          : `${round(extractCoef, 3)} × ${yieldTarget}`,
         result: String(round(demandaDisplay, 2)),
         unit: unitHa,
         tableRef: undefined,
@@ -512,8 +561,12 @@ export function buildNutrientDosePlan(
     ...nSupplySteps,
     {
       label: `Demanda ${labels.n}`,
-      formula: "Demanda = Extracción (kg/t) × Rendimiento (t/ha)",
-      substitution: `${extractionUsed.n} × ${yieldTarget}`,
+      formula: useDirectDemand
+        ? "Demanda (kg/ha) — valor directo"
+        : "Demanda = Extracción (kg/t) × Rendimiento (t/ha)",
+      substitution: useDirectDemand
+        ? String(round(demandN, 2))
+        : `${extractionUsed.n} × ${yieldTarget}`,
       result: String(round(demandN, 2)),
       unit: "kg N/ha",
       tableRef: undefined,
@@ -747,7 +800,9 @@ export function buildNutrientDosePlan(
   const notNeeded = doses.filter((d) => d.notRequired && !d.viaEncalado);
 
   const recommendations: string[] = [
-    `Cultivo: ${cultivoLabel}${cropMatched ? "" : " (extracción manual)"}. Rendimiento objetivo: ${yieldTarget} t/ha.`,
+    useDirectDemand
+      ? `Cultivo: ${cultivoLabel}${cropMatched ? "" : " (demanda manual)"}. Demanda nutricional ingresada directamente (kg/ha).`
+      : `Cultivo: ${cultivoLabel}${cropMatched ? "" : " (extracción manual)"}. Rendimiento objetivo: ${yieldTarget} t/ha.`,
     `N desde MO: escenario ${mineralizationScenarioLabel(scenario)} (coef. ${round(minerCoef * 100, 2)}%) → suministro ≈ ${round(supplyN, 1)} kg N/ha.`,
     needed.length
       ? `Aplicar fertilizante para: ${needed.map((d) => `${d.nutrient} (${d.dosisPlot ?? d.dosisKgHa} ${d.dosisPlot != null && areaUnit !== "ha" ? d.unitPlot : d.unitHa})`).join(", ")}.`

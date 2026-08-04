@@ -10,6 +10,8 @@ import {
   type BaseSaturationResult,
 } from "@/lib/baseSaturation";
 import { CIC_ADEQUATE_SATURATION } from "@/lib/cicInterpretation";
+import type { CicOverrides } from "@/lib/customRangePlantilla";
+import { mergeCicAdequateSaturation } from "@/lib/customRangePlantilla";
 
 /** Named soil amendments the app can recommend. */
 export type AmendmentKind =
@@ -98,7 +100,7 @@ export type AmendmentChemistryGate = {
   sat: BaseSaturationResult | null;
 };
 
-const IDEAL = CIC_ADEQUATE_SATURATION;
+const DEFAULT_IDEAL = CIC_ADEQUATE_SATURATION;
 
 /**
  * Table 1 — extractable acidity above this leaves the adequate band (cmol(+)/kg).
@@ -146,8 +148,11 @@ function buildSaturation(input: SoilAmendmentInput): BaseSaturationResult | null
  * often need Ca via gypsum without raising pH.
  */
 export function assessAmendmentChemistry(
-  input: SoilAmendmentInput
+  input: SoilAmendmentInput,
+  cicOverrides?: CicOverrides | null
 ): AmendmentChemistryGate {
+  const IDEAL = mergeCicAdequateSaturation(cicOverrides) || DEFAULT_IDEAL;
+
   if (!hasChemistry(input)) {
     return {
       insufficientData: true,
@@ -239,13 +244,14 @@ export function assessAmendmentChemistry(
  * Calcitic vs dolomitic is named only when liming is chemically warranted.
  */
 export function recommendSoilAmendment(
-  input: SoilAmendmentInput
+  input: SoilAmendmentInput,
+  cicOverrides?: CicOverrides | null
 ): SoilAmendmentRecommendation {
   if (!hasChemistry(input)) {
     return { kind: "none", needs: [], insufficientData: true };
   }
 
-  const gate = assessAmendmentChemistry(input);
+  const gate = assessAmendmentChemistry(input, cicOverrides);
   const ph = finite(input.ph);
   const om = finite(input.organicMatterPercent);
 

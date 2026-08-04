@@ -184,6 +184,8 @@ const sw = {
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
+  extractionMethodCustom: "Maalum",
+  activeRangeSetLabel: "Kiolezo kinachotumika",
   extractionMethodActive: "Viwango vya P: {method}",
   generalCropExtractionHint:
     "Chagua viwango vya kutosha vya Jumla, au Olsen / Mehlich kwa fosforasi.",

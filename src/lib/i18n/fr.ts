@@ -293,6 +293,8 @@
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
+  extractionMethodCustom: "Personnalisé",
+  activeRangeSetLabel: "Modèle actif",
   extractionMethodActive: "Plages P : {method}",
   generalCropExtractionHint:
     "Choisissez les plages de suffisance Générales, ou Olsen / Mehlich pour le phosphore.",

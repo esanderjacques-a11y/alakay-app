@@ -285,6 +285,8 @@
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
+  extractionMethodCustom: "Pèsonalize",
+  activeRangeSetLabel: "Modèl aktif",
   extractionMethodActive: "Entèval P: {method}",
   generalCropExtractionHint:
     "Chwazi entèval sufizans Jeneral, oswa Olsen / Mehlich pou fosfò.",

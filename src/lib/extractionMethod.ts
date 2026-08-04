@@ -6,18 +6,20 @@ import {
 } from "@/lib/soilFertilityTables";
 import { canConvertLabUnit, convertLabUnit } from "@/lib/unitConversions";
 
-export type ExtractionMethod = "general" | "olsen" | "mehlich" | "bray";
+export type ExtractionMethod = "general" | "olsen" | "mehlich" | "bray" | "custom";
 
 export const EXTRACTION_METHOD_OPTIONS: ExtractionMethod[] = [
   "general",
   "olsen",
   "mehlich",
   "bray",
+  "custom",
 ];
 
 /**
  * Soil / foliar setup & values — always available for every crop (including General):
  * crop-specific sufficiency ranges (`general`), Olsen, Mehlich.
+ * `custom` is appended by the UI when the user has at least one plantilla.
  */
 export const SOIL_EXTRACTION_OPTIONS: ExtractionMethod[] = [
   "general",
@@ -27,6 +29,17 @@ export const SOIL_EXTRACTION_OPTIONS: ExtractionMethod[] = [
 
 /** Same chips for foliar analyses. */
 export const FOLIAR_EXTRACTION_OPTIONS: ExtractionMethod[] = SOIL_EXTRACTION_OPTIONS;
+
+/** Append Personalizado chip when plantillas exist. */
+export function withCustomExtractionOption(
+  options: ExtractionMethod[],
+  hasCustomPlantilla: boolean
+): ExtractionMethod[] {
+  if (!hasCustomPlantilla) {
+    return options.filter((option) => option !== "custom");
+  }
+  return options.includes("custom") ? options : [...options, "custom"];
+}
 
 /** @deprecated Prefer SOIL_EXTRACTION_OPTIONS — same list, kept for callers. */
 export const GENERAL_CROP_EXTRACTION_OPTIONS = SOIL_EXTRACTION_OPTIONS;
@@ -45,7 +58,10 @@ type ParameterLike = {
   parameter_key?: string | null;
 };
 
-const EXTRACTOR_KEYWORDS: Record<Exclude<ExtractionMethod, "general">, string[]> = {
+const EXTRACTOR_KEYWORDS: Record<
+  Exclude<ExtractionMethod, "general" | "custom">,
+  string[]
+> = {
   olsen: ["olsen", "p-olsen", "fosforo olsen", "phosphorus olsen"],
   mehlich: ["mehlich", "melich", "p-mehlich", "fosforo mehlich"],
   bray: ["bray", "p-bray", "fosforo bray"],
@@ -358,7 +374,11 @@ export function resolveInterpretationParameter(
   allParameters: ParameterLike[],
   extractionMethod: ExtractionMethod
 ): ParameterLike {
-  if (extractionMethod === "general" || !isPhosphorusParameter(parameter)) {
+  if (
+    extractionMethod === "general" ||
+    extractionMethod === "custom" ||
+    !isPhosphorusParameter(parameter)
+  ) {
     return parameter;
   }
 

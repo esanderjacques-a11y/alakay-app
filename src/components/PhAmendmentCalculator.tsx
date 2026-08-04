@@ -27,6 +27,8 @@ import {
   type SoilTexture,
 } from "@/lib/phAmendmentCalculator";
 import { assessAmendmentChemistry } from "@/lib/amendmentRecommendation";
+import type { CicOverrides } from "@/lib/customRangePlantilla";
+import { mergeCicAdequateSaturation } from "@/lib/customRangePlantilla";
 import {
   useMemoryNumber,
   useMemoryString,
@@ -49,6 +51,7 @@ type Props = {
   lab: Map<string, CalculatorValue>;
   selectedCropName?: string | null;
   showCalculatorFormulas?: boolean;
+  cicOverrides?: CicOverrides | null;
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
 };
 
@@ -281,9 +284,16 @@ export default function PhAmendmentCalculator({
   lab,
   selectedCropName,
   showCalculatorFormulas = false,
+  cicOverrides = null,
   onOutputsChange,
 }: Props) {
   const cropSuggestedTarget = suggestBaseSaturationTarget(selectedCropName);
+  const adequateSaturation = useMemo(
+    () => mergeCicAdequateSaturation(cicOverrides),
+    [cicOverrides]
+  );
+  const caSaturationDefault =
+    adequateSaturation.ca.target || DEFAULT_CA_SATURATION_TARGET;
 
   const [uiModeRaw, setUiModeRaw] = useMemoryString("amendment", "uiMode", "calcium");
   const uiMode = (
@@ -351,7 +361,7 @@ export default function PhAmendmentCalculator({
   const [caSaturationTarget, setCaSaturationTarget] = useMemoryNumber(
     "amendment",
     "caSaturationTarget",
-    DEFAULT_CA_SATURATION_TARGET
+    caSaturationDefault
   );
 
   const [cec, setCec] = useMemoryNumber("amendment", "cec", lab.get("cec")?.value || 0);
@@ -438,19 +448,22 @@ export default function PhAmendmentCalculator({
 
   const chemGate = useMemo(
     () =>
-      assessAmendmentChemistry({
-        ph: resolvedCurrentPh || null,
-        // Explicit user/crop target only — do NOT pass resolvedTargetPh defaults (6.2 / 5.5).
-        targetPh: targetPh > 0 ? targetPh : null,
-        cec: resolvedCec || null,
-        ca: resolvedCa || null,
-        mg: shared.mg || null,
-        k: shared.k || null,
-        na: shared.na || null,
-        exchangeableAcidity: resolvedAcidity || null,
-        aluminum: shared.aluminum || resolvedAcidity || null,
-        aluminumUnit: shared.aluminumUnit,
-      }),
+      assessAmendmentChemistry(
+        {
+          ph: resolvedCurrentPh || null,
+          // Explicit user/crop target only — do NOT pass resolvedTargetPh defaults (6.2 / 5.5).
+          targetPh: targetPh > 0 ? targetPh : null,
+          cec: resolvedCec || null,
+          ca: resolvedCa || null,
+          mg: shared.mg || null,
+          k: shared.k || null,
+          na: shared.na || null,
+          exchangeableAcidity: resolvedAcidity || null,
+          aluminum: shared.aluminum || resolvedAcidity || null,
+          aluminumUnit: shared.aluminumUnit,
+        },
+        cicOverrides
+      ),
     [
       resolvedCurrentPh,
       targetPh,
@@ -462,6 +475,7 @@ export default function PhAmendmentCalculator({
       resolvedAcidity,
       shared.aluminum,
       shared.aluminumUnit,
+      cicOverrides,
     ]
   );
 
@@ -612,7 +626,7 @@ export default function PhAmendmentCalculator({
         baseSaturationTarget:
           baseSaturationTarget > 0 ? baseSaturationTarget : cropSuggestedTarget,
         caSaturationTarget:
-          caSaturationTarget > 0 ? caSaturationTarget : DEFAULT_CA_SATURATION_TARGET,
+          caSaturationTarget > 0 ? caSaturationTarget : caSaturationDefault,
         exchangeableAcidity: resolvedAcidity,
         currentPh: resolvedCurrentPh,
         // Formulas for target_ph / sulfur need a numeric target; liming gate ignores
@@ -866,7 +880,7 @@ export default function PhAmendmentCalculator({
                   label={t.phAmendCaSatTarget || "Target Ca saturation (%)"}
                   value={caSaturationTarget}
                   onChange={setCaSaturationTarget}
-                  placeholder={`${DEFAULT_CA_SATURATION_TARGET} (${t.phAmendDefault || "default"})`}
+                  placeholder={`${caSaturationDefault} (${t.phAmendDefault || "default"})`}
                 />
                 <NumberField
                   label={t.phAmendExchangeableAcidity || "Exchangeable acidity"}

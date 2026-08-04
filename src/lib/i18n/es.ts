@@ -296,6 +296,8 @@
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
+  extractionMethodCustom: "Personalizado",
+  activeRangeSetLabel: "Plantilla activa",
   extractionMethodActive: "Rangos de P: {method}",
   exportGeneralCropExtractionNote:
     "Cultivo general con {method}: los rangos de nutrientes siguen el extractante {method} (no la suficiencia del cultivo).",
@@ -364,7 +366,7 @@
   levelModerate: "Moderado",
   levelLow: "Bajo",
   levelVeryLow: "Muy bajo",
-  levelNormal: "Normal",
+  levelNormal: "Adecuado",
   levelAcceptable: "Aceptable",
   levelAcidic: "Ácido",
   levelNeutralPh: "Neutro",

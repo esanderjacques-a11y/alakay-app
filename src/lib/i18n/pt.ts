@@ -184,6 +184,8 @@ const pt = {
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
+  extractionMethodCustom: "Personalizado",
+  activeRangeSetLabel: "Plantilla ativa",
   extractionMethodActive: "Faixas de P: {method}",
   generalCropExtractionHint:
     "Escolha faixas de suficiência Geral, ou Olsen / Mehlich para fósforo.",

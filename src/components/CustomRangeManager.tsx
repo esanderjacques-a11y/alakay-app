@@ -6,6 +6,19 @@ import { Edit3, PlusCircle, RefreshCw, RotateCcw, Trash2, X } from "lucide-react
 
 import AppModal from "@/components/AppModal";
 import MenuSelect from "@/components/ui/MenuSelect";
+import {
+  cicOverridesToRows,
+  emptyCicPlantillaRows,
+  fetchCustomRangeSets,
+  getParameterBoundMode,
+  parseOptionalNumber,
+  rowHasValues,
+  rowsToCicOverrides,
+  setActiveRangeSetId,
+  type CicPlantillaRow,
+  type CustomRangeSet,
+  type PlantillaRowDraft,
+} from "@/lib/customRangePlantilla";
 import { supabase } from "@/lib/supabase";
 import { Language } from "@/lib/translations";
 import { customRangeManagerText } from "@/lib/i18n/componentText";
@@ -13,11 +26,6 @@ import { customRangeManagerText } from "@/lib/i18n/componentText";
 type Crop = {
   crop_id: number;
   crop_name: string;
-};
-
-type Unit = {
-  unit_id: number;
-  unit_symbol: string;
 };
 
 type OfficialParameter = {
@@ -67,6 +75,7 @@ type CustomRange = {
   max_value: number | null;
   interpretation_note: string | null;
   source_name: string | null;
+  range_set_id: number | null;
   created_at: string;
   is_deleted: boolean | null;
   parameters:
@@ -119,10 +128,13 @@ type Props = {
   embedded?: boolean;
 };
 
-
 function getOne<T>(value: T | T[] | null): T | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] || null : value;
+}
+
+function formatFilledCount(template: string, count: number) {
+  return template.replace("{count}", String(count));
 }
 
 export default function CustomRangeManager({
@@ -135,36 +147,30 @@ export default function CustomRangeManager({
   currentCropId,
   embedded = false,
 }: Props) {
-  const l = customRangeManagerText[language as keyof typeof customRangeManagerText] || customRangeManagerText.en;
+  const l =
+    customRangeManagerText[language as keyof typeof customRangeManagerText] ||
+    customRangeManagerText.en;
 
   const [crops, setCrops] = useState<Crop[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [officialParameters, setOfficialParameters] = useState<
-    OfficialParameter[]
-  >([]);
-  const [customParameters, setCustomParameters] = useState<CustomParameter[]>(
+  const [officialParameters, setOfficialParameters] = useState<OfficialParameter[]>(
     []
   );
+  const [customParameters, setCustomParameters] = useState<CustomParameter[]>([]);
   const [ranges, setRanges] = useState<CustomRange[]>([]);
+  const [sets, setSets] = useState<CustomRangeSet[]>([]);
 
-  const [parameterType, setParameterType] = useState<"official" | "custom">(
-    "official"
+  const [plantillaName, setPlantillaName] = useState("");
+  const [cropScope, setCropScope] = useState<"general" | "current" | "specific">(
+    currentCropId ? "current" : "general"
   );
-  const [selectedParameterId, setSelectedParameterId] = useState<number | "">(
-    ""
-  );
-  const [cropScope, setCropScope] = useState<
-    "general" | "current" | "specific"
-  >(currentCropId ? "current" : "general");
   const [selectedCropId, setSelectedCropId] = useState<number | "">(
     currentCropId || ""
   );
-  const [unitId, setUnitId] = useState<number | "">("");
-  const [minValue, setMinValue] = useState("");
-  const [maxValue, setMaxValue] = useState("");
-  const [note, setNote] = useState("");
-  const [sourceName, setSourceName] = useState("User custom range");
-  const [editingRangeId, setEditingRangeId] = useState<number | null>(null);
+  const [rows, setRows] = useState<PlantillaRowDraft[]>([]);
+  const [cicRows, setCicRows] = useState<CicPlantillaRow[]>(() =>
+    emptyCicPlantillaRows(language)
+  );
+  const [editingSetId, setEditingSetId] = useState<number | null>(null);
 
   const [showDeleted, setShowDeleted] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -172,37 +178,24 @@ export default function CustomRangeManager({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  const parameterOptions = useMemo(() => {
-    if (parameterType === "official") {
-      return officialParameters.map((parameter) => {
-        const unit = getOne(parameter.units);
+  const filledCount = useMemo(
+    () => rows.filter((row) => rowHasValues(row.min, row.max)).length,
+    [rows]
+  );
 
-        return {
-          id: parameter.parameter_id,
-          name: `${parameter.parameter_name}${
-            parameter.symbol ? ` (${parameter.symbol})` : ""
-          }`,
-          unitId: unit?.unit_id || parameter.default_unit_id || "",
-        };
-      });
-    }
+  const visibleSets = useMemo(
+    () => sets.filter((set) => (showDeleted ? true : !set.is_deleted)),
+    [sets, showDeleted]
+  );
 
-    return customParameters.map((parameter) => {
-      const unit = getOne(parameter.units);
-
-      return {
-        id: parameter.custom_parameter_id,
-        name: `${parameter.parameter_name}${
-          parameter.symbol ? ` (${parameter.symbol})` : ""
-        }`,
-        unitId: unit?.unit_id || parameter.default_unit_id || "",
-      };
-    });
-  }, [parameterType, officialParameters, customParameters]);
-
-  const visibleRanges = useMemo(() => {
-    return ranges.filter((range) => (showDeleted ? true : !range.is_deleted));
-  }, [ranges, showDeleted]);
+  const orphanRanges = useMemo(
+    () =>
+      ranges.filter(
+        (range) =>
+          !range.range_set_id && (showDeleted ? true : !range.is_deleted)
+      ),
+    [ranges, showDeleted]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -211,37 +204,59 @@ export default function CustomRangeManager({
       setCropScope(currentCropId ? "current" : "general");
       setSelectedCropId(currentCropId || "");
     });
-    loadInitialData();
+    void loadInitialData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, sampleType, session?.user?.id]);
 
-  function selectParameter(nextParameterId: number | "") {
-    setSelectedParameterId(nextParameterId);
-  
-    if (!nextParameterId) {
-      setUnitId("");
-      return;
-    }
-  
-    const option = parameterOptions.find(
-      (item) => item.id === nextParameterId
-    );
-  
-    if (option?.unitId) {
-      setUnitId(Number(option.unitId));
-    }
-  }
+  function buildEmptyRows(
+    official: OfficialParameter[],
+    custom: CustomParameter[]
+  ): PlantillaRowDraft[] {
+    const officialRows: PlantillaRowDraft[] = official.map((parameter) => {
+      const unit = getOne(parameter.units);
+      return {
+        key: `official-${parameter.parameter_id}`,
+        kind: "official",
+        parameterId: parameter.parameter_id,
+        name: parameter.parameter_name,
+        symbol: parameter.symbol,
+        unitId: unit?.unit_id || parameter.default_unit_id || null,
+        unitSymbol: unit?.unit_symbol || "",
+        boundMode: getParameterBoundMode({
+          parameter_name: parameter.parameter_name,
+          symbol: parameter.symbol,
+          category: parameter.category,
+        }),
+        min: "",
+        max: "",
+        existingRangeId: null,
+      };
+    });
 
-  function selectCropScope(nextCropScope: "general" | "current" | "specific") {
-    setCropScope(nextCropScope);
-  
-    if (nextCropScope === "current") {
-      setSelectedCropId(currentCropId || "");
-    }
-  
-    if (nextCropScope === "general") {
-      setSelectedCropId("");
-    }
+    const customRows: PlantillaRowDraft[] = custom.map((parameter) => {
+      const unit = getOne(parameter.units);
+      return {
+        key: `custom-${parameter.custom_parameter_id}`,
+        kind: "custom",
+        parameterId: parameter.custom_parameter_id,
+        name: parameter.parameter_name,
+        symbol: parameter.symbol,
+        unitId: unit?.unit_id || parameter.default_unit_id || null,
+        unitSymbol: unit?.unit_symbol || "",
+        boundMode: getParameterBoundMode({
+          parameter_name: parameter.parameter_name,
+          symbol: parameter.symbol,
+          category: parameter.category,
+        }),
+        min: "",
+        max: "",
+        existingRangeId: null,
+      };
+    });
+
+    return [...officialRows, ...customRows].sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
   }
 
   async function loadInitialData() {
@@ -257,13 +272,12 @@ export default function CustomRangeManager({
 
     const [
       cropsResponse,
-      unitsResponse,
       officialResponse,
       customResponse,
       rangesResponse,
+      setsResponse,
     ] = await Promise.all([
       supabase.from("crops").select("crop_id, crop_name").order("crop_name"),
-      supabase.from("units").select("unit_id, unit_symbol").order("unit_symbol"),
       supabase
         .from("parameters")
         .select(
@@ -314,6 +328,7 @@ export default function CustomRangeManager({
           max_value,
           interpretation_note,
           source_name,
+          range_set_id,
           created_at,
           is_deleted,
           parameters (
@@ -335,13 +350,15 @@ export default function CustomRangeManager({
         .eq("user_id", session.user.id)
         .eq("sample_type", sampleType)
         .order("created_at", { ascending: false }),
+      fetchCustomRangeSets(supabase, session.user.id, sampleType, true).catch(
+        () => [] as CustomRangeSet[]
+      ),
     ]);
 
     setLoading(false);
 
     const firstError =
       cropsResponse.error ||
-      unitsResponse.error ||
       officialResponse.error ||
       customResponse.error ||
       rangesResponse.error;
@@ -351,24 +368,28 @@ export default function CustomRangeManager({
       return;
     }
 
+    const nextOfficial = (officialResponse.data || []) as OfficialParameter[];
+    const nextCustom = (customResponse.data || []) as CustomParameter[];
+
     setCrops((cropsResponse.data || []) as Crop[]);
-    setUnits((unitsResponse.data || []) as Unit[]);
-    setOfficialParameters((officialResponse.data || []) as OfficialParameter[]);
-    setCustomParameters((customResponse.data || []) as CustomParameter[]);
+    setOfficialParameters(nextOfficial);
+    setCustomParameters(nextCustom);
     setRanges((rangesResponse.data || []) as CustomRange[]);
+    setSets(setsResponse);
+
+    if (!editingSetId && !composerOpen) {
+      setRows(buildEmptyRows(nextOfficial, nextCustom));
+      setCicRows(emptyCicPlantillaRows(language));
+    }
   }
 
   function resetForm() {
-    setParameterType("official");
-    setSelectedParameterId("");
+    setPlantillaName("");
     setCropScope(currentCropId ? "current" : "general");
     setSelectedCropId(currentCropId || "");
-    setUnitId("");
-    setMinValue("");
-    setMaxValue("");
-    setNote("");
-    setSourceName("User custom range");
-    setEditingRangeId(null);
+    setRows(buildEmptyRows(officialParameters, customParameters));
+    setCicRows(emptyCicPlantillaRows(language));
+    setEditingSetId(null);
     if (embedded) setComposerOpen(false);
     setMessage("");
   }
@@ -378,60 +399,78 @@ export default function CustomRangeManager({
     onClose();
   }
 
-  function getRangeName(range: CustomRange) {
-    const official = getOne(range.parameters);
-    const custom = getOne(range.user_custom_parameters);
+  function selectCropScope(nextCropScope: "general" | "current" | "specific") {
+    setCropScope(nextCropScope);
 
-    return custom?.parameter_name || official?.parameter_name || "Parameter";
+    if (nextCropScope === "current") {
+      setSelectedCropId(currentCropId || "");
+    }
+
+    if (nextCropScope === "general") {
+      setSelectedCropId("");
+    }
   }
 
-  function getRangeSymbol(range: CustomRange) {
-    const official = getOne(range.parameters);
-    const custom = getOne(range.user_custom_parameters);
-
-    return custom?.symbol || official?.symbol || "";
+  function updateRow(key: string, field: "min" | "max", value: string) {
+    setRows((previous) =>
+      previous.map((row) => {
+        if (row.key !== key) return row;
+        if (row.boundMode === "max_only" && field === "min") return row;
+        if (row.boundMode === "min_only" && field === "max") return row;
+        return { ...row, [field]: value };
+      })
+    );
   }
 
-  function getRangeCropName(range: CustomRange) {
-    const crop = getOne(range.crops);
-    return crop?.crop_name || l.generalRange;
+  function updateCicRow(key: CicPlantillaRow["key"], field: "min" | "max", value: string) {
+    setCicRows((previous) =>
+      previous.map((row) => (row.key === key ? { ...row, [field]: value } : row))
+    );
   }
 
-  function getRangeUnit(range: CustomRange) {
-    const unit = getOne(range.units);
-    return unit?.unit_symbol || "";
-  }
-
-  function editRange(range: CustomRange) {
-    const isCustom = Boolean(range.custom_parameter_id);
-
-    setEditingRangeId(range.custom_range_id);
-    setParameterType(isCustom ? "custom" : "official");
-    setSelectedParameterId(
-      isCustom ? range.custom_parameter_id || "" : range.parameter_id || ""
+  function editSet(set: CustomRangeSet) {
+    const memberRanges = ranges.filter(
+      (range) => range.range_set_id === set.range_set_id && !range.is_deleted
+    );
+    const nextRows = buildEmptyRows(officialParameters, customParameters).map(
+      (row) => {
+        const match = memberRanges.find((range) =>
+          row.kind === "official"
+            ? range.parameter_id === row.parameterId
+            : range.custom_parameter_id === row.parameterId
+        );
+        if (!match) return row;
+        return {
+          ...row,
+          min: match.min_value === null ? "" : String(match.min_value),
+          max: match.max_value === null ? "" : String(match.max_value),
+          unitId: match.unit_id || row.unitId,
+          existingRangeId: match.custom_range_id,
+        };
+      }
     );
 
-    if (range.crop_id === null) {
+    setEditingSetId(set.range_set_id);
+    setPlantillaName(set.name);
+    setCicRows(cicOverridesToRows(set.cic_overrides, language));
+
+    if (set.crop_id === null) {
       setCropScope("general");
       setSelectedCropId("");
-    } else if (currentCropId && range.crop_id === currentCropId) {
+    } else if (currentCropId && set.crop_id === currentCropId) {
       setCropScope("current");
       setSelectedCropId(currentCropId);
     } else {
       setCropScope("specific");
-      setSelectedCropId(range.crop_id);
+      setSelectedCropId(set.crop_id);
     }
 
-    setUnitId(range.unit_id || "");
-    setMinValue(range.min_value === null ? "" : String(range.min_value));
-    setMaxValue(range.max_value === null ? "" : String(range.max_value));
-    setNote(range.interpretation_note || "");
-    setSourceName(range.source_name || "User custom range");
+    setRows(nextRows);
     setMessage("");
     if (embedded) setComposerOpen(true);
   }
 
-  async function saveRange() {
+  async function savePlantilla() {
     setMessage("");
 
     if (!session?.user) {
@@ -439,20 +478,9 @@ export default function CustomRangeManager({
       return;
     }
 
-    const parsedMin = minValue.trim() === "" ? null : Number(minValue.trim());
-    const parsedMax = maxValue.trim() === "" ? null : Number(maxValue.trim());
-
-    const hasInvalidMin = parsedMin !== null && Number.isNaN(parsedMin);
-    const hasInvalidMax = parsedMax !== null && Number.isNaN(parsedMax);
-
-    if (
-      !selectedParameterId ||
-      !unitId ||
-      (parsedMin === null && parsedMax === null) ||
-      hasInvalidMin ||
-      hasInvalidMax
-    ) {
-      setMessage(l.required);
+    const name = plantillaName.trim();
+    if (!name) {
+      setMessage(l.nameRequired);
       return;
     }
 
@@ -461,80 +489,214 @@ export default function CustomRangeManager({
       return;
     }
 
+    const filled = rows.filter((row) => rowHasValues(row.min, row.max));
+    if (filled.length === 0) {
+      setMessage(l.required);
+      return;
+    }
+
+    for (const row of filled) {
+      const min =
+        row.boundMode === "max_only" ? null : parseOptionalNumber(row.min);
+      const max =
+        row.boundMode === "min_only" ? null : parseOptionalNumber(row.max);
+      if (Number.isNaN(min as number) || Number.isNaN(max as number)) {
+        setMessage(l.invalidNumber);
+        return;
+      }
+      if (min === null && max === null) {
+        setMessage(l.required);
+        return;
+      }
+    }
+
     const cropIdToSave =
       cropScope === "general" ? null : selectedCropId ? selectedCropId : null;
+    const cicOverrides = rowsToCicOverrides(cicRows);
 
     setSaving(true);
 
-    const payload = {
-      user_id: session.user.id,
-      parameter_id:
-        parameterType === "official" ? Number(selectedParameterId) : null,
-      custom_parameter_id:
-        parameterType === "custom" ? Number(selectedParameterId) : null,
-      crop_id: cropIdToSave,
-      sample_type: sampleType,
-      unit_id: Number(unitId),
-      min_value: parsedMin,
-      max_value: parsedMax,
-      interpretation_note: note.trim() || null,
-      source_name: sourceName.trim() || "User custom range",
-      is_deleted: false,
-      deleted_at: null,
-    };
+    let rangeSetId = editingSetId;
 
-    if (editingRangeId) {
+    if (editingSetId) {
       const { error } = await supabase
-        .from("user_custom_ranges")
-        .update(payload)
-        .eq("custom_range_id", editingRangeId)
+        .from("user_custom_range_sets")
+        .update({
+          name,
+          crop_id: cropIdToSave,
+          cic_overrides: cicOverrides,
+          sample_type: sampleType,
+          is_deleted: false,
+          deleted_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("range_set_id", editingSetId)
         .eq("user_id", session.user.id);
 
-      setSaving(false);
-
       if (error) {
+        setSaving(false);
         setMessage(error.message);
         return;
       }
-
-      setMessage(l.updated);
     } else {
-      const { error } = await supabase
-        .from("user_custom_ranges")
-        .insert(payload);
-
-      setSaving(false);
+      const { data, error } = await supabase
+        .from("user_custom_range_sets")
+        .insert({
+          user_id: session.user.id,
+          name,
+          sample_type: sampleType,
+          crop_id: cropIdToSave,
+          cic_overrides: cicOverrides,
+          is_deleted: false,
+        })
+        .select("range_set_id")
+        .single();
 
       if (error) {
-        setMessage(error.message);
+        setSaving(false);
+        setMessage(
+          error.message.includes("user_custom_range_sets")
+            ? `${error.message} (Apply migration user_custom_range_sets.)`
+            : error.message
+        );
         return;
       }
 
-      setMessage(l.saved);
+      rangeSetId = data.range_set_id as number;
     }
 
+    if (!rangeSetId) {
+      setSaving(false);
+      setMessage(l.required);
+      return;
+    }
+
+    const keepIds = new Set<number>();
+    const toInsert: Record<string, unknown>[] = [];
+
+    for (const row of filled) {
+      const min =
+        row.boundMode === "max_only" ? null : parseOptionalNumber(row.min);
+      const max =
+        row.boundMode === "min_only" ? null : parseOptionalNumber(row.max);
+      const payload = {
+        user_id: session.user.id,
+        parameter_id: row.kind === "official" ? row.parameterId : null,
+        custom_parameter_id: row.kind === "custom" ? row.parameterId : null,
+        crop_id: cropIdToSave,
+        sample_type: sampleType,
+        unit_id: row.unitId,
+        min_value: min,
+        max_value: max,
+        interpretation_note: null,
+        source_name: name,
+        range_set_id: rangeSetId,
+        is_deleted: false,
+        deleted_at: null,
+      };
+
+      if (row.existingRangeId) {
+        keepIds.add(row.existingRangeId);
+        const { error: updateError } = await supabase
+          .from("user_custom_ranges")
+          .update(payload)
+          .eq("custom_range_id", row.existingRangeId)
+          .eq("user_id", session.user.id);
+        if (updateError) {
+          setSaving(false);
+          setMessage(updateError.message);
+          return;
+        }
+      } else {
+        toInsert.push(payload);
+      }
+    }
+
+    if (toInsert.length > 0) {
+      const { data: inserted, error: insertError } = await supabase
+        .from("user_custom_ranges")
+        .insert(toInsert)
+        .select("custom_range_id");
+
+      if (insertError) {
+        setSaving(false);
+        setMessage(insertError.message);
+        return;
+      }
+
+      for (const row of inserted || []) {
+        keepIds.add(row.custom_range_id as number);
+      }
+    }
+
+    const filledKeys = new Set(
+      filled.map((row) =>
+        row.kind === "official"
+          ? `o:${row.parameterId}`
+          : `c:${row.parameterId}`
+      )
+    );
+
+    const staleMembers = ranges.filter((range) => {
+      if (range.range_set_id !== rangeSetId || range.is_deleted) return false;
+      if (keepIds.has(range.custom_range_id)) return false;
+      const key = range.parameter_id
+        ? `o:${range.parameter_id}`
+        : range.custom_parameter_id
+          ? `c:${range.custom_parameter_id}`
+          : null;
+      return !key || !filledKeys.has(key);
+    });
+
+    if (staleMembers.length > 0) {
+      await supabase
+        .from("user_custom_ranges")
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+        })
+        .in(
+          "custom_range_id",
+          staleMembers.map((range) => range.custom_range_id)
+        )
+        .eq("user_id", session.user.id);
+    }
+
+    setActiveRangeSetId(rangeSetId);
+    setSaving(false);
+    setMessage(editingSetId ? l.updated : l.saved);
     resetForm();
     await loadInitialData();
     onChanged();
   }
 
-  async function softDeleteRange(range: CustomRange) {
+  async function softDeleteSet(set: CustomRangeSet) {
     if (!session?.user) return;
 
-    const confirmed = window.confirm(`Delete range for ${getRangeName(range)}?`);
-
+    const confirmed = window.confirm(`Delete plantilla "${set.name}"?`);
     if (!confirmed) return;
 
     setSaving(true);
 
     const { error } = await supabase
-      .from("user_custom_ranges")
+      .from("user_custom_range_sets")
       .update({
         is_deleted: true,
         deleted_at: new Date().toISOString(),
       })
-      .eq("custom_range_id", range.custom_range_id)
+      .eq("range_set_id", set.range_set_id)
       .eq("user_id", session.user.id);
+
+    if (!error) {
+      await supabase
+        .from("user_custom_ranges")
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+        })
+        .eq("range_set_id", set.range_set_id)
+        .eq("user_id", session.user.id);
+    }
 
     setSaving(false);
 
@@ -548,19 +710,30 @@ export default function CustomRangeManager({
     onChanged();
   }
 
-  async function restoreRange(range: CustomRange) {
+  async function restoreSet(set: CustomRangeSet) {
     if (!session?.user) return;
 
     setSaving(true);
 
     const { error } = await supabase
-      .from("user_custom_ranges")
+      .from("user_custom_range_sets")
       .update({
         is_deleted: false,
         deleted_at: null,
       })
-      .eq("custom_range_id", range.custom_range_id)
+      .eq("range_set_id", set.range_set_id)
       .eq("user_id", session.user.id);
+
+    if (!error) {
+      await supabase
+        .from("user_custom_ranges")
+        .update({
+          is_deleted: false,
+          deleted_at: null,
+        })
+        .eq("range_set_id", set.range_set_id)
+        .eq("user_id", session.user.id);
+    }
 
     setSaving(false);
 
@@ -576,14 +749,14 @@ export default function CustomRangeManager({
 
   if (!open) return null;
 
-  const showComposer = !embedded || composerOpen || Boolean(editingRangeId);
+  const showComposer = !embedded || composerOpen || Boolean(editingSetId);
 
   const composer = (
     <section className="app-modal-section custom-data-manager__composer">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h3 className="app-modal-section__title">
-            {editingRangeId ? l.editRange : l.addNew}
+            {editingSetId ? l.editRange : l.addNew}
           </h3>
           {!embedded ? (
             <p className="app-modal-section__desc">{l.checkedFirst}</p>
@@ -600,37 +773,15 @@ export default function CustomRangeManager({
       </div>
 
       <div className="app-modal-fields">
-        <MenuSelect
-          label={l.parameterType}
-          value={parameterType}
-          heading={l.parameterType}
-          variant="field"
-          onChange={(next) => {
-            setParameterType(next as "official" | "custom");
-            setSelectedParameterId("");
-            setUnitId("");
-          }}
-          options={[
-            ["official", l.official],
-            ["custom", l.custom],
-          ]}
-        />
-
-        <MenuSelect
-          label={l.parameter}
-          value={selectedParameterId === "" ? "" : String(selectedParameterId)}
-          heading={l.parameter}
-          variant="field"
-          placeholder={l.selectParameter}
-          onChange={(next) => selectParameter(next ? Number(next) : "")}
-          options={[
-            { value: "", label: l.selectParameter },
-            ...parameterOptions.map((parameter) => ({
-              value: String(parameter.id),
-              label: parameter.name,
-            })),
-          ]}
-        />
+        <label className="app-modal-field app-modal-field--wide">
+          <span className="app-modal-label">{l.plantillaName}</span>
+          <input
+            className="calc-field-input"
+            value={plantillaName}
+            onChange={(event) => setPlantillaName(event.target.value)}
+            placeholder={l.plantillaNamePlaceholder}
+          />
+        </label>
 
         <MenuSelect
           label={l.cropScope}
@@ -668,73 +819,131 @@ export default function CustomRangeManager({
             ]}
           />
         ) : null}
-
-        <MenuSelect
-          label={l.unit}
-          value={unitId === "" ? "" : String(unitId)}
-          heading={l.unit}
-          variant="field"
-          placeholder={l.selectUnit || "Select unit"}
-          onChange={(next) => setUnitId(next ? Number(next) : "")}
-          options={[
-            { value: "", label: l.selectUnit || "Select unit" },
-            ...units.map((unit) => ({
-              value: String(unit.unit_id),
-              label: unit.unit_symbol,
-            })),
-          ]}
-        />
-
-        <label className="app-modal-field">
-          <span className="app-modal-label">{l.min}</span>
-          <input
-            type="number"
-            step="any"
-            className="calc-field-input"
-            value={minValue}
-            onChange={(event) => setMinValue(event.target.value)}
-          />
-        </label>
-
-        <label className="app-modal-field">
-          <span className="app-modal-label">{l.max}</span>
-          <input
-            type="number"
-            step="any"
-            className="calc-field-input"
-            value={maxValue}
-            onChange={(event) => setMaxValue(event.target.value)}
-          />
-        </label>
-
-        <label className="app-modal-field app-modal-field--wide">
-          <span className="app-modal-label">{l.note}</span>
-          <textarea
-            className={`calc-field-input ${embedded ? "min-h-16" : "min-h-24"}`}
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder="Example: This range is based on my local reference."
-          />
-        </label>
-
-        <label className="app-modal-field app-modal-field--wide">
-          <span className="app-modal-label">{l.source}</span>
-          <input
-            className="calc-field-input"
-            value={sourceName}
-            onChange={(event) => setSourceName(event.target.value)}
-          />
-        </label>
       </div>
+
+      <div className="plantilla-legend" role="note">
+        <p className="plantilla-legend__title">{l.legendTitle}</p>
+        <p className="plantilla-legend__line">{l.legendBoth}</p>
+        <p className="plantilla-legend__line">{l.legendMaxOnly}</p>
+        <p className="plantilla-legend__line">{l.legendMinOnly}</p>
+      </div>
+
+      <p className="plantilla-filled-meta">
+        {formatFilledCount(l.filledCount, filledCount)}
+      </p>
+
+      <div className="plantilla-grid" role="table" aria-label={l.parameter}>
+        <div className="plantilla-grid__head" role="row">
+          <span role="columnheader">{l.parameter}</span>
+          <span role="columnheader">{l.min}</span>
+          <span role="columnheader">{l.max}</span>
+        </div>
+        {rows.map((row) => {
+          const label = `${row.name}${row.symbol ? ` (${row.symbol})` : ""}${
+            row.unitSymbol ? ` · ${row.unitSymbol}` : ""
+          }`;
+          const hint =
+            row.boundMode === "max_only"
+              ? l.maxOnlyHint
+              : row.boundMode === "min_only"
+                ? l.minOnlyHint
+                : "";
+
+          return (
+            <div key={row.key} className="plantilla-grid__row" role="row">
+              <div className="plantilla-grid__param" role="cell">
+                <span className="plantilla-grid__name">{label}</span>
+                {hint ? (
+                  <span className="plantilla-grid__hint">{hint}</span>
+                ) : null}
+              </div>
+              <label className="plantilla-grid__cell" role="cell">
+                <span className="sr-only">{l.min}</span>
+                <input
+                  type="number"
+                  step="any"
+                  className="calc-field-input"
+                  value={row.min}
+                  disabled={row.boundMode === "max_only"}
+                  onChange={(event) =>
+                    updateRow(row.key, "min", event.target.value)
+                  }
+                />
+              </label>
+              <label className="plantilla-grid__cell" role="cell">
+                <span className="sr-only">{l.max}</span>
+                <input
+                  type="number"
+                  step="any"
+                  className="calc-field-input"
+                  value={row.max}
+                  disabled={row.boundMode === "min_only"}
+                  onChange={(event) =>
+                    updateRow(row.key, "max", event.target.value)
+                  }
+                />
+              </label>
+            </div>
+          );
+        })}
+      </div>
+
+      {sampleType === "soil" ? (
+        <div className="plantilla-cic">
+          <h4 className="app-modal-section__title">{l.cicSection}</h4>
+          <p className="app-modal-section__desc">{l.cicSectionDesc}</p>
+          <div className="plantilla-grid" role="table" aria-label={l.cicSection}>
+            <div className="plantilla-grid__head" role="row">
+              <span role="columnheader">{l.parameter}</span>
+              <span role="columnheader">{l.min}</span>
+              <span role="columnheader">{l.max}</span>
+            </div>
+            {cicRows.map((row) => (
+              <div key={row.key} className="plantilla-grid__row" role="row">
+                <div className="plantilla-grid__param" role="cell">
+                  <span className="plantilla-grid__name">
+                    {row.label}
+                    {row.unit ? ` (${row.unit})` : ""}
+                  </span>
+                </div>
+                <label className="plantilla-grid__cell" role="cell">
+                  <span className="sr-only">{l.min}</span>
+                  <input
+                    type="number"
+                    step="any"
+                    className="calc-field-input"
+                    value={row.min}
+                    onChange={(event) =>
+                      updateCicRow(row.key, "min", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="plantilla-grid__cell" role="cell">
+                  <span className="sr-only">{l.max}</span>
+                  <input
+                    type="number"
+                    step="any"
+                    className="calc-field-input"
+                    value={row.max}
+                    onChange={(event) =>
+                      updateCicRow(row.key, "max", event.target.value)
+                    }
+                  />
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <button
         type="button"
-        onClick={saveRange}
+        onClick={() => void savePlantilla()}
         disabled={saving}
         className="app-modal-btn app-modal-btn--primary mt-3 w-full sm:w-auto"
       >
         <PlusCircle size={18} />
-        {saving ? l.saving : editingRangeId ? l.update : l.save}
+        {saving ? l.saving : editingSetId ? l.update : l.save}
       </button>
     </section>
   );
@@ -748,7 +957,7 @@ export default function CustomRangeManager({
       >
         {!embedded ? (
           <p className="app-modal-toolbar__meta">
-            {visibleRanges.length} range(s)
+            {visibleSets.length} plantilla(s)
           </p>
         ) : null}
         <div className="app-modal-toolbar__actions">
@@ -763,7 +972,7 @@ export default function CustomRangeManager({
           {!embedded ? (
             <button
               type="button"
-              onClick={loadInitialData}
+              onClick={() => void loadInitialData()}
               className="app-modal-btn app-modal-btn--ghost app-modal-btn--sm"
             >
               <RefreshCw size={16} />
@@ -786,43 +995,50 @@ export default function CustomRangeManager({
         </div>
       </div>
 
-      {visibleRanges.length === 0 ? (
+      {visibleSets.length === 0 ? (
         <div className="app-modal-message app-modal-message--warn">
           {l.noRanges}
         </div>
       ) : (
         <div className="app-modal-list">
-          {visibleRanges.map((range) => {
-            const symbol = getRangeSymbol(range);
-            const unit = getRangeUnit(range);
-            const title = `${getRangeName(range)}${symbol ? ` (${symbol})` : ""}`;
-            const band =
-              `${range.min_value ?? "—"}–${range.max_value ?? "—"}${unit ? ` ${unit}` : ""}`.trim();
+          {visibleSets.map((set) => {
+            const memberCount = ranges.filter(
+              (range) =>
+                range.range_set_id === set.range_set_id && !range.is_deleted
+            ).length;
+            const cropName =
+              set.crop_id == null
+                ? l.generalRange
+                : crops.find((crop) => crop.crop_id === set.crop_id)?.crop_name ||
+                  l.specificCrop;
             const meta = [
-              getRangeCropName(range),
-              range.sample_type,
-              band,
-              range.is_deleted ? l.deletedStatus : null,
+              cropName,
+              set.sample_type,
+              formatFilledCount(l.filledCount, memberCount),
+              set.is_deleted ? l.deletedStatus : null,
             ]
               .filter(Boolean)
               .join(" · ");
 
             return (
               <article
-                key={range.custom_range_id}
+                key={set.range_set_id}
                 className={`app-modal-list-item custom-data-row${
-                  range.is_deleted ? " app-modal-list-item--deleted" : ""
+                  set.is_deleted ? " app-modal-list-item--deleted" : ""
                 }`}
               >
-                <div className="custom-data-row__main" title={`${title} · ${meta}`}>
-                  <p className="custom-data-row__title truncate">{title}</p>
+                <div
+                  className="custom-data-row__main"
+                  title={`${set.name} · ${meta}`}
+                >
+                  <p className="custom-data-row__title truncate">{set.name}</p>
                   <p className="custom-data-row__meta truncate">{meta}</p>
                 </div>
                 <div className="custom-data-row__actions">
-                  {!range.is_deleted ? (
+                  {!set.is_deleted ? (
                     <button
                       type="button"
-                      onClick={() => editRange(range)}
+                      onClick={() => editSet(set)}
                       className="app-modal-btn app-modal-btn--secondary app-modal-btn--sm app-modal-btn--icon"
                       aria-label={l.editRange}
                       title={l.editRange}
@@ -831,10 +1047,10 @@ export default function CustomRangeManager({
                     </button>
                   ) : null}
 
-                  {range.is_deleted ? (
+                  {set.is_deleted ? (
                     <button
                       type="button"
-                      onClick={() => restoreRange(range)}
+                      onClick={() => void restoreSet(set)}
                       className="app-modal-btn app-modal-btn--primary app-modal-btn--sm app-modal-btn--icon"
                       aria-label={l.restore}
                       title={l.restore}
@@ -844,7 +1060,7 @@ export default function CustomRangeManager({
                   ) : (
                     <button
                       type="button"
-                      onClick={() => softDeleteRange(range)}
+                      onClick={() => void softDeleteSet(set)}
                       className="app-modal-btn app-modal-btn--danger app-modal-btn--sm app-modal-btn--icon"
                       aria-label={l.delete}
                       title={l.delete}
@@ -858,6 +1074,36 @@ export default function CustomRangeManager({
           })}
         </div>
       )}
+
+      {orphanRanges.length > 0 ? (
+        <div className="plantilla-orphans">
+          <p className="app-modal-section__title">{l.orphanRanges}</p>
+          <div className="app-modal-list">
+            {orphanRanges.map((range) => {
+              const official = getOne(range.parameters);
+              const custom = getOne(range.user_custom_parameters);
+              const title =
+                custom?.parameter_name ||
+                official?.parameter_name ||
+                "Parameter";
+              const band = `${range.min_value ?? "—"}–${range.max_value ?? "—"}`;
+              return (
+                <article
+                  key={range.custom_range_id}
+                  className="app-modal-list-item custom-data-row"
+                >
+                  <div className="custom-data-row__main">
+                    <p className="custom-data-row__title truncate">{title}</p>
+                    <p className="custom-data-row__meta truncate">
+                      {range.source_name || l.generalRange} · {band}
+                    </p>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 
@@ -906,5 +1152,3 @@ export default function CustomRangeManager({
     </AppModal>
   );
 }
-
-

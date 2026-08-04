@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
 import { useDismissible } from "@/hooks/useDismissible";
@@ -178,8 +185,16 @@ import {
   convertTable1RangeToDisplayUnit,
   resolveInterpretationParameter,
   table1SufficientRange,
+  withCustomExtractionOption,
   type ExtractionMethod,
 } from "@/lib/extractionMethod";
+import {
+  fetchCustomRangeSets,
+  getActiveRangeSetId,
+  setActiveRangeSetId,
+  type CicOverrides,
+  type CustomRangeSet,
+} from "@/lib/customRangePlantilla";
 
 type Crop = {
   crop_id: number;
@@ -293,6 +308,7 @@ type UserCustomRange = {
   max_value: number | null;
   interpretation_note: string | null;
   source_name: string | null;
+  range_set_id?: number | null;
 };
 
 type ParameterFilterGroup = "All" | "Chemical" | "Physical";
@@ -1202,6 +1218,10 @@ export default function HomePage() {
     "irrigation"
   );
   const [extractionMethod, setExtractionMethod] = useState<ExtractionMethod>("olsen");
+  const [customRangeSets, setCustomRangeSets] = useState<CustomRangeSet[]>([]);
+  const [activeRangeSetId, setActiveRangeSetIdState] = useState<number | null>(
+    null
+  );
   const [values, setValues] = useState<Record<string, string>>({});
   const [labReportRanges, setLabReportRanges] = useState<
     Record<string, { min: number | null; max: number | null; raw: string; rating?: string | null }>
@@ -2640,13 +2660,16 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setCurrentStep("values");
   }
 
-  async function findUserCustomRange(item: {
-    parameter_id: number | null;
-    custom_parameter_id: number | null;
-    unit_id: number;
-  }) {
+  async function findUserCustomRange(
+    item: {
+      parameter_id: number | null;
+      custom_parameter_id: number | null;
+      unit_id: number;
+    },
+    options?: { rangeSetId?: number | null }
+  ) {
     if (!session?.user || guestMode || !cropId) return null;
-  
+
     let query = supabase
       .from("user_custom_ranges")
       .select(
@@ -2660,13 +2683,18 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         min_value,
         max_value,
         interpretation_note,
-        source_name
+        source_name,
+        range_set_id
       `
       )
       .eq("user_id", session.user.id)
       .eq("sample_type", sampleType)
       .eq("is_deleted", false);
-  
+
+    if (options?.rangeSetId != null) {
+      query = query.eq("range_set_id", options.rangeSetId);
+    }
+
     if (item.custom_parameter_id) {
       query = query
         .eq("custom_parameter_id", item.custom_parameter_id)
@@ -2678,7 +2706,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     } else {
       return null;
     }
-  
+
     const { data, error } = await query;
   
     if (error) {
@@ -2863,11 +2891,17 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
           continue;
         }
 
-        const userRange = await findUserCustomRange({
-          parameter_id: item.parameter_id,
-          custom_parameter_id: item.custom_parameter_id,
-          unit_id: item.unit_id,
-        });
+        const userRange =
+          activeMethod === "custom" && activeCustomRangeSet
+            ? await findUserCustomRange(
+                {
+                  parameter_id: item.parameter_id,
+                  custom_parameter_id: item.custom_parameter_id,
+                  unit_id: item.unit_id,
+                },
+                { rangeSetId: activeCustomRangeSet.range_set_id }
+              )
+            : null;
 
         if (userRange) {
           const logicInput = {
@@ -3437,6 +3471,68 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       return previous;
     });
   }, [sampleType, isGeneralCrop]);
+
+  const loadCustomRangeSets = useCallback(async () => {
+    if (!session?.user || guestMode) {
+      setCustomRangeSets([]);
+      setActiveRangeSetIdState(null);
+      return;
+    }
+    try {
+      const sets = await fetchCustomRangeSets(
+        supabase,
+        session.user.id,
+        sampleType,
+        false
+      );
+      setCustomRangeSets(sets);
+      const stored = getActiveRangeSetId();
+      const nextId =
+        stored && sets.some((set) => set.range_set_id === stored)
+          ? stored
+          : sets[0]?.range_set_id ?? null;
+      setActiveRangeSetIdState(nextId);
+      if (nextId != null) setActiveRangeSetId(nextId);
+    } catch {
+      setCustomRangeSets([]);
+    }
+  }, [session?.user, guestMode, sampleType]);
+
+  useEffect(() => {
+    void loadCustomRangeSets();
+  }, [loadCustomRangeSets]);
+
+  useEffect(() => {
+    if (extractionMethod !== "custom") return;
+    if (customRangeSets.length === 0) {
+      setExtractionMethod(
+        getDefaultExtractionMethod({ isGeneralCrop, sampleType })
+      );
+    }
+  }, [customRangeSets.length, extractionMethod, isGeneralCrop, sampleType]);
+
+  const activeCustomRangeSet = useMemo(
+    () =>
+      customRangeSets.find((set) => set.range_set_id === activeRangeSetId) ||
+      customRangeSets[0] ||
+      null,
+    [customRangeSets, activeRangeSetId]
+  );
+
+  const activeCicOverrides: CicOverrides | null = useMemo(() => {
+    if (extractionMethod !== "custom" || !activeCustomRangeSet) return null;
+    return activeCustomRangeSet.cic_overrides || null;
+  }, [extractionMethod, activeCustomRangeSet]);
+
+  const soilExtractionOptions = useMemo(
+    () =>
+      withCustomExtractionOption(
+        SOIL_EXTRACTION_OPTIONS,
+        customRangeSets.length > 0
+      ),
+    [customRangeSets.length]
+  );
+
   const hasAccess = Boolean((session?.user && !showAuthScreen) || guestMode);
   const isAdmin = isAdminEmail(session?.user?.email);
 
@@ -4111,6 +4207,13 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             isGeneralCrop={isGeneralCrop}
             extractionMethod={extractionMethod}
             setExtractionMethod={setExtractionMethod}
+            soilExtractionOptions={soilExtractionOptions}
+            customRangeSets={customRangeSets}
+            activeRangeSetId={activeRangeSetId}
+            onActiveRangeSetChange={(id) => {
+              setActiveRangeSetIdState(id);
+              setActiveRangeSetId(id);
+            }}
             message={message}
             analysisName={analysisName}
             setAnalysisName={setAnalysisName}
@@ -4187,6 +4290,13 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             isGeneralCrop={isGeneralCrop}
             extractionMethod={extractionMethod}
             setExtractionMethod={handleExtractionMethodChange}
+            soilExtractionOptions={soilExtractionOptions}
+            customRangeSets={customRangeSets}
+            activeRangeSetId={activeRangeSetId}
+            onActiveRangeSetChange={(id) => {
+              setActiveRangeSetIdState(id);
+              setActiveRangeSetId(id);
+            }}
             parameters={parameters}
             totalEnteredValues={totalEnteredValues}
             parameterSearch={parameterSearch}
@@ -4276,6 +4386,20 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                 extractionMethod={extractionMethod}
                 interpreting={loading}
                 onExtractionMethodChange={changeExtractionMethodFromResults}
+                soilExtractionOptions={soilExtractionOptions}
+                customRangeSets={customRangeSets}
+                activeRangeSetId={activeRangeSetId}
+                onActiveRangeSetChange={(id) => {
+                  setActiveRangeSetIdState(id);
+                  setActiveRangeSetId(id);
+                  if (extractionMethod === "custom") {
+                    void interpretAnalysis({
+                      method: "custom",
+                      preserveResults: true,
+                      stayOnPage: false,
+                    });
+                  }
+                }}
                 showHorizontalGraphs={appSettings.reports.includeHorizontalResultGraph}
                 backToValues={() => setCurrentStep("values")}
                 onExportPdf={() => setExportModalOpen(true)}
@@ -4314,6 +4438,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             defaultCalculatorHubLanding={
               appSettings.analysis.defaultCalculatorHubLanding
             }
+            cicOverrides={activeCicOverrides}
             userId={session?.user && !guestMode ? session.user.id : null}
             farmName={farmName}
             initialActiveKey={calculatorFocusKey}
@@ -4505,6 +4630,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             onBack={() => setCurrentStep("home")}
             onChanged={() => {
               loadParameters();
+              void loadCustomRangeSets();
             }}
           />
         ) : null}
@@ -4599,7 +4725,10 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       <CustomRangeManager
         open={showCustomRangeManager}
         onClose={() => setShowCustomRangeManager(false)}
-        onChanged={loadParameters}
+        onChanged={() => {
+          void loadParameters();
+          void loadCustomRangeSets();
+        }}
         session={session}
         language={language}
         sampleType={sampleType}
@@ -4661,6 +4790,10 @@ function SetupScreen({
   isGeneralCrop,
   extractionMethod,
   setExtractionMethod,
+  soilExtractionOptions,
+  customRangeSets,
+  activeRangeSetId,
+  onActiveRangeSetChange,
   message,
   analysisName,
   setAnalysisName,
@@ -4697,6 +4830,10 @@ function SetupScreen({
   isGeneralCrop: boolean;
   extractionMethod: ExtractionMethod;
   setExtractionMethod: (value: ExtractionMethod) => void;
+  soilExtractionOptions: ExtractionMethod[];
+  customRangeSets: CustomRangeSet[];
+  activeRangeSetId: number | null;
+  onActiveRangeSetChange: (id: number | null) => void;
   message: string;
   analysisName: string;
   setAnalysisName: (value: string) => void;
@@ -4867,8 +5004,16 @@ function SetupScreen({
                 t={t}
                 value={extractionMethod}
                 onChange={setExtractionMethod}
-                options={SOIL_EXTRACTION_OPTIONS}
+                options={soilExtractionOptions}
               />
+              {customRangeSets.length > 0 ? (
+                <ActiveRangeSetPicker
+                  t={t}
+                  sets={customRangeSets}
+                  value={activeRangeSetId}
+                  onChange={onActiveRangeSetChange}
+                />
+              ) : null}
             </div>
           </SetupInlineField>
         ) : null}
@@ -4950,6 +5095,10 @@ function ValuesScreen({
   isGeneralCrop,
   extractionMethod,
   setExtractionMethod,
+  soilExtractionOptions,
+  customRangeSets,
+  activeRangeSetId,
+  onActiveRangeSetChange,
   parameters,
   totalEnteredValues,
   parameterSearch,
@@ -5003,6 +5152,10 @@ function ValuesScreen({
   isGeneralCrop: boolean;
   extractionMethod: ExtractionMethod;
   setExtractionMethod: (value: ExtractionMethod) => void;
+  soilExtractionOptions: ExtractionMethod[];
+  customRangeSets: CustomRangeSet[];
+  activeRangeSetId: number | null;
+  onActiveRangeSetChange: (id: number | null) => void;
   parameters: Parameter[];
   totalEnteredValues: number;
   parameterSearch: string;
@@ -5407,8 +5560,16 @@ function ValuesScreen({
             t={t}
             value={extractionMethod}
             onChange={setExtractionMethod}
-            options={SOIL_EXTRACTION_OPTIONS}
+            options={soilExtractionOptions}
           />
+          {customRangeSets.length > 0 ? (
+            <ActiveRangeSetPicker
+              t={t}
+              sets={customRangeSets}
+              value={activeRangeSetId}
+              onChange={onActiveRangeSetChange}
+            />
+          ) : null}
         </div>
       ) : null}
 
@@ -6650,6 +6811,7 @@ function extractionMethodLabel(
     olsen: t.extractionMethodOlsen,
     mehlich: t.extractionMethodMehlich,
     bray: t.extractionMethodBray,
+    custom: t.extractionMethodCustom || "Custom",
   };
 
   return labels[method];
@@ -6689,6 +6851,42 @@ function ExtractionMethodChips({
         </button>
       ))}
     </div>
+  );
+}
+
+function ActiveRangeSetPicker({
+  t,
+  sets,
+  value,
+  onChange,
+}: {
+  t: (typeof translations)[Language];
+  sets: CustomRangeSet[];
+  value: number | null;
+  onChange: (id: number | null) => void;
+}) {
+  if (sets.length === 0) return null;
+
+  return (
+    <label className="active-range-set-picker">
+      <span className="active-range-set-picker__label">
+        {t.activeRangeSetLabel || "Active plantilla"}
+      </span>
+      <select
+        className="calc-field-input active-range-set-picker__select"
+        value={value ?? ""}
+        onChange={(event) => {
+          const next = event.target.value ? Number(event.target.value) : null;
+          onChange(next);
+        }}
+      >
+        {sets.map((set) => (
+          <option key={set.range_set_id} value={set.range_set_id}>
+            {set.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -6813,6 +7011,10 @@ function ResultsSection({
   extractionMethod,
   interpreting,
   onExtractionMethodChange,
+  soilExtractionOptions,
+  customRangeSets,
+  activeRangeSetId,
+  onActiveRangeSetChange,
   showHorizontalGraphs,
   backToValues,
   onExportPdf,
@@ -6843,6 +7045,10 @@ function ResultsSection({
   extractionMethod: ExtractionMethod;
   interpreting: boolean;
   onExtractionMethodChange: (method: ExtractionMethod) => void;
+  soilExtractionOptions: ExtractionMethod[];
+  customRangeSets: CustomRangeSet[];
+  activeRangeSetId: number | null;
+  onActiveRangeSetChange: (id: number | null) => void;
   showHorizontalGraphs: boolean;
   backToValues: () => void;
   onExportPdf?: () => void;
@@ -6921,8 +7127,16 @@ function ResultsSection({
               value={extractionMethod}
               onChange={onExtractionMethodChange}
               disabled={interpreting}
-              options={SOIL_EXTRACTION_OPTIONS}
+              options={soilExtractionOptions}
             />
+            {customRangeSets.length > 0 ? (
+              <ActiveRangeSetPicker
+                t={t}
+                sets={customRangeSets}
+                value={activeRangeSetId}
+                onChange={onActiveRangeSetChange}
+              />
+            ) : null}
           </div>
         ) : null}
 

@@ -86,6 +86,11 @@ import {
   type CicRatioBand,
   type CicSaturationBand,
 } from "@/lib/cicInterpretation";
+import {
+  mergeCicRatioRanges,
+  mergeCicSaturationBands,
+  type CicOverrides,
+} from "@/lib/customRangePlantilla";
 import type { FertilityDoseResult } from "@/lib/soilFertilityPlan";
 import {
   TABLE_7_IRRIGATION_EFFICIENCY,
@@ -150,6 +155,8 @@ type Props = {
   farmName?: string | null;
   initialActiveKey?: string | null;
   onInitialActiveKeyConsumed?: () => void;
+  /** Plantilla CIC overrides when Custom extraction method is active. */
+  cicOverrides?: CicOverrides | null;
 };
 
 type CalculatorKey =
@@ -276,6 +283,7 @@ export default function CalculatorHub({
   farmName = null,
   initialActiveKey = null,
   onInitialActiveKeyConsumed,
+  cicOverrides = null,
 }: Props) {
   const t = calculatorHubText[language] || calculatorHubText.en;
   const defaultCalculatorFilter: CalculatorKey =
@@ -318,6 +326,7 @@ export default function CalculatorHub({
         farmName={farmName}
         initialActiveKey={initialActiveKey}
         onInitialActiveKeyConsumed={onInitialActiveKeyConsumed}
+        cicOverrides={cicOverrides}
       />
     </CalculatorMemoryProvider>
   );
@@ -351,6 +360,7 @@ function CalculatorHubBody({
   farmName = null,
   initialActiveKey = null,
   onInitialActiveKeyConsumed,
+  cicOverrides = null,
 }: {
   t: Record<string, string>;
   language: Language;
@@ -383,6 +393,7 @@ function CalculatorHubBody({
   farmName?: string | null;
   initialActiveKey?: string | null;
   onInitialActiveKeyConsumed?: () => void;
+  cicOverrides?: CicOverrides | null;
 }) {
   const {
     importFromValues,
@@ -1037,6 +1048,7 @@ function CalculatorHubBody({
             t={t}
             lab={effectiveLab}
             sampleType={sampleType}
+            cicOverrides={cicOverrides}
             onOutputsChange={(outputs) => reportOutputs("cic", outputs)}
           />
         ) : null}
@@ -1046,6 +1058,7 @@ function CalculatorHubBody({
             lab={effectiveLab}
             selectedCropName={selectedCropName}
             showCalculatorFormulas={showCalculatorFormulas}
+            cicOverrides={cicOverrides}
             onOutputsChange={(outputs) => reportOutputs("amendment", outputs)}
           />
         ) : null}
@@ -1307,14 +1320,24 @@ function CicCalculator({
   t,
   lab,
   sampleType,
+  cicOverrides = null,
   onOutputsChange,
 }: {
   t: Record<string, string>;
   lab: Map<string, CalculatorValue>;
   sampleType: "soil" | "foliar" | "water";
+  cicOverrides?: CicOverrides | null;
   onOutputsChange?: (outputs: CalculationOutput[]) => void;
 }) {
   const { reference } = useSoilFertilityReference();
+  const cicBands = useMemo(
+    () => mergeCicSaturationBands(cicOverrides, reference.cicSaturationBands),
+    [cicOverrides, reference.cicSaturationBands]
+  );
+  const cicRatios = useMemo(
+    () => mergeCicRatioRanges(cicOverrides, reference.cicRatioRanges),
+    [cicOverrides, reference.cicRatioRanges]
+  );
   const shared = useSharedCationInputs(lab);
   const acidityFallback = shared.hAl || shared.aluminum;
 
@@ -1406,7 +1429,7 @@ function CicCalculator({
           interpretation: interpretCationRatio(
             relationFilter,
             baseResult.relations[relationFilter],
-            reference.cicRatioRanges
+            cicRatios
           ),
         }
       : null;
@@ -1485,14 +1508,14 @@ function CicCalculator({
       </div>
 
       {selectedRatio ? (
-        <CicRatioHighlightCard ratio={selectedRatio} t={t} ranges={reference.cicRatioRanges} />
+        <CicRatioHighlightCard ratio={selectedRatio} t={t} ranges={cicRatios} />
       ) : null}
 
       {baseResult && relationFilter === "all" ? (
         <CicResultsPanel
           baseResult={baseResult}
           t={t}
-          bands={reference.cicSaturationBands}
+          bands={cicBands}
           cecEstimated={cecIsEstimated}
         />
       ) : null}

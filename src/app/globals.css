@@ -23883,6 +23883,132 @@ html[data-theme="dark"] .app-header {
     font-size: 0.8125rem;
   }
 
+  .plantilla-legend {
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--accent, #2f6b4f) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent, #2f6b4f) 18%, transparent);
+  }
+
+  .plantilla-legend__title {
+    margin: 0 0 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .plantilla-legend__line {
+    margin: 0;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    opacity: 0.9;
+  }
+
+  .plantilla-filled-meta {
+    margin: 0.65rem 0 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    opacity: 0.8;
+  }
+
+  .plantilla-grid {
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+  }
+
+  .plantilla-grid__head,
+  .plantilla-grid__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(4.5rem, 0.7fr) minmax(4.5rem, 0.7fr);
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  .plantilla-grid__head {
+    padding: 0.25rem 0.15rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    opacity: 0.7;
+  }
+
+  .plantilla-grid__row {
+    padding: 0.3rem 0.15rem;
+    border-radius: 0.55rem;
+  }
+
+  .plantilla-grid__row:nth-child(even) {
+    background: color-mix(in srgb, var(--foreground) 4%, transparent);
+  }
+
+  .plantilla-grid__param {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .plantilla-grid__name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .plantilla-grid__hint {
+    font-size: 0.65rem;
+    font-weight: 600;
+    opacity: 0.65;
+  }
+
+  .plantilla-grid__cell .calc-field-input {
+    min-height: 2.1rem;
+    padding: 0.35rem 0.45rem;
+    font-size: 0.8125rem;
+  }
+
+  .plantilla-grid__cell .calc-field-input:disabled {
+    opacity: 0.45;
+  }
+
+  .plantilla-cic {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  }
+
+  .plantilla-orphans {
+    margin-top: 1rem;
+  }
+
+  .active-range-set-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.55rem;
+  }
+
+  .active-range-set-picker__label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    opacity: 0.75;
+  }
+
+  .active-range-set-picker__select {
+    min-height: 2.25rem;
+  }
+
+  @media (max-width: 640px) {
+    .plantilla-grid__head,
+    .plantilla-grid__row {
+      grid-template-columns: minmax(0, 1fr) minmax(3.75rem, 0.65fr) minmax(3.75rem, 0.65fr);
+    }
+  }
+
   .custom-data-manager .app-modal-list-item.custom-data-row,
   .custom-data-row {
     display: flex;

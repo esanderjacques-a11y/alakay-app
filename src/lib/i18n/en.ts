@@ -280,6 +280,8 @@
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
+  extractionMethodCustom: "Custom",
+  activeRangeSetLabel: "Active plantilla",
   extractionMethodActive: "P ranges: {method}",
   exportGeneralCropExtractionNote:
     "General crop with {method}: nutrient ranges follow the {method} extractant (not crop-specific sufficiency).",
@@ -347,7 +349,7 @@
   levelModerate: "Moderate",
   levelLow: "Low",
   levelVeryLow: "Very low",
-  levelNormal: "Normal",
+  levelNormal: "Adequate",
   levelAcceptable: "Acceptable",
   levelAcidic: "Acidic",
   levelNeutralPh: "Neutral",

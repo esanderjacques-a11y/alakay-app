@@ -5293,6 +5293,7 @@ function ValuesScreen({
     null
   );
   const [isCompactViewport, setIsCompactViewport] = useState(false);
+  const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const hasVisibleParameters = filteredParameters.length > 0;
   const hasEnteredValues = totalEnteredValues > 0;
   const valuesChrome = calculatorHubText[language];
@@ -5308,11 +5309,19 @@ function ValuesScreen({
   );
 
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 639px)");
-    const sync = () => setIsCompactViewport(media.matches);
+    const compactMedia = window.matchMedia("(max-width: 639px)");
+    const desktopMedia = window.matchMedia("(min-width: 1024px)");
+    const sync = () => {
+      setIsCompactViewport(compactMedia.matches);
+      setIsDesktopViewport(desktopMedia.matches);
+    };
     sync();
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
+    compactMedia.addEventListener("change", sync);
+    desktopMedia.addEventListener("change", sync);
+    return () => {
+      compactMedia.removeEventListener("change", sync);
+      desktopMedia.removeEventListener("change", sync);
+    };
   }, []);
 
   const parameterGroups = useMemo(() => {
@@ -5609,30 +5618,9 @@ function ValuesScreen({
             />
           </div>
       </div>
-      </div>
-
-      {!cropId ? (
-        <div className="values-skip-crop-block">
-          <p className="values-block-label">{t.crop}</p>
-          <AppSelect
-            value={cropId}
-            placeholder={t.selectCrop}
-            inlineMenu
-            options={[
-              { label: t.selectCrop, value: "" },
-              ...crops.map((crop) => ({
-                label: crop.display_name,
-                value: crop.crop_id,
-              })),
-            ]}
-            onChange={setCropId}
-          />
-          <p className="values-block-hint">{t.selectCropOnValues}</p>
-        </div>
-      ) : null}
 
       {sampleType === "soil" ? (
-        <div className="values-skip-crop-block values-skip-crop-block--method">
+        <div className="values-skip-crop-block values-skip-crop-block--method values-skip-crop-block--method-in-header">
           <div className="values-method-bar">
             <span className="values-method-bar__label">
               {t.extractionMethodLabel}
@@ -5655,11 +5643,51 @@ function ValuesScreen({
         </div>
       ) : null}
 
+      {showStickyAddAction && isDesktopViewport ? (
+        <div className="values-sticky-add-shell values-sticky-add-shell--rail">
+          <AddDataMenu
+            variant="sticky"
+            open={addDataMenuSource === "sticky"}
+            onOpenChange={(open) =>
+              setAddDataMenuSource(open ? "sticky" : null)
+            }
+            labels={{
+              ...addDataMenuLabels,
+              menuHeading: t.addShort,
+            }}
+            onAddParameter={openCustomParameterModal}
+            onManageParameters={openCustomParameterManager}
+            onManageRanges={openCustomRangeManager}
+          />
+        </div>
+      ) : null}
+      </div>
+
+      {!cropId ? (
+        <div className="values-skip-crop-block">
+          <p className="values-block-label">{t.crop}</p>
+          <AppSelect
+            value={cropId}
+            placeholder={t.selectCrop}
+            inlineMenu
+            options={[
+              { label: t.selectCrop, value: "" },
+              ...crops.map((crop) => ({
+                label: crop.display_name,
+                value: crop.crop_id,
+              })),
+            ]}
+            onChange={setCropId}
+          />
+          <p className="values-block-hint">{t.selectCropOnValues}</p>
+        </div>
+      ) : null}
+
       {canRenderFloatingActions
         ? createPortal(
             <>
-              {showStickyAddAction && (
-                <div className="fixed right-3 top-[calc(env(safe-area-inset-top,0px)+0.85rem)] z-[16000] animate-float-in sm:right-5 md:right-[max(1.25rem,calc((100vw-72rem)/2+1.25rem))]">
+              {showStickyAddAction && !isDesktopViewport ? (
+                <div className="values-sticky-add-float fixed right-3 top-[calc(env(safe-area-inset-top,0px)+0.85rem)] z-[16000] animate-float-in sm:right-5">
                   <div className="values-sticky-add-shell">
                     <div className="flex justify-end">
                       <AddDataMenu
@@ -5679,7 +5707,7 @@ function ValuesScreen({
                     </div>
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {showSaveAction && (
                 <div className="values-interpret-fab fixed z-[14000] animate-slide-up">
@@ -7320,7 +7348,7 @@ function ResultsSection({
           />
         ) : null}
 
-        <div className="mt-2">
+        <div className="results-flat-groups mt-2">
           <ResultGroup
             title={t.needsAttention}
             results={visibleGroups.negative}

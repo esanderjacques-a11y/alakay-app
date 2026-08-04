@@ -3,19 +3,19 @@
 @source "../components";
 
 /* Match app theme toggle (data-theme), not OS prefers-color-scheme.
-   Otherwise phone Dark Mode applies dark:bg-* while data-theme stays light → unreadable contrast. */
+   Otherwise phone Dark Mode applies dark:bg-* while data-theme stays light ? unreadable contrast. */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 :root {
   /* Lock light mode so mobile browsers don't auto-darken/wash out the page. */
   color-scheme: light;
-  /* Calculator type scale — readable floor ~12px; chips may stay ~11px */
+  /* Calculator type scale ? readable floor ~12px; chips may stay ~11px */
   --calc-text-micro: 0.75rem;
   --calc-text-label: 0.8125rem;
   --calc-text-body: 0.875rem;
   --calc-text-title: 0.9375rem;
   --calc-text-chip: 0.6875rem;
-  /* Samsung One UI — Material You color system */
+  /* Samsung One UI ? Material You color system */
   --background: #f2f2f2;
   --foreground: #1c1c1e;
   --surface: #ffffff;
@@ -54,6 +54,8 @@
   --app-contrast-backdrop: 1;
   --app-contrast-ink: 0;
   --app-glass-alpha: 1;
+  /* Desktop media queries raise this; phone stays at 1. */
+  --app-glass-density: 1;
   --app-scroll-thumb: rgb(var(--accent-700-rgb, 21 128 61) / 0.22);
   --app-scroll-thumb-hover: rgb(var(--accent-700-rgb, 21 128 61) / 0.38);
   --app-blur: 1;
@@ -84,7 +86,7 @@
   --billing-shell-max: calc(
     var(--billing-nav-width) + var(--billing-layout-gap) + var(--billing-main-max)
   );
-  /* About sits inside .app-main-shell gutter — no second inset. */
+  /* About sits inside .app-main-shell gutter ? no second inset. */
   --about-flat-inset-x: 0px;
   /* Bottom nav + safe areas */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -131,6 +133,11 @@ html[data-app-font="manrope"] {
     --nav-bar-height: 4rem;
     --billing-main-max: 46rem;
     --billing-nav-width: 12rem;
+    --app-glass-density: 1.28;
+  }
+
+  html[data-theme="dark"] {
+    --app-glass-density: 1.35;
   }
 }
 
@@ -291,7 +298,7 @@ textarea {
 }
 
 /* iOS/PWA: focusing inputs under 16px zooms the page and often keeps that zoom
-   after the keyboard closes — layout looks permanently "different". */
+   after the keyboard closes ? layout looks permanently "different". */
 @media (pointer: coarse), (max-width: 900px) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
   select,
@@ -318,7 +325,7 @@ textarea {
     -webkit-backdrop-filter: blur(calc(20px * var(--app-blur, 1))) saturate(1.12);
   }
 
-  /* App chrome — translucent header & dock (matches glass UI surfaces) */
+  /* App chrome ? translucent header & dock (matches glass UI surfaces) */
   .app-header {
     background: var(--glass-chrome-surface);
     border-bottom: 1px solid var(--glass-chrome-border);
@@ -485,7 +492,7 @@ textarea {
     padding-block: 0.25rem;
   }
 
-  /* Hub lives inside .app-main-shell — no second horizontal inset. */
+  /* Hub lives inside .app-main-shell ? no second horizontal inset. */
   .calculator-hub-panel .calc-page,
   .calculator-hub-panel .calculator-hub-page {
     padding-inline: 0;
@@ -826,7 +833,7 @@ textarea {
     color: var(--accent-100, #dcfce7);
   }
 
-  /* Viewport-fixed chrome layer — keeps dock pinned when html has filter */
+  /* Viewport-fixed chrome layer ? keeps dock pinned when html has filter */
   .app-chrome-layer {
     position: fixed;
     inset: 0;
@@ -834,7 +841,7 @@ textarea {
     pointer-events: none;
   }
 
-  /* Samsung One UI — full-width bottom nav bar */
+  /* Samsung One UI ? full-width bottom nav bar */
   .app-dock {
     position: fixed;
     inset-inline: 0;
@@ -874,7 +881,7 @@ textarea {
     transform: none !important;
   }
 
-  /* Instant hide while typing — do not animate up with the soft keyboard. */
+  /* Instant hide while typing ? do not animate up with the soft keyboard. */
   .app-dock.app-dock--keyboard,
   html[data-keyboard-open="true"] .app-dock {
     opacity: 0 !important;
@@ -885,7 +892,7 @@ textarea {
     bottom: calc(-1 * var(--dock-vv-lift, 0px)) !important;
   }
 
-  /* Installed PWA: dock stays on the layout bottom — never follow visualViewport. */
+  /* Installed PWA: dock stays on the layout bottom ? never follow visualViewport. */
   html[data-standalone="true"] .app-dock,
   html[data-display-mode="standalone"] .app-dock,
   html[data-display-mode="fullscreen"] .app-dock,
@@ -902,7 +909,7 @@ textarea {
     pointer-events: auto;
   }
 
-  /* Samsung One UI — active tab: colored icon + colored text, no bg on whole button */
+  /* Samsung One UI ? active tab: colored icon + colored text, no bg on whole button */
   .app-dock-tab-active {
     color: var(--accent-700, #15803d);
     background: transparent;
@@ -1040,7 +1047,7 @@ textarea {
     background: transparent;
   }
 
-  /* Fixed gradient + orbs — separate from content so glass backdrop-filter works */
+  /* Fixed gradient + orbs ? separate from content so glass backdrop-filter works */
   .app-main-backdrop {
     position: fixed;
     inset: 0;
@@ -1054,7 +1061,7 @@ textarea {
   /*
    * Tone sliders.
    * Glass UI: filter the backdrop only (content filters break backdrop-filter).
-   * Light glass: omit contrast() — it blows pale greens toward white and washes type.
+   * Light glass: omit contrast() ? it blows pale greens toward white and washes type.
    * Dark glass: keep contrast() on the wash (reads well).
    * Flat UI: filter chrome + content as before.
    */
@@ -1324,7 +1331,7 @@ textarea {
   }
 
   .auth-page {
-    /* Shell only — gradient lives on .app-main-backdrop */
+    /* Shell only ? gradient lives on .app-main-backdrop */
   }
 
 html[data-theme="dark"] .glass-panel,
@@ -1390,7 +1397,7 @@ html[data-theme="dark"] {
     --glass-border: rgb(255 255 255 / 0.1);
   }
 
-  /* Dark + glass — frosted panels over the tinted gradient */
+  /* Dark + glass ? frosted panels over the tinted gradient */
   html[data-theme="dark"][data-glass-ui="true"] {
     --glass-chrome-surface: rgb(255 255 255 / 0.09);
     --glass-chrome-border: rgb(255 255 255 / 0.14);
@@ -1400,7 +1407,7 @@ html[data-theme="dark"] {
     --glass-border: rgb(255 255 255 / 0.14);
   }
 
-  /* Glass UI on — frosted panels over the light gradient */
+  /* Glass UI on ? frosted panels over the light gradient */
   html[data-glass-ui="true"]:not([data-theme="dark"]) {
     --glass-chrome-surface: rgb(255 255 255 / 0.54);
     --glass-chrome-border: rgb(255 255 255 / 0.74);
@@ -1442,7 +1449,7 @@ html[data-theme="dark"] .app-header {
     --glass-border: rgb(255 255 255 / 0.18);
   }
 
-  /* Solid page shell — no gradient or accent orbs when glass is off */
+  /* Solid page shell ? no gradient or accent orbs when glass is off */
   html[data-glass-ui="false"] .app-main-backdrop {
     background: var(--background);
   }
@@ -1666,7 +1673,7 @@ html[data-theme="dark"] .app-header {
     background: var(--surface, #1e1e1e);
   }
 
-  /* ── Segmented control (Soil/Foliar etc) ── */
+  /* ?? Segmented control (Soil/Foliar etc) ?? */
   .app-segmented-control {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -1718,7 +1725,7 @@ html[data-theme="dark"] .app-header {
       0 0 16px rgb(var(--accent-500-rgb, 34 197 94) / 0.26);
   }
 
-  /* ── Fixed action bars (bottom CTAs) ── */
+  /* ?? Fixed action bars (bottom CTAs) ?? */
   .app-fixed-action-bar {
     position: fixed;
     inset-inline: 0;
@@ -1739,7 +1746,7 @@ html[data-theme="dark"] .app-header {
     border-color: var(--glass-border);
   }
 
-  /* ── Home info strip ── */
+  /* ?? Home info strip ?? */
   .home-info-strip {
     display: flex;
     align-items: center;
@@ -1783,7 +1790,7 @@ html[data-theme="dark"] .app-header {
     color: rgba(232, 232, 232, 0.55);
   }
 
-  /* ── Settings section cards ── */
+  /* ?? Settings section cards ?? */
   .settings-section-card {
     border: 1px solid var(--glass-border);
     background: var(--glass-surface);
@@ -1827,7 +1834,7 @@ html[data-theme="dark"] .app-header {
     border-color: rgba(255, 255, 255, 0.07);
   }
 
-  /* ── Hardcoded hex dark mode overrides ── */
+  /* ?? Hardcoded hex dark mode overrides ?? */
   /* Segmented control containers using #f2f2f2 */
   html[data-theme="dark"] .bg-\[\#f2f2f2\] {
     background-color: rgba(255, 255, 255, 0.08) !important;
@@ -1850,7 +1857,7 @@ html[data-theme="dark"] .app-header {
     color: rgba(255, 255, 255, 0.3) !important;
   }
 
-  /* Segmented active tab bg-white in dark → surface-variant */
+  /* Segmented active tab bg-white in dark ? surface-variant */
   html[data-theme="dark"] .bg-white.shadow-sm,
   html[data-theme="dark"] .bg-white.text-green-900 {
     background-color: var(--surface-variant, #2c2c2c) !important;
@@ -1878,7 +1885,7 @@ html[data-theme="dark"] .app-header {
     background-color: rgba(255, 255, 255, 0.07) !important;
   }
 
-  /* ── Settings save toolbar (dark mode) ── */
+  /* ?? Settings save toolbar (dark mode) ?? */
   .settings-save-toolbar {
     border-color: var(--glass-border);
   }
@@ -1893,7 +1900,7 @@ html[data-theme="dark"] .app-header {
     color: #e8e8e8 !important;
   }
 
-  /* ── Dark text helper ── */
+  /* ?? Dark text helper ?? */
   .dark-text-primary {
     color: #1c1c1e;
   }
@@ -2747,7 +2754,7 @@ html[data-theme="dark"] .app-header {
     color: rgb(var(--accent-200-rgb, 187 247 208) / 0.95);
   }
 
-  /* Formulation empty-state hint — keep readable on frosted cards / phones. */
+  /* Formulation empty-state hint ? keep readable on frosted cards / phones. */
   .fertilizer-formulation-hint {
     margin: 0;
     border-radius: 0.65rem;
@@ -4042,7 +4049,7 @@ html[data-theme="dark"] .app-header {
     font-size: 0.8125rem;
   }
 
-  /* ── Export PDF summary modal (material / flat) ── */
+  /* ?? Export PDF summary modal (material / flat) ?? */
   .export-report-modal {
     max-width: 24.5rem;
     border-radius: 1rem;
@@ -4369,7 +4376,7 @@ html[data-theme="dark"] .app-header {
     border-color: rgb(248 113 113 / 0.28);
   }
 
-  /* Values + modal surfaces — shared glass contract across themes */
+  /* Values + modal surfaces ? shared glass contract across themes */
   .values-table-shell,
   .values-screen-panel__header,
   .add-data-menu,
@@ -4429,7 +4436,7 @@ html[data-theme="dark"] .app-header {
     background: var(--surface-variant, #242424);
   }
 
-  /* Shared glass controls — consistent across light/dark and glass-ui on/off */
+  /* Shared glass controls ? consistent across light/dark and glass-ui on/off */
   .page-back-btn {
     border: 1px solid var(--glass-border);
     background: var(--glass-surface-muted);
@@ -5284,7 +5291,7 @@ html[data-theme="dark"] .app-header {
     border-radius: 0.25rem;
   }
 
-  /* Settings — Samsung One UI toggle rows */
+  /* Settings ? Samsung One UI toggle rows */
   .settings-toggle-row {
     display: flex;
     align-items: center;
@@ -5697,7 +5704,7 @@ html[data-theme="dark"] .app-header {
   /*
    * Calculator light-theme contrast (phones).
    * Slightly stronger glass (still translucent + blurred, so the glass UI is
-   * preserved) plus darker helper/body text — low-saturation slate washes out
+   * preserved) plus darker helper/body text ? low-saturation slate washes out
    * on mobile panels even when it looks fine on a laptop.
    */
   html:not([data-theme="dark"]) .calculator-hub-panel .calc-surface,
@@ -5867,7 +5874,7 @@ html[data-theme="dark"] .app-header {
     color: rgb(255 255 255 / 0.68);
   }
 
-  /* Calendar “Where & when” — dense context form */
+  /* Calendar ?Where & when? ? dense context form */
   .calendar-context-card {
     display: grid;
     gap: 0.65rem;
@@ -5997,7 +6004,7 @@ html[data-theme="dark"] .app-header {
     border-top: 1px solid var(--glass-border);
   }
 
-  /* Planning / farms — follow theme, accent, glass, font tokens */
+  /* Planning / farms ? follow theme, accent, glass, font tokens */
   .plan-timeline {
     position: relative;
     display: grid;
@@ -8907,7 +8914,7 @@ html[data-theme="dark"] .app-header {
     letter-spacing: 0.02em;
     line-height: 1.15;
     text-align: center;
-    /* Keep source casing — uppercase breaks element symbols (Ca+Mg+K+Na → CA+MG+K+NA). */
+    /* Keep source casing ? uppercase breaks element symbols (Ca+Mg+K+Na ? CA+MG+K+NA). */
     text-transform: none;
     white-space: normal;
     overflow-wrap: anywhere;
@@ -9427,7 +9434,7 @@ html[data-theme="dark"] .app-header {
     stroke: rgb(255 255 255 / 0.12);
   }
 
-  /* Samsung One UI Home — full-width, no max-width card */
+  /* Samsung One UI Home ? full-width, no max-width card */
   .home-flat-panel {
     width: 100%;
     max-width: 32rem;
@@ -9480,7 +9487,7 @@ html[data-theme="dark"] .app-header {
     -webkit-backdrop-filter: blur(calc(16px * var(--app-blur, 1))) saturate(1.08);
   }
 
-  /* Samsung One UI — material card style for action tiles */
+  /* Samsung One UI ? material card style for action tiles */
   .home-tile-action {
     display: flex;
     min-height: 3.75rem;
@@ -9521,7 +9528,7 @@ html[data-theme="dark"] .app-header {
     overflow-wrap: anywhere;
   }
 
-  /* Samsung One UI — icon circle bubble for action tiles */
+  /* Samsung One UI ? icon circle bubble for action tiles */
   .home-tile-icon-wrap {
     display: inline-flex;
     align-items: center;
@@ -9807,7 +9814,7 @@ html[data-theme="dark"] .app-header {
     border: 1px solid var(--glass-border);
     background: var(--glass-surface-muted);
     padding: 0.55rem 0.75rem 0.55rem 2.25rem;
-    /* 16px minimum — iOS zooms focused inputs under 16px and often keeps the zoom. */
+    /* 16px minimum ? iOS zooms focused inputs under 16px and often keeps the zoom. */
     font-size: 1rem;
     text-align: left;
     color: var(--foreground);
@@ -9841,7 +9848,7 @@ html[data-theme="dark"] .app-header {
     color: var(--text-subtle);
   }
 
-  /* Samsung One UI — compact flat material list for search hits */
+  /* Samsung One UI ? compact flat material list for search hits */
   .home-search-results {
     display: flex;
     width: 100%;
@@ -9983,15 +9990,35 @@ html[data-theme="dark"] .app-header {
 
   @media (min-width: 1024px) {
     .home-screen-wrap {
-      padding-block: 2rem 1rem;
+      padding-block: 1.5rem 1.25rem;
+      align-items: flex-start;
     }
 
     .home-screen {
       max-width: 100%;
     }
 
+    .home-screen__inner {
+      gap: 1.25rem;
+      width: 100%;
+    }
+
+    .home-screen__hero {
+      text-align: left;
+      padding: 0.15rem 0.15rem 0.35rem;
+    }
+
     .home-screen__welcome {
-      font-size: 1.35rem;
+      font-size: 1.5rem;
+    }
+
+    .home-dash-panel {
+      padding: 1.1rem 1.25rem;
+    }
+
+    .home-dash-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.75rem;
     }
 
     .home-action-grid {
@@ -11885,7 +11912,7 @@ html[data-theme="dark"] .app-header {
     color: var(--text-muted, #6c6c70);
   }
 
-  /* Calculator pages — shared compact form + result cards */
+  /* Calculator pages ? shared compact form + result cards */
   .calc-field-label {
     font-size: var(--calc-text-label);
     font-weight: 700;
@@ -12324,7 +12351,7 @@ html[data-theme="dark"] .app-header {
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
   }
 
-  /* Yellow — low / deficient */
+  /* Yellow ? low / deficient */
   .level-badge-very-low,
   .level-badge-low,
   .level-badge-moderate {
@@ -12332,14 +12359,14 @@ html[data-theme="dark"] .app-header {
     color: #422006;
   }
 
-  /* Red — excess / not good */
+  /* Red ? excess / not good */
   .level-badge-high,
   .level-badge-very-high {
     background: #ef4444;
     color: #fff7ed;
   }
 
-  /* Green — adequate */
+  /* Green ? adequate */
   .level-badge-normal {
     background: #22c55e;
     color: #052e1a;
@@ -12741,7 +12768,7 @@ html[data-theme="dark"] .app-header {
     flex-shrink: 0;
   }
 
-  /* Samsung One UI: section heads are NOT sticky — scroll naturally */
+  /* Samsung One UI: section heads are NOT sticky ? scroll naturally */
   .sticky-page-title,
   .sticky-scroll-section-head {
     position: relative;
@@ -12768,7 +12795,7 @@ html[data-theme="dark"] .app-header {
     --sticky-title-backdrop-filter: none;
   }
 
-  /* Open page shells sit on the app gradient — no card chrome.
+  /* Open page shells sit on the app gradient ? no card chrome.
      Match dark/glass specificity so theme rules don't re-apply a square frame. */
   .values-screen-panel.values-screen-panel--open,
   .calculator-hub-panel.values-screen-panel--open,
@@ -15706,7 +15733,7 @@ html[data-theme="dark"] .app-header {
     font-size: 0.875rem;
   }
 
-  /* DOP deviation — horizontal diverging bars (readable on narrow screens) */
+  /* DOP deviation ? horizontal diverging bars (readable on narrow screens) */
   .dop-chart {
     min-width: 0;
     width: 100%;
@@ -16183,6 +16210,12 @@ html[data-theme="dark"] .app-header {
     align-items: stretch;
     gap: 0.25rem;
     padding-block: 0.4rem;
+  }
+
+  .values-skip-crop-block--method-in-header {
+    margin-top: 0.65rem;
+    padding-block: 0.55rem 0.15rem;
+    border-top: 1px solid var(--glass-border);
   }
 
   .values-method-bar {
@@ -17518,7 +17551,7 @@ html[data-theme="dark"] .app-header {
     color: rgb(148 163 184 / 0.5);
   }
 
-  /* Yellow — low */
+  /* Yellow ? low */
   .values-value-unit-box.values-level-tone--very-low,
   .values-value-unit-box.values-level-tone--low,
   .values-value-unit-box.values-level-tone--moderate {
@@ -17526,7 +17559,7 @@ html[data-theme="dark"] .app-header {
     box-shadow: inset 3px 0 0 rgb(234 179 8 / 0.95);
   }
 
-  /* Red — excess / not good */
+  /* Red ? excess / not good */
   .values-value-unit-box.values-level-tone--high,
   .values-value-unit-box.values-level-tone--very-high,
   .values-value-unit-box.values-level-tone--warning {
@@ -17534,7 +17567,7 @@ html[data-theme="dark"] .app-header {
     box-shadow: inset 3px 0 0 rgb(239 68 68 / 0.95);
   }
 
-  /* Green — adequate */
+  /* Green ? adequate */
   .values-value-unit-box.values-level-tone--normal {
     border-color: rgb(34 197 94 / 0.55);
     box-shadow: inset 3px 0 0 rgb(34 197 94 / 0.9);
@@ -17619,7 +17652,7 @@ html[data-theme="dark"] .app-header {
     color: var(--accent-300, #86efac);
   }
 
-  /* Embedded unit inside value box — plain text, never a chip surface */
+  /* Embedded unit inside value box ? plain text, never a chip surface */
   .values-value-unit-box__unit .values-unit-chip,
   .values-value-unit-box__unit .values-unit-chip--compact,
   .values-value-unit-box__unit .values-unit-chip--select,
@@ -17982,6 +18015,18 @@ html[data-theme="dark"] .app-header {
     box-shadow: var(--card-shadow);
     backdrop-filter: blur(calc(18px * var(--app-blur, 1))) saturate(1.12);
     -webkit-backdrop-filter: blur(calc(18px * var(--app-blur, 1))) saturate(1.12);
+  }
+
+  .values-sticky-add-shell--rail {
+    margin-top: 0.85rem;
+    width: 100%;
+    border-radius: 0.9rem;
+    padding: 0.35rem;
+  }
+
+  .values-sticky-add-shell--rail .values-sticky-add-btn {
+    width: 100%;
+    justify-content: center;
   }
 
 
@@ -18613,7 +18658,7 @@ html[data-theme="dark"] .app-header {
     color: var(--about-muted);
   }
 
-  /* —— Story carousel —— */
+  /* ?? Story carousel ?? */
   .about-story {
     position: relative;
     isolation: isolate;
@@ -18986,7 +19031,7 @@ html[data-theme="dark"] .app-header {
     max-width: 40rem;
   }
 
-  /* —— Mission / Vision / Values —— */
+  /* ?? Mission / Vision / Values ?? */
   .about-pillars {
     display: grid;
     gap: 0.65rem;
@@ -19780,7 +19825,7 @@ html[data-theme="dark"] .app-header {
     border-bottom-color: rgb(255 255 255 / 0.08);
   }
 
-  /* —— Feedback tab —— */
+  /* ?? Feedback tab ?? */
   .feedback-flow {
     display: grid;
     gap: 1.1rem;
@@ -20866,7 +20911,7 @@ html[data-theme="dark"] .app-header {
     opacity: 0.45;
   }
 
-  /* Samsung One UI — segmented pill tabs */
+  /* Samsung One UI ? segmented pill tabs */
   .about-flat-tabs {
     display: flex;
     gap: 0.375rem;
@@ -22370,7 +22415,7 @@ html[data-theme="dark"] .app-header {
 }
 
 @keyframes home-hero-cycle {
-  /* One slot ≈ 12.5% of the loop (8 messages). Soft ease in/out like before. */
+  /* One slot ? 12.5% of the loop (8 messages). Soft ease in/out like before. */
   0%,
   1.2% {
     opacity: 0;
@@ -22642,7 +22687,7 @@ html[data-theme="dark"] .app-header {
   }
 }
 
-  /* ── Billing module ── */
+  /* ?? Billing module ?? */
   .billing-screen {
     width: 100%;
     max-width: 100%;
@@ -23779,7 +23824,7 @@ html[data-theme="dark"] .app-header {
     margin-top: 0.75rem;
   }
 
-  /* Custom data / recycle — settings-nav segment (always horizontal) */
+  /* Custom data / recycle ? settings-nav segment (always horizontal) */
   .custom-data-portal__nav.settings-nav,
   .recycle-bin__nav.settings-nav {
     position: static;
@@ -24174,7 +24219,7 @@ html[data-theme="dark"] .app-header {
     display: none !important;
   }
 
-  /* Recycle bin — dense rows aligned with custom-data portal */
+  /* Recycle bin ? dense rows aligned with custom-data portal */
   .recycle-bin__actions {
     display: flex;
     align-items: center;
@@ -24316,7 +24361,7 @@ html[data-theme="dark"] .app-header {
     }
   }
 
-  /* —— Onboarding tour —— */
+  /* ?? Onboarding tour ?? */
   .onboarding-tour {
     position: fixed;
     inset: 0;
@@ -24542,3 +24587,219 @@ html[data-theme="dark"] .app-header {
   }
 
 
+
+/* ==========================================================================
+   Desktop layout + denser glass (min-width 1024px only; phone styles unchanged)
+   ========================================================================== */
+@media (min-width: 1024px) {
+  /* Shell: slightly roomier main-flow sections */
+  .app-main-shell--default .app-content-shell,
+  .app-main-shell--home .app-content-shell {
+    row-gap: 0.35rem;
+  }
+
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .glass-panel,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .glass-panel-strong,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .home-dash-panel,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .home-action-tile:not(.home-action-tile--primary),
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .values-table-shell,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .values-screen-panel__header,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .values-entry-list,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .calc-surface,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .calculator-hub-panel .calc-surface,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .calc-page .calc-surface {
+    background: var(--glass-surface-strong);
+  }
+
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .glass-section-muted,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .calc-surface-muted,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .calc-surface-inner,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .calculator-hub-panel .calc-surface-muted,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .calculator-hub-panel .calc-surface-inner,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .calculator-hub-panel .calc-stage-card,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .calc-page .calc-surface-muted,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .calc-page .calc-surface-inner,
+  html[data-glass-ui="true"]:not([data-theme="dark"]) .calc-page .calc-stage-card {
+    background: rgb(255 255 255 / 0.72);
+  }
+
+  html[data-theme="dark"][data-glass-ui="true"] .glass-panel,
+  html[data-theme="dark"][data-glass-ui="true"] .glass-panel-strong,
+  html[data-theme="dark"][data-glass-ui="true"] .home-dash-panel,
+  html[data-theme="dark"][data-glass-ui="true"] .values-table-shell,
+  html[data-theme="dark"][data-glass-ui="true"] .values-screen-panel__header,
+  html[data-theme="dark"][data-glass-ui="true"] .calc-surface,
+  html[data-theme="dark"][data-glass-ui="true"] .calculator-hub-panel .calc-surface,
+  html[data-theme="dark"][data-glass-ui="true"] .calc-page .calc-surface {
+    background: var(--glass-surface-strong);
+  }
+
+  /* ---------- Values: sticky chrome rail + wide entry column ---------- */
+  .values-screen-panel.values-screen-panel--open {
+    display: grid;
+    grid-template-columns: minmax(17.5rem, 20.5rem) minmax(0, 1fr);
+    column-gap: 1.35rem;
+    row-gap: 0.85rem;
+    align-items: start;
+  }
+
+  .values-screen-panel.values-screen-panel--open > .values-screen-panel__header {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    align-self: start;
+    position: sticky;
+    top: calc(var(--sticky-viewport-top, 3.5rem) + 0.5rem);
+    margin-bottom: 0;
+    max-height: calc(100dvh - var(--sticky-viewport-top, 3.5rem) - 1.5rem);
+    overflow: auto;
+    padding: 1.1rem 1.15rem 1.2rem;
+    background: var(--glass-surface-strong);
+  }
+
+  .values-screen-panel.values-screen-panel--open
+    > .values-screen-panel__header
+    .values-skip-crop-block--method-in-header {
+    margin-top: 0.85rem;
+  }
+
+  .values-screen-panel.values-screen-panel--open
+    > .values-screen-panel__header
+    .values-skip-crop-block--method
+    .extraction-method-chips {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .values-screen-panel.values-screen-panel--open > *:not(.values-screen-panel__header) {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  .values-table-shell {
+    padding: 0.35rem 0.5rem 0.65rem;
+    border-radius: 1.1rem;
+  }
+
+  .values-entry-row,
+  .values-pad-cell {
+    min-height: 2.85rem;
+  }
+
+  .values-pad-grid {
+    grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+    gap: 0.65rem;
+  }
+
+  /* ---------- Results: wrap chips + two-column groups ---------- */
+  .results-flat-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .results-flat-title {
+    font-size: 1.55rem;
+  }
+
+  .results-flat-filters {
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 0.45rem;
+    margin-top: 0.35rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 1rem;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface-strong);
+    backdrop-filter: blur(calc(18px * var(--app-blur, 1))) saturate(1.1);
+    -webkit-backdrop-filter: blur(calc(18px * var(--app-blur, 1))) saturate(1.1);
+  }
+
+  .results-flat-chip {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8rem;
+  }
+
+  .results-flat-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 1.25rem;
+    align-items: start;
+  }
+
+  .results-flat-group {
+    min-width: 0;
+  }
+
+  .results-flat-rows {
+    gap: 0.4rem;
+  }
+
+  .results-flat-row {
+    grid-template-columns: minmax(0, 1.6fr) auto auto auto;
+    gap: 0.6rem;
+    padding: 0.65rem 0.9rem 0.65rem 1rem;
+    font-size: 0.84rem;
+    background: var(--glass-surface-strong, var(--surface, #ffffff));
+    border-color: var(--glass-border);
+    box-shadow: var(--card-shadow);
+  }
+
+  .results-flat-param {
+    font-size: 0.9rem;
+  }
+
+  .results-flat-value {
+    font-size: 0.9rem;
+  }
+
+  .results-flat-range {
+    font-size: 0.74rem;
+  }
+
+  .results-flat-texture {
+    background: var(--glass-surface-strong, var(--surface, #ffffff));
+  }
+
+  /* ---------- Calculators: denser surfaces + wider field grids ---------- */
+  .calculator-hub-panel.values-screen-panel--open,
+  .calculator-hub-panel {
+    max-width: 100%;
+  }
+
+  .calculator-hub-panel .calc-page,
+  .calculator-hub-panel .calculator-hub-page,
+  .calc-page {
+    gap: 1.15rem;
+  }
+
+  .calc-form-fields--cols-3 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .calculator-hub-panel .calc-surface,
+  .calc-page .calc-surface {
+    padding: 1.25rem 1.35rem;
+    border-radius: 1.15rem;
+  }
+
+  .calculator-action-card,
+  .fertilizer-plan__section {
+    border-radius: 1.1rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .values-screen-panel.values-screen-panel--open {
+    grid-template-columns: minmax(18.5rem, 22rem) minmax(0, 1fr);
+    column-gap: 1.6rem;
+  }
+
+  .results-flat-groups {
+    gap: 1.15rem 1.5rem;
+  }
+
+  .home-screen__inner {
+    max-width: min(100%, 68rem);
+    margin-inline: auto;
+  }
+}

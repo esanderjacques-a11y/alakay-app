@@ -162,15 +162,15 @@ export function buildAccentCssVariables(
 
   const authGradient = mainGradient;
 
-  /* Dark glass: same surfaces as before, slightly less opaque so tiles feel less black. */
+  /* Dark glass: CSS alpha × --app-glass-density (desktop boosts density in CSS). */
   const darkGlassSurface = glassUi
-    ? withAlpha(darkSurfaceRaised, 0.62)
+    ? `hsl(${seed.h} 10% 14% / min(0.88, calc(0.62 * var(--app-glass-density, 1))))`
     : darkSurface;
   const darkGlassSurfaceStrong = glassUi
-    ? withAlpha(darkSurface, 0.7)
+    ? `hsl(${seed.h} 9% 11% / min(0.92, calc(0.7 * var(--app-glass-density, 1))))`
     : darkSurface;
   const darkGlassSurfaceMuted = glassUi
-    ? "rgb(24 24 24 / 0.46)"
+    ? `rgb(24 24 24 / min(0.78, calc(0.46 * var(--app-glass-density, 1))))`
     : darkSurfaceRaised;
 
   const vars: Record<string, string> = {
@@ -230,13 +230,13 @@ export function buildAccentCssVariables(
       : withAlpha(scale[200], 0.85),
     "--glass-surface": isDark
       ? darkGlassSurface
-      : "rgb(var(--accent-50-rgb) / calc(0.68 * var(--app-glass-alpha, 1)))",
+      : "rgb(var(--accent-50-rgb) / min(0.92, calc(0.68 * var(--app-glass-alpha, 1) * var(--app-glass-density, 1))))",
     "--glass-surface-strong": isDark
       ? darkGlassSurfaceStrong
-      : "rgb(var(--accent-100-rgb) / calc(0.76 * var(--app-glass-alpha, 1)))",
+      : "rgb(var(--accent-100-rgb) / min(0.94, calc(0.76 * var(--app-glass-alpha, 1) * var(--app-glass-density, 1))))",
     "--glass-surface-muted": isDark
       ? darkGlassSurfaceMuted
-      : "rgb(var(--accent-100-rgb) / calc(0.52 * var(--app-glass-alpha, 1)))",
+      : "rgb(var(--accent-100-rgb) / min(0.86, calc(0.52 * var(--app-glass-alpha, 1) * var(--app-glass-density, 1))))",
     "--glass-chrome-surface": "var(--glass-surface)",
     "--glass-chrome-border": "var(--glass-border)",
     "--glass-shadow": isDark

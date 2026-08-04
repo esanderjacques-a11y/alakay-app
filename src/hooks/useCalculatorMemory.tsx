@@ -37,6 +37,8 @@ type MemoryContextValue = {
   sampleType: CalculatorSampleScope;
   importTick: number;
   lastImportFingerprint?: string;
+  /** Content fingerprint of the current lab map (stable across referential churn). */
+  labFingerprint: string;
   valuesOutOfSync: boolean;
   getNumber: (section: string, key: string, fallback: number) => number;
   setNumber: (
@@ -233,7 +235,11 @@ function mapLabIntoMemory(
   };
   const fertilizerPatch: Record<string, number | undefined> = {
     bulkDensity: lab.get("bulk_density")?.value,
-    organicMatter: lab.get("organic_matter")?.value,
+    organicMatter:
+      lab.get("organic_matter")?.value ??
+      (Number.isFinite(lab.get("organic_carbon")?.value)
+        ? Math.round((lab.get("organic_carbon")!.value * 1.724) * 100) / 100
+        : undefined),
     p: lab.get("phosphorus")?.value,
     k: lab.get("potassium")?.value,
     mg: lab.get("magnesium")?.value,
@@ -371,6 +377,7 @@ export function CalculatorMemoryProvider({
       sampleType,
       importTick,
       lastImportFingerprint: slice.lastImportFingerprint,
+      labFingerprint: currentFingerprint,
       valuesOutOfSync: outOfSync,
       getNumber,
       setNumber,
@@ -386,6 +393,7 @@ export function CalculatorMemoryProvider({
       sampleType,
       importTick,
       slice.lastImportFingerprint,
+      currentFingerprint,
       outOfSync,
       getNumber,
       setNumber,
@@ -425,7 +433,15 @@ export function useMemoryNumber(
   const { setNumber, importTick, sampleType } = useCalculatorMemory();
   const store = useSyncExternalStore(subscribe, getStore, getStore);
   const remembered = getMemoryField(getMemorySlice(store, sampleType), section, key);
-  const resolved = remembered !== undefined ? remembered : Number.isFinite(labFallback) ? labFallback : 0;
+  // A stored 0 usually comes from clearing/blurring an empty field and should not
+  // block auto-import or constructor defaults (e.g. bulk density → 1, lab OM → 3.2).
+  const resolved =
+    remembered !== undefined &&
+    !(remembered === 0 && Number.isFinite(labFallback) && labFallback > 0)
+      ? remembered
+      : Number.isFinite(labFallback)
+        ? labFallback
+        : 0;
 
   const [value, setValue] = useState(resolved);
 

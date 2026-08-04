@@ -274,14 +274,14 @@
     "Choose General sufficiency ranges, or Olsen / Mehlich for phosphorus.",
   soilExtractionHint:
     "Choose crop-specific sufficiency ranges, or Olsen / Mehlich for method-specific phosphorus bands.",
-  extractionMethodLabel: "Method",
+  extractionMethodLabel: "Mode",
   extractionMethodGeneral: "Crop-specific",
   extractionMethodCropSpecific: "Crop-specific",
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
   extractionMethodCustom: "Custom",
-  activeRangeSetLabel: "Active plantilla",
+  activeRangeSetLabel: "Plantilla",
   extractionMethodActive: "P ranges: {method}",
   exportGeneralCropExtractionNote:
     "General crop with {method}: nutrient ranges follow the {method} extractant (not crop-specific sufficiency).",

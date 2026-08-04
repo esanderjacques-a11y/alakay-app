@@ -94,7 +94,7 @@ export function mineralizationScenarioLabel(
       t.mineralizationConservative || `Conservative (${range || "1–2%"})`,
     temperate: t.mineralizationTemperate || `Temperate (${range || "2–3%"})`,
     tropical:
-      t.mineralizationTropical || `Tropical / high biological activity (${range || "3–5%"})`,
+      t.mineralizationTropical || `Tropical (${range || "3–5%"})`,
   };
   return labels[scenario] || scenario;
 }
@@ -350,15 +350,16 @@ export function buildNutrientDosePlan(
   });
   const supplyN = nFromOm.kgHa;
 
-  const pSupplyElementalKgHa = pMgKg > 0 ? (pMgKg * massKgHa) / 1_000_000 : 0;
-  const supplyP2o5 = pSupplyElementalKgHa * factors.pToP2o5;
-
+  // SUE302 / methodology: soil supply is kg/ha from lab units
+  // (mg/kg × DA × depth × 0.1) — do NOT convert P/K/Mg supply to oxides.
+  // Demand stays in oxide form from Tabla N.° 5; Excel and the tutoría subtract
+  // elemental supply from oxide demand directly.
+  const supplyPKgHa = pMgKg > 0 ? (pMgKg * massKgHa) / 1_000_000 : 0;
   const kConv = cmolToKgHa({ cation: "k", cmolKg: kCmol, soilMassKgHa: massKgHa });
   const kMgKgLayer = cmolToMgKg("k", kCmol, refs.cmolToMgKg) * massTonsHa;
-  const supplyK2o = kConv.kgHa * factors.kToK2o;
-
+  const supplyKKgHa = kConv.kgHa;
   const mgConv = cmolToKgHa({ cation: "mg", cmolKg: mgCmol, soilMassKgHa: massKgHa });
-  const supplyMgo = mgConv.kgHa * factors.mgToMgo;
+  const supplyMgKgHa = mgConv.kgHa;
 
   const demandN = useDirectDemand
     ? Math.max(0, num(input.demand?.n))
@@ -598,19 +599,19 @@ export function buildNutrientDosePlan(
     labels.p,
     "P₂O₅",
     demandP2o5,
-    supplyP2o5,
+    supplyPKgHa,
     effP,
     "Dosis P₂O₅ = (Demanda − Suministro) / Eficiencia"
   );
   doseP.steps.splice(1, 1, {
     label: `Suministro ${labels.p}`,
-    formula: "Suministro P₂O₅ = P(mg/kg) × MS(kg/ha) / 10⁶ × 2.29",
+    formula: "Suministro = P(mg/kg) × DA × profundidad × 0.1",
     substitution:
       pMgKg > 0
-        ? `${pMgKg} × ${round(massKgHa, 0)} / 10⁶ × ${factors.pToP2o5}`
+        ? `${pMgKg} × ${bulkDensity} × ${depthCm} × 0.1`
         : "Sin dato de P",
-    result: String(round(toDisplayKg(supplyP2o5, "p", mode, factors), 2)),
-    unit: nutrientHaUnit("p", mode),
+    result: String(round(supplyPKgHa, 2)),
+    unit: "kg/ha",
     tableRef: undefined,
   });
 
@@ -619,19 +620,19 @@ export function buildNutrientDosePlan(
     labels.k,
     "K₂O",
     demandK2o,
-    supplyK2o,
+    supplyKKgHa,
     effK,
     "Dosis K₂O = (Demanda − Suministro) / Eficiencia"
   );
   doseK.steps.splice(1, 1, {
     label: `Suministro ${labels.k}`,
-    formula: "Suministro K₂O = K(cmol) → kg/ha × 1.20",
+    formula: "Suministro = K(cmol) → kg K/ha",
     substitution:
       kCmol > 0
-        ? `K capa ≈ ${round(kMgKgLayer, 1)} mg/kg · ${round(kConv.kgHa, 2)} kg K/ha × ${factors.kToK2o}`
+        ? `K capa ≈ ${round(kMgKgLayer, 1)} mg/kg · ${round(kConv.kgHa, 2)} kg K/ha`
         : "Sin dato de K",
-    result: String(round(toDisplayKg(supplyK2o, "k", mode, factors), 2)),
-    unit: nutrientHaUnit("k", mode),
+    result: String(round(supplyKKgHa, 2)),
+    unit: "kg/ha",
     tableRef: undefined,
   });
 
@@ -640,19 +641,19 @@ export function buildNutrientDosePlan(
     labels.mg,
     "MgO",
     demandMgo,
-    supplyMgo,
+    supplyMgKgHa,
     effMg,
     "Dosis MgO = (Demanda − Suministro) / Eficiencia"
   );
   doseMg.steps.splice(1, 1, {
     label: `Suministro ${labels.mg}`,
-    formula: "Suministro MgO = Mg(cmol) → kg/ha × 1.66",
+    formula: "Suministro = Mg(cmol) → kg Mg/ha",
     substitution:
       mgCmol > 0
-        ? `${round(mgConv.kgHa, 2)} kg Mg/ha × ${factors.mgToMgo}`
+        ? `${round(mgConv.kgHa, 2)} kg Mg/ha`
         : "Sin dato de Mg",
-    result: String(round(toDisplayKg(supplyMgo, "mg", mode, factors), 2)),
-    unit: nutrientHaUnit("mg", mode),
+    result: String(round(supplyMgKgHa, 2)),
+    unit: "kg/ha",
     tableRef: undefined,
   });
 

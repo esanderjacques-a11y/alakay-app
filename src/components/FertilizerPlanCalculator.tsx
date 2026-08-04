@@ -189,7 +189,10 @@ export default function FertilizerPlanCalculator({
   const [organicMatter, setOrganicMatter] = useMemoryNumber(
     "fertilizer",
     "organicMatter",
-    lab.get("organic_matter")?.value || 0
+    lab.get("organic_matter")?.value ||
+      (Number.isFinite(lab.get("organic_carbon")?.value)
+        ? Math.round((lab.get("organic_carbon")!.value * 1.724) * 100) / 100
+        : 0)
   );
   const [mineralizationScenarioRaw, setMineralizationScenarioRaw] = useMemoryString(
     "fertilizer",
@@ -772,15 +775,21 @@ export default function FertilizerPlanCalculator({
               onChange={(value) =>
                 setMineralizationScenario(value as MineralizationScenario)
               }
+              fullWidth
               options={[
-                ...MINERALIZATION_SCENARIOS.map((item) => [
-                  item.key,
-                  mineralizationScenarioLabel(item.key, t),
-                ] as [string, string]),
-                [
-                  "custom",
-                  mineralizationScenarioLabel("custom", t),
-                ] as [string, string],
+                ...MINERALIZATION_SCENARIOS.map((item) => ({
+                  value: item.key,
+                  label: mineralizationScenarioLabel(item.key, t),
+                  description:
+                    item.key === "tropical"
+                      ? t.mineralizationTropicalHint ||
+                        "High biological activity"
+                      : undefined,
+                })),
+                {
+                  value: "custom",
+                  label: mineralizationScenarioLabel("custom", t),
+                },
               ]}
             />
             {mineralizationScenario === "custom" ? (
@@ -1283,7 +1292,7 @@ function SelectField({
   label?: string;
   value: string;
   onChange: (value: string) => void;
-  options: Array<[string, string]>;
+  options: Array<[string, string] | { value: string; label: string; description?: string }>;
   fullWidth?: boolean;
   placeholder?: string;
   searchable?: boolean;

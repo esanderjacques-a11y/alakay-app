@@ -42,6 +42,30 @@ function aliasTypeRank(aliasType: string | null | undefined) {
   return 1;
 }
 
+/** Prefer full names over abbreviations (O.M., Available P) when priority ties. */
+function aliasLabelQuality(aliasText: string | null | undefined) {
+  const text = String(aliasText || "").trim();
+  if (!text) return 100;
+  if (/^[A-Za-z]\.([A-Za-z]\.)+$/.test(text)) return 40; // O.M. / M.O.
+  if (/^[A-Z]{1,5}$/.test(text)) return 35; // CEC / CIC
+  if (/^(available|exchangeable|total)\b/i.test(text) && text.length <= 14) {
+    return 25;
+  }
+  return 0;
+}
+
+function aliasRowText(row: ParameterAliasRow) {
+  return (
+    row.alias ||
+    row.parameter_alias ||
+    row.alias_name ||
+    row.translated_name ||
+    row.display_name ||
+    row.parameter_name ||
+    ""
+  );
+}
+
 export async function loadCropAliasMap(
   language: Language,
   cropIds: number[]
@@ -119,19 +143,19 @@ export async function loadParameterAliasOptionsMap(
     .sort((left, right) => {
       const typeCompare = aliasTypeRank(left.alias_type) - aliasTypeRank(right.alias_type);
       if (typeCompare !== 0) return typeCompare;
-      return (left.priority ?? 999) - (right.priority ?? 999);
+      const priorityCompare =
+        (left.priority ?? 999) - (right.priority ?? 999);
+      if (priorityCompare !== 0) return priorityCompare;
+      const qualityCompare =
+        aliasLabelQuality(aliasRowText(left)) -
+        aliasLabelQuality(aliasRowText(right));
+      if (qualityCompare !== 0) return qualityCompare;
+      return aliasRowText(right).length - aliasRowText(left).length;
     });
 
   for (const row of rows) {
     const parameterId = row.parameter_id;
-    const aliasText =
-      row.alias ||
-      row.parameter_alias ||
-      row.alias_name ||
-      row.translated_name ||
-      row.display_name ||
-      row.parameter_name ||
-      "";
+    const aliasText = aliasRowText(row);
 
     if (!parameterId || !aliasText.trim()) continue;
 

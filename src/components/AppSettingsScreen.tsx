@@ -321,7 +321,7 @@ const settingsText: Record<Language, SettingsText> = {
       enablePhWarnings: "Enable pH warnings",
       showCalculatorFormulas: "Show calculator formulas",
       showCalculatorFormulasHint:
-        "Requires Pro or Business plan. Shows formulas and step-by-step explanations in the Calculator.",
+        "Shows formulas and step-by-step explanations in the Calculator.",
       defaultCalculatorHubLanding: "Default calculator start page",
       defaultCalculatorHubLandingHint:
         "Which tab opens first in Calculators (Explorer): Recommended or Favorites.",
@@ -467,7 +467,7 @@ const settingsText: Record<Language, SettingsText> = {
       enablePhWarnings: "Activar alertas de pH",
       showCalculatorFormulas: "Mostrar fórmulas en calculadora",
       showCalculatorFormulasHint:
-        "Requiere plan Pro o Business. Muestra fórmulas y explicaciones paso a paso.",
+        "Muestra fórmulas y explicaciones paso a paso en la Calculadora.",
       defaultCalculatorHubLanding: "Página inicial de calculadoras",
       defaultCalculatorHubLandingHint:
         "Qué pestaña se abre primero en Calculadoras (Explorar): Recomendadas o Favoritos.",
@@ -607,7 +607,7 @@ const settingsText: Record<Language, SettingsText> = {
       enablePhWarnings: "Activer les alertes de pH",
       showCalculatorFormulas: "Afficher les formules du calculateur",
       showCalculatorFormulasHint:
-        "Nécessite Pro ou Business. Affiche formules et explications étape par étape.",
+        "Affiche formules et explications étape par étape dans le Calculateur.",
       defaultCalculatorHubLanding: "Page d’accueil des calculateurs",
       defaultCalculatorHubLandingHint:
         "Onglet ouvert en premier dans Calculateurs (Explorer) : Recommandés ou Favoris.",
@@ -747,7 +747,7 @@ const settingsText: Record<Language, SettingsText> = {
       enablePhWarnings: "Aktive avètisman pH",
       showCalculatorFormulas: "Montre fòmil kalkilatè yo",
       showCalculatorFormulasHint:
-        "Mande plan Pro oswa Business. Montre fòmil ak eksplikasyon etap pa etap.",
+        "Montre fòmil ak eksplikasyon etap pa etap nan Kalkilatè a.",
       defaultCalculatorHubLanding: "Paj demaraj kalkilatè yo",
       defaultCalculatorHubLandingHint:
         "Ki onglet ki louvri an premye nan Kalkilatè (Eksplore) : Rekòmande oswa Preferé.",
@@ -887,7 +887,7 @@ const settingsText: Record<Language, SettingsText> = {
       enablePhWarnings: "Ativar avisos de pH",
       showCalculatorFormulas: "Mostrar fórmulas na calculadora",
       showCalculatorFormulasHint:
-        "Requer plano Pro ou Business. Exibe fórmulas e explicações passo a passo.",
+        "Exibe fórmulas e explicações passo a passo na Calculadora.",
       defaultCalculatorHubLanding: "Página inicial das calculadoras",
       defaultCalculatorHubLandingHint:
         "Qual aba abre primeiro em Calculadoras (Explorar): Recomendadas ou Favoritos.",
@@ -1027,7 +1027,7 @@ const settingsText: Record<Language, SettingsText> = {
       enablePhWarnings: "Washa tahadhari za pH",
       showCalculatorFormulas: "Onyesha fomula za kikokotoo",
       showCalculatorFormulasHint:
-        "Inahitaji Pro au Business. Inaonyesha fomula na maelezo hatua kwa hatua.",
+        "Inaonyesha fomula na maelezo hatua kwa hatua katika Kikokotoo.",
       defaultCalculatorHubLanding: "Ukurasa wa kuanza wa kikokotoo",
       defaultCalculatorHubLandingHint:
         "Kichupo kinachofunguka kwanza katika Vikokotoo (Chunguza): Vinavyopendekezwa au Vipendwa.",
@@ -1704,7 +1704,6 @@ export default function AppSettingsScreen({
               onChange={(value) =>
                 changeSetting("analysis", "showCalculatorFormulas", value)
               }
-              disabled={draftSettings.billing.planTier === "free"}
             />
             <MenuSelect
               compact

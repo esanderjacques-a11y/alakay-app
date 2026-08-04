@@ -287,14 +287,14 @@
   generalReferenceMode:
     "Mode référence générale : ces plages sont approximatives.",
   generalReferenceModeTitle: "Mode référence générale",
-  extractionMethodLabel: "Méthode",
+  extractionMethodLabel: "Mode",
   extractionMethodGeneral: "Spécifique à la culture",
   extractionMethodCropSpecific: "Spécifique à la culture",
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
   extractionMethodCustom: "Personnalisé",
-  activeRangeSetLabel: "Modèle actif",
+  activeRangeSetLabel: "Modèle",
   extractionMethodActive: "Plages P : {method}",
   generalCropExtractionHint:
     "Choisissez les plages de suffisance Générales, ou Olsen / Mehlich pour le phosphore.",

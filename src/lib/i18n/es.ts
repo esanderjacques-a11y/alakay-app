@@ -290,14 +290,14 @@
     "Elija rangos de suficiencia General, u Olsen / Mehlich para fósforo.",
   soilExtractionHint:
     "Elija rangos de suficiencia del cultivo, u Olsen / Mehlich para bandas de fósforo según el método.",
-  extractionMethodLabel: "Método",
+  extractionMethodLabel: "Modo",
   extractionMethodGeneral: "Del cultivo",
   extractionMethodCropSpecific: "Del cultivo",
   extractionMethodOlsen: "Olsen",
   extractionMethodMehlich: "Mehlich",
   extractionMethodBray: "Bray",
   extractionMethodCustom: "Personalizado",
-  activeRangeSetLabel: "Plantilla activa",
+  activeRangeSetLabel: "Plantilla",
   extractionMethodActive: "Rangos de P: {method}",
   exportGeneralCropExtractionNote:
     "Cultivo general con {method}: los rangos de nutrientes siguen el extractante {method} (no la suficiencia del cultivo).",

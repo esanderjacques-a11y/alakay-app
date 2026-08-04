@@ -398,6 +398,7 @@ function CalculatorHubBody({
   const {
     importFromValues,
     valuesOutOfSync,
+    labFingerprint,
     canUndo,
     canRedo,
     undo,
@@ -417,7 +418,7 @@ function CalculatorHubBody({
     const visibleKeys = new Set(calculatorTabs.map((tab) => tab.key));
     return GUIDED_STEPS[sampleType].filter((key) => visibleKeys.has(key));
   }, [sampleType, calculatorTabs]);
-  const showHubModeToggle = sampleType === "soil";
+  const showHubModeToggle = guidedSteps.length > 0;
 
   const sessionBoot = useMemo(() => {
     const saved = readCalculatorHubSession(userId, sampleType);
@@ -467,13 +468,6 @@ function CalculatorHubBody({
   const [guidedIndex, setGuidedIndex] = useState(sessionBoot.guidedIndex);
   const effectiveHubMode: HubMode = showHubModeToggle ? hubMode : "explorer";
   const prevHasValuesRef = useRef(hasValues);
-
-  useEffect(() => {
-    if (sampleType === "foliar" && hubMode !== "explorer") {
-      setHubMode("explorer");
-      setModeLockedByUser(false);
-    }
-  }, [sampleType, hubMode]);
 
   // Auto Explorar / Guiado from values presence (unless user locked mode).
   useEffect(() => {
@@ -752,15 +746,15 @@ function CalculatorHubBody({
     return () => window.clearTimeout(timer);
   }, [importMessage]);
 
-  // Keep calculators in sync with the Values page: whenever lab values change,
-  // they automatically replace remembered calculator inputs (no manual refresh needed).
-  // Do not record history — otherwise the first Undo jumps to pre-import state and
-  // a follow-up auto-import clears the Redo stack.
+  // Keep calculators in sync with the Values page: import on hub open and
+  // whenever lab content changes (fingerprint), not on every parent re-render.
+  const importFromValuesRef = useRef(importFromValues);
+  importFromValuesRef.current = importFromValues;
+
   useEffect(() => {
     if (!hasLabData) return;
-    if (!valuesOutOfSync) return;
-    importFromValues({ recordHistory: false });
-  }, [hasLabData, valuesOutOfSync, importFromValues]);
+    importFromValuesRef.current({ recordHistory: false });
+  }, [hasLabData, labFingerprint]);
 
   return (
     <section className="animate-slide-up">

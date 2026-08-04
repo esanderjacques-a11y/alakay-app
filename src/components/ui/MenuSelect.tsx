@@ -194,7 +194,7 @@ export default function MenuSelect<T extends string>({
             : `values-unit-chip values-unit-chip--select app-menu-select-trigger--chip ${
                 compact ? "values-unit-chip--compact" : ""
               } ${open ? "is-open" : ""} ${triggerClassName}`
-          : `app-menu-select-trigger flex w-full items-center justify-between gap-2 text-left outline-none transition ${
+          : `app-menu-select-trigger flex w-full min-w-0 items-center justify-between gap-2 text-left outline-none transition ${
               compact
                 ? "settings-menu-trigger--compact min-h-8 rounded-lg px-2.5 text-sm"
                 : isField
@@ -346,9 +346,9 @@ export default function MenuSelect<T extends string>({
       : null;
 
   const shellClass = [
-    isField ? "calc-field-label grid gap-1" : "settings-field",
+    isField ? "calc-field-label grid min-w-0 gap-1" : "settings-field",
     compact && !isField ? "settings-field--compact" : "",
-    fullWidth ? "col-span-full w-full" : "",
+    fullWidth ? "col-span-full w-full min-w-0" : "",
     className,
   ]
     .filter(Boolean)
@@ -372,7 +372,7 @@ export default function MenuSelect<T extends string>({
           <span className="settings-field__label">{label}</span>
         )
       ) : null}
-      <div className={`relative ${open ? "z-[19000]" : "z-0"}`}>
+      <div className={`relative min-w-0 ${open ? "z-[19000]" : "z-0"}`}>
         {trigger}
         {menuOverlay}
       </div>

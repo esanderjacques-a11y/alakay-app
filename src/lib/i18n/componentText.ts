@@ -1818,7 +1818,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     mineralizationScenario: "N mineralization",
     mineralizationConservative: "Conservative (1–2%)",
     mineralizationTemperate: "Temperate (2–3%)",
-    mineralizationTropical: "Tropical / high biological activity (3–5%)",
+    mineralizationTropical: "Tropical (3–5%)",
+    mineralizationTropicalHint: "High biological activity",
     mineralizationCustom: "Custom coefficient",
     mineralizationCustomCoef: "Mineralization coefficient (%)",
     mineralizationScenarioHint:
@@ -2606,7 +2607,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     mineralizationScenario: "Mineralización N",
     mineralizationConservative: "Conservador (1–2%)",
     mineralizationTemperate: "Templado (2–3%)",
-    mineralizationTropical: "Tropical / alta actividad biológica (3–5%)",
+    mineralizationTropical: "Tropical (3–5%)",
+    mineralizationTropicalHint: "Alta actividad biológica",
     mineralizationCustom: "Coeficiente personalizado",
     mineralizationCustomCoef: "Coeficiente de mineralización (%)",
     mineralizationScenarioHint:
@@ -3381,7 +3383,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     mineralizationScenario: "Minéralisation N",
     mineralizationConservative: "Conservateur (1–2%)",
     mineralizationTemperate: "Tempéré (2–3%)",
-    mineralizationTropical: "Tropical / forte activité biologique (3–5%)",
+    mineralizationTropical: "Tropical (3–5%)",
+    mineralizationTropicalHint: "Forte activité biologique",
     mineralizationCustom: "Coefficient personnalisé",
     mineralizationCustomCoef: "Coefficient de minéralisation (%)",
     mineralizationScenarioHint:
@@ -4156,7 +4159,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     mineralizationScenario: "Mineralizasyon N",
     mineralizationConservative: "Konservatif (1–2%)",
     mineralizationTemperate: "Tanpere (2–3%)",
-    mineralizationTropical: "Twopikal / gwo aktivite byolojik (3–5%)",
+    mineralizationTropical: "Twopikal (3–5%)",
+    mineralizationTropicalHint: "Gwo aktivite byolojik",
     mineralizationCustom: "Koyefisyan pèsonalize",
     mineralizationCustomCoef: "Koyefisyan mineralizasyon (%)",
     mineralizationScenarioHint:
@@ -4928,7 +4932,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     mineralizationScenario: "Mineralização N",
     mineralizationConservative: "Conservador (1–2%)",
     mineralizationTemperate: "Temperado (2–3%)",
-    mineralizationTropical: "Tropical / alta atividade biológica (3–5%)",
+    mineralizationTropical: "Tropical (3–5%)",
+    mineralizationTropicalHint: "Alta atividade biológica",
     mineralizationCustom: "Coeficiente personalizado",
     mineralizationCustomCoef: "Coeficiente de mineralização (%)",
     mineralizationScenarioHint:
@@ -5702,7 +5707,8 @@ export const calculatorHubText: Record<Language, Record<string, string>> = {
     mineralizationScenario: "Madini ya N",
     mineralizationConservative: "Tahadhari (1–2%)",
     mineralizationTemperate: "Hali ya wastani (2–3%)",
-    mineralizationTropical: "Tropiki / shughuli ya kibiolojia juu (3–5%)",
+    mineralizationTropical: "Tropiki (3–5%)",
+    mineralizationTropicalHint: "Shughuli ya kibiolojia juu",
     mineralizationCustom: "Kipimo maalum",
     mineralizationCustomCoef: "Kipimo cha madini (%)",
     mineralizationScenarioHint:

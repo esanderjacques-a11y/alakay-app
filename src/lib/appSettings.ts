@@ -120,7 +120,7 @@ export const defaultAppSettings: AppSettings = {
     warningSensitivity: "normal",
     enableNutrientRatios: true,
     enablePhWarnings: true,
-    showCalculatorFormulas: false,
+    showCalculatorFormulas: true,
     defaultCalculatorHubLanding: "priority",
   },
   billing: {
@@ -304,9 +304,9 @@ export function getPermanentDeleteDays() {
   );
 }
 
-/** Formulas require an enabled setting and a paid plan tier. */
-export function planAllowsCalculatorFormulas(planTier: PlanTier) {
-  return planTier === "plus" || planTier === "pro";
+/** Formulas are available on all plan tiers for now (billing gate temporarily open). */
+export function planAllowsCalculatorFormulas(_planTier: PlanTier) {
+  return true;
 }
 
 export function planAllowsJacko(planTier: PlanTier) {
@@ -314,10 +314,7 @@ export function planAllowsJacko(planTier: PlanTier) {
 }
 
 export function effectiveShowCalculatorFormulas(settings: AppSettings = getSettings()) {
-  return (
-    settings.analysis.showCalculatorFormulas &&
-    planAllowsCalculatorFormulas(settings.billing.planTier)
-  );
+  return settings.analysis.showCalculatorFormulas === true;
 }
 
 export function canUseJacko(

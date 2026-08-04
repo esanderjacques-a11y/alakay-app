@@ -69,6 +69,7 @@ import {
 } from "@/lib/visualViewport";
 import CalculatorHub from "@/components/CalculatorHub";
 import type { FertilizerPlanSnapshot } from "@/components/CalculatorHub";
+import { writeCalculatorHubSession } from "@/lib/calculatorHubSession";
 import AppSettingsScreen, {
   type SettingsSectionId,
 } from "@/components/AppSettingsScreen";
@@ -167,6 +168,7 @@ import {
   loadParameterAliasOptionsMap,
   loadUnitAliasOptionsMap,
 } from "@/lib/aliases";
+import { localizeParameterDisplayName } from "@/lib/parameterDisplayI18n";
 import {
   getFinalGroupCode,
   getLevelCode,
@@ -924,7 +926,8 @@ function resolveParameterSymbol(parameter: Parameter) {
 
 function formatParameterEntryLabel(
   parameter: Parameter,
-  showSymbolsOnly: boolean
+  showSymbolsOnly: boolean,
+  language: Language = "en"
 ) {
   const symbol = resolveParameterSymbol(parameter);
 
@@ -932,7 +935,11 @@ function formatParameterEntryLabel(
     return { primary: symbol };
   }
 
-  const primary = parameter.display_name;
+  const primary = localizeParameterDisplayName(
+    language,
+    parameter.parameter_name,
+    parameter.display_name
+  );
   const secondary =
     symbol && symbol.toLowerCase() !== primary.trim().toLowerCase()
       ? symbol
@@ -1273,6 +1280,7 @@ export default function HomePage() {
     null
   );
   const liveInterpretGenRef = useRef(0);
+  const parametersLoadGenRef = useRef(0);
 
   const [results, setResults] = useState<InterpretationResult[]>([]);
   const [missingResults, setMissingResults] = useState<MissingResult[]>([]);
@@ -1751,6 +1759,32 @@ export default function HomePage() {
     loadParameters();
   }, [language, session, sampleType]);
 
+  // Keep baked result labels aligned when the UI language changes on Results.
+  useEffect(() => {
+    if (results.length === 0 && missingResults.length === 0) return;
+
+    setResults((prev) =>
+      prev.map((result) => ({
+        ...result,
+        display_parameter_name: localizeParameterDisplayName(
+          language,
+          result.parameter_name,
+          result.display_parameter_name
+        ),
+      }))
+    );
+    setMissingResults((prev) =>
+      prev.map((item) => ({
+        ...item,
+        display_name: localizeParameterDisplayName(
+          language,
+          item.parameter_name,
+          item.display_name
+        ),
+      }))
+    );
+  }, [language]);
+
   useEffect(() => {
     if (!pendingEditableAnalysis) return;
 
@@ -1889,7 +1923,9 @@ export default function HomePage() {
   }
 
   async function loadParameters() {
+    const loadGen = ++parametersLoadGenRef.current;
     const column = sampleType;
+    const activeLanguage = language;
 
     let officialRows: OfficialParameterRow[] = [];
     let usedLocalWaterCatalog = false;
@@ -2047,11 +2083,18 @@ export default function HomePage() {
     }>;
 
     const parameterAliasOptionsMap = await loadParameterAliasOptionsMap(
-      language,
+      activeLanguage,
       officialParameterIds
     );
 
-    const unitAliasOptionsMap = await loadUnitAliasOptionsMap(language, unitIds);
+    const unitAliasOptionsMap = await loadUnitAliasOptionsMap(
+      activeLanguage,
+      unitIds
+    );
+
+    if (loadGen !== parametersLoadGenRef.current) {
+      return;
+    }
 
     function buildExpandedUnitOptions(
       baseUnitId: number,
@@ -2226,6 +2269,7 @@ export default function HomePage() {
         parameter_name: row.parameter_name,
         display_name:
           parameterAliasOptionsMap.get(row.parameter_id)?.[0] ||
+          localizeParameterDisplayName(activeLanguage, row.parameter_name) ||
           row.parameter_name,
         aliases:
           parameterAliasOptionsMap.get(row.parameter_id) ||
@@ -2313,6 +2357,10 @@ export default function HomePage() {
     );
 
     const formattedParameters = [...officialParameters, ...customParametersUnique];
+
+    if (loadGen !== parametersLoadGenRef.current) {
+      return;
+    }
 
     setParameters(formattedParameters);
     setParametersSampleType(column);
@@ -2641,14 +2689,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
     setEditingRootAnalysisId(payload.rootAnalysisId);
     setEditingNextVersionNumber(payload.nextVersionNumber);
     setPendingEditableAnalysis(payload);
-
-    setMessage(
-      formatMessage(t.editingAnalysis, {
-        id: payload.analysisId,
-        version: payload.nextVersionNumber,
-      })
-    );
-
+    setMessage("");
 
     setCurrentStep("values");
     setSampleType(payload.sampleType);
@@ -2885,7 +2926,11 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             level_code: getLevelCode(logicInput),
             final_group_code: getFinalGroupCode(logicInput),
             advice: getSimpleAdvice(logicInput, sampleType),
-            display_parameter_name: item.display_name,
+            display_parameter_name: localizeParameterDisplayName(
+              language,
+              item.parameter_name,
+              item.display_name
+            ),
           });
 
           continue;
@@ -2940,7 +2985,11 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
             advice:
               userRange.interpretation_note?.trim() ||
               getSimpleAdvice(logicInput, sampleType),
-            display_parameter_name: item.display_name,
+            display_parameter_name: localizeParameterDisplayName(
+              language,
+              item.parameter_name,
+              item.display_name
+            ),
           });
 
           continue;
@@ -3105,7 +3154,11 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
         level_code: getLevelCode(logicInput),
         final_group_code: getFinalGroupCode(logicInput),
         advice: getSimpleAdvice(logicInput, sampleType),
-        display_parameter_name: item.display_name,
+        display_parameter_name: localizeParameterDisplayName(
+          language,
+          item.parameter_name,
+          item.display_name
+        ),
       });
     }
 
@@ -3164,6 +3217,7 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
       return;
     }
     await saveAnalysis(interpreted);
+    setCurrentStep("results");
   }
 
   const interpretAnalysisRef = useRef(interpretAnalysis);
@@ -3803,7 +3857,11 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
 
     const interpretations = results.slice(0, 40).map((result) => ({
       key: result.parameter_key || result.display_parameter_name,
-      name: result.display_parameter_name,
+      name: localizeParameterDisplayName(
+        language,
+        result.parameter_name,
+        result.display_parameter_name
+      ),
       value: result.value,
       unit: result.unit_symbol || undefined,
       level: result.level_code,
@@ -4402,6 +4460,26 @@ function updateUnit(parameterKey: string, unitId: number, displayKey?: string) {
                 }}
                 showHorizontalGraphs={appSettings.reports.includeHorizontalResultGraph}
                 backToValues={() => setCurrentStep("values")}
+                onContinueToCalculators={() => {
+                  const guidedFirst =
+                    sampleType === "soil"
+                      ? "cic"
+                      : sampleType === "foliar"
+                        ? "dop"
+                        : "salinity";
+                  writeCalculatorHubSession(
+                    session?.user && !guestMode ? session.user.id : null,
+                    sampleType,
+                    {
+                      activeCalculator: guidedFirst,
+                      hubMode: "guided",
+                      guidedIndex: 0,
+                      modeLockedByUser: true,
+                    }
+                  );
+                  setCalculatorFocusKey(null);
+                  setCurrentStep("calculators");
+                }}
                 onExportPdf={() => setExportModalOpen(true)}
                 exportingPdf={exportingPdf}
               />
@@ -5006,7 +5084,7 @@ function SetupScreen({
                 onChange={setExtractionMethod}
                 options={soilExtractionOptions}
               />
-              {customRangeSets.length > 0 ? (
+              {extractionMethod === "custom" && customRangeSets.length > 0 ? (
                 <ActiveRangeSetPicker
                   t={t}
                   sets={customRangeSets}
@@ -5208,7 +5286,7 @@ function ValuesScreen({
   const [showParameterActions, setShowParameterActions] = useState(false);
   const [canRenderFloatingActions, setCanRenderFloatingActions] = useState(false);
   const parameterGridRef = useRef<HTMLDivElement | null>(null);
-  const [valueEntryView, setValueEntryView] = useState<ValueEntryView>("table");
+  const [valueEntryView, setValueEntryView] = useState<ValueEntryView>("pad");
   const [padExpanded, setPadExpanded] = useState(false);
   const valueEntryViewBeforeExpandRef = useRef<ValueEntryView | null>(null);
   const [detailParameterKey, setDetailParameterKey] = useState<string | null>(
@@ -5555,14 +5633,18 @@ function ValuesScreen({
 
       {sampleType === "soil" ? (
         <div className="values-skip-crop-block values-skip-crop-block--method">
-          <p className="values-block-label">{t.extractionMethodLabel}</p>
-          <ExtractionMethodChips
-            t={t}
-            value={extractionMethod}
-            onChange={setExtractionMethod}
-            options={soilExtractionOptions}
-          />
-          {customRangeSets.length > 0 ? (
+          <div className="values-method-bar">
+            <span className="values-method-bar__label">
+              {t.extractionMethodLabel}
+            </span>
+            <ExtractionMethodChips
+              t={t}
+              value={extractionMethod}
+              onChange={setExtractionMethod}
+              options={soilExtractionOptions}
+            />
+          </div>
+          {extractionMethod === "custom" && customRangeSets.length > 0 ? (
             <ActiveRangeSetPicker
               t={t}
               sets={customRangeSets}
@@ -5698,7 +5780,8 @@ function ValuesScreen({
                 const tier = getParameterPriorityTier(parameter);
                 const label = formatParameterEntryLabel(
                   parameter,
-                  useSymbolsOnly
+                  useSymbolsOnly,
+                  language
                 );
                 const liveResult = findResultForParameter(results, parameter);
                 const hasValue = Boolean(
@@ -5875,7 +5958,8 @@ function ValuesScreen({
                   );
                 const label = formatParameterEntryLabel(
                   parameter,
-                  useSymbolsOnly
+                  useSymbolsOnly,
+                  language
                 );
                 const displayParameterLabel = useSymbolsOnly
                   ? label.primary
@@ -6048,7 +6132,11 @@ function ValuesScreen({
                   selectedUnits,
                   selectedUnitDisplayKeys
                 );
-              const label = formatParameterEntryLabel(parameter, false);
+              const label = formatParameterEntryLabel(
+                parameter,
+                useSymbolsOnly,
+                language
+              );
               const liveResult = findResultForParameter(results, parameter);
               const hasValue = Boolean(
                 values[parameter.parameter_key]?.trim()
@@ -6074,9 +6162,11 @@ function ValuesScreen({
                     <span
                       className="values-pad-cell__label"
                       title={
-                        label.secondary
-                          ? `${label.primary} (${label.secondary})`
-                          : label.primary
+                        useSymbolsOnly
+                          ? parameter.display_name
+                          : label.secondary
+                            ? `${label.primary} (${label.secondary})`
+                            : label.primary
                       }
                     >
                       {label.primary}
@@ -6753,7 +6843,10 @@ function getResultGraphTone(result: InterpretationResult): ResultGraphPoint["ton
   return "neutral";
 }
 
-function buildResultGraphPoint(result: InterpretationResult): ResultGraphPoint {
+function buildResultGraphPoint(
+  result: InterpretationResult,
+  language: Language
+): ResultGraphPoint {
   const value = Number(result.value);
   const min = Number.isFinite(Number(result.min)) ? Number(result.min) : null;
   const max = Number.isFinite(Number(result.max)) ? Number(result.max) : null;
@@ -6781,7 +6874,11 @@ function buildResultGraphPoint(result: InterpretationResult): ResultGraphPoint {
     id: result.custom_parameter_id
       ? `c-${result.custom_parameter_id}`
       : `p-${result.parameter_id ?? result.parameter_name}`,
-    label: result.display_parameter_name || result.parameter_name,
+    label: localizeParameterDisplayName(
+      language,
+      result.parameter_name,
+      result.display_parameter_name
+    ),
     value,
     unit: result.unit_symbol,
     min,
@@ -6867,26 +6964,28 @@ function ActiveRangeSetPicker({
 }) {
   if (sets.length === 0) return null;
 
+  const selected =
+    value != null && sets.some((set) => set.range_set_id === value)
+      ? value
+      : sets[0].range_set_id;
+
   return (
-    <label className="active-range-set-picker">
-      <span className="active-range-set-picker__label">
-        {t.activeRangeSetLabel || "Active plantilla"}
-      </span>
-      <select
-        className="calc-field-input active-range-set-picker__select"
-        value={value ?? ""}
-        onChange={(event) => {
-          const next = event.target.value ? Number(event.target.value) : null;
-          onChange(next);
+    <div className="active-range-set-picker">
+      <AppSelect
+        compact
+        floatingMenu
+        value={selected}
+        placeholder={t.activeRangeSetLabel || "Plantilla"}
+        options={sets.map((set) => ({
+          label: set.name,
+          value: set.range_set_id,
+        }))}
+        onChange={(next) => {
+          if (next === "") return;
+          onChange(Number(next));
         }}
-      >
-        {sets.map((set) => (
-          <option key={set.range_set_id} value={set.range_set_id}>
-            {set.name}
-          </option>
-        ))}
-      </select>
-    </label>
+      />
+    </div>
   );
 }
 
@@ -7017,6 +7116,7 @@ function ResultsSection({
   onActiveRangeSetChange,
   showHorizontalGraphs,
   backToValues,
+  onContinueToCalculators,
   onExportPdf,
   exportingPdf,
 }: {
@@ -7051,6 +7151,7 @@ function ResultsSection({
   onActiveRangeSetChange: (id: number | null) => void;
   showHorizontalGraphs: boolean;
   backToValues: () => void;
+  onContinueToCalculators: () => void;
   onExportPdf?: () => void;
   exportingPdf?: boolean;
 }) {
@@ -7129,7 +7230,7 @@ function ResultsSection({
               disabled={interpreting}
               options={soilExtractionOptions}
             />
-            {customRangeSets.length > 0 ? (
+            {extractionMethod === "custom" && customRangeSets.length > 0 ? (
               <ActiveRangeSetPicker
                 t={t}
                 sets={customRangeSets}
@@ -7212,43 +7313,53 @@ function ResultsSection({
         ) : null}
 
         {showHorizontalGraphs ? (
-          <ResultsHorizontalGraphs results={visibleResults} t={t} />
+          <ResultsHorizontalGraphs
+            results={visibleResults}
+            language={language}
+            t={t}
+          />
         ) : null}
 
         <div className="mt-2">
           <ResultGroup
             title={t.needsAttention}
             results={visibleGroups.negative}
+            language={language}
             t={t}
             tone="negative"
           />
           <ResultGroup
             title={t.warning}
             results={visibleGroups.warning}
+            language={language}
             t={t}
             tone="warning"
           />
           <ResultGroup
             title={t.normal}
             results={visibleGroups.normal}
+            language={language}
             t={t}
             tone="normal"
           />
           <ResultGroup
             title={t.positive}
             results={visibleGroups.positive}
+            language={language}
             t={t}
             tone="positive"
           />
           <ResultGroup
             title={t.neutral}
             results={visibleGroups.neutral}
+            language={language}
             t={t}
             tone="neutral"
           />
           <ResultGroup
             title={t.other}
             results={visibleGroups.other}
+            language={language}
             t={t}
             tone="other"
           />
@@ -7261,20 +7372,20 @@ function ResultsSection({
         </div>
       )}
 
-      {/* Fixed bottom save bar */}
+      {/* Fixed bottom save + next bar */}
       <div className="app-fixed-action-bar fixed inset-x-0 z-[12000]">
-        <div className="app-content-shell app-page-pad-x py-3">
+        <div className="app-content-shell app-page-pad-x flex items-center justify-end gap-2 py-2">
           <button
             type="button"
             onClick={() => void saveAnalysis()}
             disabled={saving || results.length === 0 || isSaved || isQueued}
-            className={`flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${
+            className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${
               isSaved || isQueued
                 ? "bg-[#f2f2f2] text-[#aeaeb2]"
                 : "bg-green-700 text-white hover:bg-green-800"
             }`}
           >
-            <Save size={18} />
+            <Save size={15} />
             {saving
               ? t.saving
               : isSaved
@@ -7284,6 +7395,14 @@ function ResultsSection({
                   : needsUpdate
                     ? t.updateAnalysis
                     : t.saveAnalysis}
+          </button>
+          <button
+            type="button"
+            onClick={onContinueToCalculators}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98]"
+          >
+            {t.tourNext}
+            <ArrowRight size={15} aria-hidden />
           </button>
         </div>
       </div>
@@ -7302,8 +7421,14 @@ function ResultsSection({
                 key={item.parameter_key}
                 className="glass-panel rounded-2xl p-3 text-sm"
               >
-                <strong>{item.display_name || item.parameter_name}</strong>:{" "}
-                {item.value}
+                <strong>
+                  {localizeParameterDisplayName(
+                    language,
+                    item.parameter_name,
+                    item.display_name
+                  )}
+                </strong>
+                : {item.value}
               </div>
             ))}
           </div>
@@ -7341,14 +7466,16 @@ function SummaryBadge({
 
 function ResultsHorizontalGraphs({
   results,
+  language,
   t,
 }: {
   results: InterpretationResult[];
+  language: Language;
   t: (typeof translations)[Language];
 }) {
   const points = results
     .filter((result) => Number.isFinite(Number(result.value)))
-    .map(buildResultGraphPoint);
+    .map((result) => buildResultGraphPoint(result, language));
 
   if (points.length === 0) {
     return null;
@@ -7441,11 +7568,13 @@ function ResultsHorizontalGraphs({
 function ResultGroup({
   title,
   results,
+  language,
   t,
   tone,
 }: {
   title: string;
   results: InterpretationResult[];
+  language: Language;
   t: (typeof translations)[Language];
   tone: "negative" | "warning" | "normal" | "positive" | "neutral" | "other";
 }) {
@@ -7470,7 +7599,11 @@ function ResultGroup({
             className="results-flat-row"
           >
             <span className="results-flat-param">
-              {result.display_parameter_name || result.parameter_name}
+              {localizeParameterDisplayName(
+                language,
+                result.parameter_name,
+                result.display_parameter_name
+              )}
               {result.custom_parameter_id ? ` (${t.customBadge})` : ""}
             </span>
             <span className="results-flat-value">

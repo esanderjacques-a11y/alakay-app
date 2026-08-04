@@ -135,6 +135,75 @@ function formatMoney(value: number, currency: string) {
   }).format(value);
 }
 
+function formatNumberInput(value: number) {
+  if (!Number.isFinite(value) || value === 0) return "";
+  return String(value);
+}
+
+function parseNumberInput(text: string) {
+  const cleaned = text.replace(",", ".").trim();
+  if (!cleaned) return 0;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Keeps draft text so comma/dot decimals can be typed without being stripped. */
+function DecimalField({
+  value,
+  onChange,
+  className,
+  placeholder,
+  ariaLabel,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  className?: string;
+  placeholder?: string;
+  ariaLabel?: string;
+}) {
+  const [text, setText] = useState(() => formatNumberInput(value));
+  const focusedRef = useRef(false);
+
+  useEffect(() => {
+    if (focusedRef.current) return;
+    setText(formatNumberInput(value));
+  }, [value]);
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      className={className}
+      value={text}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      onFocus={() => {
+        focusedRef.current = true;
+      }}
+      onBlur={() => {
+        focusedRef.current = false;
+        const next = parseNumberInput(text);
+        const clamped = next > 0 ? next : 0;
+        setText(formatNumberInput(clamped));
+        onChange(clamped);
+      }}
+      onChange={(event) => {
+        const nextText = event.target.value;
+        setText(nextText);
+        if (
+          nextText.trim() === "" ||
+          nextText.endsWith(".") ||
+          nextText.endsWith(",")
+        ) {
+          return;
+        }
+        const parsed = parseNumberInput(nextText);
+        onChange(parsed > 0 ? parsed : 0);
+      }}
+    />
+  );
+}
+
 function doseDraftFromDoses(doses: FertilityDoseResult[]): DoseDraft {
   const read = (key: DoseNutrientKey) => {
     const dose = doses.find((row) => row.key === key);
@@ -517,16 +586,12 @@ export default function FertilizerProductPlanner({
     onDosesChange?.(plan.doses, plan.areaHa);
   }
 
-  function updateDoseField(key: keyof DoseDraft, raw: string) {
-    const parsed = Number(String(raw).replace(",", "."));
-    const value = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-    commitDoseDraft({ ...doseDraft, [key]: value });
+  function updateDoseField(key: keyof DoseDraft, value: number) {
+    commitDoseDraft({ ...doseDraft, [key]: value > 0 ? value : 0 });
   }
 
-  function updatePlotArea(raw: string) {
-    const parsed = Number(String(raw).replace(",", "."));
-    const value = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-    commitDoseDraft(doseDraft, value, plotAreaUnit);
+  function updatePlotArea(value: number) {
+    commitDoseDraft(doseDraft, value > 0 ? value : 0, plotAreaUnit);
   }
 
   function updatePlotAreaUnit(unit: AreaUnit) {
@@ -578,16 +643,12 @@ export default function FertilizerProductPlanner({
           {t.fertilizerBagKgShort || t.fertilizerBagKg || "Bag size"}
         </span>
         <span className="fertilizer-bag-weight">
-          <input
+          <DecimalField
             className="calc-field-input fertilizer-bag-weight__input"
-            inputMode="decimal"
-            value={bagKg || ""}
-            onChange={(event) => {
-              const next = Number(String(event.target.value).replace(",", "."));
-              setBagKg(Number.isFinite(next) && next > 0 ? next : 0);
-            }}
+            value={bagKg}
+            onChange={setBagKg}
             placeholder={String(DEFAULT_FERTILIZER_BAG_KG)}
-            aria-label={t.fertilizerBagKg || "Bag weight (kg)"}
+            ariaLabel={t.fertilizerBagKg || "Bag weight (kg)"}
           />
         </span>
         <span className="fertilizer-bag-weight__unit" aria-hidden>
@@ -999,13 +1060,10 @@ export default function FertilizerProductPlanner({
               {DOSE_FIELDS.map((field) => (
                 <label key={field.key} className="calc-field-label grid gap-1">
                   {`${field.label} (kg/ha)`}
-                  <input
+                  <DecimalField
                     className="calc-field-input"
-                    inputMode="decimal"
-                    value={doseDraft[field.key] || ""}
-                    onChange={(event) =>
-                      updateDoseField(field.key, event.target.value)
-                    }
+                    value={doseDraft[field.key]}
+                    onChange={(value) => updateDoseField(field.key, value)}
                     placeholder="0"
                   />
                 </label>
@@ -1015,13 +1073,12 @@ export default function FertilizerProductPlanner({
                   <span className="fertilizer-cost-doses__area-label">
                     {t.area || "Area"}
                   </span>
-                  <input
+                  <DecimalField
                     className="calc-field-input fertilizer-cost-doses__area-input"
-                    inputMode="decimal"
-                    value={plotArea || ""}
-                    onChange={(event) => updatePlotArea(event.target.value)}
+                    value={plotArea}
+                    onChange={updatePlotArea}
                     placeholder="1"
-                    aria-label={t.area || "Area"}
+                    ariaLabel={t.area || "Area"}
                   />
                 </label>
                 <div className="fertilizer-cost-doses__unit-field">
